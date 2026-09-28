@@ -1,0 +1,1103 @@
+# Literature corpus for the deep-research run on the Maura Murray disappearance.
+# One entry per citation_key used in the phase artifacts and the final report.
+# retrieval: "snippet-only" means the source was located and quoted through
+# search-index snippets because the session's network policy blocked full-text
+# fetches. Quotes recorded under anchor_quotes are verbatim snippet strings.
+# tier: 1 official/primary; 2 contemporaneous or established journalism;
+#       3 later long-form journalism / documentary; 4 participant statements;
+#       5 non-participant books/podcasts; 6 peer-reviewed or institutional
+#       base-rate literature; 7 amateur/web-sleuth (context only, never sole support).
+# grade: overall grade under deep-research/references/source_quality_hierarchy.md
+#        (fitness-for-claim within the field of public-record case analysis).
+run_date: 2026-09-28
+search_executed: 2026-09-28
+retrieval_constraints:
+  webfetch: blocked by session network policy for every external domain attempted
+  websearch_budget: 200 queries per session, exhausted during Phase 2
+entries:
+- citation_key: nij_lostnotforgotten
+  type: institutional_article
+  authors:
+  - National Institute of Justice
+  year: n.d.
+  title: 'Lost but Not Forgotten: Finding the Nation''s Missing'
+  url: https://nij.ojp.gov/topics/articles/lost-not-forgotten-finding-nations-missing
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - Of the 12,621 missing person cases in NamUs that have been resolved, 9,584 (76 percent) were located alive, and 3,037 (24 percent) were found to be deceased.
+  - About 75 percent of missing adults are found within 24 to 72 hours.
+- citation_key: nij_violence
+  type: institutional_article
+  authors:
+  - National Institute of Justice
+  year: n.d.
+  title: How Prevalent is Violence in Missing and Unidentified Persons Cases?
+  url: https://nij.ojp.gov/topics/articles/how-prevalent-violence-missing-and-unidentified-persons-cases
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - the level of violence in the database was lower than expected, at about 10% of all missing persons cases.
+  - researchers verified that most missing persons cases were resolved with the missing person found alive.
+- citation_key: ukmpu2023
+  type: official_report
+  authors:
+  - UK Missing Persons Unit, National Crime Agency
+  year: 2024
+  title: Missing Persons Data Report 2022/23
+  url: https://www.nationalcrimeagency.gov.uk/images/mpu/downloads/UKMPU%20Annual%20Data%20Report%202022-23.pdf
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - 88.3% of missing people being found within the first 48 hours in England & Wales
+  - 0.30% of missing incidents resulted in a fatal outcome (971 deaths)
+- citation_key: biehal2003
+  type: research_monograph
+  authors:
+  - Biehal, N.
+  - Mitchell, F.
+  - Wade, J.
+  year: 2003
+  title: 'Lost from View: Missing Persons in the UK'
+  publisher: Policy Press / University of York Social Policy Research Unit
+  url: https://www.york.ac.uk/inst/spru/research/pdf/lostFromView.pdf
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - Most people go missing intentionally, to escape family or other problems, but others may not make a deliberate decision.
+  - Based on almost 2000 missing persons cases
+- citation_key: koester2008
+  type: book
+  authors:
+  - Koester, R. J.
+  year: 2008
+  title: 'Lost Person Behavior: A Search and Rescue Guide on Where to Look for Land, Air, and Water'
+  publisher: dbS Productions
+  url: https://archive.org/details/lostpersonbehavi0000koes
+  retrieval: snippet-only (catalogue and secondary descriptions)
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - data from more than 145,000 searches from around the world
+  notes: Quote is from a 2024 Social Science Space interview describing the ISRID database (socialsciencespace.com/2024/04/exploring-lost-person-behavior-and-the-science-of-search-and-rescue/). Despondent-category distance quantiles could not be retrieved.
+- citation_key: dbs_despondent
+  type: practitioner_web
+  authors:
+  - dbS Productions (Koester, R. J.)
+  year: n.d.
+  title: Despondent Behavioral Profile
+  url: https://www.dbs-sar.com/SAR_Research/despondent.htm
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - in the Virginia database this type of search accounts for 14% of missing person searches reported
+  - These subjects often have set out into the woods in order to commit suicide, few are truly lost, but many are in critical condition
+- citation_key: rothschild1995
+  type: journal_article
+  authors:
+  - Rothschild, M. A.
+  - Schneider, V.
+  year: 1995
+  title: '"Terminal burrowing behaviour": A phenomenon of lethal hypothermia'
+  journal: International Journal of Legal Medicine
+  volume: 107(5)
+  pages: 250-256
+  url: https://link.springer.com/article/10.1007/BF01245483
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - 69 cases of death due to lethal hypothermia between 1978 and 1994
+  - paradoxical undressing occurred in 25% of the cases
+  - Nearly all bodies with partial or complete disrobement were found in a position which indicated a final mechanism of protection
+  - occurred predominantly with slow decreases in temperature and moderately cold conditions
+- citation_key: freund1994
+  type: journal_article
+  authors:
+  - Freund, B. J.
+  - O'Brien, C.
+  - Young, A. J.
+  year: 1994
+  title: Alcohol ingestion and temperature regulation during cold exposure
+  journal: Journal of Wilderness Medicine
+  volume: 5(1)
+  pages: 88-98
+  url: https://journals.sagepub.com/doi/10.1580/0953-9859-5.1.88
+  retrieval: snippet-only (title and abstract listing only)
+  tier: 6
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: Cited for the physiological mechanism; anchor must be section-level because no verbatim snippet was captured.
+- citation_key: alcalc1984
+  type: journal_article
+  authors:
+  - Alcohol and Alcoholism (author not captured in snippet)
+  year: 1984
+  title: Fatal accidental hypothermia and alcohol
+  journal: Alcohol and Alcoholism
+  volume: 19(1)
+  pages: 13-22
+  url: https://academic.oup.com/alcalc/article-abstract/19/1/13/111379
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - a blood alcohol concentration of over 2.5 mg/ml had often been found in people in their forties and fifties who had died from hypothermia
+  notes: Attribution of the quote to this abstract is probable, not confirmed; author names not captured.
+- citation_key: harvey2003
+  type: journal_article
+  authors:
+  - Harvey, L. M.
+  - Harvey, J. W.
+  year: 2003
+  title: Reliability of bloodhounds in criminal investigations
+  journal: Journal of Forensic Sciences
+  volume: 48(4)
+  pages: 811-816
+  url: https://dl.astm.org/jofs/article-abstract/48/4/1/23719/Reliability-of-Bloodhounds-in-Criminal
+  retrieval: snippet-only
+  tier: 6
+  design_level: III
+  grade: A
+  anchor_quotes:
+  - Eight bloodhounds (3 novice and 5 veteran), trained in human scent discrimination, were placed on trails
+  - after 48 hours the dogs were cued with scent collected from various parts of the trail-setter's body and required to follow the trail
+  - a veteran bloodhound can trail and correctly identify a person under various conditions
+  - the potential error rate of a veteran bloodhound-handler team is low
+- citation_key: heuer1999
+  type: book
+  authors:
+  - Heuer, R. J., Jr.
+  year: 1999
+  title: Psychology of Intelligence Analysis
+  publisher: Center for the Study of Intelligence, Central Intelligence Agency
+  url: https://en.wikipedia.org/wiki/Analysis_of_competing_hypotheses
+  retrieval: snippet-only (method summary via secondary pages)
+  tier: 6
+  design_level: VII
+  grade: B
+  anchor_quotes:
+  - Some evidence will have greater 'diagnosticity' than other evidence
+- citation_key: dhami2019
+  type: journal_article
+  authors:
+  - Dhami, M. K.
+  - Belton, I. K.
+  - Mandel, D. R.
+  year: 2019
+  title: The "analysis of competing hypotheses" in intelligence analysis
+  journal: Applied Cognitive Psychology
+  volume: 33(6)
+  url: https://onlinelibrary.wiley.com/doi/full/10.1002/acp.3550
+  retrieval: snippet-only (title listing)
+  tier: 6
+  design_level: III
+  grade: B
+  anchor_quotes: []
+  notes: Co-author list reconstructed from the article listing; verify before external use.
+- citation_key: yardley2018
+  type: journal_article
+  authors:
+  - Yardley, E.
+  - Lynes, A. G. T.
+  - Wilson, D.
+  - Kelly, E.
+  year: 2018
+  title: What's the deal with 'websleuthing'? News media representations of amateur detectives in networked spaces
+  journal: Crime, Media, Culture
+  volume: 14(1)
+  pages: 81-109
+  url: https://www.open-access.bcu.ac.uk/5750/1/__staff_shares_storage_2gb_ID115181_Websleuths_CMC_2016.pdf
+  retrieval: snippet-only
+  tier: 6
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - Research around websleuthing is somewhat thin on the ground
+- citation_key: wdtn_socialmedia
+  type: news_article
+  authors:
+  - WDTN
+  year: n.d.
+  title: '''First crime mystery of the social media age'' still unsolved'
+  url: https://www.wdtn.com/news/first-crime-mystery-of-the-social-media-age-still-unsolved/amp/
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - first crime mystery of the social media age
+- citation_key: nhdoj_victimpage
+  type: official_web
+  authors:
+  - New Hampshire Department of Justice, Cold Case Unit
+  year: n.d.
+  title: Maura Murray (Cold Case Unit victim list)
+  url: https://www.doj.nh.gov/bureaus/cold-case-unit/victim-list/maura-murray
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - The New Hampshire Cold Case Unit continues to actively investigate the suspicious disappearance of Maura Murray.
+  - When the North Haverhill Police Department arrived at the scene, they found no trace of Maura.
+  - Shortly before police arrived, a private citizen spoke with a woman believed to be Maura at the accident site.
+  - She has not been seen or heard from since.
+- citation_key: fbi_vicap2024
+  type: official_web
+  authors:
+  - Federal Bureau of Investigation, ViCAP
+  year: 2024
+  title: Maura Murray - Haverhill, New Hampshire (ViCAP Missing Person Alert, document dated 2024-02-05)
+  url: https://www.fbi.gov/wanted/vicap/missing-persons/maura-murray---haverhill-new-hampshire
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - a passing motorist briefly spoke with the driver, who declined assistance and said she had already called for help
+  - leaving behind her vehicle and personal belongings
+  notes: 'Page text as summarized: car travelled off Route 112 and became stuck on snow-covered roads at approximately 7:30 p.m.; she was not present when police arrived; last seen on ATM footage wearing a dark jacket and jeans; she did not share her pending trip with others; age progression released February 2024. Verbatim status of these sentences not confirmed; cite with section anchor.'
+- citation_key: nhdoj_2019search
+  type: official_press_release
+  authors:
+  - New Hampshire Department of Justice
+  year: 2019
+  title: Maura Murray Missing Person Case (press briefing announcement, April 3, 2019)
+  url: https://www.doj.nh.gov/news-and-media/maura-murray-missing-person-case
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - On April 3, 2019, in cooperation with the current homeowners, the New Hampshire State Police and the Federal Bureau of Investigation conducted a further inspection
+  notes: Announced a search of a single-family home not far from the accident scene, conducted with the homeowners' cooperation by NH State Police and the FBI; Associate AG Jeffery Strelzin to brief.
+- citation_key: bostoncom2019
+  type: news_article
+  authors:
+  - Boston.com
+  year: 2019
+  title: 'Investigators: No new evidence in search related to missing UMass student Maura Murray'
+  url: https://www.boston.com/news/local-news/2019/04/03/investigators-no-new-evidence-missing-umass-student-maura-murray/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - The search came after cadaver dogs and ground-penetrating radar, financed by private citizens, detected what her family believed were human remains beneath the home.
+  - what looks to be potentially pottery or maybe a piece of old piping
+  notes: 'Reports Strelzin: team cut concrete where ground-penetrating radar had detected a disturbance, dug several feet, found only what looked like pottery or old piping; no probable cause; radar detected disturbed ground, not a body. Verbatim status of individual sentences not confirmed. The pottery-or-piping quotation is attributed to this outlet as probable; it recurred across the April 3, 2019 coverage.'
+- citation_key: unionleader2019hurts
+  type: news_article
+  authors:
+  - New Hampshire Union Leader
+  year: 2019
+  title: 'Maura Murray''s dad: ''This one hurts because I thought we finally had it'''
+  url: https://www.unionleader.com/news/safety/maura-murrays-dad-this-one-hurts-because-i-thought-we-finally-had-it/article_fa6a61cc-d129-5ad4-b8a8-ce40faf31575.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - This one hurts because I thought we finally had it
+- citation_key: bostonglobe2019dig
+  type: news_article
+  authors:
+  - Boston Globe
+  year: 2019
+  title: Dad wants N.H. authorities to dig for his daughter's remains
+  url: https://www.bostonglobe.com/metro/2019/02/07/father-plea-man-wants-authorities-dig-for-his-daughter-remains-basement/J1cUIeb2cZ5dtaxzMGzUGJ/story.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: Feb 7, 2019. Fred Murray believed her remains were in the basement of a Woodsville home near the crash site after two cadaver-dog visits and a radar scan.
+- citation_key: nbcboston2019basement
+  type: news_article
+  authors:
+  - NBC Boston
+  year: 2019
+  title: Man Believes Missing Daughter is Buried in NH Basement
+  url: https://www.nbcboston.com/news/local/man-believes-missing-daughter-is-buried-in-nh-basement/2362/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - It's my daughter, I want to bring her home and bury her, and then I want to find the dirtbag that put her there.
+- citation_key: nbcboston2021
+  type: news_article
+  authors:
+  - NBC Boston
+  year: 2021
+  title: 'Cold Case: Family Searching for Maura Murray 17 Years After Disappearance'
+  url: https://www.nbcboston.com/news/local/cold-case-family-searching-for-maura-murray-17-years-after-disappearance/2298650/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - I'm hoping something shakes loose this year.
+  - At this point, I hardly talk to the cold case unit.
+- citation_key: unionleader2021bones
+  type: news_article
+  authors:
+  - New Hampshire Union Leader
+  year: 2021
+  title: Human bone fragments found in Lincoln not related to Maura Murray case
+  url: https://www.unionleader.com/news/human_interest/human-bone-fragments-found-in-lincoln-not-related-to-maura-murray-case/article_038d4134-07c0-5ba5-9f35-b2abababaa3d.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: Sept to Nov 2021. Fragments found during construction at Loon Mountain; radiocarbon dating placed them between 1774 and 1942 (95.4% probability) per summary text.
+- citation_key: bostonglobe2022vicap
+  type: news_article
+  authors:
+  - Boston Globe
+  year: 2022
+  title: N.H. State Police add case of UMass student Maura Murray, who went missing in 2004, to FBI national database
+  url: https://www.bostonglobe.com/2022/01/18/metro/nh-state-police-add-case-umass-student-maura-murray-who-went-missing-2004-fbi-national-database/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: Jan 18, 2022. Describes the 2018-19 cadaver dogs and radar as financed by private citizens (discrepancy with Oxygen's 'hired by the family').
+- citation_key: concordmonitor2022
+  type: news_article
+  authors:
+  - Concord Monitor
+  year: 2022
+  title: Last week's FBI alert in Maura Murray case came at request of NH Attorney General's office
+  url: https://www.concordmonitor.com/2022/01/25/last-week-s-fbi-alert-in-maura-murray-case-came-at-request-of-nh-attorney-general-s-office-44747068/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - was added to the FBI ViCAP registry at the request of the New Hampshire Office of Attorney General
+  notes: Jan 25, 2022. The ViCAP entry and alert were requested by the NH Office of the Attorney General.
+- citation_key: nhdoj_2022search
+  type: official_press_release
+  authors:
+  - New Hampshire Department of Justice
+  year: 2022
+  title: Maura Murray Missing Person Case - Police Search Activity
+  url: https://www.doj.nh.gov/resources/press-releases/maura-murray-missing-person-case-police-search-activity
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - conducted a ground search of an area located off Route 112 in the towns of Landaff and Easton
+  - The search activity was not the result of new information in the case.
+  - a more extensive search surrounding areas that had been previously searched in a more limited fashion
+  notes: July 12, 2022. NH State Police with Fish and Game to conduct a ground search off Route 112 in Landaff and Easton on July 13, 2022; described (summary text closely tracking the release) as not the result of new information but a more extensive search of areas previously searched in a more limited fashion. Outcome not captured.
+- citation_key: wcax2022search
+  type: news_article
+  authors:
+  - WCAX
+  year: 2022
+  title: New Hampshire police launch new search in Maura Murray cold case
+  url: https://www.wcax.com/2022/07/13/new-hampshire-police-launch-new-search-maura-murray-cold-case/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: July 13, 2022. More than a dozen troopers walked Route 112 in Landaff after searching nearby woods (summary text).
+- citation_key: concordmonitor2024photo
+  type: news_article
+  authors:
+  - Concord Monitor
+  year: 2024
+  title: NH Cold Case Unit releases new age progression photo of Maura Murray
+  url: https://www.concordmonitor.com/NH-Cold-Case-Unit-releases-new-age-progression-photo-of-Maura-Murray-53986787
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - not based on a change in the investigative posture of this case or new information
+  - Her disappearance is officially labeled as 'suspicious' and was added to the state's cold case investigations unit in 2009.
+- citation_key: nhdoj_2024anniv
+  type: official_press_release
+  authors:
+  - New Hampshire Department of Justice
+  year: 2024
+  title: 20th Anniversary of Maura Murray's Disappearance from Haverhill, NH
+  url: https://www.doj.nh.gov/news-and-media/20th-anniversary-maura-murrays-disappearance-haverhill-nh
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - a single-car accident on Route 112 (Wild Ammonoosuc Road) in Haverhill, New Hampshire at approximately 7:30 p.m. on February 9, 2004
+  - a private citizen saw and spoke to a female believed to be Ms. Murray at the accident scene
+  - The photograph represents an FBI analysis and projection of what Ms. Murray might look like in 2024.
+  - the ongoing investigation into the February 9, 2004, suspicious disappearance of Ms. Murray from Haverhill, New Hampshire
+  notes: Feb 9, 2024. Cold Case Unit issued an FBI-produced age-progression photograph in the ongoing investigation into her 'suspicious disappearance' (summary text); the state continues to work with the FBI.
+- citation_key: cbsboston2024podcast
+  type: news_article
+  authors:
+  - CBS Boston
+  year: 2024
+  title: Maura Murray's family starts podcast 20 years after her disappearance in New Hampshire
+  url: https://www.cbsnews.com/boston/news/maura-murray-missing-disappearance-massachusetts-family-podcast/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - take her story back, correct misinformation, and reveal information I have never heard before.
+- citation_key: nbcboston2024
+  type: news_article
+  authors:
+  - NBC Boston
+  year: 2024
+  title: 20 years after disappearing, Maura Murray's family continues to push for answers
+  url: https://www.nbcboston.com/news/local/20-years-after-disappearing-maura-murrays-family-continues-to-push-for-answers/3274376/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: 'Feb 2024. Summary text: the family''s general consensus is that Maura met with foul play, since there have been no credible sightings in 20 years and none of her belongings or remains have been located.'
+- citation_key: aetv2025
+  type: news_article
+  authors:
+  - A&E
+  year: 2025
+  title: 21 Years Later, Maura Murray's Family Still Seeks Answers
+  url: https://www.aetv.com/articles/21-years-after-maura-murray-went-missing-her-family-still-seeks-answers
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - No, please don't. I already called AAA. They're sending a tow truck.
+  - There was no cell phone reception in the foothills of the White Mountains
+  - to protect the integrity of the investigative process.
+  - I'm just shook up.
+  - I'll call the police for you
+  notes: Publication year inferred from the headline; one search summary dated it July 2026. Single outlet for the family-sourced 'drifter' lead (a man said to have encountered a woman whose car had broken down and to have harmed her); NH DOJ spokesman Michael Garrity declined comment.
+- citation_key: caledonian2025expansion
+  type: news_article
+  authors:
+  - Caledonian-Record
+  year: 2025
+  title: Maura Murray Family, Others To Hold Accountability Event In Concord
+  url: https://www.caledonianrecord.com/news/local/maura-murray-family-others-to-hold-accountability-event-in-concord/article_73e017dc-417b-57ac-bfe1-fd2132e33e3d.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes: []
+  notes: Aug 5, 2025. Notes the Cold Case Unit expanded from one part-timer to two full-time investigators.
+- citation_key: nhdoj_2025expansion
+  type: official_press_release
+  authors:
+  - New Hampshire Department of Justice
+  year: 2025
+  title: Governor Kelly Ayotte and Attorney General John Formella Announce Expansion of Cold Case Unit
+  url: https://www.doj.nh.gov/news-and-media/governor-kelly-ayotte-and-attorney-general-john-formella-announce-expansion-cold
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes: []
+  notes: August 2025. DOJ investigators assigned to the unit increased from one part-time position to two full-time roles; further additions announced Oct 2, 2025.
+- citation_key: unionleader2026tech
+  type: news_article
+  authors:
+  - New Hampshire Union Leader
+  year: 2026
+  title: State's Cold Case Unit using new technology in Maura Murray investigation
+  url: https://www.unionleader.com/news/human_interest/states-cold-case-unit-using-new-technology-in-maura-murray-investigation/article_69765e90-bfc3-4215-baf2-1744a1cf48a7.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - Decades may pass, but our determination to find answers for Maura's family and the public does not diminish.
+  - actively utilizing new technology and advanced investigative techniques that were not available at the time of Maura's disappearance
+  - applying these modern tools to existing evidence and new information as it arises, with the singular goal of bringing resolution to this case.
+- citation_key: yahoo2026lidar
+  type: broadcast_video
+  authors:
+  - Yahoo News (hosted broadcast segment; original outlet probably WMUR)
+  year: 2026
+  title: Investigators use facial recognition, LiDAR in search for Maura Murray after 22-year disappearance
+  url: https://ca.news.yahoo.com/investigators-facial-recognition-lidar-search-013014714.html
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes: []
+  notes: Single-outlet attribution of LiDAR and facial recognition to the state's investigation; no verbatim official sentence naming either technology was captured.
+- citation_key: westernmass2026
+  type: news_article
+  authors:
+  - Western Mass News
+  year: 2026
+  title: 22 years since the disappearance of UMass Amherst student Maura Murray
+  url: https://www.westernmassnews.com/2026/02/09/two-years-since-disappearance-umass-amherst-student/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - We're pausing to show our appreciation for the community that has stood by our side since day one, has never forgotten Maura or my family.
+  notes: 'Feb 9, 2026. Cold Case Unit statement summarized: they remain determined to find answers, working daily to pursue every credible lead.'
+- citation_key: strelzin2007
+  type: official_statement_via_family_site
+  authors:
+  - Strelzin, J. (Senior Assistant Attorney General), as quoted on the Murray family site
+  year: 2007
+  title: 'Statement: Info Withheld from Murrays Distorts Case (quoting 2007 statements by the NH Attorney General''s office)'
+  url: https://www.mauramurraymissing.org/statement-info-withheld-from-murrrays-distorts-case.html
+  retrieval: snippet-only
+  tier: 4
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - We don't know if Maura is a victim, but the state is treating it as a potential homicide
+  - it's difficult to rule anyone out until you know what happened.
+  - It may be a missing-persons case, but it's being handled as a criminal investigation.
+  - No one knows for sure where Maura is or what happened to her.
+  notes: Official words reproduced on a participant site; the 2007 Union Leader original was not retrieved.
+- citation_key: oxygen_keytheories
+  type: documentary_outlet_article
+  authors:
+  - Oxygen
+  year: n.d.
+  title: What Happened To Maura Murray? Key Theories And Players
+  url: https://www.oxygen.com/the-disappearance-of-maura-murray/blogs/what-happened-to-maura-murray-key-theories-and-players
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - She got into the wrong car. She went to the wrong house.
+  - crime of opportunity
+  notes: Quotes retired state police lieutenant John Healy (via MassLive) calling the case a 'crime of opportunity'.
+- citation_key: globe2004vanishes
+  type: news_article
+  authors:
+  - Boston Globe
+  year: 2004
+  title: A student vanishes, and questions mount
+  url: https://www3.bostonglobe.com/metro/2004/02/15/student-vanishes-and-questions-mount/ESRJL97tDDJd6MyiqcZvTN/story.html
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - The tracking dogs lost her scent within 100 feet of the accident
+  - found no trace of Murray's footprints in the snow
+  notes: Feb 15, 2004. Earliest mainstream account retrieved. Attribution of the two sentences to this article is per the search digest (probable).
+- citation_key: ap2019report
+  type: news_article
+  authors:
+  - Associated Press, carried by New Hampshire Public Radio
+  year: 2019
+  title: Maura Murray's dad believes new info will lead to her remains
+  url: https://www.nhpr.org/nh-news/2019-02-09/maura-murrays-dad-believes-new-info-will-lead-to-her-remains
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - A police report says the windshield was cracked on the driver's side, both air bags deployed and the car was locked.
+  - There was a box of wine on the back seat and a strong odor of alcohol.
+  notes: Feb 9, 2019. AP summary of the responding officer's report; the same sentences recurred on Boston.com and Fox carriers.
+- citation_key: ap2014decade
+  type: news_article
+  authors:
+  - Associated Press, carried by CBS Boston
+  year: 2014
+  title: UMass Student Now Missing 10 Years Without A Trace
+  url: https://www.cbsnews.com/boston/news/umass-student-now-missing-10-years-without-a-trace/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - Headed east on 112, she lost control of the 1996 Saturn, tagged a tree and spun around so the car was facing west.
+  - Investigators said she took money out of her bank account and drove north
+  - We haven't had any credible sightings of Maura since the night she disappeared.
+  notes: Feb 2014. Strelzin's 2014 statement that there had been no credible sightings since the night she disappeared is attributed to this AP coverage by amateur compilations; not captured in a mainstream snippet. The 2014 Strelzin sentence is attributed to this AP coverage as probable origin (captured via compilations).
+- citation_key: ap2024sfgate
+  type: news_article
+  authors:
+  - Associated Press, carried by SFGate
+  year: 2024
+  title: 'Maura Murray disappearance 20 years later: family still seeks answers'
+  url: https://www.sfgate.com/news/article/maura-murray-disappearance-20-years-later-family-18658861.php
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - Photographs in 2023 court documents highlight the wine and stains on the roof inside the car that an analyst noted were not blood.
+- citation_key: ap2024fox
+  type: news_article
+  authors:
+  - Associated Press, carried by Fox News
+  year: 2024
+  title: 'Maura Murray: 20 years after nursing student vanished in New Hampshire, family hopeful for answers'
+  url: https://www.foxnews.com/us/maura-murray-20-years-nursing-student-vanished-new-hampshire-family-hopeful-answers
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - She was 21 at the time, 'shivering' and not wearing a hat.
+- citation_key: bostonmag2014
+  type: magazine_article
+  authors:
+  - Boston Magazine
+  year: 2014
+  title: Will the Internet Find Missing UMass Student Maura Murray?
+  url: https://www.bostonmagazine.com/news/2014/01/28/maura-murray/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - sent an email to her professors about a death in the family and would be gone for a few days
+  - She was out there helpless. Nowhere to run. Nowhere to hide. No one to ask for help. I think some local dirt bag grabbed her.
+  notes: Jan 28, 2014. Attribution of the Fred Murray quotation to this article is probable, not confirmed (it also circulates via CBS Boston 2014 and amateur pages).
+- citation_key: newsnation2024
+  type: news_article
+  authors:
+  - NewsNation
+  year: 2024
+  title: Maura Murray's family takes control of her decades-old missing case
+  url: https://www.newsnationnow.com/missing/maura-murray-update/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - It was out of character for Maura to take off and leave everything
+  - She took textbooks, she took running gear, she took birth control, she took accident forms and to me, it indicated that she planned to return.
+  notes: Feb 13, 2024 per one sweep; date not visible on the page listing. Contains a place-name error (Route 11) noted in the verification report.
+- citation_key: scarinza2004
+  type: press_statement_archived
+  authors:
+  - Scarinza, J. (Lieutenant, New Hampshire State Police), quoted in 2004 press coverage archived on Usenet (alt.true-crime)
+  year: 2004
+  title: 2004 press statements on the Murray search (archived)
+  url: https://groups.google.com/g/alt.true-crime/c/gm0qWpFSeE4/m/hpGlcNx69W4J
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - We are reasonably confident that she did not enter the woods near the accident scene -- that area was searched several times.
+  - We are open minded to anything, but there is no evidence to suggest the cases are related.
+  notes: Official words reproduced in an archived 2004 news post; the original outlet was not identified in this session.
+- citation_key: nwp2019dogtrack
+  type: blog_post
+  authors:
+  - Not Without Peril blog (TheRealFinn)
+  year: 2019
+  title: What if the initial dog track was accurate after all?
+  url: https://mauramurrayblog.wordpress.com/2019/07/08/what-if-the-initial-dog-track-was-accurate-after-all/
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - Both times the dog headed east and stopped down the road 'within sight of the accident site'.
+  - running a track after 39-40 hours, on a paved road with cars possibly dispersing the scent, is less than optimal
+  - A NHSP bloodhound was brought in to run the track from the Saturn, given a glove from the Saturn as the scent article.
+  - The track was ultimately run about 39-40 hours after her accident on a 'clean clear morning'
+  - The supervisor notes it's possible she may have been picked up by a vehicle there.
+  - This track has been quoted as being 'under 600 feet' '100 yards' and 'near Atwood's driveway'.
+  notes: July 8, 2019. Independent-research blog relaying statements attributed to Fish and Game Lt. Todd Bogardus. Used for search-operations detail only, with the tier flagged.
+- citation_key: nwp2020searches
+  type: blog_post
+  authors:
+  - Not Without Peril blog (TheRealFinn)
+  year: 2020
+  title: Could Maura have wandered into the woods? An overview of searches done in the Maura Murray case
+  url: https://mauramurrayblog.wordpress.com/2020/12/12/could-maura-have-wandered-into-the-woods-an-overview-of-searches-done-in-the-maura-murray-case/
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - had she been out there and giving off any heat signal we would have been able to pick that up
+  - no human foot tracks going into the woodlands off of the roadways that were not either cleared or accounted for
+  - 12 miles of roadway, 1-2 miles into the woods with dogs and even places up to 50 miles away
+  - Starting Wednesday, February 11, 2004, the NHSP conducted five official searches for Maura, supervised by Lieutenant Jonas Todd Bogardus
+  notes: Dec 12, 2020. Relays Bogardus statements; the underlying interview was not retrieved.
+- citation_key: the107timeline
+  type: independent_research_web
+  authors:
+  - 107 Degrees (independent research site)
+  year: n.d.
+  title: Maura Murray Disappearance Timeline
+  url: https://www.the107degree.com/timeline
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - At 2:05 PM, Maura called 1-877-GO-STOWE, a toll-free number for Stowe, Vermont tourism inquiries.
+  - At 4:37 PM, Maura made her last recorded call, which was to her voicemail and lasted 4 minutes.
+  - at 7:29 PM, two minutes after Westman's call, Haverhill police officer Cecil Smith was dispatched to the site of the accident
+  - According to Smith's police report, he arrives at the scene at 7:45 PM.
+  - The official dispatch records indicate that Smith arrived at the scene at 7:46 PM.
+  - Faith Westman called the Grafton County Sheriff's Department at 7:27 pm to report the accident
+  - the car was pointing west in the eastbound lane
+  - she returned 79 cans and bottles and purchased a bottle of Kahlua, a bottle of vodka, a nip of Baileys
+  - Maura departs Liquors 44 after paying for her items at 3:43 PM.
+  notes: Claims to work from phone records and the Grafton County dispatch log obtained through records requests; not independently verifiable here. Also records a 12:55 PM three-minute call to the owner of a condo in Bartlett, NH, who later said she did not rent to Maura.
+- citation_key: mediapressure_ep5
+  type: podcast_transcript
+  authors:
+  - Murray, J. (host), Media Pressure, Voices for Justice Media
+  year: 2024
+  title: 'Episode 5: The Fateful Day (transcript)'
+  url: https://podcasts.happyscribe.com/media-pressure/episode-5-the-fateful-day
+  retrieval: snippet-only
+  tier: 4
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - A single car motor vehicle accident. He hit a pine tree. Airbag is deployed. She's shaken up. No blood that I could see
+  - At 7:42, Atwood calls 911, and the call is routed to Hanover dispatch.
+  - Grafton County dispatch calls the Atwood residence back at 7:43.
+  - One female, no personal injury, but shook up.
+  - It's right on the bad corner, right at the weathered barn there. It's a single female.
+  notes: Family-produced reproduction of the 911 transcript and dispatch log. The transcript PDF on the family site could not be opened.
+- citation_key: indepthnh2022
+  type: news_article
+  authors:
+  - InDepthNH
+  year: 2022
+  title: Police search Landaff and Easton in 2004 missing Maura Murray case
+  url: https://indepthnh.org/2022/07/13/police-search-landaff-and-easton-in-2004-missing-maura-murray-case/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - based on a witness report from May 2004 of a possible sighting of a young person 'moving quickly' on the night of Murray's disappearance
+  notes: July 13, 2022. The sentence recurred across the InDepthNH, WCAX and NHPR coverage of the search; attribution to this outlet is probable.
+- citation_key: nhpr2017notreopened
+  type: news_article
+  authors:
+  - New Hampshire Public Radio
+  year: 2017
+  title: No, the Maura Murray case has not been reopened
+  url: https://www.nhpr.org/nh-news/2017-11-02/no-the-maura-murray-case-has-not-been-reopened
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - the Maura Murray missing person case was never closed
+  - said there were some inaccuracies in the Oxygen show
+- citation_key: unionleader2017lingers
+  type: news_article
+  authors:
+  - New Hampshire Union Leader
+  year: 2017
+  title: Maura Murray mystery lingers
+  url: https://unionleader.com/nh/crime/maura-murray-mystery-lingers--20170210
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - We still don't know what happened to Maura
+  notes: Feb 10, 2017. Also reports Strelzin saying there is no evidence linking the case to the Vermont disappearance a month later.
+- citation_key: oxygen_aframe
+  type: documentary_outlet_article
+  authors:
+  - Oxygen
+  year: 2017
+  title: Was Maura Murray Killed In The A-Frame House?
+  url: https://www.oxygen.com/the-disappearance-of-maura-murray/blogs/was-maura-murray-killed-in-the-a-frame-house
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - absolutely positive for blood
+  notes: Companion article to the 2017 series. Cadaver-dog alert in an upstairs closet; carpet and wood samples given to NH State Police; later searches reported as inconclusive; no charges.
+- citation_key: oxygen_reexamined
+  type: documentary_outlet_article
+  authors:
+  - Oxygen
+  year: 2017
+  title: The Maura Murray Case Has Been Re-Examined
+  url: https://www.oxygen.com/the-disappearance-of-maura-murray/blogs/the-maura-murray-case-has-been-re-examined
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - Not only did it test positively for blood but for the blood of two different human beings
+  notes: Quote attributed to forensic scientist Lori Baker; NH State Police reportedly said the sample was too degraded to identify.
+- citation_key: oxygen2019noremains
+  type: documentary_outlet_article
+  authors:
+  - Oxygen
+  year: 2019
+  title: '''This One Hurts A Lot:'' Officials Searched House In Connection With Maura Murray Case And Revealed Findings'
+  url: https://www.oxygen.com/crime-time/maura-murray-disappearance-case-update-no-remains-found-house-search
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - We're confident there's nothing there at this point.
+- citation_key: renner2016
+  type: book
+  authors:
+  - Renner, J.
+  year: 2016
+  title: 'True Crime Addict: How I Lost Myself in the Mysterious Disappearance of Maura Murray'
+  publisher: Thomas Dunne Books
+  url: https://us.macmillan.com/books/9781250089021/truecrimeaddict/
+  retrieval: snippet-only (publisher listing)
+  tier: 5
+  design_level: VI
+  grade: C
+  anchor_quotes: []
+  notes: Author's thesis (tandem driver; intentional disappearance) is documented here through the tertiary summary in wikipedia_tca.
+- citation_key: wikipedia_tca
+  type: tertiary_encyclopedia
+  authors:
+  - Wikipedia contributors
+  year: n.d.
+  title: True Crime Addict
+  url: https://en.wikipedia.org/wiki/True_Crime_Addict
+  retrieval: snippet-only
+  tier: 7
+  design_level: VII
+  grade: D
+  anchor_quotes:
+  - take on a new identity due to fears her pending credit card fraud case would prevent her being hired as a nurse
+  - leading him to investigate the Murray family itself
+  notes: Used only as a summary of the book's thesis and its reception; not as evidence about the case.
+- citation_key: wikipedia_maura
+  type: tertiary_encyclopedia
+  authors:
+  - Wikipedia contributors
+  year: n.d.
+  title: Disappearance of Maura Murray
+  url: https://en.wikipedia.org/wiki/Disappearance_of_Maura_Murray
+  retrieval: snippet-only
+  tier: 7
+  design_level: VII
+  grade: D
+  anchor_quotes:
+  - concluded that in their opinion Maura was probably murdered
+  notes: Used only for the summary of the Oxygen investigators' stated conclusion; every case fact is sourced elsewhere.
+- citation_key: crimecon_mmm
+  type: event_web_page
+  authors:
+  - CrimeCon
+  year: n.d.
+  title: 'Tim & Lance: What surprised us most in our Maura Murray investigation'
+  url: https://www.crimecon.com/tim-lance-what-surprised-us-most-in-our-maura-murray-investigation
+  retrieval: snippet-only
+  tier: 5
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - focusing on the armchair detectives who became increasingly obsessed with Maura Murray's disappearance
+  - Missing Maura Murray was the inspiration for Oxygen Network's The Disappearance of Maura Murray TV show
+- citation_key: nhsc2006
+  type: court_opinion
+  authors:
+  - Supreme Court of New Hampshire
+  year: 2006
+  title: Murray v. New Hampshire Division of State Police, Special Investigation Unit, 154 N.H. 579, 913 A.2d 737
+  url: https://law.justia.com/cases/new-hampshire/supreme-court/2006/murra152.html
+  retrieval: snippet-only
+  tier: 1
+  design_level: VI
+  grade: A
+  anchor_quotes:
+  - With a single, minor exception, the attorney general's office has denied all of the petitioner's requests
+  - when the North Haverhill police arrived at the scene, they found no trace of Maura
+  - In January 2006, the trial court ruled that the requested records were investigatory in nature and that disclosure could interfere with law enforcement proceedings.
+  - law enforcement agencies had not met their burden to justify withholding the documents
+  notes: Argued Nov 14, 2006; decided Dec 20, 2006. The court held the agencies had not met their burden and remanded; on remand the Superior Court denied the request by order of June 11, 2007 (per the107lawsuit).
+- citation_key: the107lawsuit
+  type: independent_research_web
+  authors:
+  - 107 Degrees (independent research site)
+  year: n.d.
+  title: Murray v. State of NH
+  url: https://www.the107degree.com/murray-v-state-of-nh
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - An Order dated June 11, 2007, denied Murray's request for records in the second round at Superior Court.
+- citation_key: largay_nbc
+  type: news_article
+  authors:
+  - NBC News
+  year: 2016
+  title: Lost hiker was two miles from Appalachian Trail when she died
+  url: https://www.nbcnews.com/news/us-news/lost-hiker-was-two-miles-appalachian-trail-when-she-died-n581611
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - Largay, who died while waiting for help that never arrived, was just two miles from the Appalachian Trail.
+- citation_key: largay_cbs
+  type: news_article
+  authors:
+  - CBS Boston
+  year: n.d.
+  title: Missing hiker Geraldine Largay, Appalachian Trail, Maine
+  url: https://www.cbsnews.com/boston/news/missing-hiker-maine-appalachian-trail-geraldine-largay/
+  retrieval: snippet-only
+  tier: 2
+  design_level: VI
+  grade: B
+  anchor_quotes:
+  - more than two years after she went missing, in October 2015, that her remains were found by a contractor conducting a forestry survey
+- citation_key: tapatalk_voicemail
+  type: forum_thread
+  authors:
+  - Find_Maura_Murray forum (Tapatalk)
+  year: n.d.
+  title: The mysterious message left on Billy's cellphone
+  url: https://www.tapatalk.com/groups/findmauramurrayfr/the-mysterious-message-left-on-billy-s-cellphone-t59.html
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: D
+  anchor_quotes:
+  - very short -- consisted of a shivering, soft whimpering sound with labored breathing as if someone was very cold
+  notes: Reproduces a description attributed to Sharon Rausch; also states that Det. Todd Landry told the family the call originated from the American Red Cross. No mainstream snippet captured; used with explicit caveat.
+- citation_key: renner_londonderry
+  type: blog_post
+  authors:
+  - Renner, J.
+  year: n.d.
+  title: More thoughts on the 'Londonderry Ping' (author blog, Goodreads mirror)
+  url: https://www.goodreads.com/author_blog_posts/1675135-more-thoughts-on-the-londonderry-ping
+  retrieval: snippet-only
+  tier: 5
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - an outgoing telephone call was made to Murray from the Londonderry, NH Sprint tower
+  - within a 22 mile radius of the tower
+  notes: Reproduces search-warrant affidavit language; the affidavit itself was not retrieved.
+- citation_key: eonline2017
+  type: news_article
+  authors:
+  - E! Online
+  year: 2017
+  title: 'The Disappearance of Maura Murray: Everything You Need to Know About the Baffling Unsolved Case'
+  url: https://www.eonline.com/news/883921/the-disappearance-of-maura-murray-everything-you-need-to-know-about-the-baffling-unsolved-case
+  retrieval: snippet-only
+  tier: 3
+  design_level: VI
+  grade: C
+  anchor_quotes:
+  - she withdrew $280 from an ATM, and drove to a liquor store where she spent $40 on alcohol
+- citation_key: truecrimesociety2023
+  type: blog_post
+  authors:
+  - True Crime Society
+  year: 2023
+  title: The disappearance of Maura Murray
+  url: https://truecrimesocietyblog.com/
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: D
+  anchor_quotes:
+  - Missing were Murray's debit card, credit cards and cell phone, none of which have been located or used since her disappearance.
+  notes: Mar 20, 2023. Wording tracks the Wikipedia article; the underlying wire report was not retrieved. Used only alongside official statements.
+- citation_key: thecoldcases_timeline
+  type: blog_post
+  authors:
+  - The Cold Cases (Substack)
+  year: n.d.
+  title: 'Maura Murray: a timeline of her strange disappearance'
+  url: https://www.thecoldcases.com/p/maura-murray-a-timeline-of-her-strange
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: D
+  anchor_quotes:
+  - A damaged box of Franzia wine is found on the passengers seat.
+  notes: Cited only to document the seat-location conflict with the AP summary of the police report.
+- citation_key: tapatalk_marrotte
+  type: forum_thread
+  authors:
+  - Porchlight International forum (Tapatalk)
+  year: n.d.
+  title: Murray Maura missing February 9, 2004 (thread page 3)
+  url: https://www.tapatalk.com/groups/usedtobedoe/murray-maura-missing-february-9-2004-t7299-s20.html
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: D
+  anchor_quotes:
+  - They said Maura was walking around the car and she had her hazard lights on.
+  notes: Neighbors' account as relayed on a forum; context only.
+- citation_key: witnessA_blog
+  type: blog_post
+  authors:
+  - Maura Murray Timeline blog
+  year: n.d.
+  title: Karen (Witness A) Transcript
+  url: https://mauramurraytimeline.blogspot.com/p/karen-witness-a.html
+  retrieval: snippet-only
+  tier: 7
+  design_level: VI
+  grade: D
+  anchor_quotes:
+  - she saw the police SUV 001 nose to nose with another car, a dark colored sedan
+  notes: The sole source family for the early-police-vehicle claim; contradicted by the dispatch-log reproductions.
+- citation_key: dailycollegian2005
+  type: news_article
+  authors:
+  - Massachusetts Daily Collegian
+  year: 2005
+  title: Missing student's parents angry over police investigation
+  url: https://dailycollegian.com/2005/01/missing-students-parents-angry-over-police-investigation/
+  retrieval: snippet-only (listing)
+  tier: 2
+  design_level: VI
+  grade: C
+  anchor_quotes: []
+  notes: January 2005. Student press; documents early family criticism of the investigation.
+- citation_key: aetv2025_barry
+  type: alias
+  notes: A&E 2025 article also names the family's private investigator Lou Barry, a former Granby, Mass., police chief; cite aetv2025.

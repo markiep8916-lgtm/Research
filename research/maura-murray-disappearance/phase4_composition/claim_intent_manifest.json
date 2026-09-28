@@ -1,0 +1,28 @@
+{
+  "manifest_version": "1.0",
+  "manifest_id": "M-2026-09-28T03:40:00Z-mm01",
+  "emitted_by": "report_compiler_agent",
+  "emitted_at": "2026-09-28T03:40:00Z",
+  "mode": "deep-research full (standalone); no downstream audit agent runs, manifest retained for traceability",
+  "claims": [
+    {"claim_id": "C-001", "claim_text": "Maura Murray left the crash scene alive, on foot, functional, and intending to avoid police contact.", "intended_evidence_kind": "empirical", "planned_refs": ["nhdoj_victimpage", "fbi_vicap2024", "aetv2025", "mediapressure_ep5", "ap2019report", "ap2024fox", "tapatalk_marrotte"]},
+    {"claim_id": "C-002", "claim_text": "The scent trail ran a short distance east along the road and ended; no footprints led into the near-scene woods; the reported end point of the track varies across sources.", "intended_evidence_kind": "empirical", "planned_refs": ["globe2004vanishes", "nwp2019dogtrack", "scarinza2004"]},
+    {"claim_id": "C-003", "claim_text": "The 2004 searches were extensive but began about 36 hours after the crash; the thermal-imaging negative is weak evidence against death on the first night; terrain can hide a body for years.", "intended_evidence_kind": "empirical", "planned_refs": ["nwp2020searches", "scarinza2004", "rothschild1995", "largay_nbc", "largay_cbs"]},
+    {"claim_id": "C-004", "claim_text": "The state has treated the case as a criminal investigation and potential homicide since 2007, requested an FBI ViCAP entry in 2022, and has also kept searching terrain east of the crash site as recently as 2022.", "intended_evidence_kind": "empirical", "planned_refs": ["strelzin2007", "concordmonitor2024photo", "concordmonitor2022", "nhdoj_2022search", "indepthnh2022", "nhdoj_2019search", "unionleader2026tech"]},
+    {"claim_id": "C-005", "claim_text": "Her pre-trip behaviour fits a planned, concealed, temporary absence better than a permanent departure or a resolved intention to die.", "intended_evidence_kind": "empirical", "planned_refs": ["bostonmag2014", "fbi_vicap2024", "ap2014decade", "the107timeline", "newsnation2024", "eonline2017"]},
+    {"claim_id": "C-006", "claim_text": "Nothing has surfaced in 22 years: no credible sighting, no use of her cards or phone, no belongings, no remains.", "intended_evidence_kind": "empirical", "planned_refs": ["ap2014decade", "concordmonitor2024photo", "nbcboston2024", "truecrimesociety2023", "unionleader2021bones"]},
+    {"claim_id": "C-007", "claim_text": "On the public record, third-party harm after she left on foot (most plausibly by a passing motorist) is the most likely explanation, with death by exposure or misadventure on foot a close second; the order depends on two structural judgments and is stated with ranges.", "intended_evidence_kind": "theoretical", "planned_refs": ["heuer1999", "nij_violence", "nij_lostnotforgotten", "biehal2003", "dbs_despondent", "koester2008", "harvey2003"]},
+    {"claim_id": "C-008", "claim_text": "Voluntary permanent disappearance, a planned companion, and official involvement are remote explanations on the public record.", "intended_evidence_kind": "empirical", "planned_refs": ["wikipedia_tca", "newsnation2024", "concordmonitor2024photo", "witnessA_blog", "the107timeline", "indepthnh2022"]},
+    {"claim_id": "C-009", "claim_text": "The public record is contaminated by two decades of amateur and commercial investigation, and several load-bearing details exist in incompatible versions.", "intended_evidence_kind": "empirical", "planned_refs": ["yardley2018", "wdtn_socialmedia", "crimecon_mmm", "nhpr2017notreopened", "wikipedia_tca", "ap2019report", "thecoldcases_timeline"]},
+    {"claim_id": "C-010", "claim_text": "Specific observations would discriminate the two live hypotheses: search-coverage maps including the river, resolution of the 2004 eastbound sighting, the basis for the ViCAP request, phone forensics, and the results of the 2022 search and the 2026 technology work.", "intended_evidence_kind": "normative", "planned_refs": ["nhdoj_2022search", "indepthnh2022", "renner_londonderry", "tapatalk_voicemail", "unionleader2026tech", "yahoo2026lidar"]},
+    {"claim_id": "C-011", "claim_text": "Missing-person, lost-person, hypothermia and dog-trailing base rates are stated as priors and only partly match the case.", "intended_evidence_kind": "empirical", "planned_refs": ["nij_lostnotforgotten", "nij_violence", "ukmpu2023", "biehal2003", "koester2008", "dbs_despondent", "rothschild1995", "freund1994", "alcalc1984", "harvey2003", "dhami2019"]}
+  ],
+  "manifest_negative_constraints": [
+    {"constraint_id": "MNC-1", "rule": "Do not name or characterise any uncharged private individual as a suspect; private witnesses relayed only by amateur sources are not named."},
+    {"constraint_id": "MNC-2", "rule": "No point estimate of likelihood without a range and a statement of what it is conditional on."},
+    {"constraint_id": "MNC-3", "rule": "No claim about the victim's private life beyond facts published by reputable outlets that bear on a hypothesis."},
+    {"constraint_id": "MNC-4", "rule": "Every quotation must be a verbatim snippet string recorded in corpus.yaml for the cited key; quotations the sweeps could not attribute are excluded."},
+    {"constraint_id": "MNC-5", "rule": "Every 'current' or 'most recent' statement is anchored to a date; every 'A led to B' statement is date-checked against timeline.yaml."},
+    {"constraint_id": "MNC-6", "rule": "The retrieval constraints (no full text; search budget exhausted) are stated in the Method, the Limitations, and the abstract."}
+  ]
+}

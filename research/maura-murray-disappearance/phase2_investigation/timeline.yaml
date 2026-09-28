@@ -1,0 +1,226 @@
+# Temporal facts for the run (v3.9.4 temporal-integrity input).
+# Each event carries the best source found and a confidence label:
+#   official = stated by NH DOJ / FBI / court; mainstream = established journalism;
+#   reconstruction = amateur or participant reproduction of primary records; contested = sources disagree.
+run_date: 2026-09-28
+events:
+  - id: T01
+    date: 2004-02-05
+    time_local: "~22:30"
+    event: "Phone call with her sister while working the campus security desk; supervisor escorted her to her dorm around 01:20 on Feb 6."
+    sources: [wikipedia_maura]
+    confidence: reconstruction
+    note: "Only amateur (Wikipedia-mirroring) sources retrieved; underlying sources are Renner (2016) and Boston Magazine (2014)."
+  - id: T02
+    date: 2004-02-08
+    time_local: "~03:30"
+    event: "Crashed her father's borrowed Toyota Corolla into a guardrail on Route 9, Hadley, MA; reported damage near $10,000; no documented sobriety test."
+    sources: [wikipedia_maura]
+    confidence: reconstruction
+  - id: T03
+    date: 2004-02-09
+    time_local: "afternoon"
+    event: "Emailed professors (and work supervisor) that she would be away because of a death in the family; no such death had occurred."
+    sources: [bostonmag2014, aetv2025]
+    confidence: mainstream
+  - id: T04
+    date: 2004-02-09
+    time_local: "12:55"
+    event: "Three-minute call to the owner of a condominium in Bartlett, NH (owner later said no unit was rented)."
+    sources: [the107timeline]
+    confidence: reconstruction
+  - id: T05
+    date: 2004-02-09
+    time_local: "14:05"
+    event: "Call of under one minute to a Stowe, Vermont tourism line."
+    sources: [the107timeline]
+    confidence: reconstruction
+  - id: T06
+    date: 2004-02-09
+    time_local: "afternoon"
+    event: "ATM withdrawal (reported as $280) and purchase of about $40 of alcohol; packed dorm room."
+    sources: [ap2014decade, eonline2017, aetv2025]
+    confidence: mainstream for withdrawal and purchase; reconstruction for the amounts
+  - id: T07
+    date: 2004-02-09
+    time_local: "15:43"
+    event: "Left the Hadley, MA liquor store."
+    sources: [the107timeline]
+    confidence: reconstruction
+  - id: T08
+    date: 2004-02-09
+    time_local: "16:37"
+    event: "Last recorded outgoing use of her cell phone: a four-minute call to her own voicemail."
+    sources: [the107timeline]
+    confidence: reconstruction
+  - id: T09
+    date: 2004-02-09
+    time_local: "~19:30"
+    event: "Single-car crash on Route 112 (Wild Ammonoosuc Road), Haverhill, NH; eastbound car struck a tree and came to rest facing west; airbags deployed; windshield cracked."
+    sources: [nhdoj_2024anniv, ap2014decade, ap2019report]
+    confidence: official for the approximate time; mainstream for the mechanics
+  - id: T10
+    date: 2004-02-09
+    time_local: "19:27"
+    event: "First 911 call by a nearby resident (Faith Westman)."
+    sources: [the107timeline, globe2004vanishes]
+    confidence: reconstruction (widely repeated)
+  - id: T11
+    date: 2004-02-09
+    time_local: "19:29"
+    event: "Haverhill Police Sgt. Cecil Smith dispatched."
+    sources: [the107timeline]
+    confidence: reconstruction
+  - id: T12
+    date: 2004-02-09
+    time_local: "~19:33-19:40"
+    event: "Bus driver Butch Atwood stops, speaks with her; she is shaken and shivering, declines help, says she has called AAA (no cell service at the site), asks him not to call police."
+    sources: [aetv2025, mediapressure_ep5, nhdoj_victimpage]
+    confidence: mainstream and official for the encounter; times inferred
+  - id: T13
+    date: 2004-02-09
+    time_local: "19:42"
+    event: "Atwood calls 911 from home; routed to Hanover dispatch because Grafton County lines were busy."
+    sources: [mediapressure_ep5]
+    confidence: reconstruction of primary transcript
+  - id: T14
+    date: 2004-02-09
+    time_local: "19:43"
+    event: "Grafton County dispatch calls the Atwood residence back; log: one female, no personal injury, shook up."
+    sources: [mediapressure_ep5]
+    confidence: reconstruction of primary log
+  - id: T15
+    date: 2004-02-09
+    time_local: "19:45-19:46"
+    event: "Sgt. Smith arrives; car locked; no driver present."
+    sources: [the107timeline, nhdoj_victimpage, nhsc2006]
+    confidence: official for the fact; contested by one minute for the time
+  - id: T16
+    date: 2004-02-09
+    time_local: "~19:33-19:37"
+    event: "A motorist later reported a police SUV nose-to-nose with a dark sedan at the scene before Smith's logged arrival."
+    sources: [witnessA_blog]
+    confidence: contested (amateur only; contradicted by dispatch-log reproductions)
+  - id: T17
+    date: 2004-02-09
+    time_local: "~20:00-20:30"
+    event: "A contractor (Rick Forcier) later reported seeing a young person moving quickly east on Route 112 about four to five miles east of the crash; reported in May 2004."
+    sources: [indepthnh2022, aetv2025]
+    confidence: mainstream for the existence and May 2004 date of the report; identification unconfirmed
+  - id: T18
+    date: 2004-02-11
+    time_local: "morning"
+    event: "First organized search by NH State Police and Fish and Game; bloodhound run twice from a glove; track headed east and ended a short distance away (reported as within 100 feet, 100 yards, under 600 feet, or at the Bradley Hill Road intersection); FLIR helicopter; no footprints into the woods."
+    sources: [globe2004vanishes, nwp2019dogtrack, nwp2020searches, scarinza2004]
+    confidence: mainstream for the outcome; contested for the distance
+  - id: T19
+    date: 2004-02-11
+    time_local: "~11:00"
+    event: "Boyfriend's phone receives a call leaving a voicemail of whimpering and breathing; traced to a prepaid calling card; police attributed it to a Red Cross worker."
+    sources: [tapatalk_voicemail]
+    confidence: reconstruction (amateur only)
+  - id: T20
+    date: 2004-02-19
+    event: "Second Fish and Game ground and air search; five official searches in 2004 in total."
+    sources: [nwp2020searches]
+    confidence: reconstruction
+  - id: T21
+    date: 2004-07-13
+    event: "Search of the woods involving about 90 people."
+    sources: [scarinza2004]
+    confidence: mainstream (archived press)
+  - id: T22
+    date: 2005-12
+    event: "Fred Murray files a Right-to-Know suit in Grafton County Superior Court (Docket 05-E-383)."
+    sources: [nhsc2006, the107lawsuit]
+    confidence: official
+  - id: T23
+    date: 2006-12-20
+    event: "NH Supreme Court decides Murray v. N.H. Division of State Police; agencies had not met their burden; remanded."
+    sources: [nhsc2006]
+    confidence: official
+  - id: T24
+    date: 2007-06-11
+    event: "Superior Court denies the records request on remand."
+    sources: [the107lawsuit]
+    confidence: reconstruction
+  - id: T25
+    date: 2007
+    event: "AG's office: treating the case as a potential homicide; handled as a criminal investigation."
+    sources: [strelzin2007]
+    confidence: official words via participant site
+  - id: T26
+    date: 2009
+    event: "Case added to the state's cold case unit; labelled suspicious."
+    sources: [concordmonitor2024photo]
+    confidence: mainstream
+  - id: T27
+    date: 2014-02
+    event: "Tenth anniversary; AG's office: no credible sightings since the night she disappeared."
+    sources: [ap2014decade]
+    confidence: mainstream (quote attribution probable)
+  - id: T28
+    date: 2016-03
+    event: "Renner's True Crime Addict published (tandem-driver and intentional-disappearance thesis)."
+    sources: [renner2016, wikipedia_tca]
+    confidence: mainstream
+  - id: T29
+    date: 2017
+    event: "Oxygen series airs; AG's office says the case was never closed and notes inaccuracies in the series."
+    sources: [nhpr2017notreopened, oxygen_aframe]
+    confidence: mainstream
+  - id: T30
+    date: 2018-11-25
+    event: "First of two private cadaver-dog visits to the basement of a house near the crash site (second on 2018-12-01); year inferred from the February 2019 announcement."
+    sources: [bostonglobe2019dig, bostoncom2019]
+    confidence: mainstream (year inferred)
+  - id: T31
+    date: 2019-04-03
+    event: "NH State Police and FBI cut basement concrete at the house with the homeowners' consent; only pottery or old piping found; no probable cause; no evidence."
+    sources: [nhdoj_2019search, bostoncom2019, unionleader2019hurts, oxygen2019noremains]
+    confidence: official
+  - id: T32
+    date: 2021-09
+    event: "Bone fragments found at Loon Mountain; ruled centuries old in November 2021."
+    sources: [unionleader2021bones]
+    confidence: mainstream
+  - id: T33
+    date: 2022-01-16
+    event: "FBI ViCAP entry and alert at the request of the NH Attorney General's office."
+    sources: [bostonglobe2022vicap, concordmonitor2022]
+    confidence: mainstream
+  - id: T34
+    date: 2022-07-13
+    event: "Ground search off Route 112 in Landaff and Easton by State Police and Fish and Game; not the result of new information; tied to the May 2004 witness report."
+    sources: [nhdoj_2022search, indepthnh2022, wcax2022search]
+    confidence: official
+  - id: T35
+    date: 2024-02-05
+    event: "FBI ViCAP alert document with age-progression image (public release around 2024-02-09)."
+    sources: [fbi_vicap2024, nhdoj_2024anniv]
+    confidence: official
+  - id: T36
+    date: 2024-02-09
+    event: "Media Pressure podcast (hosted by Julie Murray) launches."
+    sources: [cbsboston2024podcast]
+    confidence: mainstream
+  - id: T37
+    date: 2025-08
+    event: "Cold Case Unit expanded from one part-time to two full-time DOJ investigators; two State Police detectives added in October 2025."
+    sources: [nhdoj_2025expansion, caledonian2025expansion]
+    confidence: official
+  - id: T38
+    date: 2026-02-08
+    event: "Cold Case Unit chief says the unit is applying new technology to existing evidence; one broadcast names LiDAR and facial recognition."
+    sources: [unionleader2026tech, yahoo2026lidar]
+    confidence: mainstream
+  - id: T39
+    date: 2026-02-09
+    event: "Twenty-second anniversary vigil; unit says it pursues every credible lead."
+    sources: [westernmass2026]
+    confidence: mainstream
+  - id: T40
+    date: 2026-09-28
+    event: "No official or mainstream case development located for August or September 2026."
+    sources: []
+    confidence: search coverage note
