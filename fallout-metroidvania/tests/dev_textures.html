@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>texture contact sheet</title>
+<style>body{margin:0;background:#111;color:#ccc;font:12px monospace}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script src="../src/core/util.js"></script>
+<script src="../src/gfx/textures.js"></script>
+<script>
+const names = (new URLSearchParams(location.search).get('n') || 'vault,concrete,brick,rock,scrap,rust,soil,asphalt,lino,wood,lab,redrock,subway,bw_vault,bw_concrete,bw_brick,bw_rock,bw_scrap,bw_rust,bw_lab,bw_wood,bw_diner,bw_tunnel,bw_redrock').split(',');
+const scale = parseFloat(new URLSearchParams(location.search).get('s') || '0.5');
+const cols = parseInt(new URLSearchParams(location.search).get('cols') || '6');
+const cell = Math.round(480 * scale) + 8;
+const rows = Math.ceil(names.length / cols);
+const c = document.getElementById('c'); c.width = cols * cell + 8; c.height = rows * (cell + 14) + 8;
+const g = c.getContext('2d'); g.fillStyle = '#111'; g.fillRect(0, 0, c.width, c.height);
+const t0 = performance.now(); const times = {};
+names.forEach((n, i) => {
+  const t = performance.now(); const tx = CD.tex.get(n); times[n] = Math.round(performance.now() - t);
+  const x = 8 + (i % cols) * cell, y = 8 + Math.floor(i / cols) * (cell + 14);
+  // draw 2x2 tiled to check seamlessness (cropped to cell)
+  g.save(); g.beginPath(); g.rect(x, y, cell - 8, cell - 8); g.clip();
+  for (let oy = 0; oy < 2; oy++) for (let ox = 0; ox < 2; ox++) g.drawImage(tx, x + ox * 480 * scale, y + oy * 480 * scale, 480 * scale, 480 * scale);
+  g.restore(); g.fillStyle = '#ccc'; g.fillText(n + ' ' + times[n] + 'ms', x, y + cell - 2);
+});
+window.__done = { total: Math.round(performance.now() - t0), times };
+</script></body></html>

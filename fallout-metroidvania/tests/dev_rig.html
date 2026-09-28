@@ -1,0 +1,40 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>rig test</title>
+<style>body{margin:0;background:#222}canvas{display:block}</style></head>
+<body><canvas id="c" width="1500" height="760"></canvas>
+<script src="../src/core/util.js"></script>
+<script src="../src/gfx/textures.js"></script>
+<script src="../src/gfx/rig.js"></script>
+<script>
+const CD = window.CD, U = CD.U;
+const q = new URLSearchParams(location.search);
+const outfits = (q.get('o') || 'vault,raider,brute,mutant,ghoul,armor,robot,guard,scientist,trader,glowing').split(',');
+const S = parseFloat(q.get('s') || '3');
+const c = document.getElementById('c'); const g = c.getContext('2d');
+g.fillStyle = '#5a6068'; g.fillRect(0, 0, c.width, c.height);
+const grd = g.createLinearGradient(0,0,0,c.height); grd.addColorStop(0,'#6a7078'); grd.addColorStop(1,'#3a3f46'); g.fillStyle = grd; g.fillRect(0,0,c.width,c.height);
+const t0 = performance.now();
+const poses = [
+  { mode: 'idle', speed: 0 }, { mode: 'run', speed: 1, phase: 0.6 }, { mode: 'run', speed: 1, phase: 2.6 }, { mode: 'jump', vy: -500 }, { mode: 'fall', vy: 300 },
+  { mode: 'idle', aim: 0, twoHand: false, w: 'pistol10' }, { mode: 'idle', aim: -0.6, twoHand: 12, w: 'hunting_rifle' }, { mode: 'crouch', aim: 0.2, twoHand: 12, w: 'shotgun' },
+  { mode: 'idle', swing: 0.5, w: 'machete' }, { mode: 'dash', speed: 1 }, { mode: 'run', aim: 0.1, speed: 1, phase: 1.4, twoHand: 12, w: 'laser_rifle' }, { mode: 'wall' },
+];
+const use = outfits.slice(0, parseInt(q.get('n') || '3'));
+const cellW = 100 * S / 3 + 20;
+let row = 0;
+for (const on of use) {
+  const rs = CD.Rig.get(on);
+  poses.forEach((ps, i) => {
+    const x = 40 + (i % 12) * (c.width - 60) / 12 + 40, y = 120 + row * 250 + S * 62;
+    const pose = CD.Rig.pose(Object.assign({ t: 0.5, phase: 1 }, ps));
+    const wsp = ps.w ? CD.Rig.weaponSprite(ps.w) : (on === 'raider' && ps.aim !== undefined ? CD.Rig.weaponSprite('pipepistol') : null);
+    const wp = wsp ? { sprite: wsp, twoHand: !!ps.twoHand, melee: wsp.melee, mx: wsp.mx } : null;
+    // ground line
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, y + 1, 20 * S / 3, 3, 0, 0, 7); g.fill();
+    CD.Rig.draw(g, rs, pose, { x, y, scale: S, face: 1, weapon: wp });
+  });
+  g.fillStyle = '#fff'; g.font = '12px monospace'; g.fillText(on, 8, 100 + row * 250);
+  row++;
+}
+window.__done = { ms: Math.round(performance.now() - t0) };
+</script></body></html>

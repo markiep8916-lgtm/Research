@@ -1,0 +1,119 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>surface decor sheet</title>
+<style>body{margin:0;background:#151210}canvas{display:block}</style></head>
+<body><canvas id="c" width="1600" height="1000"></canvas>
+<script src="../src/core/util.js"></script>
+<script src="../src/world/tiles.js"></script>
+<script src="../src/gfx/textures.js"></script>
+<script src="../src/gfx/decor.js"></script>
+<script src="../src/gfx/decor_surface.js"></script>
+<script>
+// Surface decor sheet. Every sf_* kind at 1:1 on a dusk backdrop with a flat ground strip, label under each.
+// Query: zoom=1.25 (also draws the dark tunnel-wall backdrop) | g=vehicles,station,... (groups) | only=car,truck (kinds) |
+//        lit=sun|shade|both (apply the game's multiply lighting) | w=1600 | bg=dusk|tunnel|both | seed=n | p={"v":2} (extra opts for `only`)
+//        only=car{"v":1};truck;shopfront{"sign":"X"}@12x13  (';' separated, optional JSON opts, optional @WxH tiles)
+const CD = window.CD, U = CD.U, T = CD.T;
+const q = new URLSearchParams(location.search);
+const ZOOM = parseFloat(q.get('zoom') || '1'), WID = parseInt(q.get('w') || '1600', 10);
+const LIT = q.get('lit') || '', BGQ = q.get('bg') || (ZOOM !== 1 ? 'both' : 'dusk');
+const SEED = parseInt(q.get('seed') || '0', 10);
+const GROUPS = {
+  vehicles: [['car', { v: 0 }], ['car', { v: 1 }], ['car', { v: 2 }], ['car', { v: 3 }], ['car', { v: 4 }], ['car', { v: 5 }], ['car', { v: 0, burnt: true }], ['car', { v: 1, flip: true }], ['car', { v: 5, flip: true, open: 'hood' }],
+    ['truck', { v: 0 }], ['truck', { v: 1 }], ['truck', { v: 2, flip: true }], ['bus', {}], ['wreck_stack', {}]],
+  station: [['redrocket', {}], ['pump', { v: 0 }], ['pump', { v: 1 }], ['pump', { v: 2, flip: true }], ['canopy', { collapse: 0.55 }], ['garage', {}], ['canopy', { collapse: 0 }]],
+  town: [['shack', {}], ['shopfront', { sign: 'GENERAL STORE', ruin: 0.3, brick: 0 }, 12, 13], ['shopfront', { sign: 'HARDWARE', ruin: 0.8, brick: 2 }, 12, 13], ['shopfront', { sign: 'BOOKS', ruin: 0, brick: 1 }, 12, 13], ['shopfront', { sign: 'CAFE', ruin: 0.5, brick: 3 }, 12, 13], ['ruin', {}], ['shopfront_low', { sign: 'PHARMACY' }], ['shopfront_low', { sign: 'BARBER' }], ['shopfront_low', { sign: 'PAWN' }]],
+  diner: [['diner_roof', { text: 'DINER' }, 26, 5], ['counter', {}], ['booth', {}], ['booth', { flip: true }], ['jukebox', {}], ['menu', {}], ['diner_window', {}], ['nuka_cooler', {}], ['nuka_cooler', { flip: true }]],
+  infra: [['metro', { name: 'CINDER RIDGE' }], ['footbridge', {}], ['watertower', {}], ['lamp', { lean: 0.6 }], ['lamp', { lean: -0.4 }], ['pole', { lean: 0.5 }], ['pole', { lean: -0.6, flip: true }], ['sign_road', { text: 'STOP' }], ['sign_road', { text: 'EXIT 9' }], ['billboard', { ad: 'nuka' }], ['billboard', { ad: 'vaultec' }], ['billboard', { ad: 'sun' }], ['billboard', { ad: 'steel' }]],
+  silo: [['silo', {}]],
+  props: [['hydrant', {}], ['mailbox', {}], ['bench', {}], ['bench', { flip: true }], ['dumpster', {}], ['dumpster', { flip: true }], ['tires', {}], ['crates', {}], ['crates', { flip: true }], ['barrels', {}], ['sandbags', {}], ['rubble', {}], ['rubble', { flip: true }], ['fence', {}, 8, 2], ['fence', { flip: true }, 5, 2]],
+  nature: [['tree', { v: 0 }], ['tree', { v: 1 }], ['tree', { v: 2 }], ['tree', { v: 3 }], ['scrub', {}], ['scrub', { flip: true }], ['boulder', {}], ['boulder', { flip: true }], ['skeleton', {}], ['skeleton', { flip: true }], ['campfire', {}]],
+};
+let items = [];
+if (q.get('only')) {
+  // only=car{"v":1};truck;shopfront{"sign":"X"}@12x13   (';' separates items; optional JSON opts; optional @WxH tiles for free-size kinds)
+  const extra = q.get('p') ? JSON.parse(q.get('p')) : {};
+  for (const tok of q.get('only').split(';')) {
+    const m = tok.trim().match(/^(?:sf_)?([a-z_0-9]+)(\{.*\})?(?:@([\d.]+)x([\d.]+))?$/); if (!m) continue;
+    items.push([m[1], Object.assign({}, extra, m[2] ? JSON.parse(m[2]) : {}), m[3] ? +m[3] : undefined, m[4] ? +m[4] : undefined]);
+  }
+  items = [{ name: 'selected', items }];
+} else {
+  const gs = (q.get('g') || Object.keys(GROUPS).join(',')).split(',');
+  items = gs.filter((k) => GROUPS[k]).map((k) => ({ name: k, items: GROUPS[k] }));
+}
+const MARG = 16, GAP = 26, HEAD = 22, LABEL = 26, TOPPAD = 22, GROUND = 34;
+const times = {}, errors = [];
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+
+function nominal(kind, it) {
+  const inf = CD.decor.sfInfo['sf_' + kind];
+  const w = it[2] || (inf ? inf.w : 4), h = it[3] || (inf ? inf.h : 3);
+  return { w: w * T, h: h * T, known: !!inf && !!CD.decor.kinds['sf_' + kind] };
+}
+// ---------------------------------------------------------------- layout
+const rows = []; let y = 0;
+for (const grp of items) {
+  rows.push({ head: grp.name, y, h: HEAD }); y += HEAD;
+  let cur = { items: [], x: MARG, maxH: 0 };
+  const flush = () => { if (!cur.items.length) return; const h = TOPPAD + cur.maxH * ZOOM + GROUND; cur.y = y; cur.h = h; rows.push(cur); y += h; cur = { items: [], x: MARG, maxH: 0 }; };
+  for (const it of grp.items) {
+    const n = nominal(it[0], it), wpx = n.w * ZOOM;
+    if (cur.items.length && cur.x + wpx > WID - MARG) flush();
+    cur.items.push({ kind: it[0], opts: it[1] || {}, x: cur.x, w: n.w, h: n.h, known: n.known }); cur.x += wpx + GAP; cur.maxH = Math.max(cur.maxH, n.h);
+  }
+  flush();
+}
+const bgs = BGQ === 'both' ? ['dusk', 'tunnel'] : [BGQ];
+const modes = LIT === 'both' ? ['raw', 'sun'] : (LIT ? [LIT] : ['raw']);
+let totalH = 0; for (const r of rows) totalH += r.head ? r.h : r.h * bgs.length * modes.length; totalH += 4;
+c.width = WID; c.height = Math.min(totalH, 16000);
+
+function backdrop(g, w, h, gy, kind) {
+  if (kind === 'tunnel') {
+    const t = CD.tex.get('bw_tunnel'); g.fillStyle = g.createPattern(t, 'repeat'); g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, 0, w, h); return;
+  }
+  const gr = g.createLinearGradient(0, 0, 0, gy); [[0, '#2b2444'], [0.24, '#63385a'], [0.46, '#b5674c'], [0.64, '#ee9a58'], [0.8, '#f8c47c'], [1, '#f8c47c']].forEach((s) => gr.addColorStop(s[0], s[1]));
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  // distant skyline silhouettes so silhouettes are judged against something busy
+  const rr = U.RNG(77); g.fillStyle = 'rgba(96,52,50,0.55)'; let x = 0; while (x < w) { const bw = rr.range(40, 120), bh = rr.range(30, 120); g.fillRect(x, gy - bh, bw, bh); x += bw + rr.range(-6, 10); }
+}
+function ground(g, w, gy, h, kind) {
+  const t = CD.tex.get(kind === 'tunnel' ? 'concrete' : 'soil'); g.fillStyle = g.createPattern(t, 'repeat'); g.fillRect(0, gy, w, h - (gy));
+  const gr = g.createLinearGradient(0, gy, 0, gy + 10); gr.addColorStop(0, 'rgba(255,240,200,0.42)'); gr.addColorStop(0.2, 'rgba(255,240,200,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, gy, w, 10);
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, gy - 0.5, w, 1);
+}
+function light(g, w, h, mode) {
+  if (mode === 'raw') return;
+  const m = mode === 'shade' ? [0.5, 0.4, 0.36] : [1.2, 0.92, 0.72];
+  const tmp = U.canvas(w, h), t = tmp.getContext('2d'); t.drawImage(g.canvas, 0, 0);
+  g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgb(' + Math.round(m[0] * 127.5) + ',' + Math.round(m[1] * 127.5) + ',' + Math.round(m[2] * 127.5) + ')'; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'lighter'; g.drawImage(g.canvas, 0, 0); g.restore();
+}
+let outY = 0;
+for (const row of rows) {
+  if (row.head) { ctx.fillStyle = '#1b1714'; ctx.fillRect(0, outY, WID, HEAD); ctx.fillStyle = '#d8c8a8'; ctx.font = 'bold 12px monospace'; ctx.fillText('== ' + row.head.toUpperCase() + ' ==   zoom ' + ZOOM, 8, outY + 15); outY += HEAD; continue; }
+  for (const bgk of bgs) for (const mode of modes) {
+    const rc = U.canvas(WID, row.h), g = rc.getContext('2d'); const gy = TOPPAD + row.maxH * ZOOM;
+    backdrop(g, WID, row.h, gy, bgk);
+    for (const it of row.items) {
+      const px = it.x, py = gy - it.h * ZOOM;
+      g.save(); g.setTransform(ZOOM, 0, 0, ZOOM, px, py);
+      const kf = CD.decor.kinds['sf_' + it.kind];
+      if (kf) {
+        const t0 = performance.now();
+        try { kf(g, { k: 'sf_' + it.kind, x: 0, y: 0, w: it.w, h: it.h, s: 1000 + SEED + it.kind.length * 7 + (it.opts.v || 0) * 3, p: it.opts }, U.RNG(1000 + SEED + it.kind.length * 7 + (it.opts.v || 0) * 3)); } catch (e) { errors.push(it.kind + ': ' + e.message); console.error(it.kind, e); }
+        const dt = performance.now() - t0; times[it.kind] = Math.max(times[it.kind] || 0, Math.round(dt * 10) / 10);
+      } else { g.fillStyle = 'rgba(255,0,80,0.18)'; g.fillRect(0, 0, it.w, it.h); g.strokeStyle = 'rgba(255,0,80,0.6)'; g.strokeRect(0.5, 0.5, it.w - 1, it.h - 1); g.fillStyle = '#f48'; g.font = '12px monospace'; g.fillText('TODO ' + it.kind, 6, 16); }
+      g.restore();
+    }
+    ground(g, WID, gy, row.h, bgk);
+    light(g, WID, row.h, mode);
+    // labels
+    g.font = '11px monospace'; g.textBaseline = 'middle';
+    for (const it of row.items) { const s = it.kind + (Object.keys(it.opts).length ? ' ' + JSON.stringify(it.opts).replace(/"/g, '') : ''); g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(it.x - 2, gy + 4, Math.min(it.w * ZOOM + 24, g.measureText(s).width + 8), 15); g.fillStyle = '#e8dcc0'; g.fillText(s, it.x + 2, gy + 12); }
+    ctx.drawImage(rc, 0, outY); outY += row.h;
+  }
+}
+window.__done = { kinds: Object.keys(times).length, errors, times, height: c.height };
+</script></body></html>

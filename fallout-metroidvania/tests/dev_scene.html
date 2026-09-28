@@ -1,0 +1,106 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>dev scene</title>
+<style>body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c" width="1280" height="720"></canvas>
+<script>window.CD_DEV = true;</script>
+<script src="../src/core/util.js"></script>
+<script src="../src/gfx/textures.js"></script>
+<script src="../src/gfx/backdrops.js"></script>
+<script src="../src/world/tiles.js"></script>
+<script src="../src/world/world.js"></script>
+<script src="../src/gfx/decor.js"></script>
+<script src="../src/gfx/chunks.js"></script>
+<script src="../src/gfx/lighting.js"></script>
+<script>
+(function(){
+const CD = window.CD, T = CD.T;
+function grid(w,h){ const g=[]; for(let y=0;y<h;y++){ g.push(new Array(w).fill('.')); } return g; }
+function box(g,x0,y0,x1,y1,ch){ for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) g[y][x]=ch; }
+function put(g,x,y,ch){ g[y][x]=ch; }
+function out(g){ return g.map(r=>r.join('')).join('\n'); }
+
+// Room A: vault corridor 56x22
+const A = grid(56,22);
+box(A,0,0,55,1,'#'); box(A,0,19,55,21,'#'); box(A,0,0,1,21,'#'); box(A,54,0,55,21,'#');
+box(A,54,15,55,17,'.');    // door east
+box(A,0,15,1,17,'.');  // door west (leads nowhere: dev only) -> filled below
+box(A,0,15,1,17,'#');
+put(A,6,2,'*'); put(A,18,2,'*'); put(A,30,2,'*'); put(A,44,2,'*');
+box(A,10,15,14,15,'='); box(A,18,12,24,12,'='); box(A,28,9,34,9,'='); box(A,38,12,42,12,'=');
+box(A,8,5,9,18,'#'); box(A,8,16,9,18,'#'); box(A,8,15,9,15,'#');
+for(let y=3;y<=18;y++) put(A,46,y,'H');
+box(A,20,18,23,18,'^');
+box(A,26,18,33,18,'~'); box(A,26,19,33,19,'#');
+put(A,50,18,'X'); put(A,50,17,'X'); put(A,50,16,'X');
+put(A,4,18,'T'); put(A,12,14,'$'); put(A,15,18,'Z');
+box(A,12,3,16,3,'V'); box(A,36,3,44,4,'V');
+
+// Room B: outdoor 60x22 placed right of A, opening at rows 15-17
+const B = grid(60,22);
+box(B,0,0,59,0,'.'); // open sky (top edge is solid to keep validation simple)
+box(B,0,0,59,0,'#');
+box(B,0,20,59,21,'G'); box(B,0,19,59,19,'G'); box(B,0,0,1,21,'#'); box(B,58,0,59,21,'#');
+box(B,0,15,1,17,'.'); box(B,0,18,1,19,'#');
+box(B,0,18,1,18,'G');
+box(B,2,18,20,18,'G'); box(B,22,17,30,18,'G'); box(B,32,16,40,18,'G'); box(B,42,15,52,18,'G');
+box(B,8,8,18,17,'B'); box(B,9,9,17,16,'.'); box(B,8,17,18,17,'A'); box(B,12,17,13,17,'.');
+box(B,9,9,17,16,'.');
+box(B,24,10,29,10,'='); box(B,34,7,38,7,'=');
+box(B,46,6,47,14,'C'); box(B,45,6,52,6,'C');
+box(B,48,7,52,14,'.');
+put(B,10,16,'O'); put(B,14,16,'K'); put(B,50,14,'F');
+box(B,5,17,6,17,'^');
+put(B,26,16,'$'); put(B,36,15,'+');
+// mark as sky room but interior zone with brick backwall
+const roomsDef = [
+ { id:'A', name:'Vault Corridor', region:'vault', x:0, y:0, map: out(A) },
+ { id:'B', name:'Ridge Road', region:'surface', x:56, y:0, map: out(B), zones:[{x0:9,y0:9,x1:17,y1:16,bg:'bw_brick'},{x0:48,y0:7,x1:52,y1:14,bg:'bw_concrete'}] },
+];
+CD.dev = { roomsDef };
+})();
+</script>
+<script>
+(function(){
+const CD = window.CD, U = CD.U, T = CD.T;
+const q = new URLSearchParams(location.search);
+const camX = parseFloat(q.get('x')||'0'), camY = parseFloat(q.get('y')||'0'), R = parseFloat(q.get('r')||'1');
+const c = document.getElementById('c'); c.width = 1280*R; c.height = 720*R;
+const ctx = c.getContext('2d');
+const t0 = performance.now();
+const world = new CD.World(CD.dev.roomsDef);
+const chunks = new CD.Chunks(world, R);
+const lighting = new CD.Lighting(world);
+lighting.resize(1280*R, 720*R);
+window.__world = world;
+// lights from spawns
+const lights = [];
+for (const s of world.spawns) {
+  const x=(s.tx+0.5)*T, y=(s.ty+0.5)*T;
+  if (s.t==='fluoro') lights.push({x, y:y-8, r:440, color:[0.75,1,1], i:1.9, flicker:0.2, seed:s.tx, shadow:true, glow:60, glowA:0.6});
+  if (s.t==='lamp') lights.push({x, y:y-10, r:260, color:[1,0.75,0.45], i:0.95, flicker:0.1, seed:s.tx, shadow:true, glow:50});
+  if (s.t==='firebarrel') lights.push({x, y:y+4, r:300, color:[1,0.55,0.2], i:1, flicker:0.35, fspeed:14, seed:s.tx, shadow:true, glow:70});
+}
+const px = parseFloat(q.get('px')||'300'), py = parseFloat(q.get('py')||'700');
+lights.push({x:px, y:py, r:320, color:[0.85,0.95,1], i:1.0, shadow:true, prio:1});
+const cam = {x:camX, y:camY, w:1280, h:720};
+chunks.prebuild(cam.x, cam.y, cam.x+cam.w, cam.y+cam.h);
+const t1 = performance.now();
+const roomAt = world.roomAt(cam.x+640, cam.y+360) || world.rooms[0];
+ctx.setTransform(R,0,0,R,0,0);
+ctx.fillStyle='#000'; ctx.fillRect(0,0,1280,720);
+if (roomAt.sky) CD.Backdrop.get('dusk').draw(ctx, cam, 1280, 720, 0, 19*T, null);
+ctx.setTransform(R,0,0,R,-cam.x*R,-cam.y*R);
+chunks.draw(ctx, cam.x, cam.y, cam.x+cam.w, cam.y+cam.h);
+// water demo
+ctx.fillStyle='rgba(30,120,50,0.55)'; ctx.fillRect(26*T, 18*T, 8*T, T);
+ctx.setTransform(R,0,0,R,0,0);
+lighting.clear(); lights.forEach(l=>lighting.add(l));
+lighting.render(ctx, cam, R, roomAt.ambient, {sky: roomAt.sky, time: 0});
+ctx.setTransform(R,0,0,R,-cam.x*R,-cam.y*R);
+lighting.glow(ctx, cam, 0);
+ctx.setTransform(R,0,0,R,0,0);
+// vignette
+const vg = ctx.createRadialGradient(640,360,300,640,360,800); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.55)'); ctx.fillStyle=vg; ctx.fillRect(0,0,1280,720);
+window.__done = { errors: world.errors, warnings: world.warnings, buildMs: Math.round(t1-t0), renderMs: Math.round(performance.now()-t1), chunks: chunks.built, lights: lighting.stats };
+})();
+</script></body></html>
