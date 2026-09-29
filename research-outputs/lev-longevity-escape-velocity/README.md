@@ -4,7 +4,7 @@ A `deep-research` `full`-mode run (v2.12.1) on the question: **under what condit
 
 **Start here:** [`LEV_research_report.md`](LEV_research_report.md), the report. Its section 1 is a one-page answer.
 
-**Status: preliminary; draft v2, revised after four reviews.** Evidence collection stopped early when the session's shared web-search cap was reached, direct access to scholarly sites was blocked by the environment's network policy, every figure comes from a search summary (not primary text), some figures were present in the search queries themselves (marked with a dagger in the report), and the independent re-verification pass could not run. Every role, including the four reviews, was performed by AI agents of one model family, and no human has checked any figure, citation or calculation. The report says this at the top and in section 7, and lists what would strengthen it.
+**Status: preliminary; draft v3, revised after two rounds of review.** Evidence collection stopped early when the session's shared web-search cap was reached, direct access to scholarly sites was blocked by the environment's network policy, every figure comes from a search summary (not primary text), some figures were present in the search queries themselves (marked with a dagger in the report), and the independent re-verification pass could not run. Every role, including the eight reviews (four of draft v1, then the same four reviewers verifying draft v2), was performed by AI agents of one model family, and no human has checked any figure, citation or calculation. The report says this at the top and in section 7, and lists what would strengthen it.
 
 ## Layout
 
@@ -15,7 +15,7 @@ A `deep-research` `full`-mode run (v2.12.1) on the question: **under what condit
 | `phase2_investigation/` | The search protocol and the evidence files W1-W7 (workstream agents, partial), and W8 (coordinator supplement). About 130 evidence cards, none at figure-level V3 |
 | `phase3_analysis/model/` | Python model (`lev_model.py`), 34 unit tests, driver (`run_analysis.py`), and `params.json` |
 | `phase3_analysis/outputs/` | Tables T1-T6b (including the cohort threshold T1c, composition T3b, race-table sensitivities T5b and T5c, stepwise cadence T3c, and onset-by-ramp T6b), figures F1-F5, Monte Carlo samples, run manifest |
-| `phase5_review/` | Editorial, ethics, devil's-advocate, and claims-audit reviews of report draft v1 (verbatim), with the author's disposition of every point, and the verification of the revision |
+| `phase5_review/` | Editorial, ethics, devil's-advocate, and claims-audit reviews of report draft v1 (verbatim), each reviewer's verification of draft v2 (verbatim), and the author's disposition of every point |
 
 ## Reproduce the numbers
 

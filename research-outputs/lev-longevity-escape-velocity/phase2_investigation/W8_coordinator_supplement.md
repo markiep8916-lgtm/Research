@@ -9,6 +9,7 @@
 | Protocol | Ladder v3 (`../phase1_scoping/02_methodology_blueprint.md`). **All figures are summary-mediated**: each comes from a model-written search summary plus a link list, none from primary text |
 | Leading queries | Q-12, Q-15 and Q-24 contained a figure taken from the coordinator's memory; the summary's echo of that figure is *not* counted as corroboration (marked "leading") |
 | Phase 5 correction (after the claims audit) | Q-06 ("about 8 years"), Q-08 ("about 1 to 2 percent"), Q-23 ("1.5 percent per year") and Q-38 ("about 90 percent") also carried the figure they were meant to confirm and were not marked. They are now marked leading; the affected figures (W8-01, W8-02, W8-03, W8-16) are not independently corroborated |
+| Phase 5 revision 2 (after the claims re-audit) | Q-29 (limit ages "65 70 75 85") and Q-36 ("9 men") also carried figures and are now marked leading; the affected details (the RC1 limit ages in W8-06; the count of nine in W8-23) are not independently corroborated |
 | Levels reached | No card reaches figure-level V3 (each traces to one authorship origin or one query). V2 = existence at a primary source plus one attributing sentence; V1 = secondary only |
 
 ## Search log
@@ -43,14 +44,14 @@
 | Q-26 | Actuarial escape velocity Debonneuil abstract "life extension velocity" sustained mortality improvements 4% longevity escape velocity insurance mathematics economics | **leading** (4%); links: ResearchGate, Wikipedia, PLOS Biology, ScienceDirect |
 | Q-27 | PEARL trial low-dose rapamycin healthy older adults results safety visceral fat lean mass 48 weeks Aging 2025 | links: PMC, aging-us.com, medRxiv, EurekAlert |
 | Q-28 | senolytic dasatinib quercetin pilot trial older adults results outcomes cognition mobility eBioMedicine 2025 participants | links: Lancet eBioMedicine, EurekAlert, Fight Aging |
-| Q-29 | Oeppen Vaupel broken limits predicted maximum life expectancy 65 70 75 85 years earlier forecasts exceeded table of proposed limits | two internal rounds; links: Science, Oxford Ageing PDF, SSA, OWID |
+| Q-29 | Oeppen Vaupel broken limits predicted maximum life expectancy 65 70 75 85 years earlier forecasts exceeded table of proposed limits | **leading** (limit ages "65 70 75 85"; marked in Phase 5 revision 2); two internal rounds; links: Science, Oxford Ageing PDF, SSA, OWID |
 | Q-30 | official life expectancy forecasts underestimated actual gains United Nations national statistical offices forecast accuracy record life expectancy | links: SSA Social Security Bulletin, PNAS, PMC |
 | Q-31 | resveratrol sirtuin activators GSK Sirtris clinical trials failed to show anti-aging effect history | links: MIT Technology Review, Pharmafile, Science blog, New Republic |
 | Q-32 | expert survey biogerontologists demographers actuaries future life expectancy 2050 opinions survey results radical life extension | links: PMC, PNAS, Taylor and Francis, Wikipedia |
 | Q-33 | annual percent decline in age-specific death rates ages 65-74 75-84 85 and older United States 2000 to 2019 age-adjusted death rate decline per year | links: CDC NCHS data briefs, Statista |
 | Q-34 | Li 2018 Circulation impact of healthy lifestyle factors on life expectancies US population five low-risk lifestyle factors additional years at age 50 women men | links: PubMed, AHA Journals, Erasmus |
 | Q-35 | therapeutic plasma exchange older adults biological age epigenetic clocks trial Buck Institute Kennedy 2025 Aging Cell albumin IVIG | links: Wiley (Aging Cell), Buck Institute, Fight Aging |
-| Q-36 | Fahy 2019 Aging Cell reversal of epigenetic aging and immunosenescent trends in humans thymus regeneration growth hormone DHEA metformin 9 men | links: Wiley, PMC, Semantic Scholar |
+| Q-36 | Fahy 2019 Aging Cell reversal of epigenetic aging and immunosenescent trends in humans thymus regeneration growth hormone DHEA metformin 9 men | **leading** ("9 men"; marked in Phase 5 revision 2); links: Wiley, PMC, Semantic Scholar |
 | Q-37 | pig kidney xenotransplantation clinical trial 2026 United Therapeutics EXPAND FDA patients status survival | links: PMC, United Therapeutics IR, NYU Langone |
 | Q-38 | childhood acute lymphoblastic leukemia five-year survival rate 1960s versus today about 90 percent improvement over decades | **leading** ("about 90 percent"; marked in Phase 5); links: Our World in Data, PMC |
 | Q-39 | López-Otín 2023 Hallmarks of aging an expanding universe Cell twelve hallmarks disabled macroautophagy chronic inflammation dysbiosis | links: cell.com, PMC |
@@ -86,7 +87,7 @@ Card format is abbreviated: figures are as reported in the search output, unconv
 - **Not obtained:** country-level e(65) and the frontier ranking (protocol W1(g) unanswered); US e(65) (Q-25, no figure). **Use:** anchor for placeholder calibration (model e(65) about 19).
 
 ### W8-06 · Oeppen and Vaupel (2002) and the record of broken limits (RC1, existence class)
-- **Level:** V2 [E2, F2]. **Log:** Q-05, Q-29.
+- **Level:** V2 [E2, F2]; the limit ages are **not independently corroborated** (Phase 5 revision 2: Q-29 carried "65 70 75 85"; Q-05 did not, but the card does not record which output named the limits). **Log:** Q-05, Q-29 (leading).
 - **Attr.:** Science 296:1029-1031: best-practice (record) female life expectancy rose about 2.5 years per decade since 1840; every published limit broken, on average within about five years of publication. Limits named in the outputs: Dublin 1928 (under 65), Fries 1980 (85), Olshansky and Carnes 2001 (85; Olshansky et al. 1990 also cited).
 - **Caveat:** a compiled list of failures, no denominator of all limit claims: an *existence class*, not a base rate. Best-practice life expectancy at birth is not an age-band hazard. **Label:** [ESTABLISHED] for the trend to 2000; [CONTESTED] for what it implies after 1990 (W1-06, W1-07).
 
@@ -154,7 +155,7 @@ Card format is abbreviated: figures are as reported in the search output, unconv
 - **Stake:** sponsor-affiliated authors and a company. **Label:** [SUPPORTED] for biomarker change only; no mortality or function outcome.
 
 ### W8-23 · TRIIM (thymus regeneration; Fahy et al. 2019)
-- **Level:** V2 [E2, F2]. **Log:** Q-36. **Attr.:** Aging Cell 2019: nine to ten men aged 51-65, growth hormone with DHEA and metformin for one year; mean epigenetic age about 1.5 years below baseline; GrimAge about 2 years lower, persisting six months.
+- **Level:** V2 [E2, F2]. **Log:** Q-36 (leading for "9 men"; the "ten" is from the output). **Attr.:** Aging Cell 2019: nine to ten men aged 51-65, growth hormone with DHEA and metformin for one year; mean epigenetic age about 1.5 years below baseline; GrimAge about 2 years lower, persisting six months.
 - **Caveat:** tiny uncontrolled cohort. **Label:** [SPECULATIVE] as evidence of rejuvenation.
 
 ### W8-24 · Xenotransplantation enters trials
