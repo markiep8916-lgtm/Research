@@ -5,9 +5,10 @@ Code for SQ1 and SQ2 of the LEV run, implementing the frozen specification in
 
 | File | Purpose |
 |---|---|
-| `lev_model.py` | Hazard models M0 (Gompertz-Makeham with proportional progress), M1 (amenable and resistant components), M2 (gamma frailty, plateau cap); criteria D-N, D-1, D-H; escape duration; outcome classifier (LEV window, O1-O4); race table; level-to-rate conversion; Latin-hypercube sampling. Numpy only. |
-| `tests/test_lev_model.py` | Unit tests that check the analytic predictions P1-P6 against numerical life-table integration (24 tests). |
-| `run_analysis.py` | Produces tables T1-T6 (T1b: threshold by age), figures F1-F5, and Monte Carlo sensitivity (F2) with a run manifest. |
+| `lev_model.py` | Hazard models M0 (Gompertz-Makeham with proportional progress), M1 (amenable and resistant components), M2 (gamma frailty, plateau cap); criteria D-N, D-1, D-H, and cohort D-1 (added after the Phase 5 review); selection damping; escape duration; outcome classifier (LEV window, O1-O4); race table; level-to-rate conversion including the animal upper-bound conversion and the effects-needed composition; Latin-hypercube sampling. Numpy only. |
+| `tests/test_lev_model.py` | Unit tests that check the analytic predictions P1-P6 against numerical life-table integration, plus the Phase 5 additions (cohort D-1 limit of beta/2 at low hazard, ordering of the criteria, selection damping, conversions): 32 tests. |
+| `run_analysis.py` | Produces tables T1-T6 (T1b: threshold by age; T1c: cohort D-1 threshold; T1d: selection damping; T3b: effects needed; T5b: race table across the hazard level; T5c: finite-escape variant; T6b: onset year by ramp duration), figures F1-F5, and Monte Carlo sensitivity (F2) with a run manifest. |
+| `params.json` | Literature-informed inputs with their sources and levels. `mu80` and `c` remain placeholders and `v_hi` is a team-set bound; the manifest records this. |
 
 ## Status of the parameters
 

@@ -5,9 +5,12 @@ Usage:
 
 ``params.json`` (optional) may contain:
     {"params": {...Params overrides...},
+     "placeholder_parameters": ["mu80", "c"],   # inputs still placeholders; recorded in the manifest
+     "team_set_bounds": {...}, "parameter_sources": {...},   # recorded in the manifest
      "r_hist": 0.015,                      # historical proportional decline per year
      "ranges": {"beta": [lo, hi], ...},    # Monte Carlo ranges (override plan section 5)
-     "effects": [{"name": ..., "hr": ..., "source": "W2-03", "level": "V3"}],   # for T3
+     "effects": [{"name": ..., "hr": ..., "source": "W2-03", "level": "V3"},                   # for T3; "kind" is optional
+                 {"name": ..., "lifespan_gain": 0.25, "L": 80, "kind": "animal_lifespan_proportional_upper_bound"}],
      "observed": [{"label": ..., "r_per_year": ..., "source": "W1-05", "level": "V3"}]}   # for T2
 
 Without ``params.json`` the placeholder parameters from the plan are used and every
@@ -103,21 +106,41 @@ def table_t2(out, p, observed):
 
 # ------------------------------------------------------------------ T3
 def table_t3(out, p, effects):
+    """Effects in age-years. ``kind`` separates hazard-derived human results, observational life-year contrasts,
+    the one animal hazard ratio, and the UPPER-BOUND lifespan-proportional reading of animal results (plan
+    section 7): the last assumes the whole proportional animal gain transfers to a human lifespan of ``L`` years."""
     rows = []
     for e in effects:
+        kind = e.get("kind", "human_hazard_ratio" if "hr" in e else "observational_life_years")
         if "hr" in e:
             g = m.age_years(e["hr"], p.beta)
             g_lo = m.age_years(e["hr"], 0.099)   # steeper Gompertz slope: fewer age-years
             g_hi = m.age_years(e["hr"], 0.069)
             hr = e["hr"]
+        elif "lifespan_gain" in e:
+            L = float(e.get("L", 80.0))
+            g = m.lifespan_gain_to_age_years(e["lifespan_gain"], L)
+            g_lo = g_hi = g
+            hr = round(m.implied_hazard_ratio(g, p.beta), 3)   # implied, not observed
         else:
             g = g_lo = g_hi = float(e["age_years"])
             hr = ""
-        rows.append([e["name"], hr, round(g, 2), f"{g_lo:.2f} to {g_hi:.2f}", round(g, 2),
+        rows.append([e["name"], kind, hr, round(g, 2), f"{g_lo:.2f} to {g_hi:.2f}", round(g, 2),
                      e.get("source", ""), e.get("level", "")])
     write_csv(os.path.join(out, "T3_effects_in_age_years.csv"),
-              ["intervention", "hazard_ratio", "age_years_once_at_central_beta", "age_years_range_beta_0.099_to_0.069",
-               "years_between_new_independent_effects_to_sustain_v1", "source_card", "verification_level"], rows)
+              ["intervention", "kind", "hazard_ratio_observed_or_implied", "age_years_once_at_central_beta",
+               "age_years_range_beta_0.099_to_0.069", "years_between_new_independent_effects_to_sustain_v1",
+               "source_card", "verification_level"], rows)
+
+
+def table_t3b(out, sizes=(2.1, 3.6, 4.4, 10.0, 20.0), overlaps=(0.0, 0.25, 0.5), window=20.0):
+    """Composition (plan section 7): independent effects of nominal size g needed to sustain v = 1 over a window,
+    when each new effect overlaps the earlier ones by 0, 25 or 50% (realised size g (1 - overlap))."""
+    rows = [[g, ov, round(m.effects_needed(g, window, ov), 2)] for g in sizes for ov in overlaps]
+    write_csv(os.path.join(out, "T3b_effects_needed_in_20_years.csv"),
+              ["nominal_effect_size_age_years", "overlap_with_earlier_effects", f"independent_effects_needed_in_{int(window)}_years"],
+              rows)
+    return rows
 
 
 # ------------------------------------------------------------------ T4 and F3
@@ -179,6 +202,44 @@ def table_t5(out, p, r_hist):
     fig.tight_layout()
     fig.savefig(os.path.join(out, "F4_race_to_onset.png"), dpi=150)
     plt.close(fig)
+    return rows
+
+
+def table_t5b(out, p, mu80_range, r_hist):
+    """Race table sensitivity to the placeholder hazard level mu80 (low, central, high)."""
+    rows = []
+    for mu80 in (mu80_range[0], p.mu80, mu80_range[1]):
+        q = p.with_(mu80=mu80)
+        for r_pre, label in ((0.0, "frozen 2026 mortality"), (r_hist, "historical improvement")):
+            for a0 in (40, 50, 60, 70):
+                for onset in (20, 30, 40):
+                    r = m.race_row(float(a0), float(onset), q, r_pre, r_post_multiples=(1.0,))
+                    rows.append([mu80, label, a0, onset, round(r["p_survive_to_onset"], 4),
+                                 round(r["e_at_onset_m1"], 1)])
+    write_csv(os.path.join(out, "T5b_race_mu80_sensitivity.csv"),
+              ["mu80", "pre_onset_scenario", "current_age", "onset_in_years", "p_survive_to_onset",
+               "expected_remaining_life_at_onset_if_hazard_frozen"], rows)
+    return rows
+
+
+def table_t5c(out, p, r_hist, r_r=0.01, rhos=(0.02, 0.05, 0.10)):
+    """Finite-escape variant of the race table (added after the Phase 5 review). After onset the amenable part of
+    the age-related hazard keeps declining at 1.5 beta while a resistant share ``rho`` improves only at ``r_r``,
+    so the hazard eventually turns up again. Compare with the frozen-hazard column of T5."""
+    rows = []
+    for a0 in (40, 50, 60, 70):
+        for onset in (20, 30, 40):
+            base = m.race_row(float(a0), float(onset), p, r_hist)
+            row = [a0, onset, round(base["p_survive_to_onset"], 4), round(base["e_at_onset_m1"], 1),
+                   round(base["e_at_onset_m1.5"], 0)]
+            for rho in rhos:
+                r = m.race_row(float(a0), float(onset), p.with_(rho=rho, r_r=r_r), r_hist)
+                row.append(round(r["e_at_onset_m1.5"], 1))
+            rows.append(row)
+    write_csv(os.path.join(out, "T5c_race_finite_escape.csv"),
+              ["current_age", "onset_in_years", "p_survive_to_onset_historical_improvement",
+               "e_at_onset_if_hazard_frozen", "e_at_onset_if_decline_continues_at_1.5beta_no_resistant_share"]
+              + [f"e_at_onset_if_decline_continues_at_1.5beta_resistant_share_{rho:g}_improving_{r_r:g}" for rho in rhos], rows)
     return rows
 
 
@@ -261,16 +322,55 @@ def table_t1b(out, p):
     return rows
 
 
+# ------------------------------------------------------------------ T1c and T1d
+def table_t1c(out, p):
+    """Cohort D-1 threshold by age (added after the Phase 5 review): the smallest constant progress rate at which
+    cohort life expectancy at a fixed age rises by one year per year, counting the person's own future
+    improvement (M0, no frailty). Shown beside the period D-N and period D-1 requirements."""
+    rows = []
+    for mrdt in (7.0, 8.0, 9.0, 10.0):          # the same slopes as T1 (beta = ln 2 / doubling time)
+        beta = float(np.log(2) / mrdt)
+        for c in (0.0002, 0.0004, 0.0010):
+            q = p.with_(beta=beta, c=c)
+            for x in (30, 40, 50, 65, 80, 90):
+                r = m.threshold_r_d1_cohort(x, q)
+                mu = float(m.hazard(x, 0.0, q, m.traj_constant(0.0)))
+                v_period = 1.0 / (1.0 - mu * m.e_period(x, 0.0, q, m.traj_constant(0.0)))
+                rows.append([mrdt, round(beta, 4), c, x, round(r, 4), round(1 - np.exp(-r), 4), round(r / beta, 3),
+                             round(1 - np.exp(-beta), 4), round(1 - np.exp(-beta * v_period), 4)])
+    write_csv(os.path.join(out, "T1c_cohort_D1_threshold.csv"),
+              ["MRDT_years", "beta", "extrinsic_floor_c", "age", "cohort_D1_r", "cohort_D1_annual_decline",
+               "cohort_D1_v", "period_DN_annual_decline", "period_D1_annual_decline"], rows)
+    return rows
+
+
+def table_t1d(out, p):
+    """Selection damping of the observed (population) decline relative to the individual-level decline."""
+    rows = []
+    for s2 in (0.1, 0.2, 0.4):
+        q = p.with_(sigma2=s2)
+        for x in (60, 70, 80, 90):
+            f = m.selection_damping(x, q)
+            rows.append([s2, x, round(f, 3), round(1.0 / f, 2)])
+    write_csv(os.path.join(out, "T1d_selection_damping.csv"),
+              ["frailty_variance", "age", "observed_decline_as_share_of_individual_decline",
+               "individual_decline_as_multiple_of_observed"], rows)
+    return rows
+
+
 # ------------------------------------------------------------------ T6
-def table_t6(out, p, v_his):
+def table_t6(out, p, v_his, r_hist):
+    """Illustrative trajectories. Every ramp starts at the historical rate ``r_hist`` and rises linearly over 20
+    years (the same ramp as T4), so the S-E and S-F rows use the same trajectory as the 5% and 1% cells of T4
+    (harmonised after the Phase 5 review; the first draft used 19-year ramps and 0.015)."""
     b = p.beta
     scen = [
         ("S-A historical pace continues (1.5%/yr)", p, m.traj_constant(-np.log(1 - 0.015))),
-        ("S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)", p, m.traj_ramp(0.015, -np.log(1 - 0.04), 0, 10)),
-        ("S-C ramp to 1.3 beta by 2045, then constant (early LEV)", p, m.traj_ramp(0.015, 1.3 * b, 0, 19)),
-        ("S-D same ramp starting 2071 (late LEV)", p, m.traj_ramp(0.015, 1.3 * b, 45, 19)),
-        ("S-E ramp to 1.5 beta by 2045, 5% of hazard unimproved", p.with_(rho=0.05, r_r=0.0), m.traj_ramp(0.015, 1.5 * b, 0, 19)),
-        ("S-F ramp to 1.5 beta by 2045, 1% of hazard unimproved", p.with_(rho=0.01, r_r=0.0), m.traj_ramp(0.015, 1.5 * b, 0, 19)),
+        ("S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)", p, m.traj_ramp(r_hist, -np.log(1 - 0.04), 0, 10)),
+        ("S-C ramp to 1.3 beta over 20 years (by 2046), then constant (early LEV)", p, m.traj_ramp(r_hist, 1.3 * b, 0, 20)),
+        ("S-D same ramp starting 2071 (late LEV)", p, m.traj_ramp(r_hist, 1.3 * b, 45, 20)),
+        ("S-E ramp to 1.5 beta over 20 years, 5% of hazard unimproved", p.with_(rho=0.05, r_r=0.0), m.traj_ramp(r_hist, 1.5 * b, 0, 20)),
+        ("S-F ramp to 1.5 beta over 20 years, 1% of hazard unimproved", p.with_(rho=0.01, r_r=0.0), m.traj_ramp(r_hist, 1.5 * b, 0, 20)),
     ]
     rows = []
     for label, q, R in scen:
@@ -281,6 +381,22 @@ def table_t6(out, p, v_his):
     write_csv(os.path.join(out, "T6_scenario_classification.csv"),
               ["illustrative_trajectory", "v_hi", "outcome", "LEV_window_onset_year", "longest_DN_run_years",
                "max_rolling_20yr_pace_v"], rows)
+    return rows
+
+
+def table_t6b(out, p, r_hist, v_hi):
+    """Onset year against ramp duration (full access, individual level): how quickly the pace must climb from the
+    historical rate to 1.3 or 1.5 times the D-N threshold for a LEV window to start by a given year. This is the
+    explicit basis of the report's lead-time statement; it says nothing about which ramp durations are plausible."""
+    rows = []
+    for mult in (1.3, 1.5):
+        for T in (5, 10, 15, 20, 30, 40):
+            R = m.traj_ramp(r_hist, mult * p.beta, 0.0, float(T))
+            r = m.classify_outcome(p, R, v_hi=v_hi)
+            rows.append([mult, T, r["outcome"], r["onset_year"] if r["onset_year"] else "", r["longest_dn_run"]])
+    write_csv(os.path.join(out, "T6b_onset_by_ramp_duration.csv"),
+              ["ramp_target_multiple_of_beta", "ramp_years_from_2026", "outcome", "LEV_window_onset_year",
+               "longest_DN_run_years"], rows)
     return rows
 
 
@@ -305,18 +421,28 @@ def main():
 
     t1 = table_t1(a.out, p, placeholder)
     t1b = table_t1b(a.out, p)
+    table_t1c(a.out, p)
+    table_t1d(a.out, p)
     figure_f1(a.out, p)
     if cfg.get("observed"):
         table_t2(a.out, p, cfg["observed"])
     if cfg.get("effects"):
         table_t3(a.out, p, cfg["effects"])
     table_t4(a.out, p, r_hist, a.smoke)
+    table_t3b(a.out)
     table_t5(a.out, p, r_hist)
-    table_t6(a.out, p, cfg.get("v_hi_sensitivity", [0.20, 0.30, 0.40]))
+    table_t5b(a.out, p, ranges["mu80"], r_hist)
+    table_t5c(a.out, p, r_hist)
+    table_t6(a.out, p, cfg.get("v_hi_sensitivity", [0.20, 0.30, 0.40]), r_hist)
+    table_t6b(a.out, p, r_hist, cfg.get("team_set_bounds", {}).get("v_hi", {}).get("value", 0.30))
     mc = monte_carlo(a.out, p, ranges, 40 if a.smoke else a.mc_n, a.seed)
 
+    placeholders = list(cfg.get("placeholder_parameters", [])) if not placeholder else ["all (no params file)"]
     manifest = {
-        "placeholder_parameters": placeholder,
+        "placeholder_parameters": bool(placeholders),
+        "placeholder_parameter_names": placeholders,
+        "team_set_bounds": cfg.get("team_set_bounds", {}),
+        "parameter_sources": cfg.get("parameter_sources", {}),
         "params": p.__dict__ | {"cap": None if np.isinf(p.cap) else p.cap},
         "r_hist": r_hist,
         "ranges": ranges,

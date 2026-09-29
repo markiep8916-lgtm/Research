@@ -4,18 +4,18 @@ A `deep-research` `full`-mode run (v2.12.1) on the question: **under what condit
 
 **Start here:** [`LEV_research_report.md`](LEV_research_report.md), the report. Its section 1 is a one-page answer.
 
-**Status: preliminary.** Evidence collection stopped early when the session's shared web-search cap was reached, direct access to scholarly sites was blocked by the environment's network policy, every figure comes from a search summary (not primary text), and the independent re-verification pass could not run. The report says this at the top and in section 7, and lists what would strengthen it.
+**Status: preliminary; draft v2, revised after four reviews.** Evidence collection stopped early when the session's shared web-search cap was reached, direct access to scholarly sites was blocked by the environment's network policy, every figure comes from a search summary (not primary text), some figures were present in the search queries themselves (marked with a dagger in the report), and the independent re-verification pass could not run. Every role, including the four reviews, was performed by AI agents of one model family, and no human has checked any figure, citation or calculation. The report says this at the top and in section 7, and lists what would strengthen it.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
 | `LEV_research_report.md` | The report (answer, arithmetic, evidence, forecasts, scenarios, limitations, references with verification levels) |
-| `phase1_scoping/` | Research-question brief, methodology blueprint, the analysis plan (frozen definitions, model, weighting rules, reference classes, deviations log), and the devil's-advocate reports (three rounds, verdict PASS) |
+| `phase1_scoping/` | Research-question brief, methodology blueprint, the analysis plan (frozen definitions, model, weighting rules, reference classes, deviations log, including the changes made after the Phase 5 reviews), and the devil's-advocate reports (three rounds: revise, revise, pass on a spot check) |
 | `phase2_investigation/` | The search protocol and the evidence files W1-W7 (workstream agents, partial), and W8 (coordinator supplement). About 130 evidence cards, none at figure-level V3 |
-| `phase3_analysis/model/` | Python model (`lev_model.py`), 24 unit tests, driver (`run_analysis.py`), and `params.json` |
-| `phase3_analysis/outputs/` | Tables T1-T6, figures F1-F5, Monte Carlo samples, run manifest |
-| `phase5_review/` | Editorial, ethics, devil's-advocate, and claims-audit reviews of the report draft, with dispositions |
+| `phase3_analysis/model/` | Python model (`lev_model.py`), 32 unit tests, driver (`run_analysis.py`), and `params.json` |
+| `phase3_analysis/outputs/` | Tables T1-T6b (including the cohort threshold T1c, composition T3b, race-table sensitivities T5b and T5c, and onset-by-ramp T6b), figures F1-F5, Monte Carlo samples, run manifest |
+| `phase5_review/` | Editorial, ethics, devil's-advocate, and claims-audit reviews of report draft v1 (verbatim), with the author's disposition of every point, and the verification of the revision |
 
 ## Reproduce the numbers
 

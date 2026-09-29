@@ -1,0 +1,73 @@
+mu80,pre_onset_scenario,current_age,onset_in_years,p_survive_to_onset,expected_remaining_life_at_onset_if_hazard_frozen
+0.035,frozen 2026 mortality,40,20,0.9359,152.8
+0.035,frozen 2026 mortality,40,30,0.8452,66.4
+0.035,frozen 2026 mortality,40,40,0.6664,28.2
+0.035,frozen 2026 mortality,50,20,0.8633,66.4
+0.035,frozen 2026 mortality,50,30,0.6806,28.2
+0.035,frozen 2026 mortality,50,40,0.388,11.9
+0.035,frozen 2026 mortality,60,20,0.712,28.2
+0.035,frozen 2026 mortality,60,30,0.4059,11.9
+0.035,frozen 2026 mortality,60,40,0.1067,5.0
+0.035,frozen 2026 mortality,70,20,0.4495,11.9
+0.035,frozen 2026 mortality,70,30,0.1182,5.0
+0.035,frozen 2026 mortality,70,40,0.0049,2.1
+0.035,historical improvement,40,20,0.9454,202.4
+0.035,historical improvement,40,30,0.881,102.9
+0.035,historical improvement,40,40,0.7656,51.2
+0.035,historical improvement,50,20,0.8843,89.0
+0.035,historical improvement,50,30,0.7515,44.1
+0.035,historical improvement,50,40,0.5405,21.7
+0.035,historical improvement,60,20,0.7539,38.1
+0.035,historical improvement,60,30,0.5142,18.7
+0.035,historical improvement,60,40,0.2354,9.1
+0.035,historical improvement,70,20,0.5152,16.1
+0.035,historical improvement,70,30,0.2078,7.9
+0.035,historical improvement,70,40,0.0324,3.8
+0.05,frozen 2026 mortality,40,20,0.9129,109.0
+0.05,frozen 2026 mortality,40,30,0.7905,46.8
+0.05,frozen 2026 mortality,40,40,0.5638,19.8
+0.05,frozen 2026 mortality,50,20,0.8134,46.8
+0.05,frozen 2026 mortality,50,30,0.5802,19.8
+0.05,frozen 2026 mortality,50,40,0.2604,8.4
+0.05,frozen 2026 mortality,60,20,0.6176,19.8
+0.05,frozen 2026 mortality,60,30,0.2772,8.4
+0.05,frozen 2026 mortality,60,40,0.0412,3.5
+0.05,frozen 2026 mortality,70,20,0.3201,8.4
+0.05,frozen 2026 mortality,70,30,0.0476,3.5
+0.05,frozen 2026 mortality,70,40,0.0005,1.5
+0.05,historical improvement,40,20,0.9261,145.2
+0.05,historical improvement,40,30,0.8388,72.9
+0.05,historical improvement,40,40,0.6875,36.1
+0.05,historical improvement,50,20,0.8418,62.9
+0.05,historical improvement,50,30,0.6683,31.1
+0.05,historical improvement,50,40,0.418,15.2
+0.05,historical improvement,60,20,0.6703,26.8
+0.05,historical improvement,60,30,0.3886,13.1
+0.05,historical improvement,60,40,0.1275,6.4
+0.05,historical improvement,70,20,0.3891,11.3
+0.05,historical improvement,70,30,0.1065,5.5
+0.05,historical improvement,70,40,0.0075,2.7
+0.07,frozen 2026 mortality,40,20,0.883,78.8
+0.07,frozen 2026 mortality,40,30,0.723,33.6
+0.07,frozen 2026 mortality,40,40,0.4512,14.2
+0.07,frozen 2026 mortality,50,20,0.7513,33.6
+0.07,frozen 2026 mortality,50,30,0.4689,14.2
+0.07,frozen 2026 mortality,50,40,0.153,6.0
+0.07,frozen 2026 mortality,60,20,0.511,14.2
+0.07,frozen 2026 mortality,60,30,0.1667,6.0
+0.07,frozen 2026 mortality,60,40,0.0116,2.5
+0.07,frozen 2026 mortality,70,20,0.2036,6.0
+0.07,frozen 2026 mortality,70,30,0.0141,2.5
+0.07,frozen 2026 mortality,70,40,0.0,1.1
+0.07,historical improvement,40,20,0.9009,105.4
+0.07,historical improvement,40,30,0.7856,52.5
+0.07,historical improvement,40,40,0.5956,25.9
+0.07,historical improvement,50,20,0.7882,45.3
+0.07,historical improvement,50,30,0.5716,22.3
+0.07,historical improvement,50,40,0.2968,10.9
+0.07,historical improvement,60,20,0.573,19.2
+0.07,historical improvement,60,30,0.2676,9.4
+0.07,historical improvement,60,40,0.0563,4.6
+0.07,historical improvement,70,20,0.2676,8.1
+0.07,historical improvement,70,30,0.0437,3.9
+0.07,historical improvement,70,40,0.0011,1.9

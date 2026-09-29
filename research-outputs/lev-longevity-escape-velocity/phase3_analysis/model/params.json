@@ -1,5 +1,16 @@
 {
   "params": {"beta": 0.087, "mu80": 0.05, "c": 0.0004},
+  "placeholder_parameters": ["mu80", "c"],
+  "team_set_bounds": {
+    "v_hi": {"value": 0.30, "sensitivity": [0.20, 0.40], "note": "team-set upper bound on the historical pace (about 2.6% a year); decade-by-sex hazard tables were not retrievable (plan section 13)"}
+  },
+  "parameter_sources": {
+    "beta": "W8-01 (doubling time about 8 years; the figure was in the search query, so the summary's agreement is not independent); range 0.069-0.099 spans doubling times of 7 to 10 years",
+    "mu80": "placeholder calibrated so model e(65) is about 19 years against the OECD average of 19.9 (W8-05); range 0.035-0.070",
+    "c": "placeholder; range 0.0002-0.0010",
+    "r_hist": "W8-02 (1.5% assumption, figure in query) and W8-03 (1-2% since 1900, figure in query); 0.0151 is the log-rate of 1.5% a year",
+    "v_hi": "team-set (see team_set_bounds)"
+  },
   "r_hist": 0.0151,
   "v_hi_sensitivity": [0.20, 0.30, 0.40],
   "ranges": {
@@ -8,31 +19,45 @@
     "r_max_mult": [0.5, 2.0], "t_ramp": [10.0, 40.0], "t_start": [0.0, 20.0]
   },
   "observed": [
-    {"label": "CMI illustrative long-term improvement assumption (an assumption, not data)", "r_per_year": 0.015, "source": "W8-02", "level": "V2"},
-    {"label": "All-age mortality since 1900, lower end of reported range", "r_per_year": 0.010, "source": "W8-03", "level": "V2"},
-    {"label": "All-age mortality since 1900, upper end of reported range", "r_per_year": 0.020, "source": "W8-03", "level": "V2"},
-    {"label": "Older ages, Western Europe 1980s-1990s", "r_per_year": 0.010, "source": "W8-03", "level": "V2"},
-    {"label": "US ages 65+, crude rate 2000-2019 (5,144 to 3,917 per 100,000; coordinator arithmetic)", "r_per_year": 0.0142, "source": "W8-04", "level": "V1 (secondary)"},
+    {"label": "CMI illustrative long-term improvement assumption (an assumption, not data; figure was in the search query)", "r_per_year": 0.015, "source": "W8-02", "level": "V2 (query-seeded)"},
+    {"label": "All-age mortality since 1900, lower end of reported range (figure was in the search query)", "r_per_year": 0.010, "source": "W8-03", "level": "V2 (query-seeded)"},
+    {"label": "All-age mortality since 1900, upper end of reported range (figure was in the search query)", "r_per_year": 0.020, "source": "W8-03", "level": "V2 (query-seeded)"},
+    {"label": "Older ages, Western Europe 1980s-1990s (figure was in the search query)", "r_per_year": 0.010, "source": "W8-03", "level": "V2 (query-seeded)"},
+    {"label": "US ages 65+, crude rate 2000-2019 (5,144 to 3,917 per 100,000; coordinator arithmetic; secondary source, pointer only)", "r_per_year": 0.0142, "source": "W8-04", "level": "V1 (secondary)"},
     {"label": "US 2018 to 2019, ages 65-74 (single year)", "r_per_year": 0.010, "source": "W8-04", "level": "V2"},
     {"label": "US 2018 to 2019, ages 75-84 (single year)", "r_per_year": 0.018, "source": "W8-04", "level": "V2"},
     {"label": "US 2018 to 2019, ages 85+ (single year)", "r_per_year": 0.017, "source": "W8-04", "level": "V2"},
-    {"label": "RC6: US coronary death rate 1980-2000, men (one cause; coordinator arithmetic)", "r_per_year": 0.0349, "source": "W8-15", "level": "V2"},
-    {"label": "RC6: US coronary death rate 1980-2000, women (one cause; coordinator arithmetic)", "r_per_year": 0.0331, "source": "W8-14", "level": "V2"},
+    {"label": "RC6: US age-adjusted coronary death rate 1980-2000, men, ages 25-84 (one cause; 542.9 to 266.8; coordinator arithmetic; proportional annual decline, log-rate about 3.55%)", "r_per_year": 0.0349, "source": "W8-15", "level": "V2"},
+    {"label": "RC6: US age-adjusted coronary death rate 1980-2000, women, ages 25-84 (one cause; 263.3 to 134.4; coordinator arithmetic; proportional annual decline, log-rate about 3.36%)", "r_per_year": 0.0331, "source": "W8-15", "level": "V2"},
     {"label": "RC6: advanced-HIV cohort deaths, 1995 to mid-1997 (one cause, about 2.25 years; coordinator arithmetic)", "r_per_year": 0.415, "source": "W8-14", "level": "V2"}
   ],
   "effects": [
-    {"name": "SPRINT intensive BP target, all-cause, trial period (point)", "hr": 0.73, "source": "W2-01", "level": "V2"},
-    {"name": "SPRINT, upper CI bound (weakest effect)", "hr": 0.90, "source": "W2-01", "level": "V2"},
-    {"name": "SPRINT, lower CI bound (strongest effect)", "hr": 0.60, "source": "W2-01", "level": "V2"},
-    {"name": "SPRINT overall incl. 8-year post-trial follow-up (effect not sustained)", "hr": 0.96, "source": "W2-03", "level": "V2"},
+    {"name": "SPRINT intensive BP target, all-cause, primary report at early stopping (median follow-up 3.3 years) (point)", "hr": 0.73, "source": "W2-01", "level": "V2"},
+    {"name": "SPRINT primary report, upper CI bound (weakest effect)", "hr": 0.90, "source": "W2-01", "level": "V2"},
+    {"name": "SPRINT primary report, lower CI bound (strongest effect)", "hr": 0.60, "source": "W2-01", "level": "V2"},
+    {"name": "SPRINT 'trial period' all-cause, from a conference-abstract supplement (attribution inferred; point)", "hr": 0.83, "source": "W2-03", "level": "V2, flagged"},
+    {"name": "SPRINT 'trial period' all-cause, lower CI bound (strongest effect)", "hr": 0.68, "source": "W2-03", "level": "V2, flagged"},
+    {"name": "SPRINT overall incl. 8-year post-trial follow-up (effect not sustained)", "hr": 0.96, "source": "W2-03", "level": "V2, flagged"},
     {"name": "BP lowering per 10 mmHg systolic, all-cause (meta-analysis)", "hr": 0.87, "source": "W2-04", "level": "V2"},
     {"name": "LDL-C lowering per 1.0 mmol/L, all-cause (26 trials)", "hr": 0.90, "source": "W2-06", "level": "V2"},
     {"name": "Semaglutide (SELECT), all-cause, nominal", "hr": 0.81, "source": "W2-15", "level": "V2"},
-    {"name": "Empagliflozin (EMPA-REG), all-cause, type 2 diabetes", "hr": 0.68, "source": "W2-17", "level": "V2"},
+    {"name": "Empagliflozin (EMPA-REG), all-cause, type 2 diabetes, one trial", "hr": 0.68, "source": "W2-17", "level": "V2"},
+    {"name": "SGLT2 inhibitors, class-level all-cause (meta-analysis; unattributed; summary self-contradictory)", "hr": 0.89, "source": "W2-17 (C-6)", "level": "V2, flagged"},
     {"name": "Tirzepatide vs dulaglutide (SURPASS-CVOT), all-cause, active comparator", "hr": 0.84, "source": "W2-16", "level": "V2"},
-    {"name": "Smoking cessation at age 25-34 (life-years, observational)", "age_years": 10.0, "source": "W2-13", "level": "V2"},
+    {"name": "Smoking cessation at age 25-34 (life-years, observational)", "age_years": 10.0, "source": "W2-13", "level": "V2 (one claim-level V3 with W2-14)"},
     {"name": "Five low-risk lifestyle factors vs none, women at 50 (life-years, observational)", "age_years": 14.0, "source": "W8-17", "level": "V2"},
     {"name": "Five low-risk lifestyle factors vs none, men at 50 (life-years, observational)", "age_years": 12.2, "source": "W8-17", "level": "V2"},
-    {"name": "MOUSE: dasatinib+quercetin, post-treatment hazard (thought experiment only, not a human estimate)", "hr": 0.65, "source": "W8-19", "level": "V2 [SPECULATIVE if applied to humans]"}
+    {"name": "MOUSE: dasatinib+quercetin, post-treatment hazard 0.65 (thought experiment only, not a human estimate)", "kind": "animal_hazard_ratio", "hr": 0.65, "source": "W8-19", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP rapamycin plus acarbose (start 9 months), median +34% males, if the proportional gain transferred to an 80-year human lifespan", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.34, "L": 80, "source": "W3-07", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP rapamycin at 3x dose, median +26% females", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.26, "L": 80, "source": "W3-03", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP acarbose, median +22% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.22, "L": 80, "source": "W3-04", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP canagliflozin, median +14% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.14, "L": 80, "source": "W3-06", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP 17-alpha-estradiol (2014 cohort), median +12% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.12, "L": 80, "source": "W3-05", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND: ITP acarbose, median +5% females", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.05, "L": 80, "source": "W3-04", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +14% females", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.14, "L": 80, "source": "W3-02", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +9% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.09, "L": 80, "source": "W3-02", "level": "V2 [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND, 90th-percentile reading: ITP acarbose, 90th percentile +11% males (single leading query)", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.11, "L": 80, "source": "W3-04", "level": "V2, flagged [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND, 90th-percentile reading: ITP canagliflozin, 90th percentile +9% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.09, "L": 80, "source": "W3-06", "level": "V2, flagged [SPECULATIVE if applied to humans]"},
+    {"name": "UPPER BOUND, 90th-percentile reading: ITP 17-alpha-estradiol (2021 cohort), 90th percentile +7% males", "kind": "animal_lifespan_proportional_upper_bound", "lifespan_gain": 0.07, "L": 80, "source": "W3-05", "level": "V2 [SPECULATIVE if applied to humans]"}
   ]
 }

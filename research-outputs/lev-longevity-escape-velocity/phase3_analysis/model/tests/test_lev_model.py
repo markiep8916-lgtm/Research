@@ -234,3 +234,62 @@ def test_dh_threshold_falls_with_age_under_frailty_and_matches_closed_form():
     for x in (70, 90):
         h_age = float(m.hazard(x, 0.0, q, m.traj_constant(0.0))) - q.c
         assert m.threshold_r_dh(x, q) == pytest.approx(P.beta - q.sigma2 * h_age, rel=0.03)
+
+
+# ---------------------------------------------------------------- Phase 5 additions (plan section 13, Round 4)
+def test_cohort_gain_matches_low_hazard_closed_form():
+    # Without a floor and at low hazard the cohort D-1 gain is r / (beta - r): the expected remaining life
+    # of a young cohort grows with the log of the hazard reduction it will experience.
+    p = P.with_(c=0.0)
+    r = 0.03
+    assert m.d1_gain_cohort(20.0, p, r) == pytest.approx(r / (p.beta - r), rel=0.05)
+
+
+def test_cohort_d1_threshold_is_about_half_beta_at_young_ages():
+    p = P.with_(c=0.0)
+    assert m.threshold_r_d1_cohort(20.0, p) == pytest.approx(p.beta / 2, rel=0.05)
+
+
+def test_cohort_d1_threshold_rises_with_age_and_crosses_dn_only_at_very_old_ages():
+    ages = (40, 50, 65, 80, 90)
+    thr = [m.threshold_r_d1_cohort(x, P) for x in ages]
+    assert all(b > a for a, b in zip(thr, thr[1:]))            # rises with age
+    assert all(t < P.beta for t in thr[:4])                     # below the period D-N pace through age 80
+    assert thr[-1] > P.beta                                     # above it at 90 (hazard exceeds the pace)
+
+
+def test_criteria_order_at_age_50_cohort_d1_below_dn_below_period_d1():
+    x = 50
+    cohort = m.threshold_r_d1_cohort(x, P)
+    dn = m.threshold_r(x, P)
+    R0 = m.traj_constant(0.0)
+    mu = float(m.hazard(x, 0.0, P, R0))
+    period_d1 = P.beta / (1.0 - mu * m.e_period(x, 0.0, P, R0))  # v >= 1 / (1 - mu e), r = v beta
+    assert cohort < dn < period_d1
+
+
+def test_cohort_gain_is_zero_without_progress_and_e_cohort_matches_period_at_r_zero():
+    assert m.d1_gain_cohort(60.0, P, 0.0) == pytest.approx(0.0, abs=1e-6)
+    assert m.e_cohort(60.0, P, 0.0) == pytest.approx(m.e_period(60.0, 0.0, P, m.traj_constant(0.0)), rel=1e-3)
+
+
+def test_selection_damping_closed_form_and_monotone():
+    q = P.with_(sigma2=0.2)
+    H80 = q.A * (np.exp(q.beta * 80) - np.exp(q.beta * q.x_s)) / q.beta
+    assert m.selection_damping(80.0, q) == pytest.approx(1.0 / (1.0 + 0.2 * H80))
+    assert m.selection_damping(90.0, q) < m.selection_damping(80.0, q) < 1.0
+    assert m.selection_damping(90.0, P) == 1.0                  # no frailty, no damping
+
+
+def test_lifespan_upper_bound_conversion_and_cadence():
+    g = m.lifespan_gain_to_age_years(0.25, 80.0)
+    assert g == pytest.approx(20.0)
+    k = m.implied_hazard_ratio(g, P.beta)
+    assert k == pytest.approx(np.exp(-P.beta * 20.0))
+    assert m.age_years(k, P.beta) == pytest.approx(g)           # round trip
+    assert m.cadence_years(k, P.beta) == pytest.approx(20.0)    # one such effect every g years sustains v = 1
+
+
+def test_effects_needed_scales_with_overlap():
+    assert m.effects_needed(3.6, 20.0, 0.0) == pytest.approx(20.0 / 3.6)
+    assert m.effects_needed(3.6, 20.0, 0.5) == pytest.approx(2.0 * 20.0 / 3.6)

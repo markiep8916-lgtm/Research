@@ -1,12 +1,12 @@
 label,annual_proportional_decline,v_age_years_per_year,acceleration_needed_for_v1,source_card,verification_level
-"CMI illustrative long-term improvement assumption (an assumption, not data)",0.015,0.174,5.76,W8-02,V2
-"All-age mortality since 1900, lower end of reported range",0.01,0.116,8.66,W8-03,V2
-"All-age mortality since 1900, upper end of reported range",0.02,0.232,4.31,W8-03,V2
-"Older ages, Western Europe 1980s-1990s",0.01,0.116,8.66,W8-03,V2
-"US ages 65+, crude rate 2000-2019 (5,144 to 3,917 per 100,000; coordinator arithmetic)",0.0142,0.164,6.08,W8-04,V1 (secondary)
+"CMI illustrative long-term improvement assumption (an assumption, not data; figure was in the search query)",0.015,0.174,5.76,W8-02,V2 (query-seeded)
+"All-age mortality since 1900, lower end of reported range (figure was in the search query)",0.01,0.116,8.66,W8-03,V2 (query-seeded)
+"All-age mortality since 1900, upper end of reported range (figure was in the search query)",0.02,0.232,4.31,W8-03,V2 (query-seeded)
+"Older ages, Western Europe 1980s-1990s (figure was in the search query)",0.01,0.116,8.66,W8-03,V2 (query-seeded)
+"US ages 65+, crude rate 2000-2019 (5,144 to 3,917 per 100,000; coordinator arithmetic; secondary source, pointer only)",0.0142,0.164,6.08,W8-04,V1 (secondary)
 "US 2018 to 2019, ages 65-74 (single year)",0.01,0.116,8.66,W8-04,V2
 "US 2018 to 2019, ages 75-84 (single year)",0.018,0.209,4.79,W8-04,V2
 "US 2018 to 2019, ages 85+ (single year)",0.017,0.197,5.07,W8-04,V2
-"RC6: US coronary death rate 1980-2000, men (one cause; coordinator arithmetic)",0.0349,0.408,2.45,W8-15,V2
-"RC6: US coronary death rate 1980-2000, women (one cause; coordinator arithmetic)",0.0331,0.387,2.58,W8-14,V2
+"RC6: US age-adjusted coronary death rate 1980-2000, men, ages 25-84 (one cause; 542.9 to 266.8; coordinator arithmetic; proportional annual decline, log-rate about 3.55%)",0.0349,0.408,2.45,W8-15,V2
+"RC6: US age-adjusted coronary death rate 1980-2000, women, ages 25-84 (one cause; 263.3 to 134.4; coordinator arithmetic; proportional annual decline, log-rate about 3.36%)",0.0331,0.387,2.58,W8-15,V2
 "RC6: advanced-HIV cohort deaths, 1995 to mid-1997 (one cause, about 2.25 years; coordinator arithmetic)",0.415,6.163,0.16,W8-14,V2

@@ -8,7 +8,9 @@ Implements the frozen specification in ``phase1_scoping/03_analysis_plan.md``:
       (share ``rho``) improving at its own constant rate ``r_r``
 * M2  gamma frailty (variance ``sigma2`` at age ``x_s``): population hazards
 * criteria D-N (no-shrink), D-1 (one-for-one), D-H (hazard stationarity)
-* escape duration, race table, level-to-rate conversion
+* cohort D-1 (added after the Phase 5 review, plan section 13): one-for-one on cohort life expectancy,
+  which counts the person's own future improvement
+* escape duration, race table, level-to-rate conversion (including the animal upper-bound conversion)
 
 Numpy only. All ages are in years; time t is years from 2026 (t = 0).
 
@@ -205,6 +207,59 @@ def threshold_r(x: float, p: Params, iters: int = 26) -> float:
     return 0.5 * (lo + hi)
 
 
+def e_cohort(x: float, p: Params, r: float, t0: float = 0.0, ds: float = 0.05, s_max: float = 1500.0) -> float:
+    """Cohort (forward-looking) remaining life expectancy of a person aged ``x`` at calendar time ``t0`` when
+    death rates fall at the constant log-rate ``r`` from t = 0 on, counting the person's own future improvement.
+
+    Model M0 only (no resistant component, no frailty, no cap): the age-related hazard along the path is
+    h0 * exp((beta - r) s) with h0 = A exp(beta x - r t0), so its integral has a closed form and only the
+    survival integral is numerical. The horizon (1500 years) is far beyond where survival vanishes for
+    r < beta; for r >= beta the constant-hazard tail is added.
+    """
+    s = np.arange(0.0, s_max + ds / 2, ds)
+    h0 = p.A * np.exp(p.beta * x - r * t0)
+    g = p.beta - r
+    H_age = h0 * s if abs(g) < 1e-12 else h0 * np.expm1(g * s) / g
+    S = np.exp(-(H_age + p.c * s))
+    tail = S[-1] / (h0 * np.exp(g * s[-1]) + p.c)
+    return float(np.trapezoid(S, s) + tail)
+
+
+def d1_gain_cohort(x: float, p: Params, r: float, h: float = 0.05, ds: float = 0.05) -> float:
+    """Cohort D-1 quantity: d e_cohort(x, t0) / d t0 at fixed age x (years gained per calendar year)."""
+    return (e_cohort(x, p, r, +h, ds) - e_cohort(x, p, r, -h, ds)) / (2.0 * h)
+
+
+def threshold_r_d1_cohort(x: float, p: Params, target: float = 1.0, n_grid: int = 301, iters: int = 40) -> float:
+    """Smallest constant progress rate r for which the cohort life expectancy at age x rises by at least
+    ``target`` years per calendar year (D-1 on cohort tables). The gain is not monotone in r once the
+    extrinsic floor bounds life expectancy, so the first crossing on a grid is refined by bisection.
+    Returns nan if no r up to 3 beta reaches the target.
+
+    With no floor and low hazard the threshold tends to beta / 2 (the gain is r / (beta - r)), which is
+    why a cohort reading of "one year per year" needs about half the period D-N pace at young ages."""
+    grid = np.linspace(0.0, 3.0 * p.beta, n_grid)
+    gains = np.array([d1_gain_cohort(x, p, r) for r in grid])
+    hit = np.where(gains >= target)[0]
+    if len(hit) == 0:
+        return float("nan")
+    lo, hi = grid[max(hit[0] - 1, 0)], grid[hit[0]]
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if d1_gain_cohort(x, p, mid) < target else (lo, mid)
+    return 0.5 * (lo + hi)
+
+
+def selection_damping(x: float, p: Params) -> float:
+    """Factor by which gamma-frailty selection damps the observed decline of the population death rate
+    relative to the individual-level decline at age ``x``: 1 / (1 + sigma2 H(x)), H the cumulative
+    age-related hazard from the frailty reference age. Equals 1 without frailty."""
+    if p.sigma2 <= 0:
+        return 1.0
+    H = max(p.A * (np.exp(p.beta * x) - np.exp(p.beta * p.x_s)) / p.beta, 0.0)
+    return float(1.0 / (1.0 + p.sigma2 * H))
+
+
 def threshold_r_dh(x: float, p: Params, iters: int = 30, dt: float = 0.01) -> float:
     """Smallest constant r for which the population hazard along the cohort path (D-H) is not rising at
     age x, time 0. With gamma frailty, selection makes the cohort's population hazard decelerate
@@ -313,6 +368,24 @@ def required_annual_decline(beta: float) -> float:
 def cadence_years(k: float, beta: float, v: float = 1.0) -> float:
     """Years between new independent effects of size k needed to sustain rate v."""
     return age_years(k, beta) / v
+
+
+def lifespan_gain_to_age_years(frac: float, human_lifespan: float = 80.0) -> float:
+    """UPPER-BOUND thought experiment (plan section 7): an animal lifespan gain of ``frac`` (for example 0.25 for
+    +25%) applied in the same proportion to a human lifespan of ``human_lifespan`` years is a level shift of
+    frac * human_lifespan age-years. It assumes the whole animal effect transfers, in proportion, to humans."""
+    return float(frac * human_lifespan)
+
+
+def implied_hazard_ratio(g_age_years: float, beta: float) -> float:
+    """Hazard ratio equivalent to a one-off shift of g age-years: k = exp(-beta g)."""
+    return float(np.exp(-beta * g_age_years))
+
+
+def effects_needed(g_age_years: float, window: float = 20.0, overlap: float = 0.0) -> float:
+    """Number of independent effects of nominal size g needed to sustain v = 1 over ``window`` years when each
+    new effect overlaps the earlier ones by the fraction ``overlap`` (its realised size is g (1 - overlap))."""
+    return float(window / (g_age_years * (1.0 - overlap)))
 
 
 # --------------------------------------------------------------------------

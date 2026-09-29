@@ -5,15 +5,15 @@ S-A historical pace continues (1.5%/yr),0.4,O1,,0,0.173
 "S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)",0.2,O2,,0,0.466
 "S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)",0.3,O2,,0,0.466
 "S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)",0.4,O2,,0,0.466
-"S-C ramp to 1.3 beta by 2045, then constant (early LEV)",0.2,O3,2040,80,1.252
-"S-C ramp to 1.3 beta by 2045, then constant (early LEV)",0.3,O3,2040,80,1.252
-"S-C ramp to 1.3 beta by 2045, then constant (early LEV)",0.4,O3,2040,80,1.252
-S-D same ramp starting 2071 (late LEV),0.2,O4,2085,35,1.215
-S-D same ramp starting 2071 (late LEV),0.3,O4,2085,35,1.215
-S-D same ramp starting 2071 (late LEV),0.4,O4,2085,35,1.215
-"S-E ramp to 1.5 beta by 2045, 5% of hazard unimproved",0.2,O2,,13,1.026
-"S-E ramp to 1.5 beta by 2045, 5% of hazard unimproved",0.3,O2,,13,1.026
-"S-E ramp to 1.5 beta by 2045, 5% of hazard unimproved",0.4,O2,,13,1.026
-"S-F ramp to 1.5 beta by 2045, 1% of hazard unimproved",0.2,O3,2038,26,1.288
-"S-F ramp to 1.5 beta by 2045, 1% of hazard unimproved",0.3,O3,2038,26,1.288
-"S-F ramp to 1.5 beta by 2045, 1% of hazard unimproved",0.4,O3,2038,26,1.288
+"S-C ramp to 1.3 beta over 20 years (by 2046), then constant (early LEV)",0.2,O3,2041,79,1.249
+"S-C ramp to 1.3 beta over 20 years (by 2046), then constant (early LEV)",0.3,O3,2041,79,1.249
+"S-C ramp to 1.3 beta over 20 years (by 2046), then constant (early LEV)",0.4,O3,2041,79,1.249
+S-D same ramp starting 2071 (late LEV),0.2,O4,2086,34,1.21
+S-D same ramp starting 2071 (late LEV),0.3,O4,2086,34,1.21
+S-D same ramp starting 2071 (late LEV),0.4,O4,2086,34,1.21
+"S-E ramp to 1.5 beta over 20 years, 5% of hazard unimproved",0.2,O2,,12,1.017
+"S-E ramp to 1.5 beta over 20 years, 5% of hazard unimproved",0.3,O2,,12,1.017
+"S-E ramp to 1.5 beta over 20 years, 5% of hazard unimproved",0.4,O2,,12,1.017
+"S-F ramp to 1.5 beta over 20 years, 1% of hazard unimproved",0.2,O3,2039,26,1.28
+"S-F ramp to 1.5 beta over 20 years, 1% of hazard unimproved",0.3,O3,2039,26,1.28
+"S-F ramp to 1.5 beta over 20 years, 1% of hazard unimproved",0.4,O3,2039,26,1.28

@@ -8,6 +8,7 @@
 | Tool | WebSearch only; the main thread's calls were still accepted after the subagents' were refused. No workaround was used; the cap message told the subagents that only the user can raise `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` |
 | Protocol | Ladder v3 (`../phase1_scoping/02_methodology_blueprint.md`). **All figures are summary-mediated**: each comes from a model-written search summary plus a link list, none from primary text |
 | Leading queries | Q-12, Q-15 and Q-24 contained a figure taken from the coordinator's memory; the summary's echo of that figure is *not* counted as corroboration (marked "leading") |
+| Phase 5 correction (after the claims audit) | Q-06 ("about 8 years"), Q-08 ("about 1 to 2 percent"), Q-23 ("1.5 percent per year") and Q-38 ("about 90 percent") also carried the figure they were meant to confirm and were not marked. They are now marked leading; the affected figures (W8-01, W8-02, W8-03, W8-16) are not independently corroborated |
 | Levels reached | No card reaches figure-level V3 (each traces to one authorship origin or one query). V2 = existence at a primary source plus one attributing sentence; V1 = secondary only |
 
 ## Search log
@@ -19,9 +20,9 @@
 | Q-03 | Olshansky 2024 Nature Aging implausibility of radical life extension humans twenty-first century | orientation (W1-06 covers) |
 | Q-04 | partial epigenetic reprogramming first human clinical trial 2026 Life Biosciences ER-100 | orientation (W4, W5 cover) |
 | Q-05 | Oeppen Vaupel 2002 broken limits to life expectancy best-practice life expectancy | links: science.org, PubMed, ResearchGate, Semantic Scholar |
-| Q-06 | Gompertz law mortality rate doubling time humans about 8 years adult mortality | links: PMC, Frontiers, PLOS ONE, Wikipedia |
+| Q-06 | Gompertz law mortality rate doubling time humans about 8 years adult mortality | **leading** ("about 8 years"; marked in Phase 5); links: PMC, Frontiers, PLOS ONE, Wikipedia |
 | Q-07 | Debonneuil Loisel Planchet 2018 actuarial escape velocity longevity escape velocity mortality improvement rate needed | links: HAL, IDEAS/RePEc, ResearchGate, Wikipedia |
-| Q-08 | annual rate of mortality decline at ages 65 to 85 developed countries about 1 to 2 percent per year mortality improvement older ages | links: NBER, National Academies Press, PMC, Our World in Data |
+| Q-08 | annual rate of mortality decline at ages 65 to 85 developed countries about 1 to 2 percent per year mortality improvement older ages | **leading** ("about 1 to 2 percent"; marked in Phase 5); links: NBER, National Academies Press, PMC, Our World in Data |
 | Q-09 | life expectancy at age 65 in 2019 Japan France Spain Switzerland South Korea Italy years OECD Health at a Glance | the tool ran four internal search rounds; links: OECD, MHLW Japan, CDC |
 | Q-10 | Baker 2016 Nature clearance of p16Ink4a-positive senescent cells delays ageing-associated disorders median lifespan extension percent | links: nature.com (2011 paper), USPTO patents, Mayo |
 | Q-11 | Xu 2018 Nature Medicine senolytics improve physical function and increase lifespan in old age dasatinib quercetin remaining lifespan | links: nature.com, PMC, eBioMedicine |
@@ -36,7 +37,7 @@
 | Q-20 | Ford 2007 New England Journal of Medicine explaining the decrease in US deaths from coronary disease 1980-2000 treatments and risk factor changes percent | links: NEJM, PubMed, Minnesota |
 | Q-21 | Tetlock Expert Political Judgment accuracy of expert forecasts compared with chance and simple extrapolation | links: Princeton UP, Penn, JSTOR, Wikipedia |
 | Q-22 | Rau Soroko Jasilionis Vaupel 2008 continued reductions in mortality at advanced ages Population and Development Review annual rate of decline | links: ResearchGate, IDEAS, arXiv |
-| Q-23 | actuarial long-term mortality improvement assumption 1.5 percent per year CMI model ultimate rate of mortality improvement | links: Institute and Faculty of Actuaries CMI pages, WTW, Isio |
+| Q-23 | actuarial long-term mortality improvement assumption 1.5 percent per year CMI model ultimate rate of mortality improvement | **leading** ("1.5 percent"; marked in Phase 5); links: Institute and Faculty of Actuaries CMI pages, WTW, Isio |
 | Q-24 | adult human mortality rate increases exponentially with age Gompertz slope about 0.085 per year doubling every 8 years | **leading**; links: PMC, eLife, PLOS ONE, GitHub |
 | Q-25 | life expectancy at age 65 United States 2019 years National Center for Health Statistics both sexes | links: CDC NCHS reports; no figure returned |
 | Q-26 | Actuarial escape velocity Debonneuil abstract "life extension velocity" sustained mortality improvements 4% longevity escape velocity insurance mathematics economics | **leading** (4%); links: ResearchGate, Wikipedia, PLOS Biology, ScienceDirect |
@@ -51,7 +52,7 @@
 | Q-35 | therapeutic plasma exchange older adults biological age epigenetic clocks trial Buck Institute Kennedy 2025 Aging Cell albumin IVIG | links: Wiley (Aging Cell), Buck Institute, Fight Aging |
 | Q-36 | Fahy 2019 Aging Cell reversal of epigenetic aging and immunosenescent trends in humans thymus regeneration growth hormone DHEA metformin 9 men | links: Wiley, PMC, Semantic Scholar |
 | Q-37 | pig kidney xenotransplantation clinical trial 2026 United Therapeutics EXPAND FDA patients status survival | links: PMC, United Therapeutics IR, NYU Langone |
-| Q-38 | childhood acute lymphoblastic leukemia five-year survival rate 1960s versus today about 90 percent improvement over decades | links: Our World in Data, PMC |
+| Q-38 | childhood acute lymphoblastic leukemia five-year survival rate 1960s versus today about 90 percent improvement over decades | **leading** ("about 90 percent"; marked in Phase 5); links: Our World in Data, PMC |
 | Q-39 | López-Otín 2023 Hallmarks of aging an expanding universe Cell twelve hallmarks disabled macroautophagy chronic inflammation dysbiosis | links: cell.com, PMC |
 
 ## Evidence cards
@@ -59,18 +60,18 @@
 Card format is abbreviated: figures are as reported in the search output, unconverted. "Attr." quotes or paraphrases the attributing sentence (at most 25 words).
 
 ### W8-01 · Gompertz slope and mortality-rate doubling time (adults)
-- **Level:** V2 [E2, F2]. **Log:** Q-06 (unled); Q-24 (leading, not counted).
+- **Level:** V2 [E2, F2] for existence; the figure is **not independently corroborated** (Phase 5: Q-06 also carried "about 8 years"). **Log:** Q-06 (leading); Q-24 (leading, not counted).
 - **Attr.:** Q-06: adult human mortality "doubles about every 8 years" (Gompertz law; PMC and PLOS ONE pieces in the link list). Q-24 adds "0.07 to 0.09 per year" without a named source.
 - **Sources listed:** PMC6206166 (Frontiers in Genetics, 2018); PLOS ONE 2014 (Gompertz-based life-expectancy estimates); eLife 2018 insight. Old-age deceleration after about age 80 is noted (PMC6386419).
 - **Label:** [ESTABLISHED] for the roughly exponential rise of adult hazard; the exact slope is [SUPPORTED] (range 0.07-0.09, not a V3 input, so β stays a ranged parameter). **Use:** SQ1 baseline.
 
 ### W8-02 · Actuarial long-term mortality-improvement assumptions
-- **Level:** V2 [E2, F2]. **Log:** Q-23.
+- **Level:** V2 [E2, F2] for existence; the 1.5% figure is **not independently corroborated** (Phase 5: Q-23 carried "1.5 percent per year"). **Log:** Q-23 (leading).
 - **Attr.:** the CMI model's illustrative long-term rate is 1.5% a year; market practice about 1.5% for funding and 1-1.25% for best estimate (Institute and Faculty of Actuaries, CMI FAQs; WTW).
 - **Caveat:** these are assumptions set by users, "not based on data" (CMI wording in the output). **Label:** [SUPPORTED] as an assumption; not an observation. **Use:** SQ2 baseline range.
 
 ### W8-03 · Observed pace of mortality decline
-- **Level:** V2 [E2, F2 each]. **Log:** Q-08.
+- **Level:** V2 [E2, F2 each] for existence; the 1-2% figures are **not independently corroborated** (Phase 5: Q-08 carried "about 1 to 2 percent"). **Log:** Q-08 (leading).
 - **Attr.:** NBER digest (2002): mortality rates fell at a fairly constant 1 to 2 percent per year since 1900, except 1955-1965. National Academies (2000): older-age rates in Western Europe fell about 1 percent a year in the 1980s-90s.
 - **Caveat:** old sources; the first is an all-age figure. **Label:** [SUPPORTED]. **Use:** SQ2 baseline range (r_hist 1-2% per year).
 
@@ -127,7 +128,7 @@ Card format is abbreviated: figures are as reported in the search output, unconv
 - **Arithmetic (coordinator, not from the source):** about 3.4-3.6% a year log-rate over 20 years for one cause. **Label:** [SUPPORTED].
 
 ### W8-16 · Childhood leukaemia survival (RC6)
-- **Level:** V2 [E2, F2]. **Log:** Q-38. **Attr.:** Our World in Data and PMC reviews: five-year survival of childhood acute lymphoblastic leukaemia about 14% (some sources under 10%) in the 1960s to about 90-94% in the 2010s.
+- **Level:** V2 [E2, F2] for existence; the 90-94% figure is **not independently corroborated** (Phase 5: Q-38 carried "about 90 percent"). **Log:** Q-38 (leading). **Attr.:** Our World in Data and PMC reviews: five-year survival of childhood acute lymphoblastic leukaemia about 14% (some sources under 10%) in the 1960s to about 90-94% in the 2010s.
 
 ### W8-17 · Healthy lifestyle and life expectancy at 50
 - **Level:** V2 [E2, F2]. **Log:** Q-34. **Attr.:** Li et al., Circulation 2018;138:345-355: at age 50, women with five low-risk lifestyle factors had projected life expectancy 14.0 years (95% CI 11.8-16.2) longer than women with none; men 12.2 years (10.1-14.2).

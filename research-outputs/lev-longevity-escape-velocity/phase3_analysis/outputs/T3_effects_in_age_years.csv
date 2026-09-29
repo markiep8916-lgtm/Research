@@ -1,14 +1,28 @@
-intervention,hazard_ratio,age_years_once_at_central_beta,age_years_range_beta_0.099_to_0.069,years_between_new_independent_effects_to_sustain_v1,source_card,verification_level
-"SPRINT intensive BP target, all-cause, trial period (point)",0.73,3.62,3.18 to 4.56,3.62,W2-01,V2
-"SPRINT, upper CI bound (weakest effect)",0.9,1.21,1.06 to 1.53,1.21,W2-01,V2
-"SPRINT, lower CI bound (strongest effect)",0.6,5.87,5.16 to 7.40,5.87,W2-01,V2
-SPRINT overall incl. 8-year post-trial follow-up (effect not sustained),0.96,0.47,0.41 to 0.59,0.47,W2-03,V2
-"BP lowering per 10 mmHg systolic, all-cause (meta-analysis)",0.87,1.6,1.41 to 2.02,1.6,W2-04,V2
-"LDL-C lowering per 1.0 mmol/L, all-cause (26 trials)",0.9,1.21,1.06 to 1.53,1.21,W2-06,V2
-"Semaglutide (SELECT), all-cause, nominal",0.81,2.42,2.13 to 3.05,2.42,W2-15,V2
-"Empagliflozin (EMPA-REG), all-cause, type 2 diabetes",0.68,4.43,3.90 to 5.59,4.43,W2-17,V2
-"Tirzepatide vs dulaglutide (SURPASS-CVOT), all-cause, active comparator",0.84,2.0,1.76 to 2.53,2.0,W2-16,V2
-"Smoking cessation at age 25-34 (life-years, observational)",,10.0,10.00 to 10.00,10.0,W2-13,V2
-"Five low-risk lifestyle factors vs none, women at 50 (life-years, observational)",,14.0,14.00 to 14.00,14.0,W8-17,V2
-"Five low-risk lifestyle factors vs none, men at 50 (life-years, observational)",,12.2,12.20 to 12.20,12.2,W8-17,V2
-"MOUSE: dasatinib+quercetin, post-treatment hazard (thought experiment only, not a human estimate)",0.65,4.95,4.35 to 6.24,4.95,W8-19,V2 [SPECULATIVE if applied to humans]
+intervention,kind,hazard_ratio_observed_or_implied,age_years_once_at_central_beta,age_years_range_beta_0.099_to_0.069,years_between_new_independent_effects_to_sustain_v1,source_card,verification_level
+"SPRINT intensive BP target, all-cause, primary report at early stopping (median follow-up 3.3 years) (point)",human_hazard_ratio,0.73,3.62,3.18 to 4.56,3.62,W2-01,V2
+"SPRINT primary report, upper CI bound (weakest effect)",human_hazard_ratio,0.9,1.21,1.06 to 1.53,1.21,W2-01,V2
+"SPRINT primary report, lower CI bound (strongest effect)",human_hazard_ratio,0.6,5.87,5.16 to 7.40,5.87,W2-01,V2
+"SPRINT 'trial period' all-cause, from a conference-abstract supplement (attribution inferred; point)",human_hazard_ratio,0.83,2.14,1.88 to 2.70,2.14,W2-03,"V2, flagged"
+"SPRINT 'trial period' all-cause, lower CI bound (strongest effect)",human_hazard_ratio,0.68,4.43,3.90 to 5.59,4.43,W2-03,"V2, flagged"
+SPRINT overall incl. 8-year post-trial follow-up (effect not sustained),human_hazard_ratio,0.96,0.47,0.41 to 0.59,0.47,W2-03,"V2, flagged"
+"BP lowering per 10 mmHg systolic, all-cause (meta-analysis)",human_hazard_ratio,0.87,1.6,1.41 to 2.02,1.6,W2-04,V2
+"LDL-C lowering per 1.0 mmol/L, all-cause (26 trials)",human_hazard_ratio,0.9,1.21,1.06 to 1.53,1.21,W2-06,V2
+"Semaglutide (SELECT), all-cause, nominal",human_hazard_ratio,0.81,2.42,2.13 to 3.05,2.42,W2-15,V2
+"Empagliflozin (EMPA-REG), all-cause, type 2 diabetes, one trial",human_hazard_ratio,0.68,4.43,3.90 to 5.59,4.43,W2-17,V2
+"SGLT2 inhibitors, class-level all-cause (meta-analysis; unattributed; summary self-contradictory)",human_hazard_ratio,0.89,1.34,1.18 to 1.69,1.34,W2-17 (C-6),"V2, flagged"
+"Tirzepatide vs dulaglutide (SURPASS-CVOT), all-cause, active comparator",human_hazard_ratio,0.84,2.0,1.76 to 2.53,2.0,W2-16,V2
+"Smoking cessation at age 25-34 (life-years, observational)",observational_life_years,,10.0,10.00 to 10.00,10.0,W2-13,V2 (one claim-level V3 with W2-14)
+"Five low-risk lifestyle factors vs none, women at 50 (life-years, observational)",observational_life_years,,14.0,14.00 to 14.00,14.0,W8-17,V2
+"Five low-risk lifestyle factors vs none, men at 50 (life-years, observational)",observational_life_years,,12.2,12.20 to 12.20,12.2,W8-17,V2
+"MOUSE: dasatinib+quercetin, post-treatment hazard 0.65 (thought experiment only, not a human estimate)",animal_hazard_ratio,0.65,4.95,4.35 to 6.24,4.95,W8-19,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP rapamycin plus acarbose (start 9 months), median +34% males, if the proportional gain transferred to an 80-year human lifespan",animal_lifespan_proportional_upper_bound,0.094,27.2,27.20 to 27.20,27.2,W3-07,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP rapamycin at 3x dose, median +26% females",animal_lifespan_proportional_upper_bound,0.164,20.8,20.80 to 20.80,20.8,W3-03,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP acarbose, median +22% males",animal_lifespan_proportional_upper_bound,0.216,17.6,17.60 to 17.60,17.6,W3-04,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP canagliflozin, median +14% males",animal_lifespan_proportional_upper_bound,0.377,11.2,11.20 to 11.20,11.2,W3-06,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP 17-alpha-estradiol (2014 cohort), median +12% males",animal_lifespan_proportional_upper_bound,0.434,9.6,9.60 to 9.60,9.6,W3-05,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP acarbose, median +5% females",animal_lifespan_proportional_upper_bound,0.706,4.0,4.00 to 4.00,4.0,W3-04,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +14% females",animal_lifespan_proportional_upper_bound,0.377,11.2,11.20 to 11.20,11.2,W3-02,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +9% males",animal_lifespan_proportional_upper_bound,0.535,7.2,7.20 to 7.20,7.2,W3-02,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND, 90th-percentile reading: ITP acarbose, 90th percentile +11% males (single leading query)",animal_lifespan_proportional_upper_bound,0.465,8.8,8.80 to 8.80,8.8,W3-04,"V2, flagged [SPECULATIVE if applied to humans]"
+"UPPER BOUND, 90th-percentile reading: ITP canagliflozin, 90th percentile +9% males",animal_lifespan_proportional_upper_bound,0.535,7.2,7.20 to 7.20,7.2,W3-06,"V2, flagged [SPECULATIVE if applied to humans]"
+"UPPER BOUND, 90th-percentile reading: ITP 17-alpha-estradiol (2021 cohort), 90th percentile +7% males",animal_lifespan_proportional_upper_bound,0.614,5.6,5.60 to 5.60,5.6,W3-05,V2 [SPECULATIVE if applied to humans]
