@@ -19,7 +19,9 @@ const CD = window.CD, R = CD.room;
     'NOTICE FROM YOUR OVERSEER:\n\nSleepers One through Six have been reassigned to other duties. Please do not ask where. Please do not look in the lower pods. Please enjoy your revival experience.',
     'REACTOR STATUS: FLUCTUATING\nWATER RECLAMATION: FAILING\nOVERSEER OPINION: OPTIMISTIC\n\nPlease report to the Reactor Corridor. You are needed.' ] });
   r.mark(9, 15, 'trigger', { w: 2, h: 3, id: 'wake', say: [['OVERSEER', 'Good morning, Sleeper Seven. This is the Vault-Tec Overseer System, speaking on behalf of your friends at Vault-Tec.', 6], ['OVERSEER', 'Cryogenic revival complete after two hundred and ten years. Please remain calm and do not lick the pod.', 5.5], ['OVERSEER', 'A minor power fault has occurred. Please proceed east to the Reactor Corridor and assist the vault in a cheerful and timely manner.', 6.5]], hint: 'A / D  -  MOVE        SPACE  -  JUMP        E  -  INTERACT', hintDur: 7 });
-  r.mark(23, 15, 'trigger', { w: 2, h: 3, id: 'melee_hint', hint: 'K  or  RIGHT CLICK  -  MELEE ATTACK  (your trusty wrench)\nHit crates for loot.', hintDur: 6 });
+  r.mark(4, 15, 'trigger', { w: 4, h: 3, id: 'move_hint', hint: 'A / D  -  MOVE        SPACE  -  JUMP (hold it for a higher jump)\nMOUSE  -  AIM        E  -  USE        TAB  -  PIP-BOY', hintDur: 10, once: true });
+  r.mark(22, 15, 'trigger', { w: 3, h: 3, id: 'jump_hint', hint: 'SPACE  -  JUMP.  Hold it to jump higher.\nThe barrier ahead is two tiles tall.', hintDur: 5, once: true });
+  r.mark(15, 15, 'trigger', { w: 2, h: 3, id: 'melee_hint', hint: 'K  or  RIGHT CLICK  -  MELEE ATTACK  (your trusty wrench)\nHit crates for loot.', hintDur: 6 });
   r.done();
 }
 
