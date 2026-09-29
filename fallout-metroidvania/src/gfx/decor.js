@@ -5,7 +5,17 @@ const CD = window.CD, U = CD.U, T = CD.T;
 const D = (CD.decor = { kinds: {} });
 const K = D.kinds;
 
-D.draw = function (g, d) { const f = K[d.k]; if (f) { g.save(); f(g, d, U.RNG(d.s || 1)); g.restore(); } };
+// A painter that throws must never take its whole chunk down: log once per kind, unwind whatever save() calls it left open, carry on.
+const BAD = {};
+D.draw = function (g, d) {
+  const f = K[d.k]; if (!f) return;
+  let depth = 0; const sv = g.save, rs = g.restore;
+  g.save = function () { depth++; return sv.call(this); }; g.restore = function () { depth--; return rs.call(this); };
+  g.save();
+  try { f(g, d, U.RNG(d.s || 1)); } catch (e) { if (!BAD[d.k]) { BAD[d.k] = 1; if (typeof console !== 'undefined') console.error('decor ' + d.k + ':', e); } }
+  while (depth > 0) rs.call(g), depth--;
+  delete g.save; delete g.restore;
+};
 
 // ---------- helpers ----------
 function cyl(g, x, y, w, h, base, vertical) {   // shaded cylinder (pipe)

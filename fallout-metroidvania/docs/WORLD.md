@@ -2,7 +2,7 @@
 
 This is the working spec for designing rooms. Read it fully before authoring. The game is an HTML5 Canvas metroidvania (classic `<script>` files, namespace `CD`, procedural art). Levels are authored in JavaScript with a small DSL (`src/world/dsl.js`) and validated headlessly by two tools. **Use the Vault rooms in `src/world/rooms_vault.js` as the reference for style and DSL usage.**
 
-## 0. Tools (run from `/home/user/Research/fallout-metroidvania`)
+## 0. Tools (run from the project root)
 
 | Command | Purpose |
 |---|---|
@@ -11,7 +11,7 @@ This is the working spec for designing rooms. Read it fully before authoring. Th
 | `node tools/reach.js [--verbose] [--grant a,b] [--start x,y] [--thorough] [--enemies]` | Reachability solver using the game's real collision + player constants. Simulates jumps, double jump, wall jump, dash, ladders, elevators; unlocks abilities/keys/doors/bosses to a fixpoint. Prints what is unreachable. Fast (~1s). |
 | `node tools/shot.js "index.html?start=1&kit=1&abilities=all&room=<id>" out.png --w 1280 --h 720 --wait 6000` | Screenshot a room in the real game (view it with the Read tool). Query params: `room=<id>` (teleport), `abilities=all` or `jetboots,gecko,jetrush,powerfist,hazmat`, `kit=1` (weapons/ammo), `debug=1` (draw trigger boxes), `start=1`. |
 
-Screenshot output dir: use `/tmp/claude-0/-home-user-Research/e5aaa538-c141-5711-a029-df555a66c71b/scratchpad/`. The console output from shot.js shows JS errors — fix them.
+Write screenshots anywhere outside the repo (they are git-ignored if you keep them in `tests/`). The console output from shot.js shows JS errors — fix them.
 
 **Validation workflow:** author → `world_check` (no errors *from your rooms*; "leads nowhere" errors for neighbouring regions that another author is still writing are expected) → `reach.js` (use `--grant` to pretend you already own earlier abilities/flags and `--start x,y` to begin at your region entrance, e.g. `--start 300,55 --grant jetboots,boss_warden,key:overseer`) → screenshots. Everything must be reachable *exactly when it should be* (see gating rules) and nothing sequence-breaks trivially.
 

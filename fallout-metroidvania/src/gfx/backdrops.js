@@ -30,8 +30,8 @@ const PALETTES = {
     sun: [0.62, 0.6], sunColor: [236, 208, 132], haze: [132, 116, 70], cloud: [118, 104, 76],
     layers: [
       { f: 0.05, c: [96, 84, 64], min: 90, max: 200, kind: 'mountain', hz: 0.74 },
-      { f: 0.12, c: [74, 68, 54], min: 130, max: 290, kind: 'city', hz: 0.78 },
-      { f: 0.26, c: [46, 44, 38], min: 180, max: 360, kind: 'city', hz: 0.84, windows: 0.06 },
+      { f: 0.13, c: [80, 74, 58], min: 150, max: 330, kind: 'plant', hz: 0.78 },
+      { f: 0.27, c: [50, 48, 42], min: 170, max: 330, kind: 'plant', hz: 0.85, windows: 1 },
       { f: 0.46, c: [24, 24, 22], min: 210, max: 440, kind: 'ruins', hz: 0.94 },
     ],
   },
@@ -103,6 +103,52 @@ function skyline(seed, W, H, pal, L) {
   return c;
 }
 
+
+// Power-station skyline: hyperbolic cooling towers venting steam, striped smokestacks, boiler halls with saw-tooth roofs, pylons.
+function industry(seed, W, H, pal, L) {
+  const { c, g } = mkStrip(W, H); const rng = U.RNG(seed), col = L.c;
+  const shadeC = (k) => U.rgb([col[0] * k, col[1] * k, col[2] * k]);
+  const plume = (px, py, r0, n) => { for (let i = 0; i < n; i++) { const t = i / n, rr = r0 * (0.7 + t * 1.9) * rng.range(0.8, 1.2), gx = px + rng.range(-1, 1) * r0 * 0.5 + t * rng.range(-30, 60), gy = py - t * r0 * 4.2; const gr = g.createRadialGradient(gx, gy, 0, gx, gy, rr); gr.addColorStop(0, 'rgba(' + pal.cloud.join(',') + ',' + (0.34 * (1 - t * 0.7)) + ')'); gr.addColorStop(1, 'rgba(' + pal.cloud.join(',') + ',0)'); g.fillStyle = gr; g.fillRect(gx - rr, gy - rr, rr * 2, rr * 2); } };
+  let x = rng.range(10, 90);
+  while (x < W - 40) {
+    const r = rng.next(); let adv;
+    if (r < 0.3) {                                                    // cooling tower
+      const bw = rng.range(150, 230), bh = rng.range(L.min + 60, L.max), a = bw * 0.36, tn = 0.72, s = tn / Math.sqrt((bw / (2 * a)) * (bw / (2 * a)) - 1);
+      for (const ox of [0, -W]) {
+        const cx = x + bw / 2 + ox; g.beginPath(); const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24, hw = a * Math.sqrt(1 + ((t - tn) / s) * ((t - tn) / s)); pts.push([t, hw]); }
+        g.moveTo(cx - pts[0][1], H); for (const [t, hw] of pts) g.lineTo(cx - hw, H - bh * t); for (let i = pts.length - 1; i >= 0; i--) g.lineTo(cx + pts[i][1], H - bh * pts[i][0]); g.closePath();
+        const gr = g.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0); gr.addColorStop(0, shadeC(0.8)); gr.addColorStop(0.65, shadeC(1.18)); gr.addColorStop(1, shadeC(0.85)); g.fillStyle = gr; g.fill();
+        g.save(); g.clip(); g.strokeStyle = 'rgba(0,0,0,0.13)'; g.lineWidth = 1; for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(cx + i * bw * 0.075, H); g.lineTo(cx + i * bw * 0.05, H - bh); g.stroke(); }
+        const fg = g.createLinearGradient(0, H - bh, 0, H); fg.addColorStop(0, 'rgba(255,190,120,0.16)'); fg.addColorStop(0.5, 'rgba(0,0,0,0)'); fg.addColorStop(1, 'rgba(' + pal.haze.join(',') + ',0.34)'); g.fillStyle = fg; g.fillRect(cx - bw, H - bh - 4, bw * 2, bh + 8); g.restore();
+        g.fillStyle = shadeC(0.55); g.beginPath(); g.ellipse(cx, H - bh, pts[24][1], 5, 0, 0, TAU2); g.fill();
+        plume(cx, H - bh - 4, bw * 0.16, 9);
+      }
+      adv = bw + rng.range(40, 120);
+    } else if (r < 0.55) {                                            // smokestack
+      const bw = rng.range(22, 34), bh = rng.range(L.min + 40, L.max * 1.25);
+      for (const ox of [0, -W]) {
+        const bx = x + ox; g.fillStyle = shadeC(1.0); g.beginPath(); g.moveTo(bx, H); g.lineTo(bx + bw * 0.16, H - bh); g.lineTo(bx + bw * 0.84, H - bh); g.lineTo(bx + bw, H); g.closePath(); g.fill();
+        g.save(); g.clip(); for (let k = 0; k < 3; k++) { g.fillStyle = 'rgba(190,60,44,0.5)'; g.fillRect(bx, H - bh + 16 + k * 44, bw, 16); } g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(bx + bw * 0.62, H - bh, bw * 0.14, bh); g.restore();
+        g.fillStyle = 'rgba(255,70,50,0.95)'; g.beginPath(); g.arc(bx + bw / 2, H - bh - 3, 2.2, 0, TAU2); g.fill(); plume(bx + bw / 2, H - bh - 6, bw * 0.55, 6);
+      }
+      adv = bw + rng.range(24, 70);
+    } else {                                                          // boiler hall + pipe rack
+      const bw = rng.range(120, 260), bh = rng.range(L.min * 0.5, L.min * 1.1);
+      for (const ox of [0, -W]) {
+        const bx = x + ox; g.fillStyle = shadeC(0.92); g.fillRect(bx, H - bh, bw, bh);
+        g.beginPath(); g.moveTo(bx, H - bh); for (let k = 0; k < Math.round(bw / 34); k++) { g.lineTo(bx + k * 34 + 30, H - bh - 16); g.lineTo(bx + k * 34 + 34, H - bh); } g.lineTo(bx + bw, H - bh); g.closePath(); g.fillStyle = shadeC(1.05); g.fill();
+        g.fillStyle = shadeC(0.7); for (let k = 0; k < 3; k++) g.fillRect(bx + 10, H - bh + 14 + k * 24, bw - 20, 6);
+        if (L.windows) { g.fillStyle = 'rgba(255,190,100,0.35)'; for (let k = 0; k < 6; k++) if (rng.next() < 0.5) g.fillRect(bx + 14 + k * 30, H - bh * 0.4, 6, 8); }
+        g.strokeStyle = shadeC(0.8); g.lineWidth = 5; g.beginPath(); g.moveTo(bx + bw, H - bh * 0.6); g.lineTo(bx + bw + 60, H - bh * 0.6); g.lineTo(bx + bw + 60, H); g.stroke();
+      }
+      adv = bw + rng.range(50, 110);
+    }
+    x += adv;
+  }
+  return c;
+}
+const TAU2 = Math.PI * 2;
+
 function cloudStrip(seed, W, H, pal) {
   const { c, g } = mkStrip(W, H);
   const cells = 8;
@@ -119,7 +165,7 @@ function cloudStrip(seed, W, H, pal) {
 function Backdrop(kind, seed) {
   const pal = (this.pal = PALETTES[kind] || PALETTES.dusk);
   this.kind = kind; this.W = 2048; seed = seed || 7;
-  this.layers = pal.layers.map((L, i) => ({ L, c: L.kind === 'mountain' ? mountains(seed + i * 17, this.W, 460, pal, L) : skyline(seed + i * 31, this.W, 460, pal, L) }));
+  this.layers = pal.layers.map((L, i) => ({ L, c: L.kind === 'mountain' ? mountains(seed + i * 17, this.W, 460, pal, L) : L.kind === 'plant' ? industry(seed + i * 23, this.W, 460, pal, L) : skyline(seed + i * 31, this.W, 460, pal, L) }));
   this.cloudA = cloudStrip(seed + 3, this.W, 200, pal); this.cloudB = cloudStrip(seed + 5, this.W, 240, pal);
   this.sky = U.canvas(4, 256); const g = this.sky.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256); pal.sky.forEach((s) => gr.addColorStop(s[0], s[1])); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
   this.sunSprite = CD.tex.makeGlow(256);

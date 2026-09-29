@@ -304,11 +304,14 @@ G.drawWorld = function (ctx) {
   for (const e of list) { ctx.save(); e.draw(ctx); ctx.restore(); }
   for (const pr of G.projectiles) if (!pr.dead) { ctx.save(); pr.draw(ctx); ctx.restore(); }
   G.fx.draw(ctx, view);
-  // 3. room mask (hide neighbouring rooms)
-  ctx.save(); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.rect(cx - 4, cy - 4, cam.w + 8, cam.h + 8);
-  const vis = []; if (room) vis.push(room); if (G.roomFade > 0 && G.prevRoom) vis.push(G.prevRoom);
-  for (const r of vis) ctx.rect(r.px0, r.py0, r.px1 - r.px0, r.py1 - r.py0);
-  ctx.fill('evenodd'); ctx.restore();
+  // 3. room mask (hide neighbouring rooms); drawn again after the additive glows so lamps of other rooms never bleed through
+  const drawMask = () => {
+    ctx.save(); ctx.setTransform(zR, 0, 0, zR, -cx * zR, -cy * zR); ctx.fillStyle = '#000'; ctx.beginPath(); ctx.rect(cx - 4, cy - 4, cam.w + 8, cam.h + 8);
+    const vis = []; if (room) vis.push(room); if (G.roomFade > 0 && G.prevRoom) vis.push(G.prevRoom);
+    for (const r of vis) ctx.rect(r.px0, r.py0, r.px1 - r.px0, r.py1 - r.py0);
+    ctx.fill('evenodd'); ctx.restore();
+  };
+  drawMask();
   // 4. lighting
   const L = G.lighting; L.clear();
   for (const e of list) if (e.light) e.light(L);
@@ -327,6 +330,7 @@ G.drawWorld = function (ctx) {
   const kind = room && room.region === 'surface' || (room && room.region === 'rustyard') ? 'ash' : 'dust';
   G.ambient.update(1 / 60, view, kind, reg ? reg.dust : 0.5, 0.6);
   G.ambient.draw(ctx, kind, kind === 'ash' ? 'rgba(255,200,150,0.6)' : 'rgba(170,220,220,0.5)');
+  drawMask();
   G.fx.drawText(ctx, view);
   ctx.setTransform(R, 0, 0, R, 0, 0);
   // 5. post
