@@ -1,6 +1,7 @@
 // First-boss progression check with REAL triggers and REAL shooting: walk into the Vault Door Chamber, fight the Warden with the 10mm pistol only
 // (mouse-aimed, key-fired, reloading when dry), pick up the Overseer keycard it drops and confirm the exit door opens.
 //   node tests/t_warden.js [maxSeconds=150] [god=1]        (god=0: the bot only strafes, so expect it to take damage)
+//   DRY=1 node tests/t_warden.js 400                      start with no ammo at all: only the boss's supply drops keep the fight winnable
 const { open } = require('./harness');
 (async () => {
   const maxS = +(process.argv[2] || 150), god = process.argv[3] !== '0';
@@ -8,7 +9,7 @@ const { open } = require('./harness');
   const r = await h.T((a) => {
     const G = window.__G, CD = window.__CD, P = G.player, T = window.T, I = CD.input;
     for (const k of Object.keys(G.st.ammo)) if (k !== '10mm') G.st.ammo[k] = 0;                 // pistol only
-    G.st.wi = G.st.weapons.indexOf('pistol10'); G.st.mag.pistol10 = 12; G.st.ammo['10mm'] = 60;
+    const dryStart = !!a.dryStart; G.st.wi = G.st.weapons.indexOf('pistol10'); G.st.mag.pistol10 = dryStart ? 0 : 12; G.st.ammo['10mm'] = dryStart ? 0 : 60; if (dryStart) for (const k of Object.keys(G.st.mag)) G.st.mag[k] = 0;
     G.st.hp = G.st.maxHp; const hp0 = G.st.hp;
     const trig = G.world.spawns.find((s) => s.t === 'trigger' && s.boss === 'warden');
     P.x = (trig.tx - 5) * 40; P.y = (trig.ty + 1) * 40 - P.h; P.vx = P.vy = 0; G.snapCamera(); G.updateRooms(true); G.roomFade = 0;
@@ -39,7 +40,7 @@ const { open } = require('./harness');
     const door = G.ents.find((e) => e.kind === 'door' && e.lock === 'flag:boss_warden');
     let f2 = 0; for (; f2 < 60 * 20 && G.room && G.room.id === 'v_warden'; f2++) T.frame(['KeyD'], 1);         // walk to the exit like a player
     return { killed, secs, gates, used, hpLost: Math.round(hp0 - G.st.hp), flag: !!G.st.flags.boss_warden, keyDropped: key.length > 0, gotKey: got, doorOpen: door ? !!door.open : 'n/a', nextRoom: G.room && G.room.id, walkSecs: +(f2 / 60).toFixed(1), ammoLeft: G.st.ammo['10mm'] + G.st.mag.pistol10 };
-  }, { maxS });
+  }, { maxS, dryStart: process.env.DRY === '1' });
   console.log(JSON.stringify(r)); console.log(h.logs.filter((l) => !/warning/.test(l)).slice(0, 8).join('\n'));
   await h.browser.close();
   process.exit(r.killed && r.flag && r.gotKey && r.nextRoom !== 'v_warden' ? 0 : 1);

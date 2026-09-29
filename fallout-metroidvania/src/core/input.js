@@ -72,7 +72,7 @@ I.poll = function () {
     let down = false, edge = false;
     for (const c of BIND[a]) { if (I.keys[c]) down = true; if (I.keyEdge[c]) edge = true; }
     if (padHeld[a]) { down = true; if (!I.padPrev[a]) edge = true; }
-    if (I.virtual[a]) { down = true; if (I.virtualEdge[a]) edge = true; }
+    if (I.virtual[a] || I.virtualEdge[a]) { down = true; if (I.virtualEdge[a]) edge = true; }   // a tap shorter than one frame still counts as a one-frame press
     if (a === 'shoot') { if (I.mouse.down) down = true; if (I.mouse.sEdge) edge = true; }
     if (a === 'melee') { if (I.mouse.rdown) down = true; if (I.mouse.redge) edge = true; }
     h[a] = down; p[a] = edge;

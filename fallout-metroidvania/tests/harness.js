@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 async function open(query, opts) {
   opts = opts || {};
   const browser = await chromium.launch({ headless: true, args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--allow-file-access-from-files'] });
-  const page = await browser.newPage({ viewport: { width: opts.w || 1280, height: opts.h || 720 } });
+  const page = opts.touch ? await (await browser.newContext({ hasTouch: true, isMobile: false, viewport: { width: opts.w || 1280, height: opts.h || 720 } })).newPage() : await browser.newPage({ viewport: { width: opts.w || 1280, height: opts.h || 720 } });
   const logs = []; page.on('console', (m) => { const t = m.text(); if (!/willReadFrequently|WORLD ERRORS/.test(t)) logs.push('[' + m.type() + '] ' + t); }); page.on('pageerror', (e) => logs.push('[pageerror] ' + e.message + '\n' + (e.stack || '')));
   if (opts.init) await page.addInitScript(opts.init);
   await page.goto('file://' + path.join(root, 'index.html') + '?' + (query || 'start=1'));

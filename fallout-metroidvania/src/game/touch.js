@@ -20,9 +20,9 @@ TC.layout = function () {
   add('stim', 'STIM', 110, vh - 330, 32, 'heal');
   add('swap', 'SWAP', 200, vh - 352, 30, 'next');
   add('vats', 'VATS', 60, vh - 268, 28, 'vats');
-  add('pip', 'PIP', vw - 44, 176, 30, 'pip', { small: true });
-  add('map', 'MAP', vw - 44, 240, 26, 'map', { small: true });
-  add('pause', 'II', vw - 44, 302, 26, 'pause', { small: true });
+  add('pip', 'PIP', vw - 44, 194, 30, 'pip', { small: true });
+  add('map', 'MAP', vw - 44, 258, 26, 'map', { small: true });
+  add('pause', 'II', vw - 44, 318, 26, 'pause', { small: true });
   TC.btns = b;
   TC.mvBase = { x: 150, y: vh - 130, r: 96 };
   TC.aimBase = { x: vw - 150, y: vh - 130, r: 96 };

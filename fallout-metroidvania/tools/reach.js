@@ -27,6 +27,8 @@ if (arg('weak')) { const f = +arg('weak'); for (const k of ['JUMP', 'DJUMP', 'RU
 const world = new CD.World(CD.ROOMS);
 if (world.errors.length) { console.log('WORLD ERRORS:\n' + world.errors.join('\n')); }
 const G = CD.G; G.world = world; G.platforms = [];
+// --certify: a jump / fall edge only counts when the game's own Player controller (tools/real_sim.js) reproduces it
+const certify = args.includes('--certify'); let RS = null; const rejected = [], accepted = [], roundStates = {}, certCache = new Map(); let certified = 0;
 const W = world.W, H = world.H;
 
 // ------------------------------------------------------------------ pristine tile copy (doors/breakables are toggled by unlock state)
@@ -121,17 +123,17 @@ function clearance(cx, row) {   // can a standing player fit at cell column cx w
 const key = (cx, row) => row * W + cx;
 
 function neighbours(cx, row, has) {
-  const res = []; const px = (cx + 0.5) * T, bottom = row * T;
+  const res = []; const px = (cx + 0.5) * T, bottom = row * T;   // entries: [cx, row, plan]  (plan = how a player gets there; ladders are ['L', tx, ty])
   // walk one cell left/right
   for (const d of [-1, 1]) {
     const nx = cx + d;
-    if (clearance(nx, row)) res.push([nx, row]);
+    if (clearance(nx, row)) res.push([nx, row, { walk: d }]);
     else if (!world.isSolid(nx, row - 1) && !world.isSolid(nx, row - 2)) {   // walked off an edge: fall with continued drift
-      for (const hold of [0]) { const o = simulate(px + d * 6, bottom, { dir: d, hold, jump: false }, has, 3.0); for (const l of o.landings) res.push([l.cx, l.row]); }
+      for (const hold of [0]) { const o = simulate(px + d * 6, bottom, { dir: d, hold, jump: false }, has, 3.0); for (const l of o.landings) res.push([l.cx, l.row, { fall: d }]); }
     }
   }
   // drop through one-way platforms (down + jump)
-  if (world.tile(cx, row) === TILE.PLAT) { const o = simulate(px, bottom + 8, { dir: 0, jump: false }, has, 2.5); for (const l of o.landings) if (l.row > row) res.push([l.cx, l.row]); }
+  if (world.tile(cx, row) === TILE.PLAT) { const o = simulate(px, bottom + 8, { dir: 0, jump: false }, has, 2.5); for (const l of o.landings) if (l.row > row) res.push([l.cx, l.row, { drop: 1 }]); }
   // jumps (only from edge cells and every 3rd cell to keep the search tractable)
   const thorough = args.includes('--thorough');
   const interesting = !clearance(cx - 1, row) || !clearance(cx + 1, row) || (cx % (thorough ? 2 : 4) === 0);
@@ -143,12 +145,12 @@ function neighbours(cx, row, has) {
   for (const dir of dirs) for (const hold of holds) for (const dj of djs) for (const dash of dashes) {
     if (dash !== null && dj !== null && hold < 0.2) continue;   // prune
     for (const wjMode of (has.gecko && dir !== 0 ? ['alt', 'same'] : ['alt'])) {
-      const o = simulate(px, bottom, { dir, hold, jump: true, dj, dash, dashDir: dir || 1, wj: has.gecko ? [0.25, 0.55, 0.85] : null, wjMode }, has, 1.9);
-      for (const l of o.landings) if (l.cx !== cx || l.row !== row) res.push([l.cx, l.row]);
+      const plan = { dir, hold, jump: true, dj, dash, dashDir: dir || 1, wj: has.gecko ? [0.25, 0.55, 0.85] : null, wjMode };
+      const o = simulate(px, bottom, JSON.parse(JSON.stringify(plan)), has, 1.9);
+      for (const l of o.landings) if (l.cx !== cx || l.row !== row) res.push([l.cx, l.row, plan]);
       for (const l of o.ladders) res.push(['L', l.tx, l.ty]);
     }
   }
-  // wall-jump chains: cling while falling from a jump toward each wall (handled by simulate's cling + scripted wj)
   return res;
 }
 
@@ -165,7 +167,7 @@ function analyse() {
   for (;;) {
     round++;
     applyState(state);
-    const has = {}; for (const a of abilityNames) has[a] = state.has(a);
+    const has = {}; for (const a of abilityNames) has[a] = state.has(a); roundStates[round] = Array.from(state);
     const seen = new Set(), ladders = new Set(), queue = [];
     const push = (cx, row) => { const k = key(cx, row); if (!seen.has(k) && clearance(cx, row)) { seen.add(k); queue.push([cx, row]); } };
     push(sx, sy);
@@ -177,7 +179,15 @@ function analyse() {
       const [cx, row] = queue.pop();
       for (const n of neighbours(cx, row, has)) {
         if (n[0] === 'L') { const lk = n[1] + ',' + n[2]; if (!ladders.has(lk)) { ladders.add(lk); expandLadder(n[1], n[2], ladders, push); } }
-        else push(n[0], n[1]);
+        else {
+          if (certify && n[2] && !n[2].walk && !seen.has(key(n[0], n[1])) && clearance(n[0], n[1])) {
+            if (!RS) RS = require('./real_sim.js')(CD, world);
+            const ck = cx + ',' + row + '>' + n[0] + ',' + n[1] + '|' + JSON.stringify(n[2]) + '|' + abilityNames.filter((a) => has[a]).join('+') + '|' + state.size;
+            let v = certCache.get(ck); if (v === undefined) { v = RS.verify(cx, row, n[2], n[0], n[1], has).ok; certCache.set(ck, v); if (v) { certified++; accepted.push({ from: [cx, row], to: [n[0], n[1]], plan: n[2], abilities: abilityNames.filter((a) => has[a]), round }); } else rejected.push({ from: [cx, row], to: [n[0], n[1]], plan: n[2], round }); }
+            if (!v) continue;
+          }
+          push(n[0], n[1]);
+        }
       }
       // ladder entry: standing next to / on a ladder column
       for (const dx of [0]) { for (const dy of [-1, -2]) if (world.tile(cx + dx, row + dy) === TILE.LADDER) { const lk = (cx + dx) + ',' + (row + dy); if (!ladders.has(lk)) { ladders.add(lk); expandLadder(cx + dx, row + dy, ladders, push); } } }
@@ -237,7 +247,18 @@ if (res.state.has('hazmat')) {
   while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (fits(nx, ny) && !swim.has(ny * W + nx)) { swim.add(ny * W + nx); q.push([nx, ny]); } } }
 }
 const swimReach = (s) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (swim.has((s.ty + dy) * W + s.tx + dx)) return true; return false; };
-const chk = (s, label) => { if (!res.reach(s.tx, s.ty, 2) && !swimReach(s)) bad.push(label + ' ' + s.roomId + ' (' + s.tx + ',' + s.ty + ')'); };
+// Swim exits (climbing out of water onto a ledge) are not part of the jump graph; these items are checked with the real controller by the swim bot instead.
+const SWIM_VERIFIED = {
+  'p_flood:861,101': 'node tests/t_swim.js p_flood "846,123.5 849,123.5 849,110 853,100 857,100 861,101.2" 841,123.5',
+  'd_drown:329,222': 'node tests/t_swim.js d_drown "302,232.5 314,232.5 321,228 322.5,224.7,J 329,222.3" 302,232.5',
+};
+const swimNotes = [];
+const chk = (s, label) => {
+  if (res.reach(s.tx, s.ty, 2) || swimReach(s)) return;
+  const sv = SWIM_VERIFIED[s.roomId + ':' + s.tx + ',' + s.ty];
+  if (sv && res.state.has('hazmat')) { swimNotes.push(label + ' ' + s.roomId + ' (' + s.tx + ',' + s.ty + ')  <- ' + sv); return; }
+  bad.push(label + ' ' + s.roomId + ' (' + s.tx + ',' + s.ty + ')');
+};
 for (const s of world.spawns) {
   if (s.t === 'pickup' && s.requires && !res.state.has(s.requires)) bad.push('never-unlocked pickup ' + s.k + ' requires ' + s.requires + ' in ' + s.roomId);
   else if (s.t === 'pickup' && ['ability', 'upgrade', 'bobble', 'key', 'weapon', 'holotape'].includes(s.k)) chk(s, 'pickup:' + s.k + ':' + (s.id || s.u || s.stat || ''));
@@ -249,7 +270,10 @@ for (const s of world.spawns) {
 const roomHit = new Set(); for (const k of res.seen) { const row = Math.floor(k / W), cx = k % W; const r = world.roomAtTile(cx, row - 1); if (r) roomHit.add(r.id); }
 for (const k of res.ladders) { const [x, y] = k.split(',').map(Number); const r = world.roomAtTile(x, y); if (r) roomHit.add(r.id); }
 const unvisited = world.rooms.filter((r) => !roomHit.has(r.id)).map((r) => r.id);
+if (certify && arg('edges')) fs.writeFileSync(arg('edges'), JSON.stringify({ edges: accepted, states: roundStates }));
+if (certify) console.log('\nCERTIFIED by the real Player controller: ' + certified + ' jump/fall edges accepted, ' + rejected.length + ' rejected' + (rejected.length ? ':\n  ' + rejected.slice(0, 40).map((r) => r.from + ' -> ' + r.to + ' ' + JSON.stringify(r.plan) + ' (round ' + r.round + ')').join('\n  ') : ''));
 console.log('\nreachable rooms: ' + roomHit.size + '/' + world.rooms.length);
 if (unvisited.length) console.log('UNREACHED ROOMS: ' + unvisited.join(', '));
+if (swimNotes.length) console.log('reachable by swimming (Hazmat), verified by the swim bot:\n  ' + swimNotes.join('\n  '));
 if (bad.length) console.log('UNREACHABLE (' + bad.length + '):\n  ' + bad.join('\n  ')); else console.log('all checked interactables reachable');
 process.exit(bad.length || unvisited.length ? 1 : 0);

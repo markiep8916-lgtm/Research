@@ -70,11 +70,17 @@ G.timeSlow = 0;
 
 // ------------------------------------------------------------------ supply drops
 // A boss fight must never become unwinnable because the ammo ran out (the arena gates stay shut until the boss is dead): the boss drops a resupply
-// each time it crosses 2/3 and 1/3 health, and a player with a dry gun (or no ammo for any gun they own) gets one every 25 seconds.
+// each time it crosses 2/3 and 1/3 health, and a player whose equipped gun has been dry for 6 seconds gets one (at most every 25 seconds).
 B.hasGunAmmo = function () {
   const st = G.st; let anyGun = false;
   for (const id of st.weapons) { const w = CD.WEAPONS[id]; if (!w || w.kind !== 'gun') continue; anyGun = true; if ((st.ammo[w.ammo] || 0) + (st.mag[id] || 0) > 0) return true; }
   return !anyGun;   // a melee-only loadout never needs ammo
+};
+// "dry" = the gun in your hands has nothing left in the mag or the reserve (or you own guns but none has ammo, while holding a melee weapon)
+B.isDry = function () {
+  const wd = G.curWeapon(), st = G.st;
+  if (wd && wd.kind === 'gun') return (st.ammo[wd.ammo] || 0) + (st.mag[G.curWeaponId()] || 0) <= 0;
+  return !B.hasGunAmmo();
 };
 B.supply = function (dry) {
   const st = G.st, p = G.player, wd = G.curWeapon(); let type = wd && wd.kind === 'gun' ? wd.ammo : null, mag = (wd && wd.mag) || 12;
@@ -96,10 +102,10 @@ B.supply = function (dry) {
 B.supplyWatch = function (e, dt) {
   const A = e.bs; if (!A || e.dead) return;
   const ratio = e.hp / e.maxHp, ph = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
-  if (A.supPh === undefined) { A.supPh = ph; A.supCd = 10; }
-  A.supCd -= dt;
+  if (A.supPh === undefined) { A.supPh = ph; A.supCd = 10; A.dryT = 0; }
+  A.supCd -= dt; A.dryT = B.isDry() ? A.dryT + dt : 0;
   if (ph > A.supPh) { A.supPh = ph; A.supCd = 14; B.supply(false); }
-  else if (A.supCd <= 0 && !B.hasGunAmmo()) { A.supCd = 25; B.supply(true); }
+  else if (A.dryT >= 6 && A.supCd <= 0) { A.supCd = 25; A.dryT = 0; B.supply(true); }
 };
 
 // helper for boss defs: register as an enemy type with a custom AI
