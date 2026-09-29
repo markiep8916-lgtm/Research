@@ -69,7 +69,7 @@ Touch devices get an on-screen stick and buttons automatically.
 * **Metroidvania progression.** Jet Boots (double jump), Gecko Grips (wall jump), Jet Rush (air dash), Power Fist (breaks cracked
   walls), Hazmat Suit (survive the irradiated coolant), plus keycards and terminals that unlock doors. Sequence-breaking is possible,
   but the intended route is gated by these.
-* **Six bosses:** the Vault Warden, Bulldog the Warlord, the Glowing One, the Deathclaw, Sentry Bot Warden-9 and Overseer Prime, each with its own arena, attack patterns and phases.
+* **Six bosses:** the Vault Warden, Bulldog the Warlord, the Glowing One, the Deathclaw, Sentry Bot Warden-9 and Overseer Prime, each with its own arena, attack patterns and phases. The arena gates stay shut until the boss dies, so every boss drops a resupply (ammo for your equipped gun, a stimpak) when it drops to 2/3 and 1/3 health, and again every 25 seconds while you are completely out of ammo.
 * **Fallout systems:** Pip-Boy, S.P.E.C.I.A.L. and perks, level-ups, RAD and RadAway, V.A.T.S., stimpaks, holotapes, hackable terminals,
   traders, dialogue trees, vending machines, bobbleheads, weapon upgrades, ammo types.
 * **Three endings**, decided at the very last terminal.
@@ -124,6 +124,7 @@ node tests/t_chimney.js s_ridge 640 56 30 both jetboots,gecko
 node tests/t_gap.js --room s_over --edge 567 --far 581 --row 44 --abil jetboots,jetrush
                                           gap bot: sweeps jump / double-jump / dash timings and reports how many cross (and that none cross
                                           without the gating ability, use --want none)
+node tests/t_warden.js                    the first boss with REAL triggers, mouse aim and key fire, 10mm pistol only: kill it, take the keycard, walk out
 node tests/t_swim.js p_flood "846,123.5 849,110 ..." 841,123.5      waypoint swimmer for flooded rooms (Hazmat)
 ```
 

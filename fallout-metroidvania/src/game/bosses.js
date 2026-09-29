@@ -68,10 +68,44 @@ B.reset = function () {
 };
 G.timeSlow = 0;
 
+// ------------------------------------------------------------------ supply drops
+// A boss fight must never become unwinnable because the ammo ran out (the arena gates stay shut until the boss is dead): the boss drops a resupply
+// each time it crosses 2/3 and 1/3 health, and a player with a dry gun (or no ammo for any gun they own) gets one every 25 seconds.
+B.hasGunAmmo = function () {
+  const st = G.st; let anyGun = false;
+  for (const id of st.weapons) { const w = CD.WEAPONS[id]; if (!w || w.kind !== 'gun') continue; anyGun = true; if ((st.ammo[w.ammo] || 0) + (st.mag[id] || 0) > 0) return true; }
+  return !anyGun;   // a melee-only loadout never needs ammo
+};
+B.supply = function (dry) {
+  const st = G.st, p = G.player, wd = G.curWeapon(); let type = wd && wd.kind === 'gun' ? wd.ammo : null, mag = (wd && wd.mag) || 12;
+  if (!type) for (const id of st.weapons) { const w = CD.WEAPONS[id]; if (w && w.kind === 'gun') { type = w.ammo; mag = w.mag; break; } }
+  const rm = G.room, x0 = (rm ? rm.x0 : 0) * T + 3 * T, x1 = (rm ? rm.x1 : 0) * T - 3 * T, w = G.world, ty0 = Math.floor(p.y / T);
+  // a drop is released just above the arena floor (never above a one-way plank, where it would land out of reach), 150 px to either side of the player
+  const drop = (want, k, o) => {
+    for (let n = 0; n < 14; n++) {
+      const x = Math.max(x0, Math.min(x1, want + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * T)), tx = Math.floor(x / T); let fy = -1, plank = false;
+      for (let ty = ty0 + 1; ty < ty0 + 16; ty++) { const t = w.tile(tx, ty); if (t === TILE.PLAT) plank = true; if (CD.isSolidTile(t)) { fy = ty; break; } }
+      if (fy >= 0 && (!plank || n >= 13)) return G.spawnPickup(k, x, fy * T - 40, o);
+    }
+    return G.spawnPickup(k, Math.max(x0, Math.min(x1, want)), p.y, o);
+  };
+  if (type) drop(p.cx - 150, 'ammo', { type, n: Math.max(12, Math.ceil(mag * 2)), life: 75 });
+  if ((st.aid.stimpak || 0) < 2) drop(p.cx + 150, 'stimpak', { life: 75 });
+  G.notify(dry ? 'EMERGENCY SUPPLY DROP' : 'SUPPLIES DROPPED', 'info'); CD.audio.play('pickup');
+};
+B.supplyWatch = function (e, dt) {
+  const A = e.bs; if (!A || e.dead) return;
+  const ratio = e.hp / e.maxHp, ph = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
+  if (A.supPh === undefined) { A.supPh = ph; A.supCd = 10; }
+  A.supCd -= dt;
+  if (ph > A.supPh) { A.supPh = ph; A.supCd = 14; B.supply(false); }
+  else if (A.supCd <= 0 && !B.hasGunAmmo()) { A.supCd = 25; B.supply(true); }
+};
+
 // helper for boss defs: register as an enemy type with a custom AI
 B.define = function (id, def, ai) {
   def.ai = id; def.boss = true; def.noBar = true; def.superArmor = true; def.stun = 0; def.noKnock = true; def.once = true;
-  CD.AI[id] = ai; B.defs[id] = def; CD.registerEnemy(id, def);
+  CD.AI[id] = function (e, dt, d) { B.supplyWatch(e, dt); return ai.call(this, e, dt, d); }; B.defs[id] = def; CD.registerEnemy(id, def);
 };
 // tween a flying boss toward a point (centre-based); returns distance
 function flyTo(e, dt, tx, ty, speed, k) {
