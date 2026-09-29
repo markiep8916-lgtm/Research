@@ -293,3 +293,26 @@ def test_lifespan_upper_bound_conversion_and_cadence():
 def test_effects_needed_scales_with_overlap():
     assert m.effects_needed(3.6, 20.0, 0.0) == pytest.approx(20.0 / 3.6)
     assert m.effects_needed(3.6, 20.0, 0.5) == pytest.approx(2.0 * 20.0 / 3.6)
+
+
+def test_smoothing_is_identity_for_window_one_and_for_a_constant_pace():
+    R = m.traj_constant(0.05)
+    tt = np.array([0.0, 3.0, 10.0])
+    assert np.allclose(m.smooth_traj(R, 1)(tt), R(tt))
+    assert np.allclose(m.smooth_traj(R, 5)(tt), R(tt))       # a linear R is unchanged by a centred average
+
+
+def test_stepwise_progress_meets_annual_dn_only_in_step_years():
+    # One step of g age-years every g years averages v = 1, but the annual D-N criterion holds only in the
+    # years that contain a step; smoothing over five years fixes steps that come at least every five years
+    # and leaves a 20-year cadence without a 20-year window.
+    ages = [50, 70, 90]
+    for g, every in ((20.0, 20.0), (5.0, 5.0)):
+        R = m.traj_steps(g, every, P.beta, r_base=0.0)
+        ok = m.dn_ok_series(m.dn_margin(ages, 40, P, R, ds=0.25))
+        assert m.longest_run(ok)[0] == 1
+        assert ok.mean() == pytest.approx(1.0 / every, abs=0.03)
+    ok20 = m.dn_ok_series(m.dn_margin(ages, 40, P, m.smooth_traj(m.traj_steps(20.0, 20.0, P.beta), 5), ds=0.25))
+    assert m.longest_run(ok20)[0] <= 6
+    ok5 = m.dn_ok_series(m.dn_margin(ages, 40, P, m.smooth_traj(m.traj_steps(5.0, 5.0, P.beta), 5), ds=0.25))
+    assert ok5.all()

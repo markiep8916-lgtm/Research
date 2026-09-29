@@ -1,4 +1,4 @@
-intervention,kind,hazard_ratio_observed_or_implied,age_years_once_at_central_beta,age_years_range_beta_0.099_to_0.069,years_between_new_independent_effects_to_sustain_v1,source_card,verification_level
+intervention,kind,hazard_ratio_observed_or_implied,age_years_once_at_central_beta_(life_years_for_observational_rows),age_years_range_beta_0.099_to_0.069,years_between_new_independent_effects_to_sustain_v1,source_card,verification_level
 "SPRINT intensive BP target, all-cause, primary report at early stopping (median follow-up 3.3 years) (point)",human_hazard_ratio,0.73,3.62,3.18 to 4.56,3.62,W2-01,V2
 "SPRINT primary report, upper CI bound (weakest effect)",human_hazard_ratio,0.9,1.21,1.06 to 1.53,1.21,W2-01,V2
 "SPRINT primary report, lower CI bound (strongest effect)",human_hazard_ratio,0.6,5.87,5.16 to 7.40,5.87,W2-01,V2
@@ -20,6 +20,8 @@ SPRINT overall incl. 8-year post-trial follow-up (effect not sustained),human_ha
 "UPPER BOUND: ITP acarbose, median +22% males",animal_lifespan_proportional_upper_bound,0.216,17.6,17.60 to 17.60,17.6,W3-04,V2 [SPECULATIVE if applied to humans]
 "UPPER BOUND: ITP canagliflozin, median +14% males",animal_lifespan_proportional_upper_bound,0.377,11.2,11.20 to 11.20,11.2,W3-06,V2 [SPECULATIVE if applied to humans]
 "UPPER BOUND: ITP 17-alpha-estradiol (2014 cohort), median +12% males",animal_lifespan_proportional_upper_bound,0.434,9.6,9.60 to 9.60,9.6,W3-05,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP 17-alpha-estradiol (2021 cohort, start at 16 months), median +19% males",animal_lifespan_proportional_upper_bound,0.266,15.2,15.20 to 15.20,15.2,W3-05,V2 [SPECULATIVE if applied to humans]
+"UPPER BOUND: ITP 17-alpha-estradiol (2021 cohort, start at 20 months), median +11% males",animal_lifespan_proportional_upper_bound,0.465,8.8,8.80 to 8.80,8.8,W3-05,V2 [SPECULATIVE if applied to humans]
 "UPPER BOUND: ITP acarbose, median +5% females",animal_lifespan_proportional_upper_bound,0.706,4.0,4.00 to 4.00,4.0,W3-04,V2 [SPECULATIVE if applied to humans]
 "UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +14% females",animal_lifespan_proportional_upper_bound,0.377,11.2,11.20 to 11.20,11.2,W3-02,V2 [SPECULATIVE if applied to humans]
 "UPPER BOUND, 90th-percentile reading: ITP rapamycin (first dose), age at 90% mortality +9% males",animal_lifespan_proportional_upper_bound,0.535,7.2,7.20 to 7.20,7.2,W3-02,V2 [SPECULATIVE if applied to humans]

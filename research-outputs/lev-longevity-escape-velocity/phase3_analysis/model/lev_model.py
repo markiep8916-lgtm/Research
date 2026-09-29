@@ -82,6 +82,20 @@ def traj_steps(g_age_years: float, every: float, beta: float, r_base: float = 0.
     return R
 
 
+def smooth_traj(Ra: Trajectory, window: int = 5) -> Trajectory:
+    """Centred moving average of the cumulative progress ``Ra`` over ``window`` calendar years. Because the log
+    death rate is linear in R(t), this is the plan's smoothing rule (a five-year centred moving average of log
+    death rates, plan section 2) applied to a model trajectory. ``window = 1`` returns the trajectory unchanged."""
+    half = window // 2
+    offsets = np.arange(-half, half + 1, dtype=float)
+
+    def R(t):
+        t = np.asarray(t, float)
+        return np.mean([Ra(t + k) for k in offsets], axis=0)
+
+    return R
+
+
 # --------------------------------------------------------------------------
 # hazards
 # --------------------------------------------------------------------------

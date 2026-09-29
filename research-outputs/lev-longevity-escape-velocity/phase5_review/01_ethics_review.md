@@ -5,7 +5,8 @@
 | Reviewer | Fresh-context subagent of the same model family, role `ethics_review_agent` (`deep-research/agents/ethics_review_agent.md`); no web access; judged from the files |
 | Reviewed | `../LEV_research_report.md`, draft v1 (commit `fc40bde`) |
 | Verdict | **CONDITIONAL** (integrity only; no human subjects). No Critical issues |
-| Dispositions | See the table at the end of this file |
+| Dispositions | See the tables in the last two sections of this file (draft v1 points, then the verification of draft v2) |
+| Verification | Re-review of draft v2 by the same reviewer: **CONDITIONAL**, close to PASS; no Critical or Major items; six small fixes, applied in draft v3 |
 
 The review text below is subagent output, reproduced verbatim except for one redaction: the model's name in item 5, quoting the draft's disclosure line, is replaced by "[model name redacted]" (the repository's rule is that no artifact names a model). Its statements are the reviewer's, not verified findings.
 
@@ -71,7 +72,7 @@ Author's disposition of each point (Accepted, Partly accepted, Not accepted), wi
 | M3a | Olshansky 15%/5% tagged W1-06 · V2 | Accepted | v2 §4.1: "the authors' own [projection], from a single query with horizon and interval unstated (card W6-05)"; the condition "without breakthroughs" is dropped. |
 | M3b | "Kaeberlein, Barzilai (cautious)" | Accepted | Separate rows in Table 10; Barzilai: "No LEV statement retrieved". |
 | M3c | Diamandis and the XPRIZE award | Accepted | Table 10 separates "nearing LEV" from the XPRIZE terms and states that his role in the prize is not stated in any retrieved sentence. |
-| M3d | Debonneuil "4% a year ... within a few years" | Accepted | v2 §3: the 4% was in a query (†); unit, ages and definition were not stated; "within a certain time". |
+| M3d | Debonneuil "4% a year ... within a few years" | Accepted | v2 §3: the 4% was in a query (†); unit, ages and definition were not stated; "within a certain time". (Draft v3 withdrew the † after the claims re-audit: three queries that did not carry the figure also returned it; see `04_claims_audit.md`.) |
 | M3e | ITP "13 of 164 trials" | Accepted | Table 7: "13 of 54 compounds (164 trials) ... a single-query count". |
 | M3f | Donner co-authors; "groups with stakes" for Goldman and Scott | Accepted | v2 §5.3: two of six co-authors lead longevity companies "per search-result pages and not the paper's disclosure"; economics: "Stakes were not established for either". |
 | M4 | Stakes not disclosed symmetrically; add a stake column | Accepted | Table 10 has a stake column with per-person stakes and levels (de Grey, Kurzweil, Church, Sinclair, Diamandis, Olshansky, Vijg "not retrieved", Kaeberlein, Barzilai); the W1 C5 note and the believed manufacturer sponsorship of the human-anchor trials are stated. |
@@ -119,7 +120,7 @@ Checked and clean: no dosing or operational detail; "reported by" wording for th
 | Incomplete entries | Partly accepted | The three descriptive entries stay bracketed ("titles not recorded"): the search results showed no titles or authors for them, so nothing more can be added without inventing details. They are identified by the evidence card and by what the summaries said (PubMed Central reviews; NYU Langone and company reports; Our World in Data and PubMed Central reviews). |
 | 1 | Accepted | Initials, subtitles and titles the cards do not show are now bracketed as "not seen" or "from the search query" (Colman, Mattison, Rau and colleagues, López-Otín and colleagues, SOA, SSA) or marked ‡ (Tetlock's year). |
 | 2 | Accepted | Olshansky's row states that whether the company bears on the paper's topic is not shown (W6 conflict C-8); Table 10's caption states that camp labels are the report's classification. |
-| 3 | Accepted | Barzilai ("reportedly stalled"), Church ("reported co-founder ... secondary sources only"), Kaeberlein (Dog Aging Institute co-founder; the Dog Aging Project's funding reported at risk), Loyal ("if accurate; no regulator statement was seen"), the biomarker count ("reportedly ... names no source") and the statin lag ("the 4S mortality trial") are re-worded. |
+| 3 | Accepted | Barzilai ("reportedly stalled"; draft v3, after the claims re-audit: "reported inconsistently in secondary sources"), Church ("reported co-founder ... secondary sources only"), Kaeberlein (Dog Aging Institute co-founder; the Dog Aging Project's funding reported at risk), Loyal ("if accurate; no regulator statement was seen"), the biomarker count ("reportedly ... names no source"; draft v3: "a secondary summary reports") and the statin lag ("the 4S mortality trial"; draft v3: "an approval, of lovastatin (1987†)") are re-worded. |
 | 4 | Accepted | Table 13's first criterion is resolved under both the narrow and broad readings, and states that a 2030 claim should say which it relies on; §5.1 gains "The strongest case against an early LEV" beside the steel-man. |
 | 5 | Accepted | "A reviewer's separate scratch code (same model family)". |
 | 6 | Accepted | The model name is removed from the RQ brief's disclosure and redacted from the quoted disclosure in this file's v1 text (line 43, marked); the §6 heading is now "What the evidence says about ordinary prevention". |

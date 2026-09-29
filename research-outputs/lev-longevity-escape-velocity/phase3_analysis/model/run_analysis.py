@@ -128,9 +128,27 @@ def table_t3(out, p, effects):
         rows.append([e["name"], kind, hr, round(g, 2), f"{g_lo:.2f} to {g_hi:.2f}", round(g, 2),
                      e.get("source", ""), e.get("level", "")])
     write_csv(os.path.join(out, "T3_effects_in_age_years.csv"),
-              ["intervention", "kind", "hazard_ratio_observed_or_implied", "age_years_once_at_central_beta",
+              ["intervention", "kind", "hazard_ratio_observed_or_implied", "age_years_once_at_central_beta_(life_years_for_observational_rows)",
                "age_years_range_beta_0.099_to_0.069", "years_between_new_independent_effects_to_sustain_v1",
                "source_card", "verification_level"], rows)
+
+
+def table_t3c(out, p, r_hist, patterns=((3.6, 3.6), (5.0, 5.0), (10.0, 10.0), (20.0, 20.0)), horizon=60):
+    """Cadence versus the annual D-N criterion (added after the Phase 5 re-review): steps of g age-years every g
+    years average one age-year a year but satisfy D-N only in the years that contain a step. Reported without
+    smoothing and with the plan's five-year centred smoothing, on top of the historical background pace."""
+    rows = []
+    for g, every in patterns:
+        R = m.traj_steps(g, every, p.beta, r_base=r_hist)
+        for label, RR in (("none", R), ("five-year centred", m.smooth_traj(R, 5))):
+            ok = m.dn_ok_series(m.dn_margin(AGES, horizon, p, RR, ds=0.25))
+            run = m.longest_run(ok)[0]
+            c = m.classify_outcome(p, RR, v_hi=0.30)
+            rows.append([g, every, label, round(float(ok.mean()), 3), run, c["outcome"]])
+    write_csv(os.path.join(out, "T3c_stepwise_cadence_vs_annual_DN.csv"),
+              ["step_size_age_years", "years_between_steps", "smoothing", "share_of_years_DN_holds",
+               "longest_DN_run_years", "outcome"], rows)
+    return rows
 
 
 def table_t3b(out, sizes=(2.1, 3.6, 4.4, 10.0, 20.0), overlaps=(0.0, 0.25, 0.5), window=20.0):
@@ -393,10 +411,13 @@ def table_t6b(out, p, r_hist, v_hi):
         for T in (5, 10, 15, 20, 30, 40):
             R = m.traj_ramp(r_hist, mult * p.beta, 0.0, float(T))
             r = m.classify_outcome(p, R, v_hi=v_hi)
-            rows.append([mult, T, r["outcome"], r["onset_year"] if r["onset_year"] else "", r["longest_dn_run"]])
+            # year the pace first reaches the D-N threshold (linear ramp from r_hist to mult * beta over T years)
+            t_cross = T * (p.beta - r_hist) / (mult * p.beta - r_hist)
+            rows.append([mult, T, r["outcome"], r["onset_year"] if r["onset_year"] else "", r["longest_dn_run"],
+                         round(2026 + t_cross, 1)])
     write_csv(os.path.join(out, "T6b_onset_by_ramp_duration.csv"),
               ["ramp_target_multiple_of_beta", "ramp_years_from_2026", "outcome", "LEV_window_onset_year",
-               "longest_DN_run_years"], rows)
+               "longest_DN_run_years", "year_pace_first_reaches_DN_threshold"], rows)
     return rows
 
 
@@ -430,6 +451,7 @@ def main():
         table_t3(a.out, p, cfg["effects"])
     table_t4(a.out, p, r_hist, a.smoke)
     table_t3b(a.out)
+    table_t3c(a.out, p, r_hist)
     table_t5(a.out, p, r_hist)
     table_t5b(a.out, p, ranges["mu80"], r_hist)
     table_t5c(a.out, p, r_hist)

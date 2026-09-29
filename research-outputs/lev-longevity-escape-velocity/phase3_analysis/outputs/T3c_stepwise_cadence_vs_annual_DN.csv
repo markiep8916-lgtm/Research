@@ -1,0 +1,9 @@
+step_size_age_years,years_between_steps,smoothing,share_of_years_DN_holds,longest_DN_run_years,outcome
+3.6,3.6,none,0.267,1,O2
+3.6,3.6,five-year centred,0.383,2,O2
+5.0,5.0,none,0.2,1,O2
+5.0,5.0,five-year centred,1.0,60,O3
+10.0,10.0,none,0.1,1,O2
+10.0,10.0,five-year centred,0.5,5,O2
+20.0,20.0,none,0.05,1,O2
+20.0,20.0,five-year centred,0.25,5,O2
