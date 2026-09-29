@@ -191,6 +191,32 @@ def dh_ok(x0: float, p: Params, Ra: Trajectory, T: float, dt: float = 0.05, tol:
     return np.diff(h) <= tol
 
 
+def threshold_r(x: float, p: Params, iters: int = 26) -> float:
+    """Smallest constant progress rate r for which D-N holds at age x in the first year
+    (e(x+1, 1) >= e(x, 0)), by bisection, using period hazards. Under M0 this is beta at every age.
+    With gamma frailty the synthetic-cohort period convention leaves it essentially unchanged
+    (the whole period schedule just shifts in age), so heterogeneity does not lower the D-N threshold."""
+    lo, hi = 0.0, 2.0 * p.beta
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        R = traj_constant(mid)
+        marg = e_period(x + 1, 1.0, p, R) - e_period(x, 0.0, p, R)
+        lo, hi = (mid, hi) if marg < 0 else (lo, mid)
+    return 0.5 * (lo + hi)
+
+
+def threshold_r_dh(x: float, p: Params, iters: int = 30, dt: float = 0.01) -> float:
+    """Smallest constant r for which the population hazard along the cohort path (D-H) is not rising at
+    age x, time 0. With gamma frailty, selection makes the cohort's population hazard decelerate
+    (d ln h/dtau = beta - r - sigma2 * h_age), so the threshold falls with age: r >= beta - sigma2 * h_age(x)."""
+    lo, hi = 0.0, 2.0 * p.beta
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        _, _, h = path_survival(x, p, traj_constant(mid), 2 * dt, dt)
+        lo, hi = (mid, hi) if h[1] > h[0] else (lo, mid)
+    return 0.5 * (lo + hi)
+
+
 # --------------------------------------------------------------------------
 # outcome classification (plan section 9: LEV window, ordered first-match rule)
 # --------------------------------------------------------------------------

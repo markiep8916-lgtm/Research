@@ -6,8 +6,8 @@ Code for SQ1 and SQ2 of the LEV run, implementing the frozen specification in
 | File | Purpose |
 |---|---|
 | `lev_model.py` | Hazard models M0 (Gompertz-Makeham with proportional progress), M1 (amenable and resistant components), M2 (gamma frailty, plateau cap); criteria D-N, D-1, D-H; escape duration; outcome classifier (LEV window, O1-O4); race table; level-to-rate conversion; Latin-hypercube sampling. Numpy only. |
-| `tests/test_lev_model.py` | Unit tests that check the analytic predictions P1-P6 against numerical life-table integration (22 tests). |
-| `run_analysis.py` | Produces tables T1-T5, figures F1-F4, and Monte Carlo sensitivity (F2) with a run manifest. |
+| `tests/test_lev_model.py` | Unit tests that check the analytic predictions P1-P6 against numerical life-table integration (24 tests). |
+| `run_analysis.py` | Produces tables T1-T6 (T1b: threshold by age), figures F1-F5, and Monte Carlo sensitivity (F2) with a run manifest. |
 
 ## Status of the parameters
 

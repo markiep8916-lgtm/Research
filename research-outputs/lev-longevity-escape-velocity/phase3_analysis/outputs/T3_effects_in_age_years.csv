@@ -1,0 +1,14 @@
+intervention,hazard_ratio,age_years_once_at_central_beta,age_years_range_beta_0.099_to_0.069,years_between_new_independent_effects_to_sustain_v1,source_card,verification_level
+"SPRINT intensive BP target, all-cause, trial period (point)",0.73,3.62,3.18 to 4.56,3.62,W2-01,V2
+"SPRINT, upper CI bound (weakest effect)",0.9,1.21,1.06 to 1.53,1.21,W2-01,V2
+"SPRINT, lower CI bound (strongest effect)",0.6,5.87,5.16 to 7.40,5.87,W2-01,V2
+SPRINT overall incl. 8-year post-trial follow-up (effect not sustained),0.96,0.47,0.41 to 0.59,0.47,W2-03,V2
+"BP lowering per 10 mmHg systolic, all-cause (meta-analysis)",0.87,1.6,1.41 to 2.02,1.6,W2-04,V2
+"LDL-C lowering per 1.0 mmol/L, all-cause (26 trials)",0.9,1.21,1.06 to 1.53,1.21,W2-06,V2
+"Semaglutide (SELECT), all-cause, nominal",0.81,2.42,2.13 to 3.05,2.42,W2-15,V2
+"Empagliflozin (EMPA-REG), all-cause, type 2 diabetes",0.68,4.43,3.90 to 5.59,4.43,W2-17,V2
+"Tirzepatide vs dulaglutide (SURPASS-CVOT), all-cause, active comparator",0.84,2.0,1.76 to 2.53,2.0,W2-16,V2
+"Smoking cessation at age 25-34 (life-years, observational)",,10.0,10.00 to 10.00,10.0,W2-13,V2
+"Five low-risk lifestyle factors vs none, women at 50 (life-years, observational)",,14.0,14.00 to 14.00,14.0,W8-17,V2
+"Five low-risk lifestyle factors vs none, men at 50 (life-years, observational)",,12.2,12.20 to 12.20,12.2,W8-17,V2
+"MOUSE: dasatinib+quercetin, post-treatment hazard (thought experiment only, not a human estimate)",0.65,4.95,4.35 to 6.24,4.95,W8-19,V2 [SPECULATIVE if applied to humans]

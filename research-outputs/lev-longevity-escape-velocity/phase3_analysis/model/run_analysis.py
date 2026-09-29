@@ -33,6 +33,7 @@ import lev_model as m  # noqa: E402
 
 AGES = [50, 60, 70, 80, 90]  # age band B (default 50-90)
 STAMP_PLACEHOLDER = "PLACEHOLDER PARAMETERS (plan section 5); not findings"
+STAMP = [STAMP_PLACEHOLDER]  # replaced in main() when a params file is supplied
 
 DEFAULT_RANGES = {
     "beta": (0.069, 0.099),
@@ -104,12 +105,19 @@ def table_t2(out, p, observed):
 def table_t3(out, p, effects):
     rows = []
     for e in effects:
-        g = m.age_years(e["hr"], p.beta)
-        rows.append([e["name"], e["hr"], round(g, 2), round(m.cadence_years(e["hr"], p.beta), 2),
+        if "hr" in e:
+            g = m.age_years(e["hr"], p.beta)
+            g_lo = m.age_years(e["hr"], 0.099)   # steeper Gompertz slope: fewer age-years
+            g_hi = m.age_years(e["hr"], 0.069)
+            hr = e["hr"]
+        else:
+            g = g_lo = g_hi = float(e["age_years"])
+            hr = ""
+        rows.append([e["name"], hr, round(g, 2), f"{g_lo:.2f} to {g_hi:.2f}", round(g, 2),
                      e.get("source", ""), e.get("level", "")])
     write_csv(os.path.join(out, "T3_effects_in_age_years.csv"),
-              ["intervention", "hazard_ratio", "age_years_once", "years_between_new_effects_to_sustain_v1",
-               "source_card", "verification_level"], rows)
+              ["intervention", "hazard_ratio", "age_years_once_at_central_beta", "age_years_range_beta_0.099_to_0.069",
+               "years_between_new_independent_effects_to_sustain_v1", "source_card", "verification_level"], rows)
 
 
 # ------------------------------------------------------------------ T4 and F3
@@ -137,7 +145,7 @@ def table_t4(out, p, r_hist, smoke):
             ax.text(j, i, int(grid[i, j]), ha="center", va="center", color="w", fontsize=8)
     fig.colorbar(im, label=f"years D-N holds (of {horizon})")
     ax.set_title("Escape duration (D-N, ages 50-90)", fontsize=10)
-    fig.text(0.01, 0.01, STAMP_PLACEHOLDER, fontsize=6, color="gray")
+    fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")
     fig.tight_layout()
     fig.savefig(os.path.join(out, "F3_escape_duration.png"), dpi=150)
     plt.close(fig)
@@ -167,7 +175,7 @@ def table_t5(out, p, r_hist):
     ax.set_ylabel("probability of being alive at onset")
     ax.legend(fontsize=7)
     ax.set_title("The race to onset (historical improvement continues until onset)", fontsize=9)
-    fig.text(0.01, 0.01, STAMP_PLACEHOLDER, fontsize=6, color="gray")
+    fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")
     fig.tight_layout()
     fig.savefig(os.path.join(out, "F4_race_to_onset.png"), dpi=150)
     plt.close(fig)
@@ -199,7 +207,7 @@ def monte_carlo(out, p, ranges, n, seed):
     ax.axvline(0, color="k", lw=0.5)
     ax.set_xlabel("Spearman correlation with longest D-N run (years)")
     ax.set_title(f"Sensitivity (Latin hypercube, n={n}, seed={seed})", fontsize=9)
-    fig.text(0.01, 0.01, STAMP_PLACEHOLDER, fontsize=6, color="gray")
+    fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")
     fig.tight_layout()
     fig.savefig(os.path.join(out, "F2_tornado.png"), dpi=150)
     plt.close(fig)
@@ -219,10 +227,61 @@ def figure_f1(out, p):
     ax.set_ylabel("period remaining life expectancy at a fixed age of 65 (years)")
     ax.legend(fontsize=7)
     ax.set_title("Life expectancy at 65 under proportional progress v = r/beta", fontsize=9)
-    fig.text(0.01, 0.01, STAMP_PLACEHOLDER, fontsize=6, color="gray")
+    fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")
     fig.tight_layout()
     fig.savefig(os.path.join(out, "F1_e65_by_v.png"), dpi=150)
     plt.close(fig)
+
+
+# ------------------------------------------------------------------ T1b and F5
+def table_t1b(out, p):
+    """Required constant progress rate by age: D-N (period) vs D-H (population cohort path), by frailty variance."""
+    rows = []
+    ages = (50, 60, 70, 80, 90, 100)
+    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    for s2 in (0.0, 0.1, 0.2, 0.4):
+        q = p.with_(sigma2=s2)
+        dn = [m.threshold_r(x, q) for x in ages]
+        dh = [m.threshold_r_dh(x, q) for x in ages]
+        for x, a, b in zip(ages, dn, dh):
+            rows.append([s2, x, round(a, 4), round(1 - np.exp(-a), 4), round(a / q.beta, 3),
+                         round(b, 4), round(1 - np.exp(-b), 4), round(b / q.beta, 3)])
+        ax.plot(ages, [1 - np.exp(-b) for b in dh], marker="o", label=f"D-H population, frailty variance {s2}")
+    ax.axhline(1 - np.exp(-p.beta), color="k", ls="--", lw=0.8, label="D-N (period), any frailty")
+    ax.set_xlabel("age")
+    ax.set_ylabel("required annual proportional decline in death rates")
+    ax.legend(fontsize=7)
+    ax.set_title("Required pace by age: period no-shrink vs cohort hazard-stationarity", fontsize=9)
+    fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out, "F5_threshold_by_age.png"), dpi=150)
+    plt.close(fig)
+    write_csv(os.path.join(out, "T1b_threshold_by_age.csv"),
+              ["frailty_variance", "age", "DN_r", "DN_annual_decline", "DN_v", "DH_pop_r", "DH_pop_annual_decline", "DH_pop_v"], rows)
+    return rows
+
+
+# ------------------------------------------------------------------ T6
+def table_t6(out, p, v_his):
+    b = p.beta
+    scen = [
+        ("S-A historical pace continues (1.5%/yr)", p, m.traj_constant(-np.log(1 - 0.015))),
+        ("S-B ramp to 4%/yr by 2036, then constant (the actuarial 4% claim)", p, m.traj_ramp(0.015, -np.log(1 - 0.04), 0, 10)),
+        ("S-C ramp to 1.3 beta by 2045, then constant (early LEV)", p, m.traj_ramp(0.015, 1.3 * b, 0, 19)),
+        ("S-D same ramp starting 2071 (late LEV)", p, m.traj_ramp(0.015, 1.3 * b, 45, 19)),
+        ("S-E ramp to 1.5 beta by 2045, 5% of hazard unimproved", p.with_(rho=0.05, r_r=0.0), m.traj_ramp(0.015, 1.5 * b, 0, 19)),
+        ("S-F ramp to 1.5 beta by 2045, 1% of hazard unimproved", p.with_(rho=0.01, r_r=0.0), m.traj_ramp(0.015, 1.5 * b, 0, 19)),
+    ]
+    rows = []
+    for label, q, R in scen:
+        for vh in v_his:
+            r = m.classify_outcome(q, R, v_hi=vh)  # individual level, full access
+            rows.append([label, vh, r["outcome"], r["onset_year"] if r["onset_year"] else "", r["longest_dn_run"],
+                         round(r["max_rolling_pace"], 3)])
+    write_csv(os.path.join(out, "T6_scenario_classification.csv"),
+              ["illustrative_trajectory", "v_hi", "outcome", "LEV_window_onset_year", "longest_DN_run_years",
+               "max_rolling_20yr_pace_v"], rows)
+    return rows
 
 
 def main():
@@ -240,9 +299,12 @@ def main():
     r_hist = float(cfg.get("r_hist", 0.015))
     ranges = {k: tuple(v) for k, v in {**DEFAULT_RANGES, **cfg.get("ranges", {})}.items()}
     placeholder = not a.params
+    if not placeholder:
+        STAMP[0] = "Illustrative arithmetic with literature-informed parameters (Phase 2, V2 not V3); not a forecast"
     t0 = time.time()
 
     t1 = table_t1(a.out, p, placeholder)
+    t1b = table_t1b(a.out, p)
     figure_f1(a.out, p)
     if cfg.get("observed"):
         table_t2(a.out, p, cfg["observed"])
@@ -250,6 +312,7 @@ def main():
         table_t3(a.out, p, cfg["effects"])
     table_t4(a.out, p, r_hist, a.smoke)
     table_t5(a.out, p, r_hist)
+    table_t6(a.out, p, cfg.get("v_hi_sensitivity", [0.20, 0.30, 0.40]))
     mc = monte_carlo(a.out, p, ranges, 40 if a.smoke else a.mc_n, a.seed)
 
     manifest = {

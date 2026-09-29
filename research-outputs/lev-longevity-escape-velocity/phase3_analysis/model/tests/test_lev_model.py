@@ -214,3 +214,23 @@ def test_access_reduces_population_progress():
     assert m.traj_access(R, 1.0)(10.0) == pytest.approx(R(10.0))
     k = np.exp(-R(10.0))
     assert np.exp(-Rp(10.0)) == pytest.approx(1 - 0.4 * (1 - k))
+
+
+def test_dn_threshold_is_beta_at_every_age_even_with_frailty():
+    for x in (50, 70, 90):
+        assert m.threshold_r(x, P) == pytest.approx(P.beta, rel=2e-3)
+    q = P.with_(sigma2=0.2)
+    for x in (50, 70, 90, 100):
+        assert m.threshold_r(x, q) == pytest.approx(P.beta, rel=0.02)   # period schedule just shifts
+
+
+def test_dh_threshold_falls_with_age_under_frailty_and_matches_closed_form():
+    for x in (50, 90):
+        assert m.threshold_r_dh(x, P) == pytest.approx(P.beta, rel=1e-3)   # no frailty: hazard slope = beta
+    q = P.with_(sigma2=0.2)
+    rs = [m.threshold_r_dh(x, q) for x in (50, 70, 90, 100)]
+    assert rs == sorted(rs, reverse=True) and rs[-1] < 0.8 * P.beta
+    # closed form: r* = beta - sigma2 * (population age-related hazard at x)
+    for x in (70, 90):
+        h_age = float(m.hazard(x, 0.0, q, m.traj_constant(0.0))) - q.c
+        assert m.threshold_r_dh(x, q) == pytest.approx(P.beta - q.sigma2 * h_age, rel=0.03)
