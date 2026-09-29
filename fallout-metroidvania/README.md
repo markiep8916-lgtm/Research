@@ -114,8 +114,24 @@ node tools/reach.js --thorough --abilities gecko,jetrush --grant boss_warlord,bo
                                           unlocking abilities, keys, doors and bosses to a fixpoint)
 node tools/build.js                       single-file build -> dist/fallout-cinder-deep.html
 node tests/room_shots.js <dir> --region plant --zoom 0.5     screenshot rooms (headless Chromium via Playwright)
-node tests/t_boss.js overseer 40          boss fight smoke test in a synthetic arena
+node tests/t_real_boss.js overseer d_sanct 40     play a boss fight in its real arena room
+node tests/t_sweep.js 4                   enter every room, play 4 s of random input, report exceptions / NaN positions
+node tests/t_flows.js | t_mouse.js | t_pipboy.js | t_actions.js | t_interact.js | t_ending.js
+                                          UI and gameplay flows driven with REAL key / mouse events (menus, Pip-Boy, dialogue,
+                                          terminals, elevators, ladders, all three endings ...)
+node tests/t_chimney.js s_ridge 640 56 30 both jetboots,gecko
+                                          wall-jump bot: hugs a wall and taps Jump like a player would; proves a Gecko Grips shaft is climbable
+node tests/t_gap.js --room s_over --edge 567 --far 581 --row 44 --abil jetboots,jetrush
+                                          gap bot: sweeps jump / double-jump / dash timings and reports how many cross (and that none cross
+                                          without the gating ability, use --want none)
+node tests/t_swim.js p_flood "846,123.5 849,110 ..." 841,123.5      waypoint swimmer for flooded rooms (Hazmat)
 ```
+
+Those real-input tests earlier caught bugs that direct API calls hid (endings never starting, Pip-Boy Q/E and menu mouse clicks dead,
+elevators not carrying the player, running left accelerating without limit, air bubbles that broke swimming), so extend them when you add UI or
+interactables. The reachability solver (`tools/reach.js`) mirrors the player controller's rules (cling only while `vy > -80`, cling refills the
+air jump, kick steering lock, speed carry after a dash) and starts every jump from a standstill, so it is deliberately a little pessimistic; the
+bots above then confirm the ability-gated climbs and gaps with the real controller.
 
 `tests/dev_*.html` are art sheets (decor kinds, bosses, creatures, rigs, textures) for looking at painters in isolation.
 

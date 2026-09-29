@@ -154,7 +154,7 @@ CD.HOLOTAPES.tape_ry_s4 = { title: 'Sleeper Four: Last Entry', text: [
     [40, 7, '$'], [41, 7, '+'], [42, 7, '$'], [38, 27, '$']]);
   r.mark(19, 27, 'pickup', { k: 'bobble', stat: 'P' });
   r.mark(15, 21, 'trigger', { w: 2, h: 3, id: 'ry_cliff_hint', hint: 'THE PIT: the raider fort is below.\nDrop into the shaft, or take the ladder on its east wall to climb back out.', hintDur: 6.5 });
-  r.mark(37, 27, 'trigger', { w: 2, h: 3, id: 'ry_gecko_hint', requires: 'boss_warlord', hint: 'GECKO GRIPS: push into a wall while falling to cling,\nthen press JUMP to wall-jump. The flue past this tunnel is climbable.', hintDur: 7 });
+  r.mark(37, 27, 'trigger', { w: 2, h: 3, id: 'ry_gecko_hint', requires: 'boss_warlord', hint: 'GECKO GRIPS: push into a wall in mid-air to cling, then press JUMP\nto wall-jump; push into a wall again to re-grip.\nThe flue past this tunnel is climbable.', hintDur: 7 });
   // set dressing
   r.deco(14, 17, 'ry_heap', 14, 5, { far: 0.5 }); r.deco(29, 22, 'ry_heap', 12, 6, { far: 0.5 }); r.deco(2, 22, 'ry_heap', 6, 6, { far: 0.5 });
   r.deco(8, 2, 'ry_crane', 11, 20, { flip: true, hang: 'cage', drop: 0.26, col: [148, 70, 40], tilt: 0.04 });

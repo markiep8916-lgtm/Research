@@ -82,7 +82,7 @@ H.tape_rg_toll = { title: "Bulldog's Toll Ledger", text: ["ROUTE 9 TOLL - LEDGER
   r.ents([[7, 27, 'F'], [9, 27, 'Z'], [15, 27, 'N'], [21, 27, 'F'], [28, 27, 's'], [36, 27, 's'], [23, 27, 'r'], [33, 27, 'r'], [49, 27, 'u'], [28, 12, 'f'], [27, 18, 'j'],
     [26, 14, 'l'], [30, 6, 'l'], [26, 21, 'l'],
     [12, 27, '$'], [17, 27, '+'], [19, 27, 'K'], [20, 27, 'K'], [38, 27, '%'], [34, 27, '&'], [51, 27, '$'], [30, 10, '$'], [27, 3, '+']]);
-  r.mark(23, 25, 'trigger', { w: 3, h: 3, id: 'rg_grip_hint', hint: 'GECKO GRIPS:  hold toward a wall while airborne to cling.\nJUMP to kick off, then push into the opposite wall.\nThe scouts hammered planks into the gorge. Follow them up.', hintDur: 9, once: true });
+  r.mark(23, 25, 'trigger', { w: 3, h: 3, id: 'rg_grip_hint', hint: 'GECKO GRIPS:  hold toward a wall while airborne to cling.\nJUMP to kick off, then push into a wall again (the same one works).\nThe scouts hammered planks into the gorge. Follow them up.', hintDur: 9, once: true });
   r.mark(11, 27, 'npc', { id: 'rg_pryor', name: 'Initiate Pryor', outfit: 'guard', face: 1,
     lines: ["Easy, vaulter. Easy. Initiate Pryor, Brotherhood of Steel. Well. What's left of the initiate part. Took a splinter of rotor through the thigh when the bird came down.",
       "The bird was a Vertibird. Three days out from the Citadel, headed for the Meridian plant. Something took our rotor off over this ridge. Pilot never got a word out. Paladin Kessler pulled the rest of us from the wreck.",

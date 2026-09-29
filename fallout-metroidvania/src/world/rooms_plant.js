@@ -96,7 +96,7 @@ const SKY = { sky: true, skyTop: true, flatSky: true, bg: null, ambient: [0.26, 
   r.mark(36, 27, 'steam', { dir: -1, len: 3, period: 3.1, on: 1.0 });
   r.mark(40, 6, 'arc', { len: 3, period: 2.8, on: 1.0 });
   r.mark(4, 27, 'trigger', { w: 2, h: 3, id: 'pl_towers_say', say: [['OVERSEER', 'The Cooling Tower Yard. Please do not drink the coolant. Please do not swim in the coolant. Please do not make eye contact with the coolant.', 6.5]] });
-  r.mark(50, 27, 'trigger', { w: 3, h: 3, id: 'pl_hint_walljump', hint: 'GECKO GRIPS: push into a wall while falling to cling.\nPress JUMP to leap off, then push into the opposite wall. Repeat.', hintDur: 7 });
+  r.mark(50, 27, 'trigger', { w: 3, h: 3, id: 'pl_hint_walljump', hint: 'GECKO GRIPS: push into a wall in mid-air to cling.\nJUMP to leap off, then push into a wall again (either side)\nonce the kick slows down. Repeat to climb.', hintDur: 7 });
   r.mark(55, 5, 'pickup', { k: 'upgrade', u: 'stim' });
   r.ents([[24, 15, 'q'], [45, 15, 'q'], [53, 15, 'l'], [36, 12, 'o'], [27, 14, 'o'], [61, 27, 'p'], [64, 27, 's'],
     [26, 27, '$'], [43, 27, '+'], [58, 27, '%'], [63, 27, '$']]);

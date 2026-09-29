@@ -22,6 +22,8 @@ function load() {
   return sb;
 }
 const sb = load(), CD = sb.CD, T = CD.T, TILE = CD.TILE, K = CD.PLAYER_K;
+// --weak 0.93: margin test. Scale the player's jump / run / kick / dash strength down and see whether the whole game is still reachable.
+if (arg('weak')) { const f = +arg('weak'); for (const k of ['JUMP', 'DJUMP', 'RUN', 'WALL_JX', 'WALL_JY', 'DASH_SPD']) K[k] *= f; console.log('MARGIN TEST: movement strength x' + f); }
 const world = new CD.World(CD.ROOMS);
 if (world.errors.length) { console.log('WORLD ERRORS:\n' + world.errors.join('\n')); }
 const G = CD.G; G.world = world; G.platforms = [];
@@ -59,41 +61,49 @@ function inWaterTile(e) { const t = world.tile(Math.floor((e.x + e.w / 2) / T), 
 function ladderAt(px, py) { return world.tile(Math.floor(px / T), Math.floor(py / T)) === TILE.LADDER; }
 function overlapsLadder(e) { return ladderAt(e.x + e.w / 2, e.y + e.h * 0.5) || ladderAt(e.x + e.w / 2, e.y + e.h - 6) || ladderAt(e.x + e.w / 2, e.y + 10); }
 
-// Simulate one scripted manoeuvre. plan: {dir, hold (s), dj (s|null), dash (s|null), dashDir, wj: [times], jump0: bool, v0:[vx,vy] optional}
+// Simulate one scripted manoeuvre with the SAME rules as src/game/player.js (horizontal control incl. dash/knock speed carry, wall cling only while
+// vy > -80, a cling refills the air jump, wall kick + 0.16 s steering lock, variable jump height).
+// plan: {dir, hold (s), dj (s|null), dash (s|null), dashDir, wj: [times], wjMode: 'alt'|'same', jump: bool, v0:[vx,vy] optional}
 // returns {landings:[{cx,row}], ladders:[{tx,ty}], water:bool}
 function simulate(cx, bottom, plan, has, maxT) {
-  const e = makeBody(cx, bottom); const dt = 1 / 60; const out = { landings: [], ladders: [], hitSpike: false };
-  let t = 0, jumping = false, doubleJumped = false, dashT = 0, dashUsed = false, wallLock = 0, wjIdx = 0, wjUsed = 0, wasGround = false, landed = false;
+  const e = makeBody(cx, bottom); const dt = 1 / 60; const out = { landings: [], ladders: [], hitSpike: false, trace: plan.trace ? [] : null };
+  let t = 0, jumping = false, djFlag = false, djScripted = false, airJumps = 0, dashT = 0, dashUsed = false, wallLock = 0, wjIdx = 0, wjUsed = 0;
   if (plan.v0) { e.vx = plan.v0[0]; e.vy = plan.v0[1]; jumping = e.vy < 0; }
   else if (plan.jump) { e.vy = -K.JUMP; jumping = true; }
-  const dir = plan.dir || 0, maxRun = K.RUN;
+  let dir = plan.dir || 0; const maxRun = K.RUN;
   while (t < (maxT || 2.4)) {
-    t += dt; if (wallLock > 0) wallLock -= dt;
+    t += dt; if (wallLock > 0) wallLock = Math.max(0, wallLock - dt);
     const jumpHeld = plan.hold === undefined ? true : t <= plan.hold + 1e-6;
     // dash
     if (has.jetrush && plan.dash !== undefined && plan.dash !== null && !dashUsed && t >= plan.dash) { dashT = K.DASH_T; dashUsed = true; e.vy = 0; plan.dd = plan.dashDir || dir || 1; }
     if (dashT > 0) { dashT -= dt; e.vx = plan.dd * K.DASH_SPD; e.vy = 0; const f = CD.moveActor(e, dt, {}); if (f.left || f.right) dashT = 0; if (touchesSpike(e)) { out.hitSpike = true; return out; } continue; }
-    let mx = dir; if (wallLock > 0) mx = 0;
-    const acc = e.onGround ? K.ACC : K.AIR_ACC;
-    if (mx !== 0) { if (Math.sign(e.vx) !== mx && e.vx !== 0) e.vx += mx * acc * 1.6 * dt; else e.vx += mx * acc * dt; e.vx = Math.max(-maxRun, Math.min(maxRun, e.vx)); }
-    else if (wallLock <= 0) e.vx = Math.abs(e.vx) <= (e.onGround ? K.FRIC : 700) * dt ? 0 : e.vx - Math.sign(e.vx) * (e.onGround ? K.FRIC : 700) * dt;
-    // wall cling
+    const mx = dir;
+    // horizontal control (mirrors Player.update: excess speed from a dash / kick is kept and bleeds off at 900/s)
+    if (wallLock <= 0) {
+      const acc = e.onGround ? K.ACC : K.AIR_ACC;
+      if (mx !== 0) {
+        const prev = e.vx, lim = Math.max(maxRun, Math.abs(prev));
+        e.vx = Math.max(-lim, Math.min(lim, prev + mx * acc * (Math.sign(prev) !== mx && prev !== 0 ? 1.6 : 1) * dt));
+        if (Math.abs(e.vx) > maxRun && Math.sign(e.vx) === mx) e.vx = mx * Math.max(maxRun, Math.abs(e.vx) - 900 * dt);
+      } else { const f = (e.onGround ? K.FRIC : 700) * dt; e.vx = Math.abs(e.vx) <= f ? 0 : e.vx - Math.sign(e.vx) * f; }
+    } else if (mx !== 0) e.vx += mx * 900 * dt;
+    // wall cling: airborne, pushing toward a wall, and not rising faster than 80 px/s
     let cling = 0;
     if (has.gecko && !e.onGround && mx !== 0) {
       const wl = world.rectHitsSolid(e.x - 2, e.y + 10, 2, e.h - 24), wr = world.rectHitsSolid(e.x + e.w, e.y + 10, 2, e.h - 24);
-      if ((wl && mx < 0) || (wr && mx > 0)) { cling = mx; if (e.vy > K.WALL_SLIDE) e.vy = K.WALL_SLIDE; }
+      if (((wl && mx < 0) || (wr && mx > 0)) && e.vy > -80) { cling = mx; airJumps = 0; if (e.vy > K.WALL_SLIDE) e.vy = K.WALL_SLIDE; }
     }
-    // scripted wall jumps
-    if (cling && plan.wj && wjIdx < plan.wj.length && t >= plan.wj[wjIdx]) { wjIdx++; e.vy = -K.WALL_JY; e.vx = -cling * K.WALL_JX; wallLock = 0.16; jumping = true; plan.dir = -cling; wjUsed++; }
-    if (plan.wj && wjUsed > 0 && wallLock <= 0 && plan.wjDir) { /* keep pushing toward alternating walls */ }
-    // double jump
-    if (has.jetboots && !doubleJumped && plan.dj !== undefined && plan.dj !== null && t >= plan.dj && !e.onGround) { e.vy = -K.DJUMP; doubleJumped = true; jumping = true; }
-    if (jumping && !jumpHeld && e.vy < -260 && !doubleJumped) { e.vy *= 0.55; jumping = false; }
+    // scripted wall jumps: kick at the first opportunity at/after the scripted time; 'alt' then pushes toward the opposite wall, 'same' keeps hugging this one
+    if (cling && plan.wj && wjIdx < plan.wj.length && t >= plan.wj[wjIdx]) { wjIdx++; e.vy = -K.WALL_JY; e.vx = -cling * K.WALL_JX; wallLock = 0.16; jumping = true; wjUsed++; if (plan.wjMode !== 'same') dir = -cling; }
+    // double jump (scripted once per manoeuvre; a cling refills the jump, so a later cling can pay for another plan)
+    if (has.jetboots && !djScripted && airJumps < 1 && plan.dj !== undefined && plan.dj !== null && t >= plan.dj && !e.onGround && !cling) { e.vy = -K.DJUMP; airJumps++; djScripted = true; djFlag = true; jumping = true; }
+    if (jumping && !jumpHeld && e.vy < -260 && !djFlag) { e.vy *= 0.55; jumping = false; }
     if (jumping && e.vy >= 0) jumping = false;
     let grav = K.GRAV; if (e.vy < 0 && jumping && jumpHeld) grav = K.GRAV * 0.86;
     const water = inWaterTile(e);
     if (water) { if (!has.hazmat) { out.water = true; return out; } grav = 520; }
     const f = CD.moveActor(e, dt, { gravity: grav, maxFall: water ? 150 : K.MAXFALL });
+    if (out.trace) out.trace.push({ t: +t.toFixed(3), x: Math.round(e.x), y: Math.round(e.y), vx: Math.round(e.vx), vy: Math.round(e.vy), cl: cling, g: !!f.down });
     if (touchesSpike(e)) { out.hitSpike = true; return out; }
     if (overlapsLadder(e) && t > 0.05) out.ladders.push({ tx: Math.floor((e.x + e.w / 2) / T), ty: Math.floor((e.y + e.h * 0.5) / T), t });
     if (f.down) {
@@ -132,9 +142,11 @@ function neighbours(cx, row, has) {
   const dirs = [-1, 0, 1];
   for (const dir of dirs) for (const hold of holds) for (const dj of djs) for (const dash of dashes) {
     if (dash !== null && dj !== null && hold < 0.2) continue;   // prune
-    const o = simulate(px, bottom, { dir, hold, jump: true, dj, dash, dashDir: dir || 1, wj: has.gecko ? [0.25, 0.55, 0.85] : null }, has, 1.9);
-    for (const l of o.landings) if (l.cx !== cx || l.row !== row) res.push([l.cx, l.row]);
-    for (const l of o.ladders) res.push(['L', l.tx, l.ty]);
+    for (const wjMode of (has.gecko && dir !== 0 ? ['alt', 'same'] : ['alt'])) {
+      const o = simulate(px, bottom, { dir, hold, jump: true, dj, dash, dashDir: dir || 1, wj: has.gecko ? [0.25, 0.55, 0.85] : null, wjMode }, has, 1.9);
+      for (const l of o.landings) if (l.cx !== cx || l.row !== row) res.push([l.cx, l.row]);
+      for (const l of o.ladders) res.push(['L', l.tx, l.ty]);
+    }
   }
   // wall-jump chains: cling while falling from a jump toward each wall (handled by simulate's cling + scripted wj)
   return res;
@@ -217,7 +229,15 @@ console.log('final unlocks:', Array.from(res.state).sort().join(', '));
 // ------------------------------------------------------------------ report
 applyState(res.state);
 const bad = [];
-const chk = (s, label) => { if (!res.reach(s.tx, s.ty, 2)) bad.push(label + ' ' + s.roomId + ' (' + s.tx + ',' + s.ty + ')'); };
+// swimming (Hazmat suit): water cells that connect to a reachable standing cell count as reachable (a body needs the water cell plus a non-solid cell above it)
+const swim = new Set();
+if (res.state.has('hazmat')) {
+  const isW = (x, y) => world.tile(x, y) === TILE.WATER, fits = (x, y) => isW(x, y) && !world.isSolid(x, y - 1), q = [];
+  for (const k of res.seen) { const row = Math.floor(k / W), cx = k % W; for (let dy = -3; dy <= 0; dy++) for (let dx = -1; dx <= 1; dx++) { const x = cx + dx, y = row + dy; if (fits(x, y) && !swim.has(y * W + x)) { swim.add(y * W + x); q.push([x, y]); } } }
+  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (fits(nx, ny) && !swim.has(ny * W + nx)) { swim.add(ny * W + nx); q.push([nx, ny]); } } }
+}
+const swimReach = (s) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (swim.has((s.ty + dy) * W + s.tx + dx)) return true; return false; };
+const chk = (s, label) => { if (!res.reach(s.tx, s.ty, 2) && !swimReach(s)) bad.push(label + ' ' + s.roomId + ' (' + s.tx + ',' + s.ty + ')'); };
 for (const s of world.spawns) {
   if (s.t === 'pickup' && s.requires && !res.state.has(s.requires)) bad.push('never-unlocked pickup ' + s.k + ' requires ' + s.requires + ' in ' + s.roomId);
   else if (s.t === 'pickup' && ['ability', 'upgrade', 'bobble', 'key', 'weapon', 'holotape'].includes(s.k)) chk(s, 'pickup:' + s.k + ':' + (s.id || s.u || s.stat || ''));

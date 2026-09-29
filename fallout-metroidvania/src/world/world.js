@@ -62,6 +62,7 @@ function World(roomDefs) {
   parsed.forEach((p, i) => this._place(p, i));
   this._validate();
   this._snapWallLamps();
+  this._fillEntityWater();
   this._computeExposure();
   for (const r of this.rooms) this._autoDecor(r);
   this.roomById = {}; for (const r of this.rooms) this.roomById[r.id] = r;
@@ -150,6 +151,16 @@ P._validate = function () {
     };
     for (let x = r.x0; x < r.x1; x++) { if (!(r.def && r.def.skyTop)) chk(x, r.y0, x, r.y0 - 1, 'top'); chk(x, r.y1 - 1, x, r.y1, 'bottom'); }
     for (let y = r.y0; y < r.y1; y++) { chk(r.x0, y, r.x0 - 1, y, 'left'); chk(r.x1 - 1, y, r.x1, y, 'right'); }
+  }
+};
+
+// Items and marks placed inside a flooded area replace the water glyph with an entity glyph, which leaves a one-cell air bubble that breaks the
+// swim state (head in an air pocket = wading). Any entity cell that is enclosed by water on at least three sides becomes water again.
+P._fillEntityWater = function () {
+  const W = this.W, isW = (x, y) => this.tile(x, y) === TILE.WATER;
+  for (const s of this.spawns) {
+    if (this.tile(s.tx, s.ty) !== TILE.AIR) continue;
+    if ((isW(s.tx - 1, s.ty) ? 1 : 0) + (isW(s.tx + 1, s.ty) ? 1 : 0) + (isW(s.tx, s.ty - 1) ? 1 : 0) + (isW(s.tx, s.ty + 1) ? 1 : 0) >= 3) this.tiles[s.ty * W + s.tx] = TILE.WATER;
   }
 };
 

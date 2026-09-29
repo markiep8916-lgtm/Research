@@ -217,7 +217,7 @@ Object.assign(CD.HOLOTAPES, {
     [32, 8, '$'], [48, 8, '%'], [66, 8, '+'], [78, 8, '$'],
   ]);
   r.mark(9, 8, 'trigger', { w: 2, h: 3, id: 'mt_hall_ovs', say: [['OVERSEER', 'Sleeper Seven, I detect elevated radiation directly above you. Dr. Marrow was a valued Vault-Tec physician. She is now a valued Vault-Tec hazard.', 6.5]] });
-  r.mark(3, 8, 'trigger', { w: 3, h: 3, id: 'mt_shaft_hint', hint: 'Tiled shaft ahead: cling to a wall in mid-air (Gecko Grips), JUMP to kick off, alternate sides.\nThe clinic is at the top.', hintDur: 7 });
+  r.mark(3, 8, 'trigger', { w: 3, h: 3, id: 'mt_shaft_hint', hint: 'Tiled shaft ahead. Hold toward a wall in mid-air to cling (Gecko Grips).\nJUMP to kick off, then push into a wall again to re-grip. Repeat.\nThe clinic is at the top.', hintDur: 7 });
   r.mark(17, 8, 'pickup', { k: 'holotape', id: 'tape_mt_s5' });
   r.mark(88, 8, 'pickup', { k: 'weapon', id: 'assault_rifle' });
   // the platform: trains on the track bed, signage, pillars under the catwalk
@@ -273,7 +273,7 @@ Object.assign(CD.HOLOTAPES, {
     [113, 5, '$'], [117, 5, '$'],
   ]);
   r.mark(115, 5, 'pickup', { k: 'upgrade', u: 'hp' });   // Vita-Tonic in the chimney niche (rest ledge + jump)
-  r.mark(101, 15, 'trigger', { w: 4, h: 3, id: 'mt_walljump_hint', hint: 'GECKO GRIPS: push into a wall in mid-air to cling.\nPress JUMP to kick off. Alternate walls to climb the chimney.', hintDur: 7 });
+  r.mark(101, 15, 'trigger', { w: 4, h: 3, id: 'mt_walljump_hint', hint: 'GECKO GRIPS: push into a wall in mid-air to cling.\nJUMP to kick off, then push into a wall again (the same one works)\nonce the kick slows down. Repeat to climb the chimney.', hintDur: 7 });
   r.mark(86, 15, 'steam', { dir: -1, len: 3, period: 3.6, on: 1.1 });
   r.mark(95, 15, 'steam', { dir: -1, len: 3, period: 3.4, on: 1.1 });
   r.deco(2, 2, 'mt_pipes', 44, 2, { n: 2 });

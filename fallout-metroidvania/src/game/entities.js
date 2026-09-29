@@ -38,15 +38,18 @@ CD.moveActor = function (e, dt, opts) {
   e.y += dy;
   const x0 = Math.floor((e.x + 0.5) / T), x1 = Math.floor((e.x + e.w - 0.5) / T);
   if (e.vy >= 0) {
-    const ty = Math.floor((e.y + e.h) / T);
-    for (let tx = x0; tx <= x1; tx++) {
-      const t = w.tile(tx, ty);
-      if (CD.isSolidTile(t) || (t === TILE.PLAT && !opts.drop && prevBottom <= ty * T + 1.5 && e.vy >= 0)) { e.y = ty * T - e.h; e.vy = 0; flags.down = true; break; }
-    }
-    // moving platforms
-    if (!flags.down && !opts.drop && G.platforms) {
+    // moving platforms first: an elevator parked on the pit floor has the floor tile under it too, and must still carry whoever stands on it
+    if (!opts.drop && G.platforms) {
       for (const p of G.platforms) {
-        if (e.x + e.w > p.x + 1 && e.x < p.x + p.w - 1 && prevBottom <= p.y + 4 + Math.max(0, p.dy || 0) && e.y + e.h >= p.y) { e.y = p.y - e.h; e.vy = 0; flags.down = true; e.platform = p; break; }
+        const ad = Math.abs(p.dy || 0), fb = e.y + e.h;
+        if (e.x + e.w > p.x + 1 && e.x < p.x + p.w - 1 && prevBottom <= p.y + 4 + ad && fb >= p.y - 2 - Math.max(0, p.dy || 0) && fb <= p.y + 10 + ad) { e.y = p.y - e.h; e.vy = 0; flags.down = true; e.platform = p; break; }
+      }
+    }
+    if (!flags.down) {
+      const ty = Math.floor((e.y + e.h) / T);
+      for (let tx = x0; tx <= x1; tx++) {
+        const t = w.tile(tx, ty);
+        if (CD.isSolidTile(t) || (t === TILE.PLAT && !opts.drop && prevBottom <= ty * T + 1.5 && e.vy >= 0)) { e.y = ty * T - e.h; e.vy = 0; flags.down = true; break; }
       }
     }
   } else {

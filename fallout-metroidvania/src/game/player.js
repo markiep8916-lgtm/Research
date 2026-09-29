@@ -94,7 +94,12 @@ class Player extends CD.Entity {
     let maxRun = K.RUN * ms * (this.crouching ? 0.42 : 1) * (this.swimming ? 0.62 : 1) * (this.reloading > 0 && false ? 0.9 : 1);
     if (ctrl && this.wallLock <= 0) {
       const acc = this.onGround ? K.ACC : K.AIR_ACC;
-      if (mx !== 0) { if (Math.sign(this.vx) !== mx && this.vx !== 0) this.vx += mx * acc * 1.6 * dt; else this.vx += mx * acc * dt; this.vx = U.clamp(this.vx, -Math.max(maxRun, Math.abs(this.vx) > maxRun && this.knockT <= 0 ? Math.abs(this.vx) - 900 * dt : 0), Math.max(maxRun, 0)); }
+      if (mx !== 0) {
+        // accelerate toward mx, but never past max(maxRun, the speed we already had): dash / knockback excess speed is kept and bleeds off, it is not a free acceleration
+        const prev = this.vx, lim = Math.max(maxRun, Math.abs(prev));
+        this.vx = U.clamp(prev + mx * acc * (Math.sign(prev) !== mx && prev !== 0 ? 1.6 : 1) * dt, -lim, lim);
+        if (Math.abs(this.vx) > maxRun && Math.sign(this.vx) === mx && this.knockT <= 0) this.vx = mx * Math.max(maxRun, Math.abs(this.vx) - 900 * dt);
+      }
       else this.vx = U.approach(this.vx, 0, (this.onGround ? K.FRIC : 700) * dt);
     } else if (this.wallLock > 0 && ctrl) { if (mx !== 0) this.vx += mx * 900 * dt; }
     // ---- wall cling

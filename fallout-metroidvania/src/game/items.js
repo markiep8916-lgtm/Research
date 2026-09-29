@@ -7,7 +7,7 @@ const G = (CD.G = CD.G || {});
 // ---------------------------------------------------------------- data
 CD.ABILITIES = {
   jetboots: { name: 'JET BOOTS', short: 'Double Jump', desc: 'Vault-Tec maintenance thrusters. Press JUMP again in mid-air.', col: '#ffb040' },
-  gecko: { name: 'GECKO GRIPS', short: 'Wall Cling', desc: 'Micro-suction gauntlets. Push into a wall while falling to cling; JUMP to leap off.', col: '#7dff9c' },
+  gecko: { name: 'GECKO GRIPS', short: 'Wall Cling', desc: 'Micro-suction gauntlets. Push into a wall in mid-air to cling; JUMP to leap off, then re-grip the same wall or the opposite one to climb.', col: '#7dff9c' },
   jetrush: { name: 'JET RUSH', short: 'Air Dash', desc: 'Injector rig that floods your system with Jet. Press DASH to burst forward, invulnerable for an instant.', col: '#7ad0ff' },
   powerfist: { name: 'POWER FIST', short: 'Wall Breaker', desc: 'Pneumatic-piston gauntlet. Shatters cracked walls and hits like a truck. Equip it as a melee weapon.', col: '#ff8a50' },
   hazmat: { name: 'HAZMAT SUIT', short: 'Radiation Shield', desc: 'Lead-lined suit. Radiation exposure cut by 90%. Irradiated water is finally survivable.', col: '#e8ff70' },
