@@ -86,7 +86,7 @@ P._place = function (p, idx) {
     id: d.id, name: d.name || d.id, region: d.region, idx, x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h, w: p.w, h: p.h,
     sky: d.sky !== undefined ? d.sky : R.sky, ambient: d.ambient || R.ambient, fg: d.fg || R.fg,
     bg: d.bg !== undefined ? d.bg : R.bg, music: d.music || R.music, def: d, dark: d.dark || 0, rad: d.rad || 0, secret: !!d.secret,
-    skyColor: d.skyColor || R.skyColor, skyStrength: d.skyStrength !== undefined ? d.skyStrength : R.skyStrength, title: d.title !== undefined ? d.title : true,
+    skyColor: d.skyColor || R.skyColor, skyStrength: d.skyStrength !== undefined ? d.skyStrength : R.skyStrength, title: d.title !== undefined ? d.title : true, flatSky: !!d.flatSky,
   };
   room.px0 = room.x0 * T; room.py0 = room.y0 * T; room.px1 = room.x1 * T; room.py1 = room.y1 * T;
   this.rooms.push(room);
@@ -180,6 +180,7 @@ P._computeExposure = function () {
         const t = this.tile(xx, yy);
         if (CD.isSolidTile(t)) { ex = 0; break; }
       }
+      if (ex === 0 && r.flatSky && this.bgs[y * this.W + x] === 0) ex = 1;   // open sky with no back wall: never shadow the backdrop (the sky is far away)
       this.exposed[y * this.W + x] = ex;
     }
   }

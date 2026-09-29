@@ -15,7 +15,7 @@ const CD = window.CD, R = CD.room;
 CD.HOLOTAPES = CD.HOLOTAPES || {};
 const H = CD.HOLOTAPES;
 
-const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], skyColor: [1.0, 0.80, 0.58], skyStrength: 0.62, ammo: 'cell' };
+const SKY = { sky: true, skyTop: true, flatSky: true, bg: null, ambient: [0.26, 0.25, 0.22], skyColor: [1.0, 0.80, 0.58], skyStrength: 0.62, ammo: 'cell' };
 
 // ------------------------------------------------------------------ 1. PERIMETER YARD  (668,28) 44x34   ground top y=56 (local row 28)
 {
