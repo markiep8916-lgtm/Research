@@ -16,7 +16,7 @@
  },
  "parameter_sources": {
   "beta": "W8-01 (doubling time about 8 years; the figure was in the search query, so the summary's agreement is not independent); range 0.069-0.099 spans doubling times of 7 to 10 years",
-  "mu80": "placeholder calibrated so model e(65) is about 19 years against the OECD average of 19.9 (W8-05); range 0.035-0.070",
+  "mu80": "placeholder fixed in the plan (section 13) before the OECD comparison was retrieved; the model e(65) of about 19 years is a plausibility check against the OECD average of 19.9 (W8-05, edition not recorded); range 0.035-0.070",
   "c": "placeholder; range 0.0002-0.0010",
   "r_hist": "W8-02 (1.5% assumption, figure in query) and W8-03 (1-2% since 1900, figure in query); 0.0151 is the log-rate of 1.5% a year",
   "v_hi": "team-set (see team_set_bounds)"
@@ -93,7 +93,7 @@
    "t_start": 0.12808897876643074
   }
  },
- "git_commit": "705c0f4cc5f02027aa6a312e891d9c3873010f98",
- "runtime_seconds": 28.4,
+ "git_commit": "02ac8f96e0d82a2f8f0676cafc74b748fcd133fd",
+ "runtime_seconds": 30.0,
  "numpy": "2.4.6"
 }
