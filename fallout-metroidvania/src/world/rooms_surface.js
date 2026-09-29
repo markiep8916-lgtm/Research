@@ -20,8 +20,8 @@ function outdoor(id, name, x, w, opts) {
   r.clear(0, 25, 3, 27);                              // doorway from the vault silo
   r.zone(4, 0, 7, 27, 'bw_concrete');                 // bunker face behind the exit (sf_silo painted on top)
   // rock outcrop with a hidden cavity (cracked wall) and the Strength bobblehead
-  r.solid(35, 26, 37, 27, 'R');                       // step
-  r.solid(38, 23, 52, 27, 'R'); r.clear(39, 25, 43, 27); r.breakable(38, 25, 38, 27);
+  r.plat(33, 36, 25);                                 // a plank ledge on the west face: the way up to the outcrop top
+  r.solid(38, 23, 52, 27, 'R'); r.clear(39, 25, 43, 27); r.breakable(38, 25, 38, 27);   // cracked face at ground level
   r.ents([[8, 27, 'F'], [23, 27, 'F'], [15, 27, 'r'], [20, 27, 'r'], [42, 27, 'Q'], [44, 22, 'a'], [27, 15, 'f'], [50, 12, 'f'], [17, 27, '$'], [46, 22, '$'], [49, 27, '+'], [13, 27, 'K']]);
   r.ent(28, 27, 'Z');                                 // Haskell's bunk
   r.ent(33, 27, 'r');

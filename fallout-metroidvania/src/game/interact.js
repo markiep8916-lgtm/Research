@@ -263,7 +263,25 @@ class Door extends CD.Entity {
     if (!this.open && this.openT > 0) this.openT = 0;
     if (this.opening && this.openT < 1 && Math.random() < 0.3) G.fx.dust(this.cx, this.y + this.h, 1, 0);
   }
+  drawHatch(ctx) {   // wide+short doors are floor hatches: two leaves that slide apart over a dark shaft
+    const x = this.x, y = this.y, w = this.w, h = this.h, k = U.ease.inOutQuad(this.openT), un = this.unlocked(), half = w / 2, slide = k * (half - 8);
+    ctx.fillStyle = '#04060a'; ctx.fillRect(x, y, w, h + 2);
+    const base = this.style === 'wood' ? [110, 80, 52] : this.style === 'scrap' ? [120, 84, 56] : [86, 100, 112];
+    for (const side of [-1, 1]) {
+      const lx = side < 0 ? x - slide : x + half + slide; ctx.save(); ctx.beginPath(); ctx.rect(x, y - 3, w, h + 5); ctx.clip();
+      metalRect(ctx, lx + 1, y - 2, half - 2, h + 1, base);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; for (let i = 1; i < 4; i++) ctx.fillRect(lx + 1 + ((half - 2) / 4) * i, y - 1, 2, h - 2);
+      ctx.save(); ctx.beginPath(); ctx.rect(lx + 1, y - 2, half - 2, 7); ctx.clip(); ctx.fillStyle = '#c9a51c'; ctx.fillRect(lx, y - 2, half, 7); ctx.fillStyle = '#16140f';
+      for (let sx = lx - 12; sx < lx + half + 12; sx += 14) { ctx.beginPath(); ctx.moveTo(sx, y + 5); ctx.lineTo(sx + 7, y + 5); ctx.lineTo(sx + 14, y - 2); ctx.lineTo(sx + 7, y - 2); ctx.fill(); } ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(lx + 1, y - 2, half - 2, 1.2); ctx.restore();
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x + half - 1.5, y - 2, 3, h + 1);
+    if (this.s.label && k < 0.5) { ctx.fillStyle = '#e8c53a'; ctx.font = 'bold 11px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText(this.s.label, x + half, y + h - 13); }
+    metalRect(ctx, x - 3, y - 4, 5, h + 6, [40, 46, 52], true); metalRect(ctx, x + w - 2, y - 4, 5, h + 6, [40, 46, 52], true);
+    if (!this.open) { const col = un ? '#4dff86' : '#ff4a38'; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(x + w / 2, y - 8, 3.6, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
+  }
   draw(ctx) {
+    if (this.wT >= this.hT * 2) return this.drawHatch(ctx);
     const x = this.x, y = this.y, w = this.w, h = this.h, k = U.ease.inOutQuad(this.openT), lift = k * (h - 6);
     const un = this.unlocked();
     ctx.save(); ctx.beginPath(); ctx.rect(x - 2, y - 4, w + 4, h + 6); ctx.clip();

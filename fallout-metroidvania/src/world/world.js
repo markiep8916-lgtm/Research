@@ -29,7 +29,7 @@ CD.REGIONS = {
   },
   plant: {
     name: 'Meridian Power Station', fg: 'rust', bg: 'bw_rust', sky: false, ambient: [0.15, 0.18, 0.13], fluoro: { color: [0.85, 1.0, 0.6], r: 320, i: 0.9, flicker: 0.35 },
-    music: 'plant', grade: [0.95, 1.06, 0.92], dust: 0.6, backdrop: null, geiger: 0.2,
+    music: 'plant', grade: [0.95, 1.06, 0.92], dust: 0.6, backdrop: 'dusk_toxic', geiger: 0.2,
     decor: { ceil: ['conduit', 'cabletray'], wall: ['pipe_v'], floor: { debris: 0.07, can: 0.03, rubble: 0.04 }, back: { vent: 0.08, stain: 0.08, stripe: 0.04 } },
   },
   deep: {
@@ -61,6 +61,7 @@ function World(roomDefs) {
   // pass 2: place
   parsed.forEach((p, i) => this._place(p, i));
   this._validate();
+  this._snapWallLamps();
   this._computeExposure();
   for (const r of this.rooms) this._autoDecor(r);
   this.roomById = {}; for (const r of this.rooms) this.roomById[r.id] = r;
@@ -149,6 +150,20 @@ P._validate = function () {
     };
     for (let x = r.x0; x < r.x1; x++) { if (!(r.def && r.def.skyTop)) chk(x, r.y0, x, r.y0 - 1, 'top'); chk(x, r.y1 - 1, x, r.y1, 'bottom'); }
     for (let y = r.y0; y < r.y1; y++) { chk(r.x0, y, r.x0 - 1, y, 'left'); chk(r.x1 - 1, y, r.x1, y, 'right'); }
+  }
+};
+
+// A wall lamp that was placed in open air slides sideways (within its own room) to the nearest wall face, so none float.
+P._snapWallLamps = function () {
+  for (const s of this.spawns) {
+    if (s.t !== 'walllamp') continue;
+    const ty = s.ty, ok = (x) => CD.isSolidTile(this.tile(x - 1, ty)) || CD.isSolidTile(this.tile(x + 1, ty));
+    if (ok(s.tx)) continue;
+    for (let d = 1; d <= 10; d++) {
+      let done = false;
+      for (const sg of [-1, 1]) { const x = s.tx + sg * d; if (this.roomIdx[ty * this.W + x] !== s.room || CD.isSolidTile(this.tile(x, ty))) continue; if (ok(x)) { s.tx = x; s.lx += sg * d; done = true; break; } }
+      if (done) break;
+    }
   }
 };
 

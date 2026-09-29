@@ -1,9 +1,9 @@
-// Boss creature art: DEATHCLAW, SENTRY BOT "WARDEN-9", OVERSEER PRIME.
+// Boss creature art: DEATHCLAW and SENTRY BOT "WARDEN-9".  (OVERSEER PRIME is NOT painted yet: CD.art.overseer does not exist.)
 // Everything is painted procedurally. Static parts (hide, armour plates, glass, brain, tools...) are baked lazily into supersampled
 // offscreen canvases with baked gradient shading / texture / grime / specular / rim light from the upper-right sun; only the moving
 // and emissive things (IK limbs, spinning barrels, glows, steam, sparks, fluid, screen faces, energy shield) are drawn per frame.
 // Art is "fully lit albedo": the game multiplies a lighting map on top, so tones stay mid-value with the shadow baked in.
-//   CD.art.deathclaw / CD.art.sentry / CD.art.overseer = function (ctx, e, G, flashOnly)
+//   CD.art.deathclaw / CD.art.sentry = function (ctx, e, G, flashOnly)
 // The hit-flash pass (flashOnly === true) simply re-draws the same art additively, so every emissive extra is skipped in that pass.
 (function () {
 'use strict';
@@ -726,7 +726,7 @@ function drawDeathclaw(ctx, e, G, flashOnly) {
   ctx.translate(cx, gy); ctx.scale(f * kS * DC_SCALE, kS * DC_SCALE); ctx.translate(DC_DX, 0);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   // shake for roar / land / windup tremble
-  const shx = S.shake * 1.0, shy = S.shake * 0.5;
+  const shx = S.shake * 1.0, shy = S.shake * 0.5 - 9 * c01(S.dead || 0);    // the corpse pose is lifted so snout / claws rest on the floor line instead of sinking into it
   ctx.translate(shx, shy);
 
   // ---- skeleton anchors in the figure frame
@@ -890,8 +890,9 @@ function hazard(g, x, y, w, h, dir) {              // yellow/black stencil strip
   splat(g, x, y, x + w, y + h, { k: 'fine', c: [70, 60, 30], a: 0.6, th: 0.55, soft: 0.2, s: 0.3, ox: x * 3, oy: y * 3 });
   g.restore();
 }
+let LBL_FLIP = false;                              // true while baking the pre-mirrored text variants (used when the boss faces left)
 function label(g, str, x, y, size, colr, ang) {
-  g.save(); g.translate(x, y); if (ang) g.rotate(ang);
+  g.save(); g.translate(x, y); if (ang) g.rotate(ang); if (LBL_FLIP) g.scale(-1, 1);
   g.font = 'bold ' + size + 'px "Courier New", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = colr; g.fillText(str, 0, 0); g.restore();
 }
 function scratches(g, rnd, n, x0, y0, x1, y1, len, a) {
@@ -973,19 +974,12 @@ function plate(g, pathFn, b, o) {
 }
 // bare / dull steel part (joint caps, pistons, housings)
 function steelPlate(g, pathFn, b, o) { o = Object.assign({ base: SN.steel, chips: 0.25, rust: 0.35, grime: 0.9, top: 1.5 }, o || {}); plate(g, pathFn, b, o); }
-// smoke stack / hydraulic housing style rounded steel rect with cylinder shading
-function roundBar(g, x, y, w, h, base, vertical, hi) {
-  g.save(); rrect(g, x, y, w, h, Math.min(w, h) * 0.4); g.clip();
-  if (vertical) cylV(g, x, y, w, h, base, hi); else cylH(g, x, y, w, h, base, hi);
-  g.restore(); rrect(g, x, y, w, h, Math.min(w, h) * 0.4); g.strokeStyle = 'rgba(12,10,6,0.7)'; g.lineWidth = 0.5; g.stroke();
-}
-const _sf = {};
 function snPart(name, w, h, ox, oy, fn, ss) { return part(w, h, ox, oy, fn, ss); }
 
 // ------------------------------------------------------------------ geometry tables (torso-local, origin = pelvis centre)
 const SN_TORSO = [[-31, -3], [-34.5, -8], [-35.5, -30], [-31, -42], [-24, -47], [-4, -49], [14, -49], [24, -44], [31, -33], [33, -20], [32.5, -8], [27, -1], [12, 3.4], [-12, 3.4]];
 const SN_HEAD = [[-13, -2], [-15.5, -8], [-14, -19], [-7, -25.5], [4, -27.5], [13, -23.5], [17.5, -15.5], [16.5, -6], [12, -2]];
-const SN_SHO = [21, -33];                 // gun arm shoulder pivot (torso-local)
+const SN_SHO = [27, -33];                 // gun arm shoulder pivot (torso-local): the pauldron overhangs the chest's front edge
 const SN_POD = [-19, -46];                // missile pod pivot (torso-local)
 const SN_HEADP = [4, -47];                // neck base (torso-local)
 const SN_EYE = [10.5, -13.2];             // eye lens centre (head-local)
@@ -993,9 +987,13 @@ const SN_HIP = { n: [1, 2], f: [-4, 1] }, SN_T = 30, SN_S = 30;
 
 function buildSentry() {
   const P = {}, R = U.RNG(6161);
+  const both = (name, w, h, ox, oy, fn) => {         // text-bearing parts are baked twice: normal, and with pre-mirrored lettering (name + 'M') for left-facing draws
+    LBL_FLIP = false; P[name] = snPart(name, w, h, ox, oy, fn);
+    LBL_FLIP = true; try { P[name + 'M'] = snPart(name, w, h, ox, oy, fn); } finally { LBL_FLIP = false; }
+  };
   // ---------------------------------------------------------------- torso (origin = pelvis centre)
   const tpath = (g) => poly(g, SN_TORSO);
-  P.torso = snPart('torso', 100, 96, 48, 72, (g) => {
+  both('torso', 100, 96, 48, 72, (g) => {
     // exhaust stacks behind the reactor housing (behind the hull)
     for (const [sx, sh] of [[-30.5, 12], [-24, 9]]) {
       g.save(); g.beginPath(); g.rect(sx - 2.6, -49 - sh, 5.2, sh + 6); g.clip(); cylV(g, sx - 2.6, -49 - sh, 5.2, sh + 6, SN.steelD, 1.5);
@@ -1024,7 +1022,7 @@ function buildSentry() {
         g.restore();
         groove(g, (g) => { rrect(g, -19, -40, 40, 31, 2); }, 0.55);
         for (const [x, y] of [[-17, -38], [19, -38], [-17, -11], [19, -11]]) rivet(g, x, y, 0.8, SN.steel);
-        label(g, 'WARDEN-9', 1, -28, 6.4, 'rgba(238,230,190,0.9)', 0);
+        label(g, 'WARDEN-9', -5.6, -28, 5.6, 'rgba(238,230,190,0.92)', 0);
         g.fillStyle = 'rgba(238,230,190,0.85)'; g.fillRect(-17, -23.6, 36, 0.7); g.fillRect(-17, -22.4, 36, 0.35);
         label(g, 'MERIDIAN PWR. STN. SECURITY', 1, -19.6, 2.5, 'rgba(238,230,190,0.75)', 0);
         label(g, 'UNIT 09', -10, -14, 3.2, 'rgba(238,230,190,0.8)', 0);
@@ -1065,7 +1063,7 @@ function buildSentry() {
   });
 
   // ---------------------------------------------------------------- pauldron (over the gun arm root), origin = shoulder pivot
-  P.pauldron = snPart('pauldron', 36, 34, 18, 20, (g) => {
+  both('pauldron', 36, 34, 18, 20, (g) => {
     const pp = (g) => blob(g, [[-11, 3], [-10.5, -6], [-4, -12.5], [5, -13], [11, -6.6], [11.5, 3.4], [6, 8.5], [-5, 8.5]]);
     plate(g, pp, [-12, -14, 12.5, 9], {
       seed: 21, base: SN.olive, chips: 0.9, rust: 0.6, bevel: 1.5,
@@ -1083,7 +1081,7 @@ function buildSentry() {
 
   // ---------------------------------------------------------------- head (origin = neck base centre)
   const hpath = (g) => poly(g, SN_HEAD);
-  P.head = snPart('head', 44, 44, 20, 34, (g) => {
+  both('head', 44, 44, 20, 34, (g) => {
     // neck collar
     g.save(); rrect(g, -10, -5, 20, 8, 1.4); g.clip(); cylH(g, -10, -5, 20, 8, SN.steelD, 1.5); for (let i = 0; i < 7; i++) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-9 + i * 3, -5, 0.6, 8); } g.restore();
     rrect(g, -10, -5, 20, 8, 1.4); g.strokeStyle = 'rgba(12,10,6,0.75)'; g.lineWidth = 0.55; g.stroke();
@@ -1127,10 +1125,6 @@ function buildSentry() {
   });
 
   // ---------------------------------------------------------------- legs: thigh (hip -> knee), shin (knee -> ankle), foot (origin = ankle)
-  const limbBlock = (len, w0, w1, name, seed, det) => snPart(name, len + 30, Math.max(w0, w1) * 2 + 10, 15 + 4, Math.max(w0, w1) + 5, (g) => {
-    const pt = (g) => poly(g, [[0, -w0], [len * 0.3, -w0 * 1.06], [len * 0.72, -w1 * 1.08], [len, -w1], [len, w1], [len * 0.72, w1 * 1.08], [len * 0.3, w0 * 1.06], [0, w0]]);
-    plate(g, pt, [-2, -w0 - 2, len + 2, w0 + 2], { seed, base: SN.olive, chips: 0.9, rust: 0.7, detail: (g, R) => det(g, R, len, w0, w1) });
-  });
   P.thigh = (function () {
     const len = SN_T, w0 = 11.5, w1 = 8.6;
     return snPart('thigh', len + 34, 34, 17, 17, (g) => {
@@ -1225,7 +1219,7 @@ function buildSentry() {
   });
 
   // ---------------------------------------------------------------- missile pod (origin = pod pivot; the launch face points up along -y in local space, pod tilted at draw time)
-  P.pod = snPart('pod', 40, 44, 18, 32, (g) => {
+  both('pod', 40, 44, 18, 32, (g) => {
     // pod side face: box 26 wide (x -12..14), 26 tall (y -26..0), open end faces -y
     const bp = (g) => poly(g, [[-12, 0], [-12, -22], [-8, -27], [14, -27], [14, 0]]);
     plate(g, bp, [-13, -28, 15, 1], {
@@ -1238,9 +1232,7 @@ function buildSentry() {
         for (const [x, y] of [[4, -3], [6, -2]]) bulletHole(g, x, y, 0.5); dent(g, -3, -20.4, 2.4, 1.5, 0.3, 1); soot(g, 4, -23, 7, 0.4, 1.2, 1);
       },
     });
-    // launch face (foreshortened parallelogram on top)
-    const face = [[-12, -22], [-8, -27], [14, -27], [10, -22]];
-    // (drawn per frame with hatches; this baked part is only the body)
+    // (the launch face, lids and warheads are drawn per frame; this baked part is only the body)
   });
   P.podFace = snPart('podFace', 40, 20, 18, 14, (g) => {   // the launch face: dark bay with a 3 x 2 grid; hatches are drawn separately
     const fp = (g) => poly(g, [[-12, 0], [-7.4, -6], [14, -6], [14, 0]]);
@@ -1264,24 +1256,397 @@ function buildSentry() {
     steelPlate(g, (g) => { g.beginPath(); g.arc(22, 0, 3.6, 0, TAU); }, [18, -4, 26, 4], { seed: 93, bevel: 0.9 });
   });
 
-  // ---------------------------------------------------------------- reactor core recess (visible when the chest hatch is open), torso-local; drawn per frame with glow
-  P.cavity = snPart('cavity', 26, 46, 3, 44, (g) => {
-    const cp = (g) => poly(g, [[0, -38], [8, -34], [11, -20], [10, -6], [0, -2]]);
-    g.save(); cp(g); g.clip(); g.fillStyle = lgrad(g, 0, -40, 0, 0, [[0, '#0a0c0d'], [1, '#050506']]); g.fillRect(-2, -42, 16, 44);
-    g.strokeStyle = 'rgba(120,130,134,0.5)'; g.lineWidth = 0.4; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(0, -34 + i * 5.4); g.lineTo(11, -34 + i * 5.4 + 1.4); g.stroke(); }
-    g.restore(); cp(g); g.strokeStyle = 'rgba(12,10,6,0.85)'; g.lineWidth = 0.7; g.stroke();
+  // ---------------------------------------------------------------- hydraulic piston: cylinder (18 long) and chrome rod (24 long), both authored along +x from the origin
+  P.cyl = snPart('cyl', 24, 12, 3, 6, (g) => {
+    g.save(); rrect(g, 0, -2.9, 18, 5.8, 1.2); g.clip(); cylH(g, 0, -2.9, 18, 5.8, SN.steelD, 1.8);
+    g.fillStyle = lgrad(g, 0, -3.3, 0, 3.3, [[0, css(T(SN.brass, 1.6))], [0.5, css(T(SN.brass, 0.95))], [1, css(T(SN.brass, 0.45))]]); g.fillRect(13.4, -3.3, 2.6, 6.6);
+    g.fillStyle = 'rgba(0,0,0,0.42)'; g.fillRect(5.6, -3, 0.5, 6); g.fillRect(9.4, -3, 0.5, 6); g.fillStyle = 'rgba(255,248,228,0.3)'; g.fillRect(6.1, -3, 0.3, 6); g.fillRect(9.9, -3, 0.3, 6);
+    g.restore(); rrect(g, 0, -2.9, 18, 5.8, 1.2); g.strokeStyle = 'rgba(12,10,6,0.78)'; g.lineWidth = 0.5; g.stroke();
+    g.beginPath(); g.arc(0.2, 0, 2.7, 0, TAU); g.fillStyle = css(T(SN.steelD, 0.8)); g.fill(); g.strokeStyle = 'rgba(12,10,6,0.8)'; g.lineWidth = 0.5; g.stroke(); bolt(g, 0.2, 0, 1.2, SN.steel, 0.3);
   });
-  P.flapU = snPart('flapU', 22, 20, 3, 16, (g) => {   // upper hatch plate, hinge at (0,0) (its top-front edge), plate extends down-forward
-    const fp = (g) => poly(g, [[0, 0], [8.4, 11], [10.4, 14], [1.6, 14], [0, 10]]);
-    plate(g, fp, [-1, -1, 11, 15], { seed: 95, base: SN.olive, chips: 0.9, rust: 0.7, bevel: 1.1, detail: (g) => { rivet(g, 3.4, 9, 0.6, SN.steel); rivet(g, 8, 11.6, 0.55, SN.steel); hazard(g, 0.4, 11, 9.6, 2.6, 1); } });
+  P.rod = snPart('rod', 30, 8, 3, 4, (g) => {
+    g.save(); rrect(g, 0, -1.35, 24, 2.7, 1.2); g.clip(); cylH(g, 0, -1.35, 24, 2.7, [196, 202, 206], 1.5); g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(1, -0.9, 22, 0.5); g.restore();
+    rrect(g, 0, -1.35, 24, 2.7, 1.2); g.strokeStyle = 'rgba(12,10,6,0.7)'; g.lineWidth = 0.4; g.stroke();
+    g.beginPath(); g.arc(24.4, 0, 2.3, 0, TAU); g.fillStyle = css(T(SN.steelD, 0.9)); g.fill(); g.strokeStyle = 'rgba(12,10,6,0.8)'; g.lineWidth = 0.5; g.stroke(); bolt(g, 24.4, 0, 1.1, SN.steel, 0.3);
   });
-  P.flapL = snPart('flapL', 22, 22, 3, 4, (g) => {   // lower hatch plate, hinge at (0,0) its bottom edge; plate extends up-forward
-    const fp = (g) => poly(g, [[0, 0], [9, -5], [10.4, -16], [1.6, -16], [0, -12]]);
-    plate(g, fp, [-1, -17, 11, 1], { seed: 96, base: SN.olive, chips: 0.9, rust: 0.7, bevel: 1.1, detail: (g) => { rivet(g, 3.4, -4, 0.6, SN.steel); rivet(g, 7.6, -12, 0.55, SN.steel); hazard(g, 0.6, -6, 9, 2.6, -1); } });
-  });
+  // far-side (shaded) copies
+  for (const k of ['thigh', 'shin', 'foot', 'farUp', 'farFore', 'cyl', 'rod']) P[k + 'F'] = darkened(P[k], 0.6, '10,12,10');
 
   return P;
 }
+
+
+// ---------------------------------------------------------------- Sentry animation
+// Figure frame: origin = ground contact under the hitbox centre, +x = facing direction, y negative = up. The whole figure is drawn at SN_SCALE.
+const SN_SCALE = 0.78;
+const SN_CYCLE = 66.7;                                   // px of ground travelled per full step cycle (both legs): keeps the planted foot from sliding
+const SN_FH = 20.6;                                      // ankle height above the ground while a foot is planted (the foot part's sole is 20.6 below the ankle)
+const SN_FSHO = [19, -28], SN_ARM = { U: 26.4, F: 26.4 }, SN_ARMK = 1.2;   // far (hanging) arm shoulder (torso-local), segment lengths, sprite stretch
+const SN_GUN = { X0: 20.6, X1: 66, SHR: 36.5, CLA: 59.6 };   // gun-local x: barrels start / tips, cooling shroud, front collar
+const SN_WIN = [-16, -39, 9, -10];                       // flank reactor window (torso-local x0,y0,x1,y1): the big side panel splits open in 'vent'
+const SN_STK = [[-30.5, -61], [-24, -58]];               // exhaust stack mouths (torso-local)
+const SN_HOLES = [[-5, -34], [-3, -31.6], [4, -36], [-7.6, -32.4], [16, -30], [7, -22]];
+const SN_LAMPS = [[-15, -44.6], [-11.6, -44.6], [-8.2, -44.6]];
+const SN_KNEEL = -(Math.PI + 0.2);                       // foot pitch when the shin lies along the ground (toes swing up and round, so they never dip into the floor)
+
+function snPose(e, st, t, ph, dead) {
+  const bs = e.bs || {}, k = c01(nz(e.atkK, 0)), rage = c01(nz(bs.rage, 0)), vent = c01(nz(bs.vent, st === 'vent' ? 1 : 0)), H = SN_FH;
+  const fc = e.face < 0 ? -1 : 1, aimW = nz(e.aimA, nz(bs.aimA, 0)), aw = fc > 0 ? aimW : PI - aimW;
+  const aim = clamp(atan2(sin(aw), cos(aw)), -1, 1.35);
+  const br = 0.5 + 0.5 * sin(t * (1.4 + rage * 1.2));
+  const I = {
+    px: 3 + sin(t * 0.5) * 0.5, py: -65 - br * 0.9, th: 0.05 + sin(t * 0.7) * 0.006, hr: -0.02 + sin(t * 0.45) * 0.05 + sin(t * 1.1) * 0.015,
+    nfx: 13, nfy: -H, nfp: 0, ffx: -17, ffy: -H, ffp: 0,
+    ga: 1.02 + sin(t * 0.9) * 0.02, gs: 0, spin: 0, aim,
+    fhx: 44 + sin(t * 1.1 + 1) * 1.2, fhy: -49 + sin(t * 1.3) * 0.8,
+    pt: 0, po: 0, pl: 0, ev: 0, eye: 0.6 + 0.08 * br + rage * 0.3, eyeF: 0, shake: 0, dead: 0,
+  };
+  const p = Object.assign({}, I), L = (key, v, w) => { p[key] = lerp(I[key], v, w); };
+  if (dead) return snDead(p, deadT(e), t);
+  const moving = st === 'walk' || st === 'chase' || st === 'patrol' || st === 'run';
+  if (moving) {
+    // heavy stomping walk: long double-support stance, high knee lift, torso pitched into the step
+    const u = ph / TAU, D = 0.6, A = D * SN_CYCLE / (2 * SN_SCALE), un = u - Math.floor(u), uf = (u + 0.5) - Math.floor(u + 0.5);
+    const gn = gait(u, D, A, 14), gf = gait(u + 0.5, D, A, 14);
+    const pitch = (q) => (q < D ? lerp(-0.14, 0.2, q / D) : lerp(0.34, -0.16, (q - D) / (1 - D)));
+    const comp = (pp) => (pp > 0 ? 22 * sin(min(pp, 0.6)) : 13 * sin(min(-pp, 0.4)));
+    const pn = pitch(un), pf = pitch(uf), bob = cos(TAU * 2 * (u - 0.05)), sw = sin(TAU * u);
+    p.px = 4 + 1.0 * sw; p.py = -64.5 + 2.4 * bob; p.th = 0.09 + 0.02 * bob; p.hr = -0.05 + 0.03 * sin(TAU * 2 * u + 1);
+    p.nfx = 4 + gn[0]; p.nfy = -H + gn[1] - comp(pn); p.nfp = pn; p.ffx = -8 + gf[0]; p.ffy = -H + gf[1] - comp(pf); p.ffp = pf;
+    p.ga = 1.04 + 0.05 * bob; p.fhx = 43 - 6 * sw; p.fhy = -49 + 2 * bob; p.eye = 0.62 + 0.06 * sin(t * 3);
+  } else {
+    switch (st) {
+      case 'windup': {                       // gun arm comes up onto the target, barrels spin up, eye charges
+        const w = eio(k), r = eo(c01(k * 1.35));
+        p.ga = lerp(I.ga, aim, r); p.spin = k * k * 46; p.gs = 0.15 + 0.5 * w; p.eye = lerp(0.6, 1.05, w) + rage * 0.2;
+        L('py', -63, w); L('th', 0.02, w); L('px', 0, w); L('nfx', 14, w); L('ffx', -17, w); p.shake = 0.35 * w; L('hr', aim * 0.4 - 0.05, w);
+        L('fhx', 46, w); L('fhy', -52, w);
+        break;
+      }
+      case 'gatling': {                      // arm locked on the target, barrels at full speed, whole body braced and shaking
+        p.ga = aim; p.spin = 62 + rage * 16; p.gs = 1; p.eye = 0.95 + rage * 0.1; p.py = -63.5; p.th = 0.11; p.px = 0.5; p.nfx = 15; p.ffx = -18; p.hr = aim * 0.4 - 0.06;
+        p.shake = 0.5; p.fhx = 46; p.fhy = -52;
+        break;
+      }
+      case 'missile': {                      // shoulder pod tilts up, hatches fold open, warheads rise out of the tubes
+        const o = eio(c01(k / 0.55)), lf = eio(c01((k - 0.35) / 0.65));
+        p.po = o; p.pl = lf; p.pt = 0.3 * o; L('th', -0.03, o); L('hr', -0.24, o); L('py', -66, o); p.eye = 0.75 + 0.2 * o; p.ga = 1.1; p.shake = 0.2 * o + (k > 0.97 ? 0.35 : 0);
+        break;
+      }
+      case 'stomp': {                        // near leg marches up, holds, then drives into the ground ~35 units ahead
+        const up = k < 0.5 ? eio(c01(k / 0.5)) : 1, sl = c01((k - 0.6) / 0.11), imp = k > 0.68 ? c01(1 - (k - 0.68) / 0.3) : 0;
+        const x0 = 11, y0 = -H, x1 = 25, y1 = -55, x2 = 38, y2 = -H;
+        if (k < 0.6) { p.nfx = lerp(x0, x1, up); p.nfy = lerp(y0, y1, up); } else { p.nfx = lerp(x1, x2, eo(sl)); p.nfy = lerp(y1, y2, eo(sl)); }
+        p.nfp = k < 0.6 ? 0.25 * up : lerp(0.25, 0, sl);
+        const lean = k < 0.6 ? -0.05 * up : lerp(-0.05, 0.16, sl);
+        p.th = 0.05 + lean; p.px = 3 - 4 * up * (k < 0.6 ? 1 : 1 - sl) + 4 * sl; p.py = -65 - 1.5 * up * (1 - sl) + 5.5 * imp; p.ffx = lerp(-14, -18, up);
+        p.ga = k < 0.6 ? lerp(I.ga, 0.35, up) : lerp(0.35, 1.1, sl); p.hr = k < 0.6 ? -0.12 * up : lerp(-0.12, 0.2, sl); p.fhx = lerp(44, 20, up); p.fhy = lerp(-49, -74, up) + 8 * sl;
+        p.shake = imp > 0.05 ? 1.1 * imp : 0; p.eye = 0.75 + 0.25 * imp;
+        break;
+      }
+      case 'fire': {                         // eye beam: braced, head levelled on the target, the lens flares
+        const a = eio(c01(k * 1.6));
+        p.eyeF = a; p.eye = 1.05; p.hr = aim * 0.5 - 0.1 * a; p.th = 0.0; p.px = -1; p.py = -63; p.shake = 0.7; p.nfx = 15; p.ffx = -18; p.ga = 1.12; p.fhx = 46; p.fhy = -52;
+        break;
+      }
+      default: break;
+    }
+  }
+  if (vent > 0.001) {                        // overheat: drops onto both knees, chest hatch splits open, head and gun arm hang
+    const v = eio(vent), B = (key, val) => { p[key] = lerp(p[key], val, v); };
+    B('px', 3); B('py', -33); B('th', 0.32); B('hr', 0.42); B('nfx', -7); B('nfy', -10); B('nfp', SN_KNEEL); B('ffx', -20); B('ffy', -11); B('ffp', SN_KNEEL);
+    B('ga', 0.95); B('fhx', 44); B('fhy', -26); B('spin', 0); B('gs', 0); B('eye', 0.4); B('pt', 0.1); B('po', 0.2); p.ev = v; p.shake += 0.12 * v * (0.5 + 0.5 * sin(t * 33));
+  }
+  return p;
+}
+function snDead(p, dt, t) {
+  const c = eio(c01(dt / 1.4)), thud = dt > 1.15 ? Math.exp(-(dt - 1.15) * 5) * sin((dt - 1.15) * 25) * 0.7 : 0;
+  p.px = lerp(3, 2, c); p.py = lerp(-65, -33, c) + thud; p.th = lerp(0.05, 0.5, c); p.hr = lerp(-0.02, 0.55, c);
+  p.nfx = lerp(13, -7, c); p.nfy = lerp(-SN_FH, -10, c); p.nfp = c * SN_KNEEL; p.ffx = lerp(-17, -20, c); p.ffy = lerp(-SN_FH, -11, c); p.ffp = c * SN_KNEEL;
+  p.ga = lerp(1.02, 0.8, c); p.fhx = lerp(44, 42, c); p.fhy = lerp(-49, -24, c); p.spin = 0; p.gs = 0; p.eye = 0; p.eyeF = 0; p.ev = 0.7 * c; p.po = 0.6 * c; p.pt = 0.2 * c; p.dead = c;
+  return p;
+}
+function snDeadSet(P) { return cached('sn_dead', () => { const D = {}; for (const k in P) if (P[k] && P[k].c) D[k] = darkened(P[k], 0.42, '14,11,9'); return D; }); }
+
+// barrel spin accumulates per entity (angle += speed * dt); a fresh object (corpse snapshot) simply starts from a fixed angle
+const _snSpin = new WeakMap();
+function snSpinAngle(e, w, t) {
+  let s = _snSpin.get(e);
+  if (!s) { s = { t, a: (t * 7.1) % TAU }; _snSpin.set(e, s); return s.a; }
+  const dt = t - s.t; s.t = t;
+  if (dt > 0 && dt < 0.25) s.a = (s.a + w * dt) % TAU;
+  return s.a;
+}
+
+// ---- leg / actuator drawing
+function snLeg(hip, ax, ay, fp) { const kn = ik2(hip[0], hip[1], ax, ay, SN_T, SN_S, 'fwd'); return { hip, kx: kn[0], ky: kn[1], ax: kn[2], ay: kn[3], fp }; }
+function snPiston(ctx, P, far, ax, ay, bx, by) {
+  const d = hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / d, uy = (by - ay) / d, cl = min(15, d * 0.62), cxp = ax + ux * cl, cyp = ay + uy * cl;
+  seg(ctx, far ? P.rodF : P.rod, cxp - ux, cyp - uy, bx, by, max(0.15, (d - cl + 1) / 24), true);
+  seg(ctx, far ? P.cylF : P.cyl, ax, ay, bx, by, cl / 18, true);
+}
+function snDrawLeg(ctx, P, L, far) {
+  seg(ctx, far ? P.shinF : P.shin, L.kx, L.ky, L.ax, L.ay, 1, true);
+  ctx.save(); ctx.translate(L.ax, L.ay); ctx.rotate(L.fp); put(ctx, far ? P.footF : P.foot, 0, 0); ctx.restore();
+  seg(ctx, far ? P.thighF : P.thigh, L.hip[0], L.hip[1], L.kx, L.ky, 1, true);
+  // knee actuator bridging the rear of the joint
+  const tx = L.kx - L.hip[0], ty = L.ky - L.hip[1], tl = hypot(tx, ty) || 1, sx = L.ax - L.kx, sy = L.ay - L.ky, sl = hypot(sx, sy) || 1;
+  snPiston(ctx, P, far, L.hip[0] + tx * 0.5 - ty / tl * 11.6, L.hip[1] + ty * 0.5 + tx / tl * 11.6, L.kx + sx * 0.42 - sy / sl * 9.8, L.ky + sy * 0.42 + sx / sl * 9.8);
+}
+function snHose(ctx, ax, ay, bx, by, sag, w) {
+  const mx = (ax + bx) / 2, my = (ay + by) / 2 + sag;
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = '#151617'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(mx, my, bx, by); ctx.stroke();
+  ctx.strokeStyle = 'rgba(214,218,220,0.26)'; ctx.lineWidth = w * 0.26; ctx.beginPath(); ctx.moveTo(ax + 0.4, ay - 0.5); ctx.quadraticCurveTo(mx + 0.4, my - 0.7, bx + 0.4, by - 0.5); ctx.stroke();
+  ctx.restore();
+}
+function snDust(ctx, x, y, k, dir) {           // k: 1 (fresh) -> 0
+  if (FO || k <= 0.02) return;
+  const p = 1 - k; ctx.save();
+  for (let i = 0; i < 4; i++) {
+    const r = 3 + 7 * p + i * 1.2, dx = ((i - 1.5) * 5 * (0.4 + p) - 4 * p) * dir, dy = -1 - 2.5 * p * (1 + (i & 1));
+    ctx.globalAlpha = 0.36 * k * k; ctx.drawImage(puffSpr('128,110,90'), x + dx - r, y + dy - r, r * 2, r * 2);
+  }
+  ctx.restore();
+}
+
+// ---- rotary barrel cluster (gun-local, along +x): 6 barrels orbiting the axis, back ones first, motion-blurred when spinning fast
+function snBarrels(ctx, ang, w, dead) {
+  const X0 = SN_GUN.X0, X1 = SN_GUN.X1, RC = 4.9, RB = 2.0, n = 6;
+  const blur = c01((w - 10) / 28), sub = blur > 0.04 ? 5 : 1, spread = blur * 0.62, items = [];
+  for (let i = 0; i < n; i++) for (let s = 0; s < sub; s++) { const a = ang + i * TAU / n + (sub > 1 ? (s / (sub - 1) - 0.5) * 2 * spread : 0); items.push([sin(a) * RC, cos(a)]); }
+  items.sort((p, q) => p[1] - q[1]);
+  ctx.save();
+  for (const b of items) {
+    const y = b[0], z01 = b[1] * 0.5 + 0.5, lit = (0.6 + 0.4 * z01) * (dead ? 0.45 : 1);
+    ctx.globalAlpha = sub > 1 ? 0.42 : 1;
+    ctx.fillStyle = lgrad(ctx, 0, y - RB, 0, y + RB, [[0, T(SN.steel, 1.6 * lit)], [0.28, T(SN.steel, 1.12 * lit)], [0.62, T(SN.steelD, 0.8 * lit)], [1, T(SN.dark, 0.5 * lit)]]);
+    ctx.fillRect(X0, y - RB, X1 - X0, RB * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(X1 - 1.4, y - RB - 0.2, 1.4, RB * 2 + 0.4);
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.32 * (1 - z01)) + ')'; ctx.fillRect(X0, y - RB, X1 - X0, RB * 2);     // barrels at the back sit in shadow
+  }
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle = 'rgba(8,6,4,0.6)'; ctx.lineWidth = 0.4; if (sub === 1) for (const b of items) { ctx.strokeRect(X0, b[0] - RB, X1 - X0, RB * 2); } ctx.restore();
+}
+
+// ---- eye lens (head-local)
+function snEye(ctx, P, S, t, rage, dead) {
+  const ex = SN_EYE[0], ey = SN_EYE[1];
+  let E = c01(S.eye), F = c01(S.eyeF);
+  if (dead) { const fl = U.vnoise(t * 8, 3.1, 8); E = fl > 0.8 ? (fl - 0.8) * 3.5 : 0; F = 0; }
+  const hot = mixc([255, 150, 40], [232, 28, 16], rage), core = mixc([255, 236, 176], [255, 120, 80], rage), cool = dead ? [22, 5, 3] : mixc([64, 10, 6], [46, 6, 4], rage);
+  const sx = sin(t * 0.9 + 1) * 1.7 * (1 - F), sy = clamp(S.aim, -1, 1) * 1.1;
+  ctx.save(); ctx.beginPath(); ctx.arc(ex, ey, 6.5, 0, TAU); ctx.clip();
+  const gr = ctx.createRadialGradient(ex + sx * 0.5, ey + sy * 0.4, 0.2, ex, ey, 6.5);
+  gr.addColorStop(0, css(mixc(mixc(cool, core, E), [255, 255, 240], F * 0.8))); gr.addColorStop(0.3, css(mixc(cool, hot, E)));
+  gr.addColorStop(0.7, css(mixc(cool, mixc(hot, [110, 20, 8], 0.6), E * 0.85))); gr.addColorStop(1, css([22, 6, 4]));
+  ctx.fillStyle = gr; ctx.fillRect(ex - 7, ey - 7, 14, 14);
+  ctx.strokeStyle = 'rgba(20,4,2,0.55)'; ctx.lineWidth = 0.35; for (const r of [2.4, 4.1, 5.6]) { ctx.beginPath(); ctx.arc(ex + sx * 0.2, ey + sy * 0.2, r, 0, TAU); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(22,3,2,' + (0.92 - 0.55 * F) + ')'; ctx.beginPath(); ctx.ellipse(ex + sx, ey + sy, 1.05, 2.2 * (1 - F * 0.5), 0, 0, TAU); ctx.fill();
+  if (E > 0.2 && F < 0.5) { const bx = ex + sin(t * 1.35) * 4.4; ctx.fillStyle = 'rgba(255,232,196,' + (0.16 * E) + ')'; ctx.fillRect(bx - 0.35, ey - 6.3, 0.7, 12.6); }
+  ctx.restore();
+  put(ctx, P.lensRing, ex, ey);
+  if (E > 0.03 || F > 0.03) glow(ctx, ex, ey, 9 + 5 * E + 16 * F, rgbs(mixc(hot, [255, 255, 230], F)), 0.3 * E + 0.9 * F);
+  if (rage > 0.05 && !dead) glow(ctx, ex, ey, 19 + 5 * sin(t * 5.5), '255,40,24', 0.4 * rage * (0.75 + 0.25 * sin(t * 5.5)));   // phase 3: the whole head pulses red
+  if (F > 0.05 && !FO) {                                                  // lens flare cross while the beam fires
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (const [l, w, a] of [[34, 1.1, 0.8], [20, 0.9, 0.6]]) {
+      const sh = 1 + 0.15 * sin(t * 40), vx = a === 0.8 ? 1 : 0, vy = 1 - vx, L2 = l * F * sh;
+      const g2 = ctx.createLinearGradient(ex - vx * L2, ey - vy * L2, ex + vx * L2, ey + vy * L2);
+      g2.addColorStop(0, 'rgba(255,200,140,0)'); g2.addColorStop(0.5, 'rgba(255,245,220,' + (a * F) + ')'); g2.addColorStop(1, 'rgba(255,200,140,0)');
+      ctx.strokeStyle = g2; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ex - vx * L2, ey - vy * L2); ctx.lineTo(ex + vx * L2, ey + vy * L2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+function snAntenna(ctx, t, S, dead) {
+  const bx = -3.4, by = -27, sway = sin(t * 1.9) * 0.9 + S.shake * sin(t * 30) * 1.4 - S.th * 6, len = dead ? 9 : 15, tx = bx - 2.4 + sway, ty = by - len;
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = '#141516'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx - 0.6 + sway * 0.3, by - len * 0.55, tx, ty); ctx.stroke();
+  ctx.strokeStyle = 'rgba(220,224,226,0.45)'; ctx.lineWidth = 0.3; ctx.beginPath(); ctx.moveTo(bx + 0.3, by); ctx.quadraticCurveTo(bx - 0.3 + sway * 0.3, by - len * 0.55, tx + 0.3, ty); ctx.stroke();
+  ctx.fillStyle = css(T(SN.steel, 0.9)); ctx.fillRect(bx - 1.3, by - 1.2, 2.6, 1.7);
+  const on = !dead && sin(t * 3.4) > 0.55;
+  ctx.fillStyle = on ? 'rgb(255,90,70)' : 'rgb(96,24,20)'; ctx.beginPath(); ctx.arc(tx, ty, 0.9, 0, TAU); ctx.fill();
+  if (on) glow(ctx, tx, ty, 6, '255,70,50', 0.9);
+  ctx.restore();
+}
+
+// ---- reactor window on the flank (torso-local): the two halves of the stencilled side panel squash away toward their outer edges, revealing the glowing core
+function snChest(ctx, tc, ev, t, dead) {
+  const o = eio(ev), W = SN_WIN, x0 = W[0], y0 = W[1], x1 = W[2], y1 = W[3], ym = (y0 + y1) / 2, w = x1 - x0, pulse = 0.8 + 0.2 * sin(t * 7) + 0.08 * sin(t * 17.3), lv = pulse * (dead ? 0.13 : 1);
+  ctx.save(); rrect(ctx, x0, y0, w, y1 - y0, 1.6); ctx.clip();
+  ctx.fillStyle = lgrad(ctx, 0, y0, 0, y1, [[0, '#0b0c0d'], [1, '#050506']]); ctx.fillRect(x0, y0, w, y1 - y0);
+  ctx.fillStyle = 'rgba(126,134,138,0.34)'; for (let i = 0; i < 9; i++) ctx.fillRect(x0, y0 + 2 + i * 3.2, w, 0.5);
+  const mx = (x0 + x1) / 2, ry0 = y0 + 3.4, rh = y1 - y0 - 6.8;
+  const rg = ctx.createLinearGradient(mx - 4.4, 0, mx + 4.4, 0);
+  rg.addColorStop(0, css([120 * lv + 20, 40 * lv + 8, 10])); rg.addColorStop(0.28, css([255, 120 * lv + 20, 34 * lv])); rg.addColorStop(0.5, css([255, 214 * lv + 30, 156 * lv + 20]));
+  rg.addColorStop(0.72, css([255, 130 * lv + 20, 40 * lv])); rg.addColorStop(1, css([110 * lv + 20, 34 * lv + 6, 8]));
+  ctx.fillStyle = rg; rrect(ctx, mx - 4.4, ry0, 8.8, rh, 3); ctx.fill();
+  ctx.fillStyle = 'rgba(30,10,4,0.5)'; for (let i = 0; i < 5; i++) ctx.fillRect(mx - 4.6, ry0 + 3 + i * (rh - 6) / 4, 9.2, 0.7);
+  ctx.fillStyle = 'rgba(255,240,200,' + (0.5 * lv) + ')'; ctx.fillRect(mx - 0.6, ry0 + 1.5, 1.2, rh - 3);
+  glow(ctx, mx, (y0 + y1) / 2, 20, '255,150,50', 0.9 * o * lv);
+  ctx.restore();
+  const ss = tc.ss, sx = (x0 + tc.ox) * ss, sw = w * ss, hT = ym - y0, hB = y1 - ym, kk = max(0.1, 1 - o);
+  ctx.drawImage(tc.c, sx, (y0 + tc.oy) * ss, sw, hT * ss, x0, y0, w, hT * kk);
+  ctx.drawImage(tc.c, sx, (ym + tc.oy) * ss, sw, hB * ss, x0, y1 - hB * kk, w, hB * kk);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x0, y0 + hT * kk - 0.4, w, 0.8); ctx.fillRect(x0, y1 - hB * kk - 0.4, w, 0.8);
+  ctx.fillStyle = 'rgba(255,246,220,0.5)'; ctx.fillRect(x0, y0 + hT * kk - 0.9, w, 0.4);
+  glow(ctx, mx + 4, (y0 + y1) / 2, 36, '255,120,40', 0.5 * o * lv);
+}
+// ---- missile pod face (pod-local, origin at the face's front edge): warheads climb out of the tubes, six lids fold up on their hinges
+function snMissiles(ctx, P, po, pl, t, k, dead) {
+  const px = (i) => -8 + i * 7.4, py = (j) => -4.4 + j * 2.6 + 0.6;
+  if (po > 0.05 && !dead) for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) glow(ctx, px(i), py(j) - 1, 6.5, '255,140,50', 0.5 * po);
+  if (pl > 0.03 && !dead) {
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
+      const x = px(i), y = py(j), lift = pl * (12 + ((i + j) & 1) * 1.8);
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 3.6, y - 30, 7.2, 30); ctx.clip();
+      const gx = ctx.createLinearGradient(x - 1.8, 0, x + 1.8, 0); gx.addColorStop(0, '#565b5e'); gx.addColorStop(0.55, '#d6d9d4'); gx.addColorStop(1, '#6a6f73');
+      ctx.fillStyle = gx; ctx.fillRect(x - 1.8, y - lift - 8, 3.6, 10);
+      ctx.fillStyle = '#b8301c'; ctx.fillRect(x - 1.8, y - lift - 4.2, 3.6, 1.1); ctx.fillStyle = '#e8c34a'; ctx.fillRect(x - 1.8, y - lift - 1.6, 3.6, 0.7);
+      ctx.fillStyle = 'rgb(236,134,54)'; ctx.beginPath(); ctx.moveTo(x - 1.8, y - lift - 8); ctx.quadraticCurveTo(x - 0.9, y - lift - 11.6, x, y - lift - 13); ctx.quadraticCurveTo(x + 0.9, y - lift - 11.6, x + 1.8, y - lift - 8); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,210,0.55)'; ctx.fillRect(x + 0.2, y - lift - 8, 0.6, 9);
+      ctx.restore();
+    }
+  }
+  for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) {
+    ctx.save(); ctx.translate(px(i) - 4.2, py(j)); ctx.scale(1, 0.43); ctx.rotate(-po * 1.5); put(ctx, P.podLid, 0, 0); ctx.restore();
+  }
+  if (!FO && pl > 0.9 && !dead) {                                        // launch flashes cycle through the tubes while the pod is firing
+    const per = 0.34, idx = Math.floor(t / per) % 6, age = (t % per), fl = Math.exp(-age * 8), i = idx % 3, j = idx >> 1 & 1, x = px(i), y = py(j);
+    glow(ctx, x, y - 4, 9, '255,160,70', 0.9 * fl);
+    smoke(ctx, x, y - 2, t, { n: 5, rise: 26, spread: 3, r0: 1.6, r1: 6, speed: 1.4, a: 0.34, col: '196,192,186', seed: idx });
+  }
+}
+
+function drawSentry(ctx, e, G, flashOnly) {
+  FO = !!flashOnly;
+  const P = cached('sn', buildSentry), t = nz(e.t, 0), f = e.face < 0 ? -1 : 1, kS = nz(e.scale, 1), st = e.state || 'idle', dead = isDead(e), bs = e.bs || {};
+  const rage = c01(nz(bs.rage, 0)), k = c01(nz(e.atkK, 0)), heat = dead ? 0 : c01(nz(bs.heat, st === 'gatling' ? 0.6 : 0));
+  const cx = nz(e.cx, nz(e.x, 0) + nz(e.w, 100) / 2), gy = nz(e.bottom, nz(e.y, 0) + nz(e.h, 120));
+  const stride = (e.def && e.def.stride) || 0.075, ph = nz(e.phase, 0) * TAU / (SN_CYCLE * stride);
+  const hpF = nz(e.maxHp, 0) > 0 ? c01(nz(e.hp, e.maxHp) / e.maxHp) : 1, dmg = dead ? 1 : c01((0.7 - hpF) / 0.55);
+  const moving = st === 'walk' || st === 'chase' || st === 'patrol' || st === 'run';
+  const tg = snPose(e, st, t, ph, dead);
+  const fast = st === 'windup' || st === 'gatling' || st === 'stomp' || st === 'missile' || st === 'fire';
+  const S = smoothState(e, tg, { _: dead ? 40 : fast ? 16 : 9, nfx: 30, nfy: 30, nfp: 26, ffx: 30, ffy: 30, ffp: 26, px: fast ? 22 : 13, py: fast ? 26 : 15, th: 12, ga: 14, spin: 5, gs: 12, eye: 12, eyeF: 22, fhx: 12, fhy: 12 });
+  const PP = dead ? snDeadSet(P) : P, spinA = snSpinAngle(e, S.spin, t);
+  const fm = f < 0 ? 'M' : '';                          // left-facing draws use the parts with pre-mirrored lettering
+  ctx.save();
+  ctx.translate(cx, gy); ctx.scale(f * kS * SN_SCALE, kS * SN_SCALE);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.translate(S.shake * sin(t * 47) * 0.9, S.shake * sin(t * 61) * 0.5);
+  const px = S.px, py = S.py, th = S.th;
+  const fig = (lx, ly) => { const r = rot2(lx, ly, th); return [px + r[0], py + r[1]]; };
+  const LN = snLeg(fig(SN_HIP.n[0], SN_HIP.n[1]), S.nfx, S.nfy, S.nfp), LF = snLeg(fig(SN_HIP.f[0], SN_HIP.f[1]), S.ffx, S.ffy, S.ffp);
+
+  // ---- far side first: hanging manipulator, far leg
+  {
+    const fsh = fig(SN_FSHO[0], SN_FSHO[1]), fa = ik2(fsh[0], fsh[1], S.fhx, S.fhy, SN_ARM.U, SN_ARM.F, 'back');
+    seg(ctx, PP.farUpF, fsh[0], fsh[1], fa[0], fa[1], SN_ARMK, true); seg(ctx, PP.farForeF, fa[0], fa[1], fa[2], fa[3], SN_ARMK, true);
+  }
+  snDrawLeg(ctx, PP, LF, true);
+
+  // ---- torso + chest reactor + lamps
+  ctx.save(); ctx.translate(px, py); ctx.rotate(th);
+  put(ctx, PP['torso' + fm], 0, 0);
+  if (!dead) {
+    const cols = [[70, 235, 110], [255, 190, 60], [255, 60, 40]], busy = st === 'windup' || st === 'gatling' || st === 'fire' || st === 'missile';
+    const on = [0.9, sin(t * 2.6) > 0 ? 1 : 0.18, busy ? 1 : rage];
+    for (let i = 0; i < 3; i++) { const a = on[i]; if (a <= 0.02) continue; const l = SN_LAMPS[i]; ctx.fillStyle = css(cols[i], a); ctx.beginPath(); ctx.arc(l[0], l[1], 0.85, 0, TAU); ctx.fill(); glow(ctx, l[0], l[1], 4.4, rgbs(cols[i]), 0.6 * a); }
+  }
+  if (S.ev > 0.03) {
+    snChest(ctx, PP['torso' + fm], S.ev, t, dead);
+  }
+  ctx.restore();
+
+  // ---- near leg (over the pelvis), missile pod (behind the head)
+  snDrawLeg(ctx, PP, LN, false);
+  {
+    const pp = fig(-19, -46);
+    ctx.save(); ctx.translate(pp[0], pp[1]); ctx.rotate(th + S.pt);
+    put(ctx, PP['pod' + fm], 0, 0); ctx.translate(0, -27); put(ctx, PP.podFace, 0, 0);
+    snMissiles(ctx, PP, S.po, S.pl, t, k, dead);
+    ctx.restore();
+  }
+  // ---- cables: neck bundle and the gun feed
+  const hp = fig(SN_HEADP[0], SN_HEADP[1]), hr = th + S.hr, sh = fig(SN_SHO[0], SN_SHO[1]);
+  {
+    const a = fig(-9, -47), b = [hp[0] + rot2(-12, -6, hr)[0], hp[1] + rot2(-12, -6, hr)[1]];
+    snHose(ctx, a[0], a[1], b[0], b[1], 3.5, 2.2);
+    const c = fig(8, -14), d = [sh[0] + rot2(6.5, 11, S.ga)[0], sh[1] + rot2(6.5, 11, S.ga)[1]];
+    snHose(ctx, c[0], c[1], d[0], d[1], 9, 2.6);
+    // gun-arm actuator: torso -> underside of the receiver
+    const m = fig(11, -22), q = [sh[0] + rot2(10, 9, S.ga)[0], sh[1] + rot2(10, 9, S.ga)[1]];
+    snPiston(ctx, PP, false, m[0], m[1], q[0], q[1]);
+  }
+  // ---- head
+  ctx.save(); ctx.translate(hp[0], hp[1]); ctx.rotate(hr);
+  put(ctx, PP['head' + fm], 0, 0); snEye(ctx, PP, S, t, rage, dead); snAntenna(ctx, t, S, dead);
+  ctx.restore();
+
+  // ---- gun arm: receiver, spinning barrels, cooling shroud, muzzle collar, then the pauldron over the root
+  {
+    const gs = S.gs, rec = gs * (0.5 + 0.5 * sin(t * 71)) * 1.1, jit = gs * sin(t * 83) * 0.012;
+    ctx.save(); ctx.translate(sh[0], sh[1]); ctx.rotate(S.ga + jit); ctx.translate(-rec, 0);
+    put(ctx, PP.gunBody, 0, 0);
+    snBarrels(ctx, spinA, S.spin, dead);
+    put(ctx, PP.gunShroud, SN_GUN.SHR, 0); put(ctx, PP.gunFront, SN_GUN.CLA, 0);
+    if (!FO && !dead) {
+      if (heat > 0.02) {                                              // barrels glow from the muzzle end backward
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = lgrad(ctx, SN_GUN.X0, 0, SN_GUN.X1, 0, [[0, 'rgba(255,70,20,0)'], [0.45, 'rgba(255,90,30,' + (0.32 * heat) + ')'], [1, 'rgba(255,170,70,' + (0.78 * heat) + ')']]);
+        ctx.fillRect(SN_GUN.X0, -6.6, SN_GUN.X1 - SN_GUN.X0 + 1.5, 13.2); ctx.restore();
+        glow(ctx, SN_GUN.X1 - 6, 0, 14 + 8 * heat, '255,110,50', 0.55 * heat);
+      }
+      if (st === 'gatling' && gs > 0.5) {                             // muzzle flash: fresh random star every ~25 ms
+        const fi = Math.floor(t * 40); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+        for (let i = 0; i < 5; i++) {
+          const a = (U.hash2(fi, i, 71) - 0.5) * 1.5, l = 8 + U.hash2(fi, i, 72) * 18;
+          ctx.strokeStyle = 'rgba(255,' + (150 + (U.hash2(fi, i, 73) * 90 | 0)) + ',110,0.85)'; ctx.lineWidth = 1.3 - i * 0.12;
+          ctx.beginPath(); ctx.moveTo(SN_GUN.X1, (U.hash2(fi, i, 74) - 0.5) * 8); ctx.lineTo(SN_GUN.X1 + cos(a) * l, sin(a) * l * 0.55); ctx.stroke();
+        }
+        ctx.restore();
+        glow(ctx, SN_GUN.X1 + 3, 0, 20, '255,110,70', 0.85 + 0.25 * U.hash2(fi, 9, 75)); glow(ctx, SN_GUN.X1 + 2, 0, 8, '255,240,220', 0.9);
+      } else if (st === 'windup') glow(ctx, SN_GUN.X1 + 2, 0, 8 + 5 * k, '255,100,60', 0.2 + 0.5 * k);
+      if (heat > 0.55 && !moving) smoke(ctx, SN_GUN.X1 - 4, 0, t, { n: 4, rise: 22, spread: 3, r0: 1.5, r1: 5, speed: 0.6, a: 0.28 * (heat - 0.4), col: '180,184,186', seed: 5, dir: -HP2 - S.ga });
+    }
+    ctx.restore();
+    ctx.save(); ctx.translate(sh[0], sh[1]); ctx.rotate(th * 0.6 + (S.ga - 1.0) * 0.12); put(ctx, PP['pauldron' + fm], 0, 0); ctx.restore();
+  }
+
+  // ---- environment: dust, steam, sparks
+  if (!FO) {
+    if (moving) {
+      const u = ph / TAU, un = u - Math.floor(u), uf = (u + 0.5) - Math.floor(u + 0.5);
+      if (un < 0.22) snDust(ctx, LN.ax - 8, -2, 1 - un / 0.22, -1);
+      if (uf < 0.22) snDust(ctx, LF.ax - 8, -2, 1 - uf / 0.22, -1);
+    }
+    if (st === 'stomp' && k > 0.68 && !dead) {
+      const imp = c01(1 - (k - 0.68) / 0.3), fx = LN.ax + 8;
+      snDust(ctx, fx, -2, imp, 1); snDust(ctx, fx - 4, -2, imp, -1);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,214,160,' + (0.55 * imp) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(fx, -1.5, 8 + 46 * (1 - imp), 1.6 + 5 * (1 - imp), 0, 0, TAU); ctx.stroke(); ctx.restore();
+      sparks(ctx, fx, -3, t, imp, -HP2, { n: 10, spread: 3.4, len: 9, seed: 3 });
+    }
+    const wisp = 0.14 + 0.5 * Math.pow(max(0, sin(t * 0.8)), 8), va = S.ev;
+    for (let i = 0; i < 2; i++) {
+      const s = fig(SN_STK[i][0], SN_STK[i][1]);
+      if (dead) smoke(ctx, s[0], s[1], t, { n: 6, rise: 44, spread: 5, r0: 2.5, r1: 10, speed: 0.34, a: 0.4, col: '46,42,38', seed: i * 3 + 1, drift: -10 });
+      else smoke(ctx, s[0], s[1], t, { n: 6, rise: 20 + 34 * va, spread: 4, r0: 2, r1: 5 + 6 * va, speed: 0.5 + 0.5 * va, a: wisp * 0.55 + va * 0.5, col: '178,184,186', seed: i * 3 + 1 });
+    }
+    if (va > 0.2) for (const wx of [-10, 2]) { const c = fig(wx, -40); smoke(ctx, c[0], c[1], t, { n: 6, rise: 34, spread: 5, r0: 2, r1: 8, speed: 0.9, a: 0.6 * va, col: '214,222,224', seed: 11 + wx }); }
+    if (dmg > 0.3 && !dead) { const h = fig(SN_HOLES[1][0], SN_HOLES[1][1]); smoke(ctx, h[0], h[1], t, { n: 4, rise: 26, spread: 3, r0: 1.6, r1: 6, speed: 0.4, a: 0.3 * dmg, col: '52,48,44', seed: 7 }); }
+    if (rage > 0.05 || dead || dmg > 0.4) {                            // arcing sparks from bullet holes / broken joints
+      const cyc = Math.floor(t * 2.2), h = SN_HOLES[cyc % SN_HOLES.length], pos = fig(h[0], h[1]);
+      if (U.hash2(cyc, 7, 9) < (dead ? 0.55 : 0.2 + rage * 0.5 + dmg * 0.3)) sparks(ctx, pos[0], pos[1], t, 1, -HP2, { n: 7, spread: 3.2, len: 8, seed: cyc % 5 });
+      if (dead && S.dead > 0.6) { const q = fig(6, -47); if (U.hash2(Math.floor(t * 1.6), 3, 4) < 0.45) sparks(ctx, q[0], q[1], t, 0.8, -HP2 + 0.4, { n: 6, spread: 2.6, len: 7, seed: 9 }); }
+    }
+  }
+  ctx.restore();
+}
+
+CD.art.sentry = drawSentry;
+CD.art.sentry.CYCLE_PX = SN_CYCLE;
 
 // DEV-ONLY: exposes the baked parts for the part viewer (tests/dev_boss.html?part=deathclaw.head)
 CD.art.__bossParts = function (n) {

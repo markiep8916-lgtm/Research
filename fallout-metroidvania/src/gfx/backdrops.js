@@ -24,6 +24,17 @@ const PALETTES = {
       { f: 0.46, c: [34, 22, 22], min: 210, max: 430, kind: 'ruins', hz: 0.94 },
     ],
   },
+  // the Meridian plant exterior: smog-thick dusk, sickly olive light, heavy industrial silhouettes
+  dusk_toxic: {
+    sky: [[0, '#10161a'], [0.22, '#24302c'], [0.44, '#4e5236'], [0.62, '#98763c'], [0.8, '#bd9a52'], [1, '#bd9a52']],
+    sun: [0.62, 0.6], sunColor: [236, 208, 132], haze: [132, 116, 70], cloud: [118, 104, 76],
+    layers: [
+      { f: 0.05, c: [96, 84, 64], min: 90, max: 200, kind: 'mountain', hz: 0.74 },
+      { f: 0.12, c: [74, 68, 54], min: 130, max: 290, kind: 'city', hz: 0.78 },
+      { f: 0.26, c: [46, 44, 38], min: 180, max: 360, kind: 'city', hz: 0.84, windows: 0.06 },
+      { f: 0.46, c: [24, 24, 22], min: 210, max: 440, kind: 'ruins', hz: 0.94 },
+    ],
+  },
 };
 
 function mkStrip(W, H) { const c = U.canvas(W, H); return { c, g: c.getContext('2d') }; }

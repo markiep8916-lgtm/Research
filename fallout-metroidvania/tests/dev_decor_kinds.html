@@ -9,17 +9,19 @@
 <script src="../src/gfx/decor_surface.js"></script>
 <script src="../src/gfx/decor_ridge.js"></script>
 <script src="../src/gfx/decor_deep.js"></script>
+<script src="../src/gfx/decor_plant.js"></script>
 <script src="../src/gfx/decor_rustyard.js"></script>
 <script src="../src/gfx/decor_metro.js"></script>
 <script src="_usage.js"></script>
+<script src="catalog.js"></script>
 <script>
 // Generic decor sheet driven by the world's real usage (tools/decor_usage.js --out tests/_usage.js).
-// Query: pre=dp_,rg_ (prefixes) | only=dp_cog,dp_hazdoor (kinds) | w=1600 | zoom=1 | bg=teal|dusk|tunnel | one=1 (one entry per kind) | maxh=900 (scale big ones down)
+// Query: cat=1 (use tests/catalog.js: hand-listed sizes for kinds not placed in any room yet) | pre=dp_,rg_ (prefixes) | only=dp_cog,dp_hazdoor (kinds) | w=1600 | zoom=1 | bg=teal|dusk|tunnel | one=1 (one entry per kind) | maxh=900 (scale big ones down)
 const CD = window.CD, U = CD.U, T = CD.T;
 const q = new URLSearchParams(location.search);
 const WID = +(q.get('w') || 1600), ZOOM = +(q.get('zoom') || 1), BG = q.get('bg') || 'teal', ONE = q.get('one') === '1', MAXH = +(q.get('maxh') || 600);
 const pre = (q.get('pre') || '').split(',').filter(Boolean), only = (q.get('only') || '').split(',').filter(Boolean);
-let list = window.USAGE.filter((e) => (!pre.length || pre.some((p) => e.k.startsWith(p))) && (!only.length || only.includes(e.k)));
+let list = (q.get('cat') ? window.CATALOG : window.USAGE).filter((e) => (!pre.length || pre.some((p) => e.k.startsWith(p))) && (!only.length || only.includes(e.k)));
 if (ONE) { const s = new Set(); list = list.filter((e) => (s.has(e.k) ? false : (s.add(e.k), true))); }
 const MARG = 14, GAP = 22, LAB = 30, TOP = 16;
 const items = list.map((e) => { const sc = Math.min(ZOOM, MAXH / e.h, (WID - 2 * MARG) / e.w); return Object.assign({}, e, { sc }); });

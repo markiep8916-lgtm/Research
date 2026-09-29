@@ -44,6 +44,10 @@ for (const s of world.spawns) {
   if (s.t === 'door') {
     const w = s.w || 1, h = s.h || 3;
     for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (solid(tx + x, ty - y)) E(s, 'door footprint overlaps solid');
+    if (w >= h * 2) {   // horizontal floor hatch: the floor must continue on both sides of the hole
+      if (!solid(tx - 1, ty) || !solid(tx + w, ty)) E(s, 'hatch is not set into a floor (needs solid on both ends)');
+      continue;
+    }
     const top = ty - h; let framed = true;
     for (let x = 0; x < w; x++) if (!solid(tx + x, top)) framed = false;
     if (!framed) E(s, 'door has no lintel above it (player can walk around)');
@@ -58,7 +62,8 @@ const arenas = {}; for (const s of world.spawns) if (s.t === 'arena') arenas[s.b
 for (const s of world.spawns) if (s.t === 'trigger' && s.boss && s.boss !== 'warden') {
   const a = arenas[s.boss]; if (!a) { E(s, 'boss trigger "' + s.boss + '" has no arena mark'); continue; }
   const r = world.roomById[a.roomId];
-  if (!solid(a.tx + 0, r.y0 + a.floor)) { /* floor tile check uses the mark column */ E(a, 'arena floor row ' + a.floor + ' is not solid at the mark column'); }
+  const gateCovers = (a.gates || []).some((g) => a.tx >= a.tx + g.dx && a.tx < a.tx + g.dx + g.w && r.y0 + a.floor >= a.ty + g.dy && r.y0 + a.floor < a.ty + g.dy + g.h);
+  if (!solid(a.tx + 0, r.y0 + a.floor) && !gateCovers) { /* floor tile check uses the mark column (a closing gate can be the floor) */ E(a, 'arena floor row ' + a.floor + ' is not solid at the mark column'); }
   (a.gates || []).forEach((g, i) => { const gx = a.tx + g.dx, gy = a.ty + g.dy; for (let x = 0; x < g.w; x++) for (let y = 0; y < g.h; y++) { if (solid(gx + x, gy + y)) E(a, 'gate ' + i + ' overlaps solid at ' + (gx + x) + ',' + (gy + y)); if (world.roomIdx[(gy + y) * world.W + gx + x] < 0) E(a, 'gate ' + i + ' outside any room'); } });
   const sp = { tx: a.tx + (a.spawn ? a.spawn[0] : 0), ty: a.ty + (a.spawn ? a.spawn[1] : 0) }; if (solid(sp.tx, sp.ty)) E(a, 'boss spawn cell is solid');
   const rw = r.w, rh = r.h; if (rw < 36 || rh < 18) W(a, 'arena room is small (' + rw + 'x' + rh + ')');

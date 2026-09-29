@@ -481,4 +481,40 @@ K.ry_carstack = function (g, d, r) {
   }
 };
 
+
+// ------------------------------------------------------------------ underground fort dressing
+function skullAt(g, x, y, rad) {   // little bone-white skull (front view)
+  g.fillStyle = '#e2d4ae'; g.beginPath(); g.ellipse(x, y, rad, rad * 1.1, 0, 0, 7); g.fill(); g.fillRect(x - rad * 0.5, y + rad * 0.6, rad, rad * 0.7);
+  g.fillStyle = '#1a100a'; g.beginPath(); g.ellipse(x - rad * 0.36, y - rad * 0.1, rad * 0.26, rad * 0.32, 0, 0, 7); g.ellipse(x + rad * 0.36, y - rad * 0.1, rad * 0.26, rad * 0.32, 0, 0, 7); g.fill();
+}
+// Bulldog's throne: a welded car seat between two tyres, a riveted scrap backplate crowned with spikes and skulls. Floor-standing (box bottom = floor).
+K.ry_throne = function (g, d, r) {
+  const base = d.y + d.h, cx = d.x + d.w / 2, w = Math.min(d.w, 130), x0 = cx - w / 2, hh = Math.min(d.h, 150);
+  shadow(g, cx, base - 1, w * 0.58, 4, 0.42);
+  const bx = x0 + w * 0.22, bw = w * 0.56, by = base - hh + 16, bh = hh * 0.62;
+  plate(g, bx, by, bw, bh, [112, 58, 40]); rustBlotch(g, r, bx, by, bw, bh, 7, 0.5);
+  for (const rx of [bx + 6, bx + bw - 6]) for (const ry of [by + 6, by + bh - 6]) rivet(g, rx, ry, 2, [130, 112, 96]);
+  for (let i = 0; i < 5; i++) { const sx = bx + 6 + i * (bw - 12) / 4, sh = i % 2 ? 9 : 17; g.fillStyle = '#3a322c'; g.beginPath(); g.moveTo(sx - 3, by); g.lineTo(sx, by - sh); g.lineTo(sx + 3, by); g.fill(); if (i % 2 === 0) skullAt(g, sx, by - sh - 6, 5); }
+  skullAt(g, bx + bw / 2, by + bh * 0.42, 9);
+  g.fillStyle = grad(g, 0, base - 46, 0, base - 26, [[0, '#8a2a1e'], [1, '#4a1610']]); g.fillRect(x0 + w * 0.2, base - 42, w * 0.6, 18);
+  g.fillStyle = 'rgba(255,190,140,0.3)'; g.fillRect(x0 + w * 0.2, base - 42, w * 0.6, 1.5);
+  g.fillStyle = '#26221e'; g.fillRect(x0 + w * 0.22, base - 24, w * 0.56, 24);
+  for (const tx of [x0 + w * 0.12, x0 + w * 0.88]) { const tr = 17; g.fillStyle = '#141210'; g.beginPath(); g.arc(tx, base - tr, tr, 0, 7); g.fill(); g.fillStyle = '#2a2622'; g.beginPath(); g.arc(tx, base - tr, tr * 0.5, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,200,150,0.25)'; g.lineWidth = 1.2; g.beginPath(); g.arc(tx, base - tr, tr - 1, 3.6, 5.2); g.stroke(); }
+};
+// Trophy rack: a scrap panel hung with rows of skulls, licence plates and one empty hook. Wall-mounted box kind. p: {text}
+K.ry_trophy = function (g, d, r) {
+  const p = d.p || {}, x = d.x + 2, y = d.y + 2, w = d.w - 4, h = d.h - 4;
+  g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(x + 4, y + 5, w, h); plate(g, x, y, w, h, [78, 56, 44]);
+  rustBlotch(g, r, x, y, w, h, 8, 0.4);
+  const cols = Math.max(3, Math.floor(w / 30)), rows = Math.max(1, Math.floor((h - 30) / 34));
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const px = x + (i + 0.5) * w / cols, py = y + 16 + j * 34;
+    if (j === rows - 1 && i === cols - 1) { g.strokeStyle = '#3a3630'; g.lineWidth = 2.2; g.beginPath(); g.arc(px, py + 6, 5, 0.3, 5.4); g.stroke(); continue; }   // the empty hook
+    if ((i + j) % 3 === 2) { g.fillStyle = r.pick(['#b8b0a0', '#a8a06a', '#8aa0a8']); g.fillRect(px - 9, py, 18, 10); g.fillStyle = '#1a1a1a'; g.fillRect(px - 6, py + 3, 12, 2); rivet(g, px - 7, py + 2, 1, [110, 100, 90]); rivet(g, px + 7, py + 2, 1, [110, 100, 90]); }
+    else { skullAt(g, px, py + 6, 7); }
+  }
+  g.font = 'bold 11px "Courier New", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#d8c8a0'; g.fillText(p.text || 'TROPHIES', x + w / 2, y + h - 9);
+  g.fillStyle = 'rgba(255,214,160,0.3)'; g.fillRect(x, y, w, 1.4);
+};
+
 })();

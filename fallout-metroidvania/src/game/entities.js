@@ -121,6 +121,7 @@ G.xpForLevel = (l) => Math.round(60 * Math.pow(l - 1, 1.55));
 G.hurtPlayer = function (dmg, opts) {
   const p = G.player; opts = opts || {};
   if (!p || p.dead || G.state !== 'play') return false;
+  if (G.cheats && G.cheats.god) return false;      // ?god=1 (dev): nothing hurts
   if (p.invuln > 0 && !opts.ignoreInvuln) return false;
   if (p.dashInv > 0 && !opts.ignoreInvuln) return false;
   const st = G.st;
@@ -147,6 +148,7 @@ G.killPlayer = function () {
 G.addRad = function (n) {
   const st = G.st; if (G.hasAbility('hazmat')) n *= 0.1; if (G.buff('radx')) n *= 0.2;
   n *= 1 - G.special('E') * 0.03 - G.perk('radres') * 0.08;
+  if (G.cheats && G.cheats.god) return;
   st.rad = U.clamp(st.rad + n, 0, 100);
   if (st.rad >= 100) { G.hurtPlayer(9999, { kind: 'rad', knock: 0, ignoreInvuln: true }); }
 };

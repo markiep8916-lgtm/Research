@@ -80,7 +80,7 @@ H.tape_rg_toll = { title: "Bulldog's Toll Ledger", text: ["ROUTE 9 TOLL - LEDGER
   r.solid(40, 25, 46, 27, 'E'); r.clear(41, 26, 44, 27); r.breakable(40, 26, 40, 27); r.zone(41, 26, 44, 27, 'bw_redrock');
   // ---- entities
   r.ents([[7, 27, 'F'], [9, 27, 'Z'], [15, 27, 'N'], [21, 27, 'F'], [28, 27, 's'], [36, 27, 's'], [23, 27, 'r'], [33, 27, 'r'], [49, 27, 'u'], [28, 12, 'f'], [27, 18, 'j'],
-    [26, 14, 'l'], [30, 6, 'l'], [26, 22, 'l'],
+    [26, 14, 'l'], [30, 6, 'l'], [26, 21, 'l'],
     [12, 27, '$'], [17, 27, '+'], [19, 27, 'K'], [20, 27, 'K'], [38, 27, '%'], [34, 27, '&'], [51, 27, '$'], [30, 10, '$'], [27, 3, '+']]);
   r.mark(23, 25, 'trigger', { w: 3, h: 3, id: 'rg_grip_hint', hint: 'GECKO GRIPS:  hold toward a wall while airborne to cling.\nJUMP to kick off, then push into the opposite wall.\nThe scouts hammered planks into the gorge. Follow them up.', hintDur: 9, once: true });
   r.mark(11, 27, 'npc', { id: 'rg_pryor', name: 'Initiate Pryor', outfit: 'guard', face: 1,
@@ -90,7 +90,7 @@ H.tape_rg_toll = { title: "Bulldog's Toll Ledger", text: ["ROUTE 9 TOLL - LEDGER
       "The Power Fist is the only thing we had that breaks concrete. Scribe Hollis says the plant's gate is poured shut. You want in? You'll need Kessler's fist. It's up there with Kessler.",
       "Watch the walls. We hammered planks into the gorge, all the way to the ridge. Gecko grips will get you up; nothing else will. And whatever you do, don't drink the Nuka-Cola. Vance drank the Nuka-Cola."],
     topics: ['What happened here?', 'What is up on the ridge?', 'The Power Fist?', 'Any advice?'] });
-  r.mark(17, 25, 'terminal', { id: 'rg_t_field', title: 'ROOK-3 RELAY STATION - PRYOR', holotape: 'tape_rg_field', lines: ["BROTHERHOOD OF STEEL - SCOUT DETAIL ROOK-3\nRELAY STATION NOTES / INITIATE PRYOR\n\nSUPPLY MANIFEST:\n  STIMPAK x4 .......... 3 REMAINING\n  MICROFUSION CELL .... 1 CASE\n  NUKA-COLA x1 ........ 0 REMAINING\n\nNOTE: Vance drank the Nuka-Cola. Vance is on latrine detail for the rest of his natural life. At this rate, that is until Thursday.", "ROUTE NOTES:\nWe hammered pitons and planks into the gorge, floor to rim. The only way to the ridge that isn't a rope and a prayer. Recommend Gecko-type grips. Alternate recommendation: don't go."] });
+  r.mark(16, 27, 'terminal', { id: 'rg_t_field', title: 'ROOK-3 RELAY STATION - PRYOR', holotape: 'tape_rg_field', lines: ["BROTHERHOOD OF STEEL - SCOUT DETAIL ROOK-3\nRELAY STATION NOTES / INITIATE PRYOR\n\nSUPPLY MANIFEST:\n  STIMPAK x4 .......... 3 REMAINING\n  MICROFUSION CELL .... 1 CASE\n  NUKA-COLA x1 ........ 0 REMAINING\n\nNOTE: Vance drank the Nuka-Cola. Vance is on latrine detail for the rest of his natural life. At this rate, that is until Thursday.", "ROUTE NOTES:\nWe hammered pitons and planks into the gorge, floor to rim. The only way to the ridge that isn't a rope and a prayer. Recommend Gecko-type grips. Alternate recommendation: don't go."] });
   r.mark(29, 27, 'steam', { dir: -1, len: 3, period: 3.6, on: 1.1 });
   r.mark(19, 27, 'locker', { loot: [{ k: 'ammo', type: 'cell', n: 30 }, { k: 'stimpak' }, { k: 'caps', n: 50 }] });
   r.mark(27, 18, 'pickup', { k: 'weapon', id: 'laser_pistol' });

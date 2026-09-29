@@ -11,6 +11,7 @@
 //   state=idle,slash                       only these states
 //   strip=8                                filmstrip of ONE state (atkK 0..1 sweep, or run/walk cycle sweep) - needs state=
 //   bg=dusk|dark|both                      right-facing row on dusk, left-facing row on dark (default); both = both rows on that bg
+//   face=1|-1                              draw only that facing (default both rows)
 //   flash=1                                add a hit-flash row       bs={"rage":1,"mood":0.5,...}  extra e.bs fields for every cell
 //   anim=1                                 live animation (RAF) of the first cell of each row
 //   part=deathclaw.head&s=8                view one baked part (uses CD.art.__bossParts) with an origin cross
@@ -45,6 +46,7 @@ const STATES = {
     { l: 'missile .3', s: 'missile', atkK: 0.3 }, { l: 'missile .6', s: 'missile', atkK: 0.6 },
     { l: 'stomp .3', s: 'stomp', atkK: 0.3 }, { l: 'stomp .55', s: 'stomp', atkK: 0.55 }, { l: 'stomp .8', s: 'stomp', atkK: 0.8 },
     { l: 'vent .5', s: 'vent', bs: { vent: 0.5 } }, { l: 'vent 1', s: 'vent', bs: { vent: 1 } },
+    { l: 'fire .4', s: 'fire', atkK: 0.4 }, { l: 'fire 1', s: 'fire', atkK: 1, aimA: -0.2 }, { l: 'beam windup', s: 'windup', atkK: 0.7 },
     { l: 'rage', s: 'gatling', aimA: 0, bs: { rage: 1, heat: 0.6 } },
     { l: 'dead .3s', s: 'dead', dead: true, deadT: 0.3 }, { l: 'dead 1s', s: 'dead', dead: true, deadT: 1 }, { l: 'dead 4s', s: 'dead', dead: true, deadT: 4 },
   ],
@@ -60,6 +62,7 @@ const STATES = {
     { l: 'dead .3s', s: 'dead', dead: true, deadT: 0.3 }, { l: 'dead 1s', s: 'dead', dead: true, deadT: 1 }, { l: 'dead 4s', s: 'dead', dead: true, deadT: 4 },
   ],
 };
+const FACES = q.get('face') ? [parseInt(q.get('face')) < 0 ? -1 : 1] : [1, -1];
 const bsExtra = q.get('bs') ? JSON.parse(q.get('bs')) : {};
 function mk(name, st, face, i) {
   const d = DEF[name];
@@ -118,7 +121,7 @@ function sheet() {
     const cols = Math.max(1, Math.floor(W / cw));
     const nrows = Math.ceil(list.length / cols);
     sections.push({ name, list, cw, ch, cols, nrows });
-    H += 22 + nrows * (q.get('bg') === 'both' || true ? 2 : 1) * (ch + 2) + (q.get('flash') ? nrows * (ch + 2) : 0) + 8;
+    H += 22 + nrows * FACES.length * (ch + 2) + (q.get('flash') ? nrows * (ch + 2) : 0) + 8;
   }
   c.width = W; c.height = Math.min(H, 16000);
   g.fillStyle = '#1c1b1a'; g.fillRect(0, 0, c.width, c.height);
@@ -128,7 +131,7 @@ function sheet() {
     for (let r = 0; r < sc.nrows; r++) {
       const items = sc.list.slice(r * sc.cols, (r + 1) * sc.cols);
       const bgMode = q.get('bg') || 'dusk';
-      for (const face of [1, -1]) {
+      for (const face of FACES) {
         items.forEach((st, i) => {
           const dark = bgMode === 'dark' ? true : bgMode === 'both' ? false : face < 0;
           drawCell(sc.name, st, face, r * sc.cols + i, i * sc.cw, y, sc.cw - 2, sc.ch, dark, false);

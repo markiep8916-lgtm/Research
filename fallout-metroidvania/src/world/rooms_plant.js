@@ -49,6 +49,18 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.ents([[12, 19, 'q'], [36, 24, 'q'], [8, 12, 'q'], [18, 27, 'p'], [39, 27, 'p'], [21, 27, 's'], [30, 17, 'o'],
     [30, 25, 'O'], [24, 24, 'l'], [36, 26, 'l'], [12, 16, 'l'], [41, 20, 'l'],
     [15, 27, '$'], [38, 27, '$'], [20, 27, '%'], [34, 22, '+'], [6, 12, '$']]);
+  // ---- enclosed spaces get a concrete back wall (otherwise the dusk sky shows through the bunker)
+  r.zone(2, 22, 8, 27, 'bw_concrete'); r.zone(25, 25, 33, 27, 'bw_concrete'); r.zone(28, 28, 32, 33, 'bw_concrete');
+  // ---- decor (back to front)
+  r.deco(15.5, 15.5, 'pl_pylon', 3.25, 12.5, {}); r.deco(37.4, 15.5, 'pl_pylon', 3.25, 12.5, {});
+  r.deco(12.5, 18, 'pl_scaffold', 5.5, 10, { lv: 2 });
+  r.deco(12, 26, 'pl_fence', 13, 2, { sign: 1, signAt: 0.36 }); r.deco(36, 26, 'pl_fence', 6, 2, { gap: 0.5 });
+  r.deco(26, 20, 'pl_sign', 9, 3, { k: 'meridian', legs: 1 }); r.deco(34, 20.6, 'pl_sign', 1.6, 2.4, { k: 'rad', legs: 1 });
+  r.deco(21.5, 21, 'sf_lamp', 2, 7, { lean: 0.2 });
+  r.deco(36.5, 26, 'sf_car', 5, 2, { v: 2, burnt: true, flip: true });
+  r.deco(12.2, 26.5, 'sf_sandbags', 3, 1.4, {}); r.deco(20, 27, 'pl_barrel', 3, 1, {}); r.deco(40, 27, 'pl_barrel', 2, 1, {});
+  // vestibule fit-out
+  r.deco(5.2, 22.6, 'pl_gauges', 2.6, 1.7, {}); r.deco(2.4, 25.6, 'pl_hazstripe', 3, 0.4, {});
   r.done();
 }
 
@@ -88,6 +100,18 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(55, 5, 'pickup', { k: 'upgrade', u: 'stim' });
   r.ents([[24, 15, 'q'], [45, 15, 'q'], [53, 15, 'l'], [36, 12, 'o'], [27, 14, 'o'], [61, 27, 'p'], [64, 27, 's'],
     [26, 27, '$'], [43, 27, '+'], [58, 27, '%'], [63, 27, '$']]);
+  // ---- the towers are cut-away: the far inner wall is a hollow concrete shell; doorways cut through the base
+  r.zone(8, 25, 11, 27, 'bw_concrete'); r.zone(21, 25, 24, 27, 'bw_concrete'); r.zone(45, 25, 48, 27, 'bw_concrete'); r.zone(14, 28, 18, 33, 'bw_concrete'); r.zone(29, 28, 40, 33, 'bw_concrete');
+  // ---- decor (back to front)
+  r.deco(12, 8, 'pl_towerback', 9, 20, {}); r.deco(49, 6, 'pl_towerback', 5, 22, {});
+  r.deco(12.2, 9, 'pl_pipe_v', 2, 19, {}); r.deco(19.4, 24.6, 'pl_valve', 1.2, 1.4, {}); r.deco(13, 22.4, 'pl_sign', 1.5, 1.7, { k: 'hv' });
+  r.deco(49.4, 24.6, 'pl_gauges', 2, 1.3, {});
+  r.deco(24.2, 3.6, 'pl_crane', 21.6, 3.5, {});
+  r.deco(25, 11, 'pl_pipe_run', 20, 2, {}); r.deco(25, 17.6, 'pl_pipe_run', 20, 2, { v: 1 });
+  r.deco(61.5, 15.5, 'pl_pylon', 3.25, 12.5, {});
+  r.deco(2.4, 26, 'pl_fence', 5.6, 2, { gap: 0.3 }); r.deco(3.6, 27, 'pl_barrel', 3, 1, {});
+  r.deco(25.6, 22.8, 'pl_transformer', 3.4, 5.2, {}); r.deco(59, 23, 'pl_generator', 6, 5, { n: 2 }); r.deco(58.6, 26.6, 'pl_hazstripe', 6.6, 0.4, {});
+  r.deco(38.6, 24, 'pl_sign', 1.8, 2.2, { k: 'rad', legs: 1 }); r.deco(41, 26.6, 'pl_barrel', 2, 1, {});
   r.done();
 }
 
@@ -100,6 +124,9 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(18, 11, 'locker', { loot: [{ k: 'ammo', type: 'cell', n: 40 }, { k: 'stimpak' }, { k: 'caps', n: 80 }] });
   r.mark(12, 11, 'pickup', { k: 'holotape', id: 'tape_pl_diary' });
   r.ents([[8, 2, '*'], [19, 2, '*'], [5, 11, 'K'], [6, 11, 'K'], [9, 11, '$'], [15, 11, '$'], [16, 11, '+'], [24, 11, '&']]);
+  // ---- decor
+  r.deco(2, 2.2, 'pl_pipe_run', 24, 1.6, {}); r.deco(3, 9, 'pl_lockers', 5, 3, {}); r.deco(20.5, 5, 'pl_gauges', 3.5, 2.25, {});
+  r.deco(10.4, 4.5, 'pl_sign', 2.6, 1.7, { k: 'noentry', text: 'FOREMAN - PRIVATE' }); r.deco(13.4, 10.9, 'pl_barrel', 2.5, 1, {}); r.deco(23, 10.3, 'pl_valve', 1.2, 1.4, {});
   r.done();
 }
 
@@ -111,13 +138,17 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.open('R', 55, 57);                             // doorway from the reactor arena
   r.mark(6, 57, 'elevator', { w: 5, rise: 64, speed: 300, startTop: false, hint: 'Meridian Service Lift' });
   r.mark(4, 57, 'trigger', { w: 2, h: 3, id: 'pl_lift_hint', hint: 'SERVICE LIFT: stand on the platform and press E to ride to the surface.', hintDur: 6 });
-  r.ents([[12, 57, 'Z'], [3, 2, 'O'], [12, 2, 'O'], [2, 14, 'l'], [13, 14, 'l'], [2, 30, 'l'], [13, 30, 'l'], [2, 46, 'l'], [13, 46, 'l'], [2, 55, 'l'], [13, 55, 'l']]);
+  r.ents([[12, 57, 'Z'], [3, 2, 'O'], [12, 2, 'O'], [2, 14, 'l'], [13, 14, 'l'], [2, 30, 'l'], [13, 30, 'l'], [2, 46, 'l'], [13, 46, 'l'], [2, 55, 'l'], [13, 53, 'l']]);
+  // ---- decor
+  r.deco(4, 1.5, 'pl_cables', 8, 1.8, {}); r.deco(2, 3, 'pl_pipe_v', 2, 54, {}); r.deco(12, 3, 'pl_pipe_v', 2, 54, {});
+  r.deco(3.4, 40, 'pl_gauges', 3, 1.9, {}); r.deco(10, 22, 'pl_sign', 2.6, 1.3, { k: 'danger', text: 'MIND THE GAP' }); r.deco(3, 55.2, 'pl_sign', 3.2, 1.2, { k: 'lift', text: 'SERVICE LIFT' });
+  r.deco(11.4, 55.2, 'pl_hazstripe', 2.6, 0.4, {});
   r.done();
 }
 
 // ------------------------------------------------------------------ 5. TURBINE HALL  (706,62) 76x32   floor top y=90 (local row 28)
 {
-  const r = R('p_turbine', 'Turbine Hall', 'plant', 706, 62, 76, 32, { bg: 'bw_rust', ambient: [0.15, 0.18, 0.13], ammo: 'cell' });
+  const r = R('p_turbine', 'Turbine Hall', 'plant', 706, 62, 76, 32, { bg: 'bw_rust', ambient: [0.23, 0.25, 0.18], ammo: 'cell' });
   r.shell(2); r.floor(4);
   r.clear(20, 0, 24, 1);                           // sump hatch drop (cols 726..730)
   r.open('R', 25, 27);                             // -> p_control
@@ -134,6 +165,15 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.ents([[10, 2, '*'], [26, 2, '*'], [42, 2, '*'], [58, 2, '*'], [70, 2, '*'],
     [8, 27, 'p'], [29, 27, 'p'], [13, 27, 's'], [39, 9, 'o'], [58, 14, 'o'], [52, 9, 'h'], [48, 2, 'q'], [66, 2, 'q'],
     [4, 27, '&'], [17, 27, '+'], [45, 27, '$'], [69, 27, '+'], [72, 27, '%'], [40, 12, '$'], [43, 12, '$']]);
+  // ---- decor (back to front)
+  r.deco(2, 2.2, 'pl_duct', 30, 1.6, {}); r.deco(32, 2, 'pl_cables', 14, 2, {}); r.deco(2, 8, 'pl_pipe_run', 70, 2.4, {}); r.deco(3, 14, 'pl_pipe_run', 30, 2, { v: 1 });
+  r.deco(2, 2, 'pl_pipe_v', 2, 26, {}); r.deco(27.2, 3.6, 'pl_fan', 4, 4, {}); r.deco(67.4, 4, 'pl_fan', 4, 4, {});
+  r.deco(24, 3.8, 'pl_crane', 40, 3.6, {});
+  r.deco(3.6, 20, 'pl_turbine', 16, 8, {}); r.deco(20.5, 23, 'pl_generator', 6, 5, { n: 1 }); r.deco(46, 20, 'pl_turbine', 16, 8, {});
+  r.deco(22, 16.4, 'pl_sign', 3, 2.2, { k: 'danger', text: 'HIGH PRESSURE STEAM' }); r.deco(54, 15.4, 'pl_sign', 1.8, 2.2, { k: 'hv' });
+  r.deco(63.5, 19, 'pl_transformer', 4, 6, {}); r.deco(68.6, 23, 'pl_generator', 5, 4.2, { n: 4 }); r.deco(63, 24.6, 'pl_hazstripe', 5, 0.4, {});
+  r.deco(35, 27.6, 'pl_hazstripe', 9, 0.4, {}); r.deco(9, 27.4, 'pl_barrel', 2.5, 1, {}); r.deco(4.5, 26.6, 'pl_valve', 1.4, 1.6, {});
+  r.ents([[12, 11, 'O'], [27, 11, 'O'], [43, 11, 'O'], [58, 11, 'O'], [70, 11, 'O']]);   // work lamps hung from the steam header
   r.done();
 }
 
@@ -164,12 +204,18 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(11, 27, 'trigger', { w: 3, h: 3, id: 'pl_hint_dj', hint: 'JET BOOTS: press JUMP again in mid-air to double-jump.\nThe upper gantry is out of single-jump range.', hintDur: 6 });
   r.ents([[5, 27, 'Z'], [9, 27, 'N'], [10, 2, '*'], [24, 2, '*'], [38, 2, '*'], [16, 27, 'p'], [32, 27, 'p'], [20, 2, 'q'], [36, 2, 'q'],
     [28, 8, 'h'], [24, 19, 'o'], [40, 20, 'o'], [22, 27, '+'], [44, 27, '$'], [30, 27, '%'], [26, 12, '$']]);
+  // ---- decor (back to front)
+  r.deco(14, 2.2, 'pl_duct', 30, 1.6, {}); r.deco(14, 4, 'pl_cables', 30, 1.8, {}); r.deco(38, 6, 'pl_gauges', 3.5, 2.25, {}); r.deco(20, 6.4, 'pl_gauges', 3.5, 2.25, {});
+  r.deco(30, 9.75, 'pl_console', 5.5, 3.25, { v: 1 }); r.deco(36.4, 9.75, 'pl_console', 5.5, 3.25, { v: 0, n: 3 });
+  r.deco(17, 24.75, 'pl_console', 5.5, 3.25, { v: 0, n: 2 }); r.deco(22.6, 24.75, 'pl_console', 5.5, 3.25, { v: 1 }); r.deco(34, 24.75, 'pl_console', 5.5, 3.25, { v: 0, n: 4 });
+  r.deco(2.6, 22.6, 'pl_sign', 3.2, 1.2, { k: 'exit', text: 'TURBINE HALL' }); r.deco(41.6, 21.6, 'pl_coil', 3.25, 6, {});
+  r.deco(28, 27.6, 'pl_hazstripe', 4, 0.4, {}); r.deco(39.2, 27, 'pl_barrel', 2.5, 1, {}); r.deco(14, 26, 'pl_valve', 1.4, 1.6, {});
   r.done();
 }
 
 // ------------------------------------------------------------------ 7. COOLANT FLOOD HALL  (794,94) 72x36   dock top y=120 (local row 26), pool floor y=126 (local row 32)
 {
-  const r = R('p_flood', 'Coolant Flood Hall', 'plant', 794, 94, 72, 36, { bg: 'bw_concrete', ambient: [0.10, 0.16, 0.12], rad: 0.2, ammo: '.308' });
+  const r = R('p_flood', 'Coolant Flood Hall', 'plant', 794, 94, 72, 36, { bg: 'bw_concrete', ambient: [0.15, 0.21, 0.16], rad: 0.2, ammo: '.308' });
   r.shell(2); r.floor(4);
   r.clear(26, 0, 30, 1);                           // drop from the operations deck
   r.open('L', 23, 25);                             // -> p_decon
@@ -190,6 +236,12 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(46, 21, 'trigger', { w: 3, h: 3, id: 'pl_hint_rad', hint: 'RADIATION WARNING: the coolant is irradiated.\nThe pump room behind the bulkhead is flooded. A Hazmat Suit is advised.', hintDur: 8 });
   r.ents([[10, 2, 'l'], [24, 2, '*'], [42, 2, '*'], [24, 7, 'p'], [24, 21, 'p'], [40, 2, 'q'], [34, 14, 'h'], [44, 12, 'o'], [7, 25, 's'], [12, 25, 's'],
     [30, 7, '+'], [45, 7, '$'], [18, 21, '&'], [4, 25, '%'], [14, 25, '$'], [54, 30, '&'], [60, 12, '&'], [67, 30, '$']]);
+  // ---- decor (back to front)
+  r.deco(2, 4, 'pl_pipe_run', 48, 2.2, {}); r.deco(6, 2, 'pl_cables', 28, 2, {}); r.deco(20, 5, 'pl_pipe_v', 2, 23, {}); r.deco(30.6, 5, 'pl_pipe_v', 2, 23, { });
+  r.deco(4, 22.75, 'pl_pump', 5.25, 3.25, {}); r.deco(10, 21.75, 'pl_manifold', 5, 4.25, {}); r.deco(12.6, 25, 'pl_barrel', 2.5, 1, {});
+  r.deco(2.6, 20.6, 'pl_sign', 1.7, 2.4, { k: 'rad', legs: 1 }); r.deco(35, 10, 'pl_sign', 3, 2.2, { k: 'danger', text: 'COOLANT - DO NOT ENTER' });
+  r.deco(52, 4, 'pl_pipe_run', 18, 2, { v: 1 }); r.deco(66.5, 10, 'pl_pipe_v', 2, 20, {}); r.deco(53, 24, 'pl_pump', 5.25, 3.25, {});
+  r.ents([[14, 7, 'O'], [28, 7, 'O'], [42, 7, 'O'], [60, 7, 'O']]);
   r.done();
 }
 
@@ -216,6 +268,11 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(38, 25, 'door', { lock: 'open', style: 'blast', w: 1, h: 3, label: 'DECON' });
   r.mark(29, 25, 'trigger', { w: 3, h: 3, id: 'pl_bed_hint', hint: 'The bunk is safe. Rest and save here: the Reactor Chamber is next.\nThe vending machine takes caps.', hintDur: 7 });
   r.ents([[32, 25, 'Z'], [27, 25, 'N'], [5, 25, 'Q'], [7, 25, 'Q'], [9, 25, 'Q'], [8, 2, '*'], [20, 2, '*'], [32, 2, '*'], [15, 25, '&'], [35, 25, '+'], [36, 25, '%'], [14, 25, '$']]);
+  // ---- decor (back to front)
+  r.deco(2, 2.4, 'pl_pipe_run', 36, 2, {}); r.deco(2, 5.4, 'pl_duct', 36, 1.6, {}); r.deco(4, 7.6, 'pl_cables', 32, 1.8, {});
+  r.deco(14, 12, 'pl_fan', 5, 5, {}); r.deco(26, 12, 'pl_fan', 5, 5, {}); r.deco(30, 15, 'pl_gauges', 3.5, 2.25, {}); r.deco(9, 17, 'pl_sign', 3.2, 2.2, { k: 'rad', text: 'DECONTAMINATION' });
+  r.deco(2.6, 23, 'pl_lockers', 8, 3, {}); r.deco(21.6, 22, 'pl_showers', 5.6, 4, {}); r.deco(27.4, 22.4, 'pl_sign', 3, 1.5, { k: 'danger', text: 'SHOWERS OFFLINE' });
+  r.deco(12, 25.6, 'pl_hazstripe', 5, 0.4, {}); r.deco(16.6, 25, 'pl_barrel', 2, 1, {});
   r.done();
 }
 
@@ -232,6 +289,13 @@ const SKY = { sky: true, skyTop: true, bg: null, ambient: [0.26, 0.25, 0.22], sk
   r.mark(23, 25, 'pickup', { k: 'key', id: 'level7', name: 'Level 7', col: '#ff5a48', requires: 'boss_sentry' });
   r.mark(26, 25, 'pickup', { k: 'key', id: 'fusioncore', name: 'Fusion Core', col: '#5cffb0', requires: 'boss_sentry' });
   r.ents([[10, 2, '*'], [24, 2, '*'], [38, 2, '*'], [2, 20, 'l'], [45, 20, 'l']]);
+  // ---- decor (back to front): the reactor vessel dominates the back wall
+  r.deco(15, 8, 'pl_core', 18, 18, {});
+  r.deco(2, 2, 'pl_pipe_v', 2, 24, {}); r.deco(44, 2, 'pl_pipe_v', 2, 24, {}); r.deco(10, 2, 'pl_cables', 28, 2, {});
+  r.deco(4, 11.2, 'pl_pipe_run', 12, 2, {}); r.deco(32, 11.2, 'pl_pipe_run', 12, 2, { v: 1 });
+  r.deco(2.4, 19.8, 'pl_coil', 3.25, 6, {}); r.deco(42.4, 19.8, 'pl_coil', 3.25, 6, {}); r.deco(7, 6.4, 'pl_gauges', 3.5, 2.25, {}); r.deco(36, 6.4, 'pl_gauges', 3.5, 2.25, {});
+  r.deco(12, 15, 'pl_sign', 1.8, 2.2, { k: 'rad' }); r.deco(35, 15, 'pl_sign', 1.8, 2.2, { k: 'hv' }); r.deco(13, 25.6, 'pl_hazstripe', 22, 0.4, {});
+  r.deco(6.2, 22, 'pl_barrel', 2, 1, {}); r.deco(38, 21.4, 'pl_rods', 4.5, 3.2, {});
   r.done();
 }
 
