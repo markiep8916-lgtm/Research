@@ -30,7 +30,7 @@ CD.boot = function () {
   G.ctx = canvas.getContext('2d', { alpha: false });
   const q = new URLSearchParams(location.search);
   G.debug = q.get('debug') === '1'; if (q.get('god')) G.cheats.god = true; if (q.get('abilities')) G.cheats.abilitiesStr = q.get('abilities');
-  CD.input.init(canvas);
+  CD.input.init(canvas); if (CD.touch) CD.touch.init(canvas);
   G.resize(); window.addEventListener('resize', G.resize);
   document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'play') G.setState('pause'); });
   const boot = document.getElementById('boot'), bar = document.getElementById('bootbar'), msg = document.getElementById('bootmsg');
@@ -61,12 +61,15 @@ G.resize = function () {
   G.viewH = 720; G.viewW = Math.round(U.clamp(720 * aspect, 960, 1700));
   let R = U.clamp(Math.round(Math.min(wh, ww / (G.viewW / 720)) / 720 * 4) / 4, 0.75, 2);
   if (window.devicePixelRatio > 1) R = Math.max(R, Math.min(1.5, Math.round(Math.min(wh * window.devicePixelRatio, 1080) / 720 * 4) / 4));
+  // graphics quality caps the internal render scale (auto mode steps down when the frame rate is poor)
+  const q = (G.opts && G.opts.quality) || 'auto', cap = q === 'high' ? 1.5 : q === 'medium' ? 1 : q === 'low' ? 0.75 : [1.25, 1, 0.75, 0.5][G.qLevel || 0];
+  R = Math.max(0.5, Math.min(R, cap));
   G.R = R;
   const c = G.canvas; c.width = Math.round(G.viewW * R); c.height = Math.round(720 * R);
   // fit the canvas in the window keeping aspect
   const scale = Math.min(ww / c.width, wh / c.height); c.style.width = Math.floor(c.width * scale) + 'px'; c.style.height = Math.floor(c.height * scale) + 'px';
   CD.input.viewW = G.viewW; CD.input.viewH = G.viewH;
-  if (G.chunks) G.chunks.setScale(R * G.zoom); if (G.lighting) G.lighting.resize(c.width, c.height);
+  if (G.chunks) G.chunks.setScale(R * G.zoom); if (G.lighting) { G.lighting.scale = R >= 1 ? 0.5 : 0.4; G.lighting.resize(c.width, c.height); }
   G.cam.w = G.viewW; G.cam.h = 720;
   if (CD.touch && CD.touch.layout) CD.touch.layout();
 };
@@ -231,8 +234,15 @@ function frame(ts) {
     G.render();
   } catch (e) { console.error(e); G.errors = (G.errors || 0) + 1; if (G.errors > 5 && G.state === 'play') { G.state = 'pause'; } }
 }
+G.qLevel = 0; G.qTimer = 0; G.qLow = 0;
+G.autoQuality = function (rdt) {
+  if (((G.opts && G.opts.quality) || 'auto') !== 'auto' || G.state !== 'play') { G.qLow = 0; return; }
+  G.qTimer += rdt; if (G.qTimer < 1) return; G.qTimer = 0;
+  if (G.fps < 36 && G.frames > 240) G.qLow++; else G.qLow = Math.max(0, G.qLow - 1);
+  if (G.qLow >= 4 && G.qLevel < 3) { G.qLevel++; G.qLow = 0; G.resize(); if (G.notify) G.notify('Graphics scaled down for performance (Options > Quality).', 'small'); }
+};
 G.tick = function (rdt) {
-  const st = G.state;
+  const st = G.state; G.autoQuality(rdt);
   if (G.notes) for (let i = G.notes.length - 1; i >= 0; i--) { G.notes[i].t -= rdt; if (G.notes[i].t <= 0) G.notes.splice(i, 1); }
   if (G.banners && G.banners.length) { const b = G.banners[0]; b.t += rdt; if (b.t >= b.max) G.banners.shift(); }
   if (st === 'play') {
@@ -283,6 +293,7 @@ G.drawWorld = function (ctx) {
   const zR = R * G.zoom;
   ctx.setTransform(zR, 0, 0, zR, -cx * zR, -cy * zR);
   G.chunks.draw(ctx, cx, cy, cx + cam.w, cy + cam.h);
+  G.chunks.warm(cx - 480, cy - 480, cx + cam.w + 480, cy + cam.h + 480);
   // water
   G.drawWater(ctx, view);
   // entities (z sorted)

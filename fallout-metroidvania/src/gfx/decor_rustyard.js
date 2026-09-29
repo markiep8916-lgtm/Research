@@ -288,7 +288,7 @@ function truss(g, x0, y0, x1, y1, th, base, seg) {
 
 // ------------------------------------------------------------------ gantry crane holding a wreck on a magnet
 // p: {col, drop (0-1 of box height where the magnet hangs), pal (hanging car palette)}
-K.ry_crane = function (g, d, r) {
+function craneImpl(g, d, r) {
   const p = d.p || {}, base = d.y + d.h, x0 = d.x, w = d.w, h = d.h, col = p.col || [170, 126, 36];
   const mw = 38, mx = x0 + w * 0.3, top = d.y + 40, cx = mx + mw / 2;
   shadow(g, cx, base - 1, 60, 5, 0.4);
@@ -317,9 +317,32 @@ K.ry_crane = function (g, d, r) {
   cyl(g, tx - 20, cy, 40, 12, [70, 66, 60]); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(tx - 20, cy + 10, 40, 2);
   g.strokeStyle = '#1a1816'; g.lineWidth = 1.6; g.beginPath(); for (const ox of [-16, -6, 6, 16]) { g.moveTo(tx + ox, cy + 12); g.lineTo(tx + ox * 1.5, cy + 30); } g.stroke();
   g.save(); g.translate(tx, cy + 26); g.rotate(p.tilt === undefined ? 0.1 : p.tilt);
-  K.ry_car(g, { x: -46, y: 0, w: 92, h: 46, s: 5, p: { pal: p.pal === undefined ? 1 : p.pal, flat: 2, noShadow: true, tilt: 0 } }, r);
+  if (p.hang === 'cage') K.ry_cage(g, { x: -22, y: 0, w: 44, h: 72, s: 9, p: { chain: false } }, r);
+  else K.ry_car(g, { x: -46, y: 0, w: 92, h: 46, s: 5, p: { pal: p.pal === undefined ? 1 : p.pal, flat: 2, noShadow: true, tilt: 0 } }, r);
   g.restore();
   rustBlotch(g, r, mx, top, mw, base - top - 12, 10, 0.3);
+}
+K.ry_crane = function (g, d, r) { if ((d.p || {}).flip) { g.translate(d.x * 2 + d.w, 0); g.scale(-1, 1); } craneImpl(g, d, r); };
+
+// ------------------------------------------------------------------ hanging prisoner cage (p: {empty, chain:false to omit the chain})
+K.ry_cage = function (g, d, r) {
+  const p = d.p || {}, x0 = d.x, w = d.w, cy = d.y + (p.chain === false ? 0 : 30), h = d.h - (p.chain === false ? 0 : 30), cx = x0 + w / 2;
+  if (p.chain !== false) { g.strokeStyle = '#141210'; g.lineWidth = 3; for (let y = d.y; y < cy - 2; y += 7) { g.beginPath(); g.ellipse(cx, y + 3.5, 2.6, 4, 0, 0, 7); g.stroke(); } }
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x0 + 4, cy + 3, w, h);
+  // back dark
+  g.fillStyle = 'rgba(8,6,6,0.55)'; g.fillRect(x0 + 2, cy + 4, w - 4, h - 8);
+  if (!p.empty) {   // slumped skeleton
+    const bx = cx + 2, by = cy + h - 8;
+    g.fillStyle = '#d6cbb0'; g.beginPath(); g.ellipse(bx - 3, by - h * 0.42, 5.5, 6, 0, 0, 7); g.fill(); g.fillStyle = '#120c08'; g.fillRect(bx - 6, by - h * 0.42 - 1, 2.4, 3); g.fillRect(bx - 1.6, by - h * 0.42 - 1, 2.4, 3);
+    g.strokeStyle = '#c8bda2'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx - 2, by - h * 0.34); g.lineTo(bx, by - 8); for (let i = 0; i < 4; i++) { g.moveTo(bx - 8, by - h * 0.3 + i * 4); g.quadraticCurveTo(bx, by - h * 0.32 + i * 4, bx + 7, by - h * 0.3 + i * 4); } g.moveTo(bx + 6, by - h * 0.32); g.lineTo(bx + 12, by - h * 0.12); g.lineTo(bx + 8, by - 2); g.stroke();
+    g.fillStyle = 'rgba(46,80,132,0.75)'; g.fillRect(bx - 9, by - h * 0.3, 16, h * 0.22);
+  }
+  // bars
+  for (let x = x0 + 2; x <= x0 + w - 2; x += (w - 4) / 5) { cyl(g, x - 1.6, cy, 3.2, h, [70, 66, 60], true); }
+  g.fillStyle = grad(g, 0, cy, 0, cy + 5, [[0, '#6a645a'], [1, '#2a2622']]); g.fillRect(x0, cy, w, 5); g.fillRect(x0, cy + h * 0.5, w, 3); g.fillStyle = grad(g, 0, cy + h - 6, 0, cy + h, [[0, '#4a463e'], [1, '#1a1816']]); g.fillRect(x0, cy + h - 6, w, 6);
+  g.fillStyle = '#4a463e'; g.beginPath(); g.moveTo(x0 + 2, cy); g.quadraticCurveTo(cx, cy - 12, x0 + w - 2, cy); g.fill();
+  rustBlotch(g, r, x0, cy, w, h, 5, 0.5); g.fillStyle = 'rgba(255,206,150,0.3)'; g.fillRect(x0, cy, 1.4, h);
+  g.fillStyle = '#8a7a30'; g.fillRect(cx + w * 0.22, cy + h * 0.5 - 1, 6, 5);   // padlock
 };
 
 // ------------------------------------------------------------------ raider gate arch with a painted sign
@@ -443,6 +466,19 @@ K.ry_post = function (g, d, r) {
   for (let y = d.y + 14; y < base - 6; y += r.range(26, 44)) { g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(px - 4, y, 8, 2); }
   beam(g, px, d.y + 30, px + sd * 22, d.y, 4, shade(col, 0.85));
   rivet(g, px, d.y + 6, 1.6);
+};
+
+
+// ------------------------------------------------------------------ pile of wrecks (2-4 cars stacked, jostled). p: {n, pals:[..]}
+K.ry_carstack = function (g, d, r) {
+  const p = d.p || {}, L = d.w, ch = L / 2, n = p.n || Math.max(2, Math.round(d.h / (ch * 0.6))), base = d.y + d.h;
+  shadow(g, d.x + L / 2, base - 1, L * 0.52, 5, 0.4);
+  for (let i = 0; i < n; i++) {
+    const w = L * (1 - i * 0.07), cx = d.x + L / 2 + (i ? r.range(-L * 0.08, L * 0.08) : 0), y = base - i * ch * 0.6;
+    g.save(); g.translate(cx, y); g.rotate((i ? r.range(-0.09, 0.09) : r.range(-0.02, 0.02)));
+    K.ry_car(g, { x: -w / 2, y: -w / 2, w: w, h: w / 2, s: r.int(1, 9999), p: { pal: p.pals ? p.pals[i % p.pals.length] : r.int(0, 7), flat: r.int(0, 2), noShadow: i > 0, flip: r.next() < 0.5, burnt: r.next() < 0.15, kind: i === 0 ? 'sedan' : r.pick(['sedan', 'pickup', 'van']) } }, r);
+    g.restore();
+  }
 };
 
 })();

@@ -30,7 +30,7 @@ G.loadSave = function () {
   } catch (e) { console.warn('load failed', e); return false; }
 };
 G.deleteSave = function () { del(KEY); };
-G.loadOptions = function () { try { const o = JSON.parse(get(OPT)); if (o) { if (o.vol) Object.assign(CD.audio.vol, o.vol); CD.audio.muted = !!o.muted; G.opts = o; } } catch (e) { } G.opts = G.opts || {}; };
+G.loadOptions = function () { try { const o = JSON.parse(get(OPT)); if (o) { if (o.vol) Object.assign(CD.audio.vol, o.vol); CD.audio.muted = !!o.muted; G.opts = o.opts || {}; } } catch (e) { } G.opts = G.opts || {}; };
 G.saveOptions = function () { set(OPT, JSON.stringify({ vol: CD.audio.vol, muted: CD.audio.muted, opts: G.opts })); };
 
 })();

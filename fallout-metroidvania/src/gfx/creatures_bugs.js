@@ -20,7 +20,7 @@ function col(c, f, a) {                          // [r,g,b] * f -> css colour
   return a === undefined || a >= 1 ? 'rgb(' + r + ',' + g + ',' + b + ')' : 'rgba(' + r + ',' + g + ',' + b + ',' + (a < 0 ? 0 : +a.toFixed(3)) + ')';
 }
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const OUT = 'rgba(10,8,6,0.62)';                 // silhouette outline colour
+const OUT = 'rgba(10,8,6,0.6)';                  // silhouette outline colour
 
 // ================================================================== shape helpers
 function blob(g, pts, closed) {                  // smooth closed curve (Catmull-Rom -> bezier)
@@ -148,6 +148,15 @@ function rim(g, pathFn, x0, y0, x1, y1, c0, c1, lw) {
   g.strokeStyle = lgrad(g, x0, y0, x1, y1, [[0, c0], [1, c1 || 'rgba(0,0,0,0)']]); g.lineWidth = lw || 1.6; g.stroke(); g.restore();
 }
 function outline(g, pathFn, lw, c) { g.save(); pathFn(g); g.lineWidth = lw || 0.6; g.strokeStyle = c || OUT; g.stroke(); g.restore(); }
+
+// a glossy liquid droplet (teardrop stretched by `stretch`) with a specular dot; used for drips of slime / venom
+function droplet(ctx, x, y, r, stretch, rgb, a) {
+  ctx.save(); ctx.globalAlpha *= a === undefined ? 1 : a; ctx.translate(x, y);
+  ctx.beginPath(); ctx.moveTo(0, -r * stretch * 1.25); ctx.quadraticCurveTo(r * 1.05, -r * 0.1, 0, r); ctx.quadraticCurveTo(-r * 1.05, -r * 0.1, 0, -r * stretch * 1.25); ctx.closePath();
+  ctx.fillStyle = col(rgb, 1); ctx.fill(); ctx.strokeStyle = col(rgb, 0.45, 0.8); ctx.lineWidth = 0.25; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,244,0.85)'; ctx.beginPath(); ctx.arc(-r * 0.3, r * 0.05, Math.max(0.16, r * 0.24), 0, TAU); ctx.fill();
+  ctx.restore();
+}
 
 // ---- segmented limb sprite: horizontal tube from (0,0) to (len,0). Half-width follows prof(k) (k 0..1) or lerps w0->w1.
 // Cylindrical shading across the width (highlight slightly above the axis), joint darkening at both ends, optional spines,
@@ -281,6 +290,12 @@ function deadDrop(e, bodyTop) {
   const k = e.deadT === undefined ? 1 : clamp(e.deadT / 0.5, 0, 1);
   return -s * (1 - (1 - k) * (1 - k));
 }
+// Hit reaction: while the enemy is stunned (e.stun counts down from ~0.14s after a hit) the body recoils and tilts back a little.
+// Call inside the creature's local frame (facing +x, feet at y=0); py is the tilt pivot height, amt scales the effect.
+function flinch(ctx, e, py, amt) {
+  const h = clamp((e.stun || 0) / 0.18, 0, 1) * (amt === undefined ? 1 : amt); if (h <= 0.01 || e.dead || e.state === 'dead') return;
+  ctx.translate(-1.6 * h, 0); ctx.translate(0, py); ctx.rotate(-0.06 * h); ctx.translate(0, -py);
+}
 const eo = (t) => 1 - (1 - t) * (1 - t);        // ease out
 const ei = (t) => t * t;                          // ease in
 const eio = (t) => t * t * (3 - 2 * t);
@@ -358,6 +373,9 @@ function buildRoach() {
     mottle(g, -19, -15, 11, -3, { c: [170, 140, 96], a: 0.34, f: 0.7, th: 0.62, soft: 0.16, seed: 31, res: 5, fn: (x, y) => sstep(-8, -13.8, y) });
     speckle(g, R, -17, -14, 9, -4, 90, ['rgba(0,0,0,0.32)', 'rgba(0,0,0,0.24)', 'rgba(230,190,130,0.16)', 'rgba(130,200,90,0.14)'], 0.25, 0.7);
     g.strokeStyle = 'rgba(255,220,170,0.24)'; g.lineWidth = 0.28; for (let i = 0; i < 8; i++) { const x = R.range(-13, 4), y = R.range(-12, -6); g.beginPath(); g.moveTo(x, y); g.lineTo(x + R.range(1, 3), y + R.range(-0.8, 0.8)); g.stroke(); }
+    // oily reflection of the surroundings: a cool light band over a darker band, following the curve of the shell
+    streak(g, 6.4, -10.6, -4, -12.4, -14.4, -8.8, 1.5, 'rgba(210,236,255,0.14)');
+    streak(g, 6.4, -8.8, -4, -10.4, -14.6, -6.8, 1.2, 'rgba(6,4,2,0.24)');
     // specular: broad soft sheen + broken hot core
     streak(g, 5.8, -11.6, -3, -14, -12.8, -10.4, 1.7, 'rgba(255,225,180,0.26)');
     streak(g, 5.2, -11.9, 0.5, -13.5, -4.4, -12.8, 0.7, 'rgba(255,246,220,0.9)');
@@ -447,9 +465,9 @@ function drawRoach(ctx, e, G, flashOnly) {
   const def = e.def || {}, stride = def.stride || 0.16, duty = 0.58, A = 6.4;
   const fq = PI * duty / (stride * A);                          // leg cycle rate that keeps the feet planted on the ground
   const ph = (e.phase || 0) * fq, A0 = ctx.globalAlpha;
-  ctx.save();
-  ctx.translate(e.cx, e.y + e.h + (dead ? deadDrop(e, 14.5) : 0)); ctx.scale(f * k, k);
-  beginDraw(ctx, k);
+  ctx.save(); beginDraw(ctx, k);
+  ctx.translate(e.cx, e.y + e.h + (dead ? deadDrop(e, 13.4) : 0)); ctx.scale(f * k * 0.92, k * 0.92);        // drawn a touch under the nominal size so legs and cerci stay near the 34px hitbox
+  flinch(ctx, e, -6, 1);
 
   // ---- body pose
   let bob = 0, pitch = 0, lunge = 0, mandOpen = 0.12, antRaise = 0;
@@ -473,7 +491,7 @@ function drawRoach(ctx, e, G, flashOnly) {
     else if (air) { fx = L.fx + (L.k === 'legF' ? 3.5 : L.k === 'legH' ? -4.5 : 0); fy = -3.6 + sin(t * 30 + i) * 0.5; }
     else {
       const g0 = gait(ph / TAU + (L.g ? 0.5 : 0), duty, A, 4.2);
-      fx = lerp(L.fx, L.fx + g0[0], mv); fy = g0[1] * mv;
+      fx = lerp(L.fx, L.fx + g0[0], mv); fy = g0[1] * mv - bob;                    // feet stay on the ground while the body bobs
       if (st === 'windup' && L.k === 'legF' && L.near) { fx = lerp(fx, L.hx + 9 + 3 * sin(t * 18), ac.w); fy = lerp(fy, -10 - 2 * ac.w, ac.w); }   // front leg claws the air
       else if (st === 'attack' && L.k === 'legF') { fx = lerp(fx, L.hx + 12, eo(ac.s)); fy = lerp(fy, -4, eo(ac.s)); }
     }
@@ -501,8 +519,6 @@ function drawRoach(ctx, e, G, flashOnly) {
   antenna(ctx, ax + 0.2, ay - 0.1, 28, aBase, curlA, t, 0, 1.0, 'rgb(64,36,18)', antCalm);
   ctx.restore();
 }
-
-CD.art.radroach = drawRoach;
 
 // ================================================================== BLOATFLY
 const BF = { abd: [186, 204, 78], thor: [74, 70, 44], eye: [214, 46, 30], face: [166, 158, 70] };
@@ -637,9 +653,9 @@ function buildFly() {
 function drawFly(ctx, e, G, flashOnly) {
   const P = cached('fly', buildFly), t = e.t || 0, f = e.face < 0 ? -1 : 1, k = e.scale || 1;
   const dead = !!(e.dead || e.state === 'dead'), st = e.state, A0 = ctx.globalAlpha, def = e.def || {};
-  ctx.save();
+  ctx.save(); beginDraw(ctx, k);
   ctx.translate(e.cx, e.cy); ctx.scale(f * k, k);
-  beginDraw(ctx, k);
+  flinch(ctx, e, 0, 1.4);
   // ---- pulse: the abdomen swells when it spits (e.cool jumps to ~cd..cd+0.8 as it fires, then counts down) or while state === 'fire'
   let pulse = 0;
   if (!dead) {
@@ -659,7 +675,6 @@ function drawFly(ctx, e, G, flashOnly) {
 
   // ---- wings (far first, behind the body) -------------------------------------------------
   const wingAt = (ang, alpha, sx) => { ctx.save(); ctx.globalAlpha = A0 * alpha; ctx.translate(1.4 + sx, -5.4); ctx.rotate(ang); blit(ctx, P.wing); ctx.restore(); };
-  const flapW = dead ? 0 : 1;
   let a1, a2;
   if (dead) { a1 = -2.9; a2 = -2.5; }
   else {
@@ -701,12 +716,13 @@ function drawFly(ctx, e, G, flashOnly) {
     const sx = -4.4, sy = 11.6 + (breathe - 1) * 5, sw = dead ? 0.5 : sin(t * 3.4) * 0.14, sa = PI / 2 + 0.42 + sw, len = 6.6;
     const x1 = sx + cos(sa) * len, y1 = sy + sin(sa) * len, cx1 = sx + cos(sa - 0.28) * len * 0.55, cy1 = sy + sin(sa - 0.28) * len * 0.55, nx = -sin(sa), ny = cos(sa);
     ctx.beginPath(); ctx.moveTo(sx + nx * 1.1, sy + ny * 1.1); ctx.quadraticCurveTo(cx1 + nx * 0.6, cy1 + ny * 0.6, x1, y1); ctx.quadraticCurveTo(cx1 - nx * 0.5, cy1 - ny * 0.5, sx - nx * 1.1, sy - ny * 1.1); ctx.closePath();
-    ctx.fillStyle = ctx.createLinearGradient(sx, sy, x1, y1); ctx.fillStyle.addColorStop(0, 'rgb(96,58,22)'); ctx.fillStyle.addColorStop(0.6, 'rgb(170,104,40)'); ctx.fillStyle.addColorStop(1, 'rgb(236,196,120)');
-    ctx.fill(); ctx.strokeStyle = 'rgba(10,8,6,0.75)'; ctx.lineWidth = 0.45; ctx.stroke();
-    ctx.fillStyle = 'rgba(96,58,22,0.9)'; ctx.beginPath(); ctx.ellipse(sx, sy - 0.2, 1.5, 1.0, 0.2, 0, TAU); ctx.fill();
+    const sg = lgrad(ctx, sx, sy, x1, y1, [[0, 'rgb(96,58,22)'], [0.6, 'rgb(170,104,40)'], [1, 'rgb(236,196,120)']]);
+    ctx.fillStyle = sg; ctx.fill(); ctx.strokeStyle = 'rgba(10,8,6,0.75)'; ctx.lineWidth = 0.45; ctx.stroke();
+    ctx.fillStyle = 'rgba(96,58,22,0.9)'; ctx.beginPath(); ctx.ellipse(sx, sy - 0.3, 1.15, 0.8, 0.2, 0, TAU); ctx.fill();
     if (!dead) {                                                     // venom bead at the tip
       const r = 0.6 + pulse * 0.7 + sin(t * 5) * 0.08; ctx.fillStyle = 'rgb(190,255,110)'; ctx.beginPath(); ctx.ellipse(x1 + nx * 0.05, y1 + r * 0.55, r * 0.8, r * 1.15, 0, 0, TAU); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,230,0.9)'; ctx.beginPath(); ctx.arc(x1 - r * 0.25, y1 + r * 0.2, r * 0.25, 0, TAU); ctx.fill();
+      if (pulse > 0.12 && !flashOnly) { const dp = (t * 1.9) % 1; if (dp > 0.2) droplet(ctx, x1, y1 + 2.4 + dp * dp * 9, 0.6, 1.5 + dp, [190, 255, 110], pulse * (1 - dp) * 1.2); }   // spit drips off the tip
     }
   }
   ctx.restore();
@@ -725,10 +741,8 @@ function drawFly(ctx, e, G, flashOnly) {
   ctx.restore();
 }
 
-CD.art.bloatfly = drawFly;
-
 // ================================================================== MOLE RAT
-const MR = { fur: [118, 84, 55], furD: [74, 51, 35], furL: [176, 136, 94], belly: [186, 150, 112], skin: [206, 146, 132], skinD: [146, 90, 80], claw: [214, 198, 156], tooth: [240, 180, 62] };
+const MR = { fur: [112, 84, 60], furD: [70, 50, 37], furL: [168, 134, 98], belly: [186, 150, 112], skin: [206, 146, 132], skinD: [146, 90, 80], claw: [214, 198, 156], tooth: [240, 180, 62] };
 const moleFlow = (x, y) => PI - 0.3 - 0.18 * clamp((y + 12) / 8, -1, 1);
 const moleLimbFlow = () => -0.12;
 
@@ -754,6 +768,7 @@ function incisor(g, x, y, s, a, c) {
   g.save(); tp(g); g.clip();
   g.fillStyle = lgrad(g, 0, -0.2, 0, 5.7, [[0, 'rgba(70,30,8,0.55)'], [0.3, 'rgba(70,30,8,0)'], [0.8, 'rgba(255,244,200,0.0)'], [1, 'rgba(255,244,200,0.45)']]); g.fillRect(-2, -1, 5, 8);
   g.fillStyle = 'rgba(255,252,226,0.75)'; g.beginPath(); g.moveTo(1.5, 0.4); g.quadraticCurveTo(1.9, 2.6, 1.7, 4.8); g.lineTo(1.3, 4.6); g.quadraticCurveTo(1.5, 2.6, 1.2, 0.6); g.fill();
+  g.fillStyle = lgrad(g, 0, 0, 0, 2.6, [[0, 'rgba(70,40,10,0.55)'], [1, 'rgba(70,40,10,0)']]); g.fillRect(-1.5, 0, 4, 2.8);   // stained root
   g.strokeStyle = 'rgba(120,70,20,0.35)'; g.lineWidth = 0.22; for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-0.6 + i * 0.4, 0.4); g.quadraticCurveTo(-0.2 + i * 0.5, 3, 0.4 + i * 0.6, 5.2); g.stroke(); }   // enamel grain
   g.restore();
   tp(g); g.strokeStyle = 'rgba(40,20,6,0.75)'; g.lineWidth = 0.28; g.stroke();
@@ -769,7 +784,7 @@ function buildMole() {
     fur(g, torsoPts, {
       base: MR.fur, stops: [[0, 1.32], [0.3, 1.0], [0.68, 0.66], [1, 0.44]], b: [-20, -20, 10, -4], pal: palBody, n: 1500, len: [1.3, 2.8], lw: [0.32, 0.62], flow: moleFlow, seed: 11,
       round: { cx: -5, cy: -12, rx: 14, ry: 8.4, k: 0.5 }, tuft: [1.3, 2.6], tuftStep: 1,
-      under: (g) => { mottle(g, -20, -20, 10, -3, { c: [30, 18, 10], a: 0.42, f: 0.35, th: 0.5, soft: 0.25, seed: 7, res: 4 }); mottle(g, -20, -20, 10, -3, { c: [214, 170, 118], a: 0.3, f: 0.5, th: 0.6, soft: 0.2, seed: 17, res: 4 }); },
+      under: (g) => { mottle(g, -20, -20, 10, -3, { c: [30, 18, 10], a: 0.42, f: 0.35, th: 0.5, soft: 0.25, seed: 7, res: 4 }); mottle(g, -20, -20, 10, -3, { c: [214, 170, 118], a: 0.3, f: 0.5, th: 0.6, soft: 0.2, seed: 17, res: 4 }); mottle(g, -20, -20, 10, -3, { c: [92, 118, 56], a: 0.2, f: 0.32, th: 0.55, soft: 0.22, seed: 19, res: 4 }); },
       over: (g, R2) => {
         egrad(g, -3, -16, 12, 4.4, -0.08, [[0, 'rgba(255,214,160,0.3)'], [1, 'rgba(255,200,140,0)']], 0.1, -0.2, 0);          // soft sheen on the back
         g.fillStyle = lgrad(g, 0, -9, 0, -4, [[0, 'rgba(10,6,4,0)'], [1, 'rgba(10,6,4,0.4)']]); g.fillRect(-20, -9, 30, 6);            // belly shadow
@@ -803,6 +818,8 @@ function buildMole() {
         // bare skin around nose and lips
         egrad(g, 19.2, -9.4, 4.6, 3.6, -0.3, [[0, 'rgba(226,150,140,0.95)'], [0.55, 'rgba(216,140,130,0.7)'], [1, 'rgba(216,140,130,0)']], 0, 0, 0);
         egrad(g, 10, -12, 5.5, 3.5, 0, [[0, 'rgba(255,220,170,0.2)'], [1, 'rgba(255,220,170,0)']], 0, -0.3, 0);
+        mange(g, R, 7.6, -11.2, 1.7, 1.2, 0.5); mange(g, R, 14.4, -15, 1.3, 0.8, 0.2);                                   // sores on the head
+        g.strokeStyle = 'rgba(20,10,6,0.6)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(10.2, -14.6); g.quadraticCurveTo(12.6, -14.2, 14.8, -12.4); g.stroke();   // heavy scowling brow
       },
     });
     // nose pad
@@ -816,14 +833,18 @@ function buildMole() {
     // lip line + whisker pad
     g.strokeStyle = 'rgba(40,20,14,0.6)'; g.lineWidth = 0.4; g.beginPath(); g.moveTo(18.8, -8.1); g.quadraticCurveTo(15.4, -7.2, 12.4, -7.9); g.stroke();
     // ear
-    g.save(); g.translate(7.4, -14.6); g.rotate(-0.4); egrad(g, 0, 0, 1.55, 2.1, 0, [[0, 'rgb(196,126,112)'], [0.65, 'rgb(150,90,80)'], [1, 'rgb(80,50,40)']], 0, 0.2, 0, true); g.strokeStyle = 'rgba(30,14,10,0.7)'; g.lineWidth = 0.35; g.beginPath(); g.ellipse(0, 0, 1.55, 2.1, 0, 0, TAU); g.stroke(); g.restore();
+    g.save(); g.translate(7.4, -14.6); g.rotate(-0.4); egrad(g, 0, 0, 1.55, 2.1, 0, [[0, 'rgb(196,126,112)'], [0.65, 'rgb(150,90,80)'], [1, 'rgb(80,50,40)']], 0, 0.2, 0, true); g.strokeStyle = 'rgba(30,14,10,0.7)'; g.lineWidth = 0.35; g.beginPath(); g.ellipse(0, 0, 1.55, 2.1, 0, 0, TAU); g.stroke(); g.fillStyle = col(MR.fur, 0.8); g.beginPath(); g.moveTo(0.9, -2.3); g.lineTo(1.9, -1.1); g.lineTo(0.2, -1.3); g.fill(); g.restore();
     // tiny eye
-    g.fillStyle = 'rgba(150,84,74,0.7)'; g.beginPath(); g.ellipse(12.3, -12.6, 1.5, 1.2, 0.2, 0, TAU); g.fill();
-    g.fillStyle = '#0a0606'; g.beginPath(); g.ellipse(12.4, -12.6, 0.85, 0.8, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(160,70,60,0.75)'; g.beginPath(); g.ellipse(12.3, -12.6, 1.5, 1.2, 0.2, 0, TAU); g.fill();                         // raw, inflamed lids
+    g.fillStyle = '#0a0606'; g.beginPath(); g.ellipse(12.4, -12.6, 0.78, 0.74, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(210,50,40,0.6)'; g.beginPath(); g.arc(12.75, -12.35, 0.28, 0, TAU); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(12.1, -12.9, 0.26, 0, TAU); g.fill();
     // whiskers
     g.strokeStyle = 'rgba(232,214,186,0.62)'; g.lineWidth = 0.24;
     for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(17.2, -9.1 + i * 0.35); g.quadraticCurveTo(21 + i * 0.6, -10.6 + i * 1.7, 23.4 + i * 0.7, -10.2 + i * 2.7); g.stroke(); }
+    // saliva strand and a scabbed lip
+    g.strokeStyle = 'rgba(220,235,225,0.55)'; g.lineWidth = 0.32; g.beginPath(); g.moveTo(16.4, -7.4); g.quadraticCurveTo(16.2, -5.6, 16.6, -3.6); g.stroke(); g.fillStyle = 'rgba(230,242,232,0.7)'; g.beginPath(); g.ellipse(16.6, -3.3, 0.35, 0.55, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(96,36,30,0.8)'; g.beginPath(); g.ellipse(14.2, -7.7, 0.7, 0.5, 0, 0, TAU); g.fill();
     // gum + near incisor over everything
     g.fillStyle = 'rgba(214,118,116,0.9)'; g.beginPath(); g.ellipse(19, -8.3, 1.9, 0.7, 0.1, 0, TAU); g.fill();
     tooth(g, 18.3, -8.5, 1.18, 0.0, 1);
@@ -846,7 +867,7 @@ function buildMole() {
         base: o.base || MR.fur, stops: [[0, 1.3], [0.5, 0.95], [1, 0.5]], b: [-1, -wm - 1, len + 1, wm + 1], pal: o.pal || ((x, y, r) => { const q = r.next(); return q < 0.45 ? MR.fur : q < 0.7 ? MR.furD : MR.furL; }),
         n: o.n || 260, len: [1.1, 2.2], lw: [0.3, 0.55], flow: moleLimbFlow, seed, tuft: [1, 1.9], tuftStep: 1,
         under: (g) => { mottle(g, -1, -wm - 1, len + 1, wm + 1, { c: [30, 18, 10], a: 0.38, f: 0.7, th: 0.5, soft: 0.25, seed: seed + 3, res: 5 }); if (o.under) o.under(g); },
-        over: o.over,
+        over: o.over, outlineCol: 'rgba(16,10,6,0.36)',
       });
     });
     return { near, far: darkened(near, 0.62, '14,10,8'), len };
@@ -871,8 +892,8 @@ function buildMole() {
     // claws first (behind the knuckles)
     for (let i = 0; i < n; i++) claw(g, (4.6 + Math.abs(angs[i]) * 0.5) * k, (-1.5 + i * (big ? 1.4 : 1.35)) * k, angs[i], (big ? 5 : 3.3) * (1 - i * 0.05), (big ? 0.9 : 0.62), 1.0, MR.claw);
     g.save(); pp(g); g.clip();
-    g.fillStyle = lgrad(g, 0, -2.6 * k, 0, 3 * k, [[0, col([184, 134, 116], 1)], [1, col([112, 76, 66], 0.85)]]); g.fillRect(-2, -4, 9, 8);
-    mottle(g, -1, -3, 6, 3.4, { c: [50, 28, 22], a: 0.5, f: 1.1, th: 0.5, soft: 0.2, seed: seed + 4, res: 7 });
+    g.fillStyle = lgrad(g, 0, -2.6 * k, 0, 3 * k, [[0, col([164, 124, 106], 1)], [1, col([98, 70, 60], 0.85)]]); g.fillRect(-2, -4, 9, 8);
+    mottle(g, -1, -3, 6, 3.4, { c: [50, 28, 22], a: 0.5, f: 1.1, th: 0.5, soft: 0.2, seed: seed + 4, res: 7 }); mottle(g, -1, -3, 6, 3.4, { c: [96, 74, 50], a: 0.55, f: 1.4, th: 0.52, soft: 0.2, seed: seed + 8, res: 7 });   // caked-on dirt
     g.strokeStyle = 'rgba(70,32,28,0.5)'; g.lineWidth = 0.3; for (let i = 0; i < 5; i++) { const x = RR.range(0, 4.4) * k, y = RR.range(-1.8, 2.4) * k; g.beginPath(); g.moveTo(x, y); g.lineTo(x + RR.range(0.6, 1.2), y + RR.range(-0.4, 0.4)); g.stroke(); }
     // knuckle bumps
     for (let i = 0; i < n; i++) { const x = 4.5 * k + Math.abs(angs[i]) * 0.5 * k, y = (-1.5 + i * (big ? 1.4 : 1.35)) * k; egrad(g, x, y, 1.05 * k, 1.05 * k, 0, [[0, 'rgba(226,168,150,0.9)'], [1, 'rgba(150,90,80,0)']], -0.3, -0.3, 0); }
@@ -931,86 +952,79 @@ function drawMole(ctx, e, G, flashOnly) {
   const gy = e.y + e.h;
   ctx.save();
   beginDraw(ctx, k);
-  if (st === 'hidden' && !dead) { moleMound(ctx, P, e, t, k, e.cx, gy, false); ctx.restore(); return; }
+  if (st === 'hidden' && !dead) { moleMound(ctx, P, e, t, k, e.cx, gy, false); ctx.restore(); return; }   // burrowed: only the mound is visible
+  // emerging: the rat rises out of the hole (clipped at the ground line) behind, then in front of, the dirt mound
   let sink = 0, gy0 = gy, ep = 1, emerging = false;
   if (st === 'emerge' && !dead) {
     emerging = true; gy0 = e.home ? e.home.y + e.h / 2 : gy;
     ep = e.stateT !== undefined ? 1 - clamp(e.stateT / 0.5, 0, 1) : (t % 0.5) / 0.5;
     sink = (1 - eo(clamp(ep * 1.25, 0, 1))) * (e.h + 8);
-    if (ep >= 0.55) moleMound(ctx, P, e, t, k, e.cx, gy0, true);                              // mound falls behind once the rat is out
-    ctx.save(); ctx.beginPath(); ctx.rect(e.cx - 70, gy0 - 200, 140, 200); ctx.clip();      // nothing below the ground line
+    if (ep >= 0.55) moleMound(ctx, P, e, t, k, e.cx, gy0, true);
+    ctx.save(); ctx.beginPath(); ctx.rect(e.cx - 70, gy0 - 200, 140, 200); ctx.clip();
   }
   ctx.translate(e.cx, gy + sink); ctx.scale(f * k, k);
+  flinch(ctx, e, -8, 1);
 
   // ---- pose parameters -------------------------------------------------------------------------------------
   const ac = atkCurve(e), spd = abs(e.vx || 0), air = !e.onGround && !dead && !emerging;
   const stride = def.stride || 0.13, mv = dead || air ? 0 : sstep(12, 30, spd), gal = sstep(95, 140, spd);
-  const A = 6, fq = PI * 0.5 / (stride * A), ph = (emerging ? t * 13 : (e.phase || 0) * fq), u = ph / TAU;
-  let pitch = 0, lift = 0, lunge = 0, headRot = 0, jaw = 0.05, tailW = 1, sniff = 0, rise = 0;
+  const A = 6, fq = PI * 0.5 / (stride * A), ph = emerging ? t * 13 : (e.phase || 0) * fq, u = ph / TAU;   // fq keeps the trot feet planted
+  let pitch = 0, lift = 0, lunge = 0, headRot = 0, jaw = 0.05;
   if (dead) { headRot = 0.35; jaw = 0.42; }
   else if (emerging) { pitch = 0.32 * (1 - ep); headRot = -0.22 * (1 - ep); jaw = 0.5 * (1 - ep); }
   else if (st === 'windup') { pitch = 0.5 * eio(ac.w); headRot = -0.34 * ac.w; jaw = 0.62 * ac.w; lift = -0.8 * ac.w; }
-  else if (st === 'attack') { pitch = lerp(0.5, -0.16, eio(ac.s)) * (1 - ac.r) + (ac.r > 0 ? -0.16 * (1 - ac.r) * 0 : 0); lunge = 9 * eo(ac.s) * (1 - ac.r); headRot = lerp(-0.34, 0.16, eio(ac.s)) * (1 - ac.r); jaw = lerp(0.62, 1.0, eo(ac.s)) * (1 - ac.r * 0.85); }
+  else if (st === 'attack') { pitch = lerp(0.5, -0.16, eio(ac.s)) * (1 - ac.r); lunge = 9 * eo(ac.s) * (1 - ac.r); headRot = lerp(-0.34, 0.16, eio(ac.s)) * (1 - ac.r); jaw = lerp(0.62, 1.0, eo(ac.s)) * (1 - ac.r * 0.85); }
   else {
-    const bound = lerp(0.9 * abs(sin(ph)), 2.6 * max(0, sin(ph + 0.7)), gal) * mv;
-    lift = bound; pitch = lerp(0.03 * sin(2 * ph), 0.11 * sin(ph + 2.3), gal) * mv - (air ? clamp((e.vy || 0) / 900, -0.4, 0.4) : 0);
-    sniff = (1 - mv);
-    headRot = 0.05 * sin(t * 5.2) * sniff + 0.035 * sin(t * 13) * sniff + (st === 'patrol' ? 0.14 : 0) - (gal * 0.06) + 0.03 * sin(ph) * mv;
+    lift = lerp(0.9 * abs(sin(ph)), 2.6 * max(0, sin(ph + 0.7)), gal) * mv;              // trot: two small bobs per cycle; gallop: one big bound
+    pitch = lerp(0.03 * sin(2 * ph), 0.11 * sin(ph + 2.3), gal) * mv - (air ? clamp((e.vy || 0) / 900, -0.4, 0.4) : 0);
+    const sniff = 1 - mv;
+    headRot = (0.05 * sin(t * 5.2) + 0.035 * sin(t * 13)) * sniff + (st === 'patrol' ? 0.14 : 0) - gal * 0.06 + 0.03 * sin(ph) * mv;
     jaw = 0.05 + 0.04 * sin(t * 9) * sniff + (st === 'chase' ? 0.24 + 0.14 * sin(t * 24) : 0);
   }
-  const breathe = 1 + sin(t * 2.7) * 0.018 * (dead ? 0 : 1);
-  const PX = -12, PY = 0;                                          // pitch pivot (hind feet)
-  const RZ = 2.4;                                                 // body clearance (legs stay readable)
+  const breathe = 1 + (dead ? 0 : sin(t * 2.7) * 0.018);
+  const PX = -12, PY = 0, RZ = 2.4;                                 // pitch pivot (hind feet); body clearance keeps the legs readable
   ctx.translate(lunge, -lift - RZ);
   if (pitch) { ctx.translate(PX, PY); ctx.rotate(-pitch); ctx.translate(-PX, -PY); }
-  const toBody = (x, y) => { const dx = x - lunge - PX, dy = y + lift + RZ - PY, c = cos(pitch), s = sin(pitch); return [PX + dx * c - dy * s, PY + dx * s + dy * c]; };
+  const toBody = (x, y) => { const dx = x - lunge - PX, dy = y + lift + RZ - PY, c = cos(pitch), s = sin(pitch); return [PX + dx * c - dy * s, PY + dx * s + dy * c]; };   // ground point -> body space
 
-  // ---- legs: foot targets (body space) -----------------------------------------------------------------------
+  // ---- foot targets (body space) -----------------------------------------------------------------------------
   const restF = [[3.6, -4.6], [9.6, -4.4]], restH = [[-13.4, -1.7], [-9.4, -1.7]];   // [near, far]
-  const foot = (rest, off, i, hind) => {
+  const foot = (rest, off, hind) => {                               // trot (diagonal pairs) blended into a gallop (pairs together)
     const g0 = gait(u + off, 0.5, A, 4), g1 = gait(u + off + (hind ? 0.42 : 0), 0.4, hind ? 7.4 : 6.6, hind ? 6 : 5.5);
-    const gx = lerp(g0[0], g1[0], gal), gyy = lerp(g0[1], g1[1], gal);
-    const w = toBody(rest[0] + gx * mv, rest[1] + gyy * mv);
-    return w;
+    return toBody(rest[0] + lerp(g0[0], g1[0], gal) * mv, rest[1] + lerp(g0[1], g1[1], gal) * mv);
   };
   let fN, fF, hN, hF;
-  const tuckF = [[7.4, -4.4], [9.8, -3.8]], tuckH = [[-8.6, -3.4], [-12, -3.6]];
-  if (dead) { fN = tuckF[0]; fF = tuckF[1]; hN = tuckH[0]; hF = tuckH[1]; }
+  if (dead) { fN = [7.4, -4.4]; fF = [9.8, -3.8]; hN = [-8.6, -3.4]; hF = [-12, -3.6]; }
   else {
-    // trot: diagonal pairs; gallop: fronts together, hinds together
-    fN = foot(restF[0], 0, 0, false); fF = foot(restF[1], gal < 0.5 ? 0.5 : 0.06, 1, false);
-    hN = foot(restH[0], gal < 0.5 ? 0.5 : 0.04, 2, true); hF = foot(restH[1], 0, 3, true);
+    fN = foot(restF[0], 0, false); fF = foot(restF[1], gal < 0.5 ? 0.5 : 0.06, false);
+    hN = foot(restH[0], gal < 0.5 ? 0.5 : 0.04, true); hF = foot(restH[1], 0, true);
     if (air) { fN = toBody(15, -6); fF = toBody(18, -5.4); hN = toBody(-17, -6); hF = toBody(-14, -6.4); }
-    if (st === 'windup' || (st === 'attack' && ac.r < 1)) {
-      const w = st === 'windup' ? ac.w : 1, s = st === 'attack' ? eo(ac.s) * (1 - ac.r) : 0, wr = st === 'attack' ? (1 - ac.s) * (1 - ac.r) + ac.s * 0 : 0;
-      const wk = (st === 'windup' ? w : (1 - ac.s) * 1) * (1 - ac.r);
-      const raiseN = [11.2, -13.4], raiseF = [13.4, -12.4], strikeN = [26, -8.4], strikeF = [23, -10];
-      const tN = [lerp(lerp(fN[0], raiseN[0], wk), strikeN[0], s), lerp(lerp(fN[1], raiseN[1], wk), strikeN[1], s)];
-      const tF = [lerp(lerp(fF[0], raiseF[0], wk), strikeF[0], s), lerp(lerp(fF[1], raiseF[1], wk), strikeF[1], s)];
-      if (st === 'windup') { fN = [lerp(fN[0], raiseN[0], eio(ac.w)), lerp(fN[1], raiseN[1], eio(ac.w))]; fF = [lerp(fF[0], raiseF[0], eio(ac.w)), lerp(fF[1], raiseF[1], eio(ac.w))]; }
-      else { fN = tN; fF = tF; }
-      void w; void wr;
+    if (st === 'windup' || st === 'attack') {                        // claws rise while rearing, then slash forward
+      const wk = st === 'windup' ? eio(ac.w) : (1 - eo(ac.s)) * (1 - ac.r), sk = st === 'attack' ? eo(ac.s) * (1 - ac.r) : 0;
+      const raise = [[11.2, -13.4], [13.4, -12.4]], strike = [[26, -8.4], [23, -10]];
+      fN = [lerp(lerp(fN[0], raise[0][0], wk), strike[0][0], sk), lerp(lerp(fN[1], raise[0][1], wk), strike[0][1], sk)];
+      fF = [lerp(lerp(fF[0], raise[1][0], wk), strike[1][0], sk), lerp(lerp(fF[1], raise[1][1], wk), strike[1][1], sk)];
     }
-    if (emerging) { fN = [12 + 3 * sin(t * 26), -5 + 3 * cos(t * 26)]; fF = [11 + 3 * sin(t * 26 + 2), -6 + 3 * cos(t * 26 + 2)]; }
+    if (emerging) { fN = [12 + 3 * sin(t * 26), -5 + 3 * cos(t * 26)]; fF = [11 + 3 * sin(t * 26 + 2), -6 + 3 * cos(t * 26 + 2)]; }   // scrabbling out of the hole
   }
-  const legIK = (sx, sy, tx, ty, l1, l2, mode) => ik2(sx, sy, tx, ty, l1, l2, mode);
-  const SF = [[5.8, -8.6], [4.4, -8.8]], SH = [[-11.6, -8.6], [-9.8, -8.8]];
+  const SF = [[5.8, -8.6], [4.4, -8.8]], SH = [[-11.6, -8.6], [-9.8, -8.8]];        // shoulder / hip joints [near, far]
   const drawFront = (i, tgt, far) => {
-    const [ex, ey, wx, wy] = legIK(SF[i][0], SF[i][1], tgt[0], tgt[1], 6.2, 6, 'back');
+    const [ex, ey, wx, wy] = ik2(SF[i][0], SF[i][1], tgt[0], tgt[1], 6.2, 6, 'back');
     seg(ctx, far ? P.arm.far : P.arm.near, SF[i][0], SF[i][1], ex, ey); seg(ctx, far ? P.fore.far : P.fore.near, ex, ey, wx, wy);
-    const a = atan2(wy - ey, wx - ex);
-    ctx.save(); ctx.translate(wx, wy); ctx.rotate(clamp(a * 0.55 + 0.22, -0.7, 1.1) + (dead ? 0.6 : 0)); blit(ctx, far ? P.pawFf : P.pawF); ctx.restore();
+    ctx.save(); ctx.translate(wx, wy); ctx.rotate(clamp(atan2(wy - ey, wx - ex) * 0.55 + 0.22, -0.7, 1.1) + (dead ? 0.6 : 0)); blit(ctx, far ? P.pawFf : P.pawF); ctx.restore();
   };
-  const drawHind = (i, tgt, far) => {
-    const [kx, ky, ax, ay] = legIK(SH[i][0], SH[i][1], tgt[0], tgt[1] - 0.2, 6, 7, 'fwd');
+  const drawHind = (i, tgt, far, thigh) => {
+    const [kx, ky, ax, ay] = ik2(SH[i][0], SH[i][1], tgt[0], tgt[1] - 0.2, 6, 7, 'fwd');
+    if (thigh) {                                                     // haunch mass follows the leg a little
+      ctx.save(); ctx.translate(-11.5, -9); ctx.rotate(clamp((atan2(ky - SH[i][1], kx - SH[i][0]) - 1.02) * 0.55, -0.6, 0.6)); ctx.translate(11.5, 9); blit(ctx, P.thigh); ctx.restore();
+    }
     seg(ctx, far ? P.shin.far : P.shin.near, kx, ky, ax, ay);
     ctx.save(); ctx.translate(ax, ay); ctx.rotate(-0.15 + (dead ? -0.5 : 0)); blit(ctx, far ? P.pawHf : P.pawH); ctx.restore();
-    return [kx, ky];
   };
-  // far legs first
-  drawHind(1, hF, true); drawFront(1, fF, true);
-  // ---- tail (behind body)
-  {
+
+  // ---- layers, back to front ---------------------------------------------------------------------------------
+  drawHind(1, hF, true, false); drawFront(1, fF, true);
+  {                                                                  // tail: three hairless segments, drooping and curling up at the end
     let x = -18, y = -9.6, a = PI - 0.1 + (dead ? 0.7 : 0);
     const tw = dead ? 0.1 : 1;
     for (let i = 0; i < 3; i++) {
@@ -1019,25 +1033,12 @@ function drawMole(ctx, e, G, flashOnly) {
       seg(ctx, P.tail, x, y, nx, ny); x = nx; y = ny;
     }
   }
-  // ---- torso
   ctx.save(); ctx.translate(0, -4.4); ctx.scale(1, breathe); ctx.translate(0, 4.4); blit(ctx, P.torso); ctx.restore();
-  // near hind: thigh mass over the torso, then shin/foot
-  const hk = drawHind(0, hN, false);
-  {
-    const a = atan2(hk[1] - SH[0][1], hk[0] - SH[0][0]), a0 = atan2(-1.6 - 5 - SH[0][1] + 5, 6);
-    ctx.save(); ctx.translate(-11.5, -9); ctx.rotate(clamp((a - 1.02) * 0.55, -0.6, 0.6)); ctx.translate(11.5, 9); blit(ctx, P.thigh); ctx.restore(); void a0;
-  }
-  // redraw the near shin above the thigh so the knee overlaps it cleanly
-  {
-    const [kx, ky, ax, ay] = legIK(SH[0][0], SH[0][1], hN[0], hN[1] - 0.2, 6, 7, 'fwd');
-    seg(ctx, P.shin.near, kx, ky, ax, ay); ctx.save(); ctx.translate(ax, ay); ctx.rotate(-0.15 + (dead ? -0.5 : 0)); blit(ctx, P.pawH); ctx.restore();
-  }
-  // ---- head: jaw (behind), interior, head
-  {
-    const nx = 7.6, ny = -11.2;
+  drawHind(0, hN, false, true);
+  {                                                                  // head (scaled up a touch): jaw behind, mouth interior, then the skull with the incisors
+    const nx = 7.6, ny = -11.2, hx = 9.2, hy = -8.2;                  // neck pivot, jaw hinge
     ctx.save(); ctx.translate(nx, ny); ctx.rotate(headRot); ctx.scale(1.16, 1.16); ctx.translate(-nx, -ny);
-    const hx = 9.2, hy = -8.2;                                       // jaw hinge
-    if (jaw > 0.12) {                                               // dark mouth interior + tongue
+    if (jaw > 0.12) {
       ctx.save(); ctx.translate(hx, hy); ctx.rotate(jaw * 0.42);
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(9.6, -0.4); ctx.lineTo(9.8, 0.4 + jaw * 6.2); ctx.closePath();
       ctx.fillStyle = 'rgb(92,22,28)'; ctx.fill(); ctx.fillStyle = 'rgb(206,96,106)'; ctx.beginPath(); ctx.ellipse(6.2, 1.2 + jaw * 2.2, 3.4, 1.1 + jaw * 0.6, 0.15, 0, TAU); ctx.fill(); ctx.restore();
@@ -1046,24 +1047,22 @@ function drawMole(ctx, e, G, flashOnly) {
     blit(ctx, P.head);
     ctx.restore();
   }
-  // near front leg (over the face when striking)
-  drawFront(0, fN, false);
+  drawFront(0, fN, false);                                           // near claw last: it passes in front of the face when slashing
   if (emerging) {
-    ctx.restore();                                                   // end of ground clip
+    ctx.restore();                                                   // end of the ground clip
     if (ep < 0.55) moleMound(ctx, P, e, t, k, e.cx, gy0, true);
-    // dirt spray
-    const el = clamp(ep, 0, 1) * 0.5;
+    const el = clamp(ep, 0, 1) * 0.5;                                // dirt clods thrown out of the hole
     ctx.save(); ctx.translate(e.cx, gy0 - 5 * k);
     for (let i = 0; i < 9; i++) {
-      const r = ((i * 7919) % 97) / 97, vx = (i % 2 ? 1 : -1) * (26 + r * 62), vy = -(170 + r * 130), x = vx * el + (i - 4) * 1.2, y = vy * el + 0.5 * 950 * el * el, a = clamp(1 - el / 0.5, 0, 1) * clamp(el / 0.05, 0, 1);
-      if (a <= 0) continue; ctx.save(); ctx.globalAlpha = A0 * a; ctx.translate(x, y); ctx.rotate(el * (6 + i)); blit(ctx, P.clod[i % 3]); ctx.restore();
+      const r = ((i * 7919) % 97) / 97, vx = (i % 2 ? 1 : -1) * (26 + r * 62), vy = -(170 + r * 130);
+      const x = vx * el + (i - 4) * 1.2, y = vy * el + 0.5 * 950 * el * el, a = clamp(1 - el / 0.5, 0, 1) * clamp(el / 0.05, 0, 1);
+      if (a <= 0) continue;
+      ctx.save(); ctx.globalAlpha = A0 * a; ctx.translate(x, y); ctx.rotate(el * (6 + i)); blit(ctx, P.clod[i % 3]); ctx.restore();
     }
     ctx.restore();
   }
   ctx.restore();
 }
-
-CD.art.molerat = drawMole;
 
 // ================================================================== RADSCORPION
 const SC = { shell: [212, 178, 108], hi: [250, 228, 164], dark: [122, 86, 42], joint: [84, 54, 24], leg: [188, 138, 72], glow: [150, 255, 110] };
@@ -1114,9 +1113,9 @@ function buildScorp() {
       },
     });
     // median eyes on a raised tubercle
-    for (const [x, y] of [[9.6, -18.2], [11.8, -18.1]]) {
-      egrad(g, x, y, 1.35, 1.1, 0, [[0, 'rgb(30,26,18)'], [0.75, 'rgb(10,8,6)'], [1, 'rgb(96,64,28)']], -0.3, -0.3, 0, true);
-      g.fillStyle = 'rgba(255,255,240,0.95)'; g.beginPath(); g.arc(x - 0.35, y - 0.4, 0.28, 0, TAU); g.fill(); g.fillStyle = 'rgba(150,255,110,0.5)'; g.beginPath(); g.arc(x + 0.35, y + 0.25, 0.22, 0, TAU); g.fill();
+    for (const [x, y] of [[9.9, -18.2], [11.5, -18.1]]) {
+      egrad(g, x, y, 0.95, 0.8, 0, [[0, 'rgb(30,26,18)'], [0.75, 'rgb(10,8,6)'], [1, 'rgb(96,64,28)']], -0.3, -0.3, 0, true);
+      g.fillStyle = 'rgba(255,255,240,0.95)'; g.beginPath(); g.arc(x - 0.25, y - 0.3, 0.2, 0, TAU); g.fill(); g.fillStyle = 'rgba(150,255,110,0.5)'; g.beginPath(); g.arc(x + 0.25, y + 0.18, 0.16, 0, TAU); g.fill();
     }
     for (let i = 0; i < 3; i++) { g.fillStyle = '#0a0806'; g.beginPath(); g.arc(17.2 + i * 0.7, -14.4 + i * 0.9, 0.55, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,240,0.8)'; g.fillRect(17 + i * 0.7, -14.7 + i * 0.9, 0.25, 0.25); }
   });
@@ -1176,7 +1175,7 @@ function buildScorp() {
     });
     return { fem, tib, femF: darkened(fem, 0.62, '16,10,6'), tibF: darkened(tib, 0.62, '16,10,6'), l1, l2 };
   };
-  P.leg = [legPair(6.6, 9.4, 1.55, 41), legPair(6.6, 9.4, 1.55, 51), legPair(6.4, 9.2, 1.5, 61), legPair(6.2, 9, 1.45, 71)];
+  P.leg = [legPair(6.6, 9.4, 1.85, 41), legPair(6.6, 9.4, 1.85, 51), legPair(6.4, 9.2, 1.8, 61), legPair(6.2, 9, 1.75, 71)];
   // ---- pedipalps: arm, forearm, chela (palm + fixed finger) and movable finger
   P.arm = [scLimb(4.6, 2.5, 2.1, SC.shell, 81, { prof: (k) => 2.3 * (1 + 0.14 * sin(PI * k)) }), scLimb(5, 2.2, 1.9, SC.shell, 82, { prof: (k) => 2.05 * (1 + 0.16 * sin(PI * k)) })];
   P.armF = P.arm.map((a) => darkened(a, 0.62, '16,10,6'));
@@ -1222,18 +1221,18 @@ function drawScorp(ctx, e, G, flashOnly) {
   const dead = !!(e.dead || e.state === 'dead'), st = e.state, ac = atkCurve(e), A0 = ctx.globalAlpha, def = e.def || {};
   const air = !e.onGround && !dead, spd = abs(e.vx || 0), mv = dead || air ? 0 : sstep(12, 30, spd), chase = sstep(60, 100, spd);
   const stride = def.stride || 0.1, duty = 0.6, A = 6, fq = PI * duty / (stride * A), ph = (e.phase || 0) * fq;
-  ctx.save();
+  ctx.save(); beginDraw(ctx, k);
   ctx.translate(e.cx, e.y + e.h + (dead ? deadDrop(e, 19.5) : 0)); ctx.scale(f * k, k);
-  beginDraw(ctx, k);
+  flinch(ctx, e, -10, 0.6);
   // body offsets
   let lunge = 0, bob = 0, pitch = 0;
   if (!dead) {
     bob = -abs(sin(ph)) * 0.5 * mv - sin(t * 1.6) * 0.22 * (1 - mv);
     if (st === 'windup') { pitch = 0.05 * ac.w; bob += 0.8 * ac.w; lunge = -2.5 * ac.w; }
-    else if (st === 'attack') { lunge = lerp(-2.5, 8, eo(ac.s)) * (1 - ac.r) + (-2.5 * 0); pitch = lerp(0.05, -0.05, ac.s) * (1 - ac.r); }
+    else if (st === 'attack') { lunge = lerp(-2.5, 8, eo(ac.s)) * (1 - ac.r); pitch = lerp(0.05, -0.05, ac.s) * (1 - ac.r); }
   }
   ctx.translate(-5 + lunge, bob);
-  if (pitch) { ctx.translate(0, 0); ctx.rotate(-pitch); }
+  if (pitch) ctx.rotate(-pitch);
   const toGroundY = -bob;                                          // feet stay planted while the body bobs
 
   // ---- legs --------------------------------------------------------------------------------------------------
@@ -1247,11 +1246,11 @@ function drawScorp(ctx, e, G, flashOnly) {
       fx += g0[0] * mv; fy = g0[1] * mv;
       if (st === 'windup' || st === 'attack') { fx += (i === 0 ? 2.5 : i === 1 ? 1 : -1) * (st === 'windup' ? ac.w : (1 - ac.r)); }   // braced stance
     }
-    return [hx, hy, fx, fy + toGroundY * 0];
+    return [hx, hy, fx, fy + toGroundY];
   };
   const drawLeg = (i, far) => {
     const [hx, hy, fx, fy] = legTarget(i, far), S = P.leg[i];
-    const [kx, ky, ex, ey] = ik2(hx, hy, fx, fy - toGroundY * 0, 5, 11, dead ? 'down' : 'up');
+    const [kx, ky, ex, ey] = ik2(hx, hy, fx, fy, S.l1, S.l2, dead ? 'down' : 'up');
     seg(ctx, far ? S.femF : S.fem, hx, hy, kx, ky); seg(ctx, far ? S.tibF : S.tib, kx, ky, ex, ey);
   };
   for (let i = 3; i >= 0; i--) drawLeg(i, true);
@@ -1266,7 +1265,7 @@ function drawScorp(ctx, e, G, flashOnly) {
   else cp = baseP;
   const pump = dead ? 0 : (st === 'windup' || st === 'attack' ? 0 : sin(t * (2.2 + chase * 6)) * (0.06 + 0.06 * chase));
   const drawClaw = (far) => {
-    const sx = far ? 16.6 : 17.6, sy = far ? -12.6 : -11.4, ph2 = far ? 0.9 : 0;
+    const sx = far ? 16.6 : 17.6, sy = far ? -12.6 : -11.4, ph2 = far ? 0.9 : 0;                  // shoulder joint
     const a1 = cp[0] + (far ? 0.12 : 0) + pump * 0.5 * (far ? -1 : 1), a2 = cp[1] + (far ? -0.1 : 0) + pump, a3 = cp[2] + (far ? -0.14 : 0) + pump * 0.6, op = clamp(cp[3] * (far ? 0.9 : 1) + pump * 0.8 + (st === 'idle' || st === 'patrol' ? 0.04 * sin(t * 1.9 + ph2) : 0), 0, 1.15);
     const ex = sx + cos(a1) * 4.2, ey = sy + sin(a1) * 4.2, wx = ex + cos(a2) * 4.5, wy = ey + sin(a2) * 4.5;
     seg(ctx, far ? P.armF[0] : P.arm[0], sx, sy, ex, ey, 4.2 / 4.6); seg(ctx, far ? P.armF[1] : P.arm[1], ex, ey, wx, wy, 4.5 / 5);
@@ -1295,12 +1294,11 @@ function drawScorp(ctx, e, G, flashOnly) {
     else H = rest;
     const stretch = st === 'attack' ? 1 + 0.08 * eo(ac.s) * (1 - ac.r) : 1;
     const sway = dead ? 0 : (st === 'windup' || st === 'attack' ? 0.3 : 1);
-    let x = -15.6, y = -13.4;
-    const hs = [];
+    let x = -15.6, y = -13.4;                                       // tail root on top of the last tergite
     for (let i = 0; i < 5; i++) {
       const a = H[i] + sway * (sin(t * 1.7 + i * 0.6) * 0.035 * (i + 1) * 0.6 + (mv > 0.1 ? sin(ph + i * 0.5) * 0.03 * mv : 0));
       const L = SC_TAIL_LEN[i] * stretch, nx = x + cos(a) * L, ny = y + sin(a) * L;
-      seg(ctx, P.tail[i], x, y, nx, ny, 1); x = nx; y = ny; hs.push(a);
+      seg(ctx, P.tail[i], x, y, nx, ny, 1); x = nx; y = ny;
     }
     const ta = H[5] + sway * sin(t * 2.3) * 0.05;
     ctx.save(); ctx.translate(x, y); ctx.rotate(ta); ctx.translate(2.2, 0.2); blit(ctx, P.telson); ctx.restore();
@@ -1310,13 +1308,13 @@ function drawScorp(ctx, e, G, flashOnly) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = A0 * clamp(glow, 0, 1);
       const gr = ctx.createRadialGradient(tx, ty, 0, tx, ty, 6.5); gr.addColorStop(0, 'rgba(170,255,120,0.95)'); gr.addColorStop(0.35, 'rgba(120,230,80,0.4)'); gr.addColorStop(1, 'rgba(90,200,60,0)');
       ctx.fillStyle = gr; ctx.fillRect(tx - 7, ty - 7, 14, 14); ctx.restore();
+      const per = st === 'windup' || st === 'attack' ? 0.5 : 2.6, dp = (t % per) / per;                 // venom beads fall from the stinger
+      if (dp < 0.5) { const s = dp / 0.5; droplet(ctx, tx, ty + 0.6 + s * s * 9, 0.55, 1.5 + s, [170, 255, 120], 0.9 * (1 - s * 0.6)); }
     }
   }
   drawClaw(false);
   ctx.restore();
 }
-
-CD.art.scorpion = drawScorp;
 
 // ================================================================== MIRELURK
 const ML = { shell: [110, 122, 100], shellD: [46, 58, 46], algae: [74, 118, 52], barn: [196, 194, 172], flesh: [168, 122, 100], bone: [222, 210, 174], claw: [112, 126, 96], tip: [216, 168, 104], eye: [236, 176, 40] };
@@ -1500,7 +1498,7 @@ function buildMire() {
 // pedipalp pose: [upper-arm heading, forearm heading, chela heading, opening]  (near claw, far claw)
 const ML_CLAW = {
   guard: { n: [0.12, -1.15, -1.38, 0.35], f: [0.42, -0.12, -0.2, 0.62] },
-  wind: { n: [-1.2, -2.1, -2.5, 1.0], f: [-0.9, -1.9, -2.2, 1.0] },
+  wind: { n: [-0.85, -1.75, -2.0, 1.0], f: [-0.55, -1.55, -1.75, 1.0] },
   hit: { n: [0.15, 0.45, 0.55, 0.05], f: [0.35, 0.2, 0.25, 0.1] },
   dead: { n: [1.25, 0.7, 0.5, 0.3], f: [1.3, 0.9, 0.7, 0.25] },
 };
@@ -1511,12 +1509,12 @@ const ML_LEGS = [   // hip, rest foot x, trot group, knee direction
 
 function drawMire(ctx, e, G, flashOnly) {
   const P = cached('mire', buildMire), t = e.t || 0, f = e.face < 0 ? -1 : 1, k = e.scale || 1;
-  const dead = !!(e.dead || e.state === 'dead'), st = e.state, ac = atkCurve(e), A0 = ctx.globalAlpha, def = e.def || {};
+  const dead = !!(e.dead || e.state === 'dead'), st = e.state, ac = atkCurve(e), def = e.def || {};
   const air = !e.onGround && !dead, spd = abs(e.vx || 0), mv = dead || air ? 0 : sstep(12, 30, spd), chase = sstep(50, 85, spd);
   const stride = def.stride || 0.09, duty = 0.6, A = 6.5, fq = PI * duty / (stride * A), ph = (e.phase || 0) * fq;
-  ctx.save();
+  ctx.save(); beginDraw(ctx, k);
   ctx.translate(e.cx, e.y + e.h + (dead ? deadDrop(e, 39) : 0)); ctx.scale(f * k, k);
-  beginDraw(ctx, k);
+  flinch(ctx, e, -14, 0.5);
   let lunge = 0, bob = 0, rock = 0, mouth = 0.15;
   if (!dead) {
     bob = -abs(sin(ph)) * 0.8 * mv + sin(t * 1.9) * 0.2 * (1 - mv);
@@ -1525,19 +1523,17 @@ function drawMire(ctx, e, G, flashOnly) {
     if (st === 'windup') { lunge = -2 * ac.w; rock = -0.05 * ac.w; mouth = 0.5 + 0.3 * ac.w; bob += 0.6 * ac.w; }
     else if (st === 'attack') { lunge = lerp(-2, 6, eo(ac.s)) * (1 - ac.r); rock = lerp(-0.05, 0.05, ac.s) * (1 - ac.r); mouth = lerp(0.8, 1.0, ac.s) * (1 - ac.r * 0.8); }
   } else mouth = 0.4;
-  const RZ = 0;
-  ctx.translate(lunge - 0, bob + RZ);
-  // rock the whole upper body around the feet centre
-  if (rock) { ctx.translate(-2, 0); ctx.rotate(rock); ctx.translate(2, 0); }
+  ctx.translate(lunge, bob);
+  if (rock) { ctx.translate(-2, 0); ctx.rotate(rock); ctx.translate(2, 0); }                // rock the upper body about the feet
 
   // ---- leg targets (body space; the body bobs, feet stay put) -------------------------------------------------
   const drawLeg = (L, far) => {
     let fx = L.fx, fy = 0;
-    if (dead) { fx = L.hx + (L.hx > 0 ? 3.2 : -3.2) + (far ? 1.5 : -1); fy = -5.6 - (far ? 1 : 0); }
+    if (dead) { fx = L.hx + (L.hx > 0 ? -0.5 : 0.5) + (far ? 1.2 : -0.8); fy = -3.4 - (far ? 0.8 : 0); }
     else if (air) { fx = L.fx + (L.hx > 0 ? 3 : -3); fy = -4; }
     else {
       const g0 = gait(ph / TAU + (L.g ? 0.5 : 0), duty, A, 4.2);
-      fx += g0[0] * mv; fy = g0[1] * mv - bob * 0;
+      fx += g0[0] * mv; fy = g0[1] * mv;
       if (st === 'windup' || st === 'attack') fx += (L.hx > 0 ? 1.5 : -1.5) * (st === 'windup' ? ac.w : (1 - ac.r));      // braced stance
     }
     const S = P.leg, [kx, ky, ex, ey] = ik2(L.hx, L.hy, fx, fy - bob, S.l1, S.l2, L.knee);
@@ -1579,6 +1575,13 @@ function drawMire(ctx, e, G, flashOnly) {
 
   // ---- body: underbody, near legs, head, shell ------------------------------------------------------------------
   blit(ctx, P.flesh);
+  if (!dead && !flashOnly) {                                         // slime drips hanging off the wet shell rim, swelling and falling
+    for (let i = 0; i < 3; i++) {
+      const per = 1.9 + i * 0.55, ph0 = ((t + i * 0.83) % per) / per, x = -17 + i * 8.5 + sin(i * 7.3) * 2, y0 = -11.6;
+      if (ph0 < 0.3) { const s = ph0 / 0.3; droplet(ctx, x, y0 + 0.6 + s * 0.9, 0.35 + 0.65 * s, 1.3 + s * 0.6, [150, 196, 128], 0.85); }
+      else if (ph0 < 0.6) { const s = (ph0 - 0.3) / 0.3; droplet(ctx, x, y0 + 1.6 + s * s * 10, 0.95, 1.9 + s * 1.2, [150, 196, 128], 0.85 * (1 - s * 0.5)); }
+    }
+  }
   drawLeg(ML_LEGS[0], false); drawLeg(ML_LEGS[1], false);
   ctx.save(); ctx.translate(15.4, -14.2); ctx.scale(1.2, 1.2); ctx.rotate(dead ? 0.22 : sin(t * 1.4) * 0.03 + (st === 'attack' ? 0.08 * (1 - ac.r) : 0));
   for (const s of [-1, 1]) { ctx.save(); ctx.translate(5.6, 3.1 + s * 0.2); ctx.rotate(s * (0.14 + mouth * 0.55)); blit(ctx, P.mand); ctx.restore(); }
@@ -1588,8 +1591,22 @@ function drawMire(ctx, e, G, flashOnly) {
   drawClaw(false);
   ctx.restore();
 }
-
-CD.art.mirelurk = drawMire;
 // DEV-ONLY: exposes internals for the part viewer (excluded from the final build)
 CD.art.__dev = { parts: (n) => cached({ roach: 'roach', fly: 'fly', mole: 'mole', scorp: 'scorp', mire: 'mire' }[n], () => ({ roach: typeof buildRoach !== 'undefined' && buildRoach, fly: typeof buildFly !== 'undefined' && buildFly, mole: typeof buildMole !== 'undefined' && buildMole, scorp: typeof buildScorp !== 'undefined' && buildScorp, mire: typeof buildMire !== 'undefined' && buildMire })[n]()) };
+
+// ================================================================== registration + warm-up
+CD.art.radroach = drawRoach;
+CD.art.bloatfly = drawFly;
+CD.art.molerat = drawMole;
+CD.art.scorpion = drawScorp;
+CD.art.mirelurk = drawMire;
+
+// Painting the sprite sets costs a few tens of ms each, so build them one at a time shortly after load (during the boot screen) rather
+// than on the frame a creature is first seen. Drawing still builds lazily if it gets there first.
+const WARM = [['roach', buildRoach], ['fly', buildFly], ['mole', buildMole], ['scorp', buildScorp], ['mire', buildMire]];
+CD.art.prewarmBugs = function () { for (const w of WARM) { try { cached(w[0], w[1]); } catch (err) { /* no DOM (tests): lazy path will report */ } } };
+if (typeof setTimeout === 'function') {
+  const step = (i) => { if (i >= WARM.length) return; try { cached(WARM[i][0], WARM[i][1]); } catch (err) { return; } setTimeout(() => step(i + 1), 40); };
+  setTimeout(() => step(0), 300);
+}
 })();

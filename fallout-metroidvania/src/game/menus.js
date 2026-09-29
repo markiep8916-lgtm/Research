@@ -136,14 +136,15 @@ M.update = function (dt) {
 };
 M.menuY = function () { return G.state === 'title' ? G.viewH * 0.6 : (G.state === 'dead' ? G.viewH * 0.55 : G.viewH * 0.42); };
 M.updateOptions = function (dt) {
-  const I = CD.input; const rows = ['MASTER VOLUME', 'MUSIC VOLUME', 'EFFECTS VOLUME', 'SOUND', 'BACK'];
+  const I = CD.input; const rows = ['MASTER VOLUME', 'MUSIC VOLUME', 'EFFECTS VOLUME', 'SOUND', 'GRAPHICS QUALITY', 'BACK'];
   if (I.pressed('up')) { M.sel = (M.sel + rows.length - 1) % rows.length; CD.audio.play('ui_move'); }
   if (I.pressed('down')) { M.sel = (M.sel + 1) % rows.length; CD.audio.play('ui_move'); }
   const keys = ['master', 'music', 'sfx'];
   if (M.sel < 3) { let d = 0; if (I.pressed('left')) d = -0.1; if (I.pressed('right')) d = 0.1; if (d) { CD.audio.setVolume(keys[M.sel], U.clamp(Math.round((CD.audio.vol[keys[M.sel]] + d) * 10) / 10, 0, 1)); CD.audio.play('ui_move'); G.saveOptions(); } }
   if ((M.sel === 3 && (I.pressed('confirm') || I.pressed('left') || I.pressed('right')))) { CD.audio.setMuted(!CD.audio.muted); G.saveOptions(); }
-  if ((M.sel === 4 && I.pressed('confirm')) || I.pressed('back') || I.pressed('pause')) { M.screen = M.back === 'pause' ? 'pause' : 'main'; M.back = null; CD.audio.play('ui_back'); }
-  const m = I.mouse; if (m.edge) { rows.forEach((r, i) => { const y = G.viewH * 0.32 + i * 52; if (m.y > y - 26 && m.y < y + 14) { M.sel = i; if (i < 3) { const bx = G.viewW / 2 + 10, bw = 220; if (m.x > bx && m.x < bx + bw) { CD.audio.setVolume(keys[i], U.clamp(Math.round((m.x - bx) / bw * 10) / 10, 0, 1)); G.saveOptions(); } } else if (i === 3) { CD.audio.setMuted(!CD.audio.muted); G.saveOptions(); } else if (i === 4) { M.screen = M.back === 'pause' ? 'pause' : 'main'; M.back = null; } } }); m.edge = false; }
+  if (M.sel === 4 && (I.pressed('confirm') || I.pressed('left') || I.pressed('right'))) { const qs = ['auto', 'high', 'medium', 'low'], cur = qs.indexOf((G.opts && G.opts.quality) || 'auto'); G.opts = G.opts || {}; G.opts.quality = qs[(cur + (I.pressed('left') ? 3 : 1)) % 4]; G.qLevel = 0; G.resize(); G.saveOptions(); CD.audio.play('ui_move'); }
+  if ((M.sel === 5 && I.pressed('confirm')) || I.pressed('back') || I.pressed('pause')) { M.screen = M.back === 'pause' ? 'pause' : 'main'; M.back = null; CD.audio.play('ui_back'); }
+  const m = I.mouse; if (m.edge) { rows.forEach((r, i) => { const y = G.viewH * 0.3 + i * 52; if (m.y > y - 26 && m.y < y + 14) { M.sel = i; if (i < 3) { const bx = G.viewW / 2 + 10, bw = 220; if (m.x > bx && m.x < bx + bw) { CD.audio.setVolume(keys[i], U.clamp(Math.round((m.x - bx) / bw * 10) / 10, 0, 1)); G.saveOptions(); } } else if (i === 3) { CD.audio.setMuted(!CD.audio.muted); G.saveOptions(); } else if (i === 4) { const qs = ['auto', 'high', 'medium', 'low'], cur = qs.indexOf((G.opts && G.opts.quality) || 'auto'); G.opts = G.opts || {}; G.opts.quality = qs[(cur + 1) % 4]; G.qLevel = 0; G.resize(); G.saveOptions(); } else if (i === 5) { M.screen = M.back === 'pause' ? 'pause' : 'main'; M.back = null; } } }); m.edge = false; }
 };
 
 // ---------------------------------------------------------------- drawing
@@ -225,11 +226,12 @@ M.drawControls = function (ctx) {
 M.drawOptions = function (ctx) {
   const vw = G.viewW, vh = G.viewH, ui = UI(); ctx.fillStyle = 'rgba(0,10,4,0.94)'; ctx.fillRect(0, 0, vw, vh);
   CD.glowText(ctx, 'OPTIONS', vw / 2, vh * 0.2, 34, ui.green, 'center', 12);
-  const rows = ['MASTER VOLUME', 'MUSIC VOLUME', 'EFFECTS VOLUME', 'SOUND', 'BACK']; const keys = ['master', 'music', 'sfx'];
+  const rows = ['MASTER VOLUME', 'MUSIC VOLUME', 'EFFECTS VOLUME', 'SOUND', 'GRAPHICS QUALITY', 'BACK']; const keys = ['master', 'music', 'sfx'];
   rows.forEach((r, i) => {
-    const y = vh * 0.32 + i * 52, sel = i === M.sel; CD.glowText(ctx, r, vw / 2 - 20, y, 20, sel ? '#eaffef' : ui.green, 'right', sel ? 10 : 3);
+    const y = vh * 0.3 + i * 52, sel = i === M.sel; CD.glowText(ctx, r, vw / 2 - 20, y, 20, sel ? '#eaffef' : ui.green, 'right', sel ? 10 : 3);
     if (i < 3) { CD.hudBar(ctx, vw / 2 + 10, y - 16, 220, 18, CD.audio.vol[keys[i]], ui.green, null, 10); CD.glowText(ctx, Math.round(CD.audio.vol[keys[i]] * 100) + '%', vw / 2 + 246, y, 15, ui.dim, 'left', 2); }
     else if (i === 3) CD.glowText(ctx, CD.audio.muted ? 'OFF' : 'ON', vw / 2 + 10, y, 20, CD.audio.muted ? ui.red : ui.green, 'left', 5);
+    else if (i === 4) CD.glowText(ctx, String((G.opts && G.opts.quality) || 'auto').toUpperCase(), vw / 2 + 10, y, 20, ui.green, 'left', 5);
     if (sel) CD.glowText(ctx, '>', vw / 2 - 250, y, 22, ui.green, 'left', 8);
   });
 };

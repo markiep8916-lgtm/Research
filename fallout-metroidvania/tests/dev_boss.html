@@ -1,0 +1,190 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>boss art sheet</title>
+<style>body{margin:0;background:#1c1b1a;color:#ddd;font:12px monospace}canvas{display:block}</style></head>
+<body><canvas id="c" width="1600" height="900"></canvas>
+<script src="../src/core/util.js"></script>
+<script src="../src/gfx/creatures_boss.js"></script>
+<script>
+// Boss art dev sheet.  Query:
+//   boss=deathclaw|sentry|overseer|all   which boss (default all)
+//   s=1.5 | zoom=1.25                      draw scale (world px -> screen px); zoom=1.25 is the in-game camera scale
+//   state=idle,slash                       only these states
+//   strip=8                                filmstrip of ONE state (atkK 0..1 sweep, or run/walk cycle sweep) - needs state=
+//   bg=dusk|dark|both                      right-facing row on dusk, left-facing row on dark (default); both = both rows on that bg
+//   flash=1                                add a hit-flash row       bs={"rage":1,"mood":0.5,...}  extra e.bs fields for every cell
+//   anim=1                                 live animation (RAF) of the first cell of each row
+//   part=deathclaw.head&s=8                view one baked part (uses CD.art.__bossParts) with an origin cross
+const CD = window.CD, U = CD.U, G = CD.G || (CD.G = {});
+const q = new URLSearchParams(location.search);
+const c = document.getElementById('c'); const g = c.getContext('2d');
+const S = parseFloat(q.get('zoom') || q.get('s') || '1.5');
+const DEF = {
+  deathclaw: { w: 90, h: 104, fly: false, stride: 0.075 },
+  sentry: { w: 100, h: 120, fly: false, stride: 0.06 },
+  overseer: { w: 110, h: 130, fly: true },
+};
+const CYC = { deathclaw: 7.2, sentry: 4.0 };      // engine phase units per full step cycle (CYCLE_PX * stride) - only used to pick sample phases
+const STATES = {
+  deathclaw: [
+    { l: 'idle', s: 'idle', t: 0.7 }, { l: 'idle b', s: 'idle', t: 2.9 },
+    { l: 'run 0.1', s: 'run', cyc: 0.1, vx: 300 }, { l: 'run 0.35', s: 'run', cyc: 0.35, vx: 300 }, { l: 'run 0.6', s: 'run', cyc: 0.6, vx: 300 }, { l: 'run 0.85', s: 'run', cyc: 0.85, vx: 300 },
+    { l: 'windup .3', s: 'windup', atkK: 0.3 }, { l: 'windup 1', s: 'windup', atkK: 1 },
+    { l: 'slash .2', s: 'slash', atkK: 0.2 }, { l: 'slash .45', s: 'slash', atkK: 0.45 }, { l: 'slash .7', s: 'slash', atkK: 0.7 }, { l: 'slash 1', s: 'slash', atkK: 1 },
+    { l: 'leap up', s: 'leap', vy: -420, onGround: false }, { l: 'leap dn', s: 'leap', vy: 380, onGround: false },
+    { l: 'land', s: 'land' },
+    { l: 'roar .2', s: 'roar', atkK: 0.2 }, { l: 'roar .6', s: 'roar', atkK: 0.6 },
+    { l: 'throw .2', s: 'throw', atkK: 0.2 }, { l: 'throw .5', s: 'throw', atkK: 0.5 }, { l: 'throw .75', s: 'throw', atkK: 0.75 },
+    { l: 'rage idle', s: 'idle', bs: { rage: 1 } },
+    { l: 'dead .3s', s: 'dead', dead: true, deadT: 0.3 }, { l: 'dead 1s', s: 'dead', dead: true, deadT: 1 }, { l: 'dead 4s', s: 'dead', dead: true, deadT: 4 },
+  ],
+  sentry: [
+    { l: 'idle', s: 'idle', t: 0.7 }, { l: 'idle b', s: 'idle', t: 2.9 },
+    { l: 'walk 0.1', s: 'walk', cyc: 0.1, vx: 70 }, { l: 'walk 0.35', s: 'walk', cyc: 0.35, vx: 70 }, { l: 'walk 0.6', s: 'walk', cyc: 0.6, vx: 70 }, { l: 'walk 0.85', s: 'walk', cyc: 0.85, vx: 70 },
+    { l: 'windup .3', s: 'windup', atkK: 0.3 }, { l: 'windup 1', s: 'windup', atkK: 1 },
+    { l: 'gatling', s: 'gatling', aimA: 0.15 }, { l: 'gatling hot', s: 'gatling', aimA: -0.35, bs: { heat: 1 } }, { l: 'gatling dn', s: 'gatling', aimA: 0.7 },
+    { l: 'missile .3', s: 'missile', atkK: 0.3 }, { l: 'missile .6', s: 'missile', atkK: 0.6 },
+    { l: 'stomp .3', s: 'stomp', atkK: 0.3 }, { l: 'stomp .55', s: 'stomp', atkK: 0.55 }, { l: 'stomp .8', s: 'stomp', atkK: 0.8 },
+    { l: 'vent .5', s: 'vent', bs: { vent: 0.5 } }, { l: 'vent 1', s: 'vent', bs: { vent: 1 } },
+    { l: 'rage', s: 'gatling', aimA: 0, bs: { rage: 1, heat: 0.6 } },
+    { l: 'dead .3s', s: 'dead', dead: true, deadT: 0.3 }, { l: 'dead 1s', s: 'dead', dead: true, deadT: 1 }, { l: 'dead 4s', s: 'dead', dead: true, deadT: 4 },
+  ],
+  overseer: [
+    { l: 'idle', s: 'idle', t: 0.7 }, { l: 'idle b', s: 'idle', t: 3.3, bs: { mood: 0.5 } },
+    { l: 'windup .3', s: 'windup', atkK: 0.3 }, { l: 'windup 1', s: 'windup', atkK: 1, bs: { mood: 0.5 } },
+    { l: 'beam .3', s: 'beam', atkK: 0.3 }, { l: 'beam .9', s: 'beam', atkK: 0.9, bs: { mood: 0.7 } },
+    { l: 'summon', s: 'summon', atkK: 0.5 }, { l: 'summon 2', s: 'summon', atkK: 0.9, bs: { mood: 0.5 } },
+    { l: 'slam .3', s: 'slam', atkK: 0.3 }, { l: 'slam .6', s: 'slam', atkK: 0.6 }, { l: 'slam .9', s: 'slam', atkK: 0.9 },
+    { l: 'overload .4', s: 'overload', bs: { open: 0.4, mood: 1 } }, { l: 'overload 1', s: 'overload', bs: { open: 1, mood: 1 } },
+    { l: 'shield', s: 'idle', bs: { shield: 1 } }, { l: 'shield .5', s: 'windup', atkK: 0.6, bs: { shield: 0.5, mood: 0.5 } },
+    { l: 'mood 0.5', s: 'idle', bs: { mood: 0.5 } }, { l: 'mood 1', s: 'idle', bs: { mood: 1 } },
+    { l: 'dead .3s', s: 'dead', dead: true, deadT: 0.3 }, { l: 'dead 1s', s: 'dead', dead: true, deadT: 1 }, { l: 'dead 4s', s: 'dead', dead: true, deadT: 4 },
+  ],
+};
+const bsExtra = q.get('bs') ? JSON.parse(q.get('bs')) : {};
+function mk(name, st, face, i) {
+  const d = DEF[name];
+  const w = d.w, h = d.h;
+  const e = { x: -w / 2, y: d.fly ? -h / 2 : -h, w, h, cx: 0, cy: d.fly ? 0 : -h / 2, face, vx: st.vx || 0, vy: st.vy || 0, onGround: st.onGround === undefined ? !d.fly : st.onGround,
+    t: (st.t !== undefined ? st.t : 1.3) + i * 0.37, phase: st.cyc !== undefined ? st.cyc * (CYC[name] || 6) + 20 * (CYC[name] || 6) : 0.4 + i * 1.1, state: st.s, atkK: st.atkK || 0, hp: st.dead ? 0 : 100, maxHp: 100,
+    flash: 0, dead: !!st.dead, deadT: st.deadT, def: { stride: d.stride, w, h, fly: d.fly }, scale: 1, aimA: st.aimA || 0, bs: Object.assign({ rage: 0, mood: 0, heat: 0, vent: 0, open: 0, shield: 0 }, st.bs || {}, bsExtra) };
+  e.bottom = e.y + e.h; return e;
+}
+function backdrop(x, y, w, h, gy, dark) {
+  const gr = g.createLinearGradient(0, y, 0, y + h);
+  if (dark) { gr.addColorStop(0, '#0d0f12'); gr.addColorStop(1, '#23262b'); } else { gr.addColorStop(0, '#f2b070'); gr.addColorStop(0.55, '#d9835a'); gr.addColorStop(1, '#8b6c66'); }
+  g.fillStyle = gr; g.fillRect(x, y, w, h);
+  if (gy !== null) { g.fillStyle = dark ? '#0b0c0e' : '#4a4038'; g.fillRect(x, gy, w, y + h - gy); g.fillStyle = dark ? '#33363c' : '#7a6c60'; g.fillRect(x, gy, w, 1); }
+}
+const perf = {};
+function drawCell(name, st, face, i, ox, oy, cw, ch, dark, flash) {
+  const d = DEF[name], art = CD.art[name];
+  const gy = oy + ch - 26;
+  backdrop(ox, oy, cw, ch, d.fly ? null : gy, dark);
+  const e = mk(name, st, face, i);
+  if (flash) e.flash = 0.08;
+  g.save(); g.beginPath(); g.rect(ox, oy, cw, ch); g.clip();
+  g.translate(ox + cw / 2, d.fly ? oy + (ch - 26) / 2 : gy); g.scale(S, S);
+  if (!d.fly) { g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0, -1, d.w * 0.55, 3, 0, 0, 7); g.fill(); }
+  if (art) {
+    const t0 = performance.now();
+    try { art(g, e, G, false); if (flash) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.6; art(g, e, G, true); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; } }
+    catch (err) { g.fillStyle = '#f00'; g.font = '8px monospace'; g.fillText('ERR ' + err.message, -40, -d.h / 2); console.error(name, st.l, err); }
+    perf[name] = (perf[name] || 0) + (performance.now() - t0);
+  } else { g.fillStyle = 'rgba(200,60,60,0.7)'; g.fillRect(e.x, e.y, e.w, e.h); }
+  // hitbox outline
+  if (q.get('hb')) { g.strokeStyle = 'rgba(0,255,0,0.5)'; g.lineWidth = 0.5; g.strokeRect(e.x, e.y, e.w, e.h); }
+  g.restore();
+  g.fillStyle = dark ? '#cdb' : '#241a12'; g.font = '11px monospace'; g.fillText(st.l + (face < 0 ? ' <' : ' >'), ox + 4, oy + ch - 8);
+}
+function sheet() {
+  const names = (q.get('boss') && q.get('boss') !== 'all') ? q.get('boss').split(',') : ['deathclaw', 'sentry', 'overseer'];
+  const only = q.get('state') ? q.get('state').split(',') : null;
+  const W = 1600, sections = [];
+  let H = 6;
+  for (const name of names) {
+    const d = DEF[name];
+    let list = STATES[name];
+    const strip = parseInt(q.get('strip') || '0');
+    if (strip && only) {
+      const base = STATES[name].find((s) => s.s === only[0]) || { s: only[0], l: only[0] };
+      list = []; for (let k = 0; k < strip; k++) {
+        const u = strip === 1 ? 0.5 : k / (strip - 1);
+        const o = Object.assign({}, base, { l: only[0] + ' ' + u.toFixed(2) });
+        if (['run', 'walk'].includes(base.s)) { o.cyc = k / strip; o.vx = base.vx || 200; } else if (base.dead) { o.deadT = u * (parseFloat(q.get('tmax') || '2')); } else o.atkK = u;
+        list.push(o);
+      }
+    } else if (only) list = list.filter((s) => only.includes(s.s));
+    const cw = Math.ceil(d.w * S * 1.34 + 6), ch = Math.ceil(d.h * S * 1.22 + 40);
+    const cols = Math.max(1, Math.floor(W / cw));
+    const nrows = Math.ceil(list.length / cols);
+    sections.push({ name, list, cw, ch, cols, nrows });
+    H += 22 + nrows * (q.get('bg') === 'both' || true ? 2 : 1) * (ch + 2) + (q.get('flash') ? nrows * (ch + 2) : 0) + 8;
+  }
+  c.width = W; c.height = Math.min(H, 16000);
+  g.fillStyle = '#1c1b1a'; g.fillRect(0, 0, c.width, c.height);
+  let y = 6;
+  for (const sc of sections) {
+    g.fillStyle = '#fff'; g.font = '14px monospace'; g.fillText(sc.name.toUpperCase() + '  hitbox ' + DEF[sc.name].w + 'x' + DEF[sc.name].h + '  scale ' + S, 8, y + 14); y += 22;
+    for (let r = 0; r < sc.nrows; r++) {
+      const items = sc.list.slice(r * sc.cols, (r + 1) * sc.cols);
+      const bgMode = q.get('bg') || 'dusk';
+      for (const face of [1, -1]) {
+        items.forEach((st, i) => {
+          const dark = bgMode === 'dark' ? true : bgMode === 'both' ? false : face < 0;
+          drawCell(sc.name, st, face, r * sc.cols + i, i * sc.cw, y, sc.cw - 2, sc.ch, dark, false);
+        });
+        y += sc.ch + 2;
+      }
+      if (q.get('flash')) { items.forEach((st, i) => drawCell(sc.name, st, 1, r * sc.cols + i, i * sc.cw, y, sc.cw - 2, sc.ch, false, true)); y += sc.ch + 2; }
+    }
+    y += 8;
+  }
+}
+function partView() {
+  const [bn, key] = q.get('part').split('.');
+  const P = CD.art.__bossParts(bn); let p = P;
+  for (const k of key.split('/')) p = p && p[k];
+  if (!p || !p.c) { g.fillStyle = '#f66'; g.fillText('no part ' + q.get('part') + ' keys: ' + Object.keys(P).join(','), 10, 20); return; }
+  const s = S;
+  c.width = Math.max(300, Math.ceil(p.w * s) + 80); c.height = Math.ceil(p.h * s) + 80;
+  g.fillStyle = q.get('bg') === 'dark' ? '#15171a' : '#cf8a60'; g.fillRect(0, 0, c.width, c.height);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(p.c, 40, 40, p.w * s, p.h * s);
+  g.strokeStyle = 'rgba(0,255,255,0.7)'; g.lineWidth = 1; const ox = 40 + p.ox * s, oy = 40 + p.oy * s;
+  g.beginPath(); g.moveTo(ox - 8, oy); g.lineTo(ox + 8, oy); g.moveTo(ox, oy - 8); g.lineTo(ox, oy + 8); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 1; g.strokeRect(40, 40, p.w * s, p.h * s);
+  g.fillStyle = '#fff'; g.font = '11px monospace'; g.fillText(q.get('part') + '  ' + p.w + 'x' + p.h + '  origin ' + p.ox + ',' + p.oy + '  ss ' + p.ss, 6, 14);
+}
+// pixel bounds of the art (alpha > 20) relative to the entity origin (ground centre, or hitbox centre for flyers): [x0,y0,x1,y1] for every state
+window.__bounds = function (name, only) {
+  const d = DEF[name], out = {}, oy = d.fly ? 300 : 400, W = 800, H = 700;
+  STATES[name].forEach((st, i) => {
+    if (only && !only.includes(st.s)) return;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const cg = cv.getContext('2d');
+    const e = mk(name, st, 1, 0); cg.save(); cg.translate(400, oy); CD.art[name](cg, e, G, false); cg.restore();
+    const px = cg.getImageData(0, 0, W, H).data; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px[(y * W + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    out[st.l] = [x0 - 400, y0 - oy, x1 - 400, y1 - oy].join(',');
+  });
+  return out;
+};
+window.__perf = function (name, n) {
+  const art = CD.art[name], d = DEF[name], list = STATES[name], cv = document.createElement('canvas'); cv.width = 500; cv.height = 400; const cg = cv.getContext('2d');
+  const e0 = mk(name, list[0], 1, 0); cg.save(); cg.translate(250, 300); art(cg, e0, G, false); cg.restore();          // bake
+  const t0 = performance.now(); n = n || 400;
+  for (let i = 0; i < n; i++) { const st = list[i % list.length]; const e = mk(name, st, i % 2 ? -1 : 1, i); e.t += i * 0.016; cg.clearRect(0, 0, 500, 400); cg.save(); cg.translate(250, 300); art(cg, e, G, false); cg.restore(); }
+  return (performance.now() - t0) / n;
+};
+const t0 = performance.now();
+try { if (q.get('part')) partView(); else sheet(); } catch (err) { g.fillStyle = '#f66'; g.font = '14px monospace'; g.fillText('ERR ' + err.message, 10, 40); console.error(err); }
+window.__done = { ms: Math.round(performance.now() - t0), perf: Object.fromEntries(Object.entries(perf).map(([k, v]) => [k, Math.round(v)])) };
+if (q.get('anim')) {
+  const names = (q.get('boss') && q.get('boss') !== 'all') ? q.get('boss').split(',') : ['deathclaw'];
+  const st = STATES[names[0]].find((s) => !q.get('state') || s.s === q.get('state').split(',')[0]);
+  const t00 = performance.now(); c.width = 900; c.height = 700;
+  (function loop() {
+    const tt = (performance.now() - t00) / 1000; const s2 = Object.assign({}, st, { t: tt, atkK: (tt * 0.8) % 1, cyc: (tt * 1.2) % 1 });
+    drawCell(names[0], s2, 1, 0, 0, 0, 900, 700, false, false); requestAnimationFrame(loop);
+  })();
+}
+</script></body></html>

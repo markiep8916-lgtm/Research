@@ -48,6 +48,7 @@ const CD = window.CD, R = CD.room;
   r.open('L', 20, 22);                 // to the hatch shaft (door)
   r.open('R', 20, 22);                 // to the den
   r.open('B', 2, 5, 3);                // wall-jump shaft B from the hall
+  r.mark(0, 22, 'door', { lock: 'flag:boss_glowing_one', style: 'blast', w: 1, h: 3, label: 'CLINIC', hint: 'The clinic door is sealed from the inside.', auto: true });
   r.done();
 }
 
@@ -87,7 +88,7 @@ const CD = window.CD, R = CD.room;
   r.plat(25, 28, 9); r.plat(31, 34, 10);
   r.solid(39, 12, 46, 21, 'B'); r.ladder(38, 12, 21);
   // B. pipe run
-  r.solid(47, 18, 80, 21, 'B'); r.solid(47, 2, 80, 9, 'B');
+  r.solid(47, 18, 80, 21, 'B'); r.solid(47, 2, 80, 5, 'B');
   r.water(47, 17, 80, 17);
   r.plat(48, 53, 15); r.plat(56, 61, 15); r.plat(64, 70, 15); r.plat(73, 79, 15);
   // C. outfall + chimney A

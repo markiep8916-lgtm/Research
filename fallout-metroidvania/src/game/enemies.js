@@ -233,6 +233,20 @@ AI.flyer = function (e, dt, d) {
   const p = G.player; const seen = e.sees(d.aggro || 460, false);
   if (seen) { if (!e.hasSeen) { e.hasSeen = true; if (d.alertSfx) CD.audio.play(d.alertSfx); } e.alert = 5; }
   e.cool -= dt; e.wander += dt;
+  if (d.melee) {   // close-range saw attack (Mr. Handy): windup -> sweep
+    const M = d.melee; e.cool2 = (e.cool2 || 0) - dt;
+    if (!e.mst && e.alert > 0 && e.state !== 'fire' && e.cool2 <= 0 && Math.hypot(p.cx - e.cx, p.cy - e.cy) < M.range) { e.mst = 'windup'; e.mt = 0; e.face = Math.sign(p.cx - e.cx) || e.face; CD.audio.play('swing_heavy'); }
+    if (e.mst) {
+      e.mt += dt; e.vx = U.approach(e.vx, 0, 900 * dt); e.vy = U.approach(e.vy, 0, 900 * dt);
+      if (e.mst === 'windup') { e.state = 'windup'; e.atkK = Math.min(1, e.mt / M.windup); if (e.mt >= M.windup) { e.mst = 'attack'; e.mt = 0; e.hitDone = false; } }
+      else {
+        e.state = 'attack'; e.atkK = Math.min(1, e.mt / M.strike);
+        if (!e.hitDone && e.atkK > 0.35) { const hb = { x: e.face > 0 ? e.cx - 10 : e.cx - 100, y: e.y - 14, w: 110, h: e.h + 28 }; if (U.overlap(hb, p)) { if (G.hurtPlayer(M.dmg * e.dmgMul, { x: e.cx, kind: 'melee', knock: 320 })) e.hitDone = true; } }
+        if (e.mt >= M.strike) { e.mst = null; e.state = 'idle'; e.cool2 = M.cd || 1.6; e.atkK = 0; }
+      }
+      AI._flyMove(e, dt, d); e.phase += dt * 22; return;
+    }
+  }
   let tx, ty;
   if (e.alert > 0) {
     const side = Math.sin(e.wander * 0.7) > 0 ? 1 : -1, r = d.orbit || 230;
@@ -293,7 +307,7 @@ E.molerat = { w: 38, h: 22, hitPad: 20, hp: 26, xp: 9, caps: [0, 4], speed: 70, 
 E.scorpion = { w: 56, h: 30, hitPad: 14, hp: 70, xp: 22, caps: [4, 12], armor: 2, speed: 50, chase: 105, contact: 12, aggro: 480, ai: 'brawler', art: 'scorpion', range: 70, reach: 90, windup: 0.4, strike: 0.14, recover: 0.5, dmg: 18, cd: 1.4, rad: 5, blood: '180,190,70', kb: 0.6, head: false, stride: 0.1, alertSfx: 'screech', corpseRot: 3.14 };
 E.mirelurk = { w: 50, h: 40, hp: 100, xp: 30, caps: [6, 18], armor: 2, speed: 45, chase: 92, contact: 10, aggro: 420, ai: 'brawler', art: 'mirelurk', range: 60, reach: 76, windup: 0.5, strike: 0.15, recover: 0.6, dmg: 22, cd: 1.6, blood: '150,180,90', kb: 0.4, head: false, stride: 0.09, alertSfx: 'screech', corpseRot: 3.14, shielded: true,
   init(e) { e.shielded = function (proj) { const front = Math.sign(proj.vx) === -e.face && (e.state !== 'attack'); return front && proj.y > e.y + 4; }; } };
-E.handy = { w: 46, h: 54, fly: true, hp: 130, xp: 40, caps: [10, 30], armor: 2, speed: 50, chase: 100, aggro: 520, ai: 'flyer', art: 'handy', robot: true, metal: true, dmg: 10, cd: 1.4, burst: 3, pk: 'fire', col: '255,140,50', sfx: 'assault', bulletSpeed: 520, orbit: 180, height: 60, alertSfx: 'robot_alert', head: false, kb: 0.4, stun: 0.05, big: true, light: { r: 120, c: [1, 0.6, 0.3], i: 0.25 }, corpseRot: 0.6 };
+E.handy = { melee: { range: 92, windup: 0.5, strike: 0.36, dmg: 16, cd: 1.7 }, w: 46, h: 54, fly: true, hp: 130, xp: 40, caps: [10, 30], armor: 2, speed: 50, chase: 100, aggro: 520, ai: 'flyer', art: 'handy', robot: true, metal: true, dmg: 10, cd: 1.4, burst: 3, pk: 'fire', col: '255,140,50', sfx: 'assault', bulletSpeed: 520, orbit: 180, height: 60, alertSfx: 'robot_alert', head: false, kb: 0.4, stun: 0.05, big: true, light: { r: 120, c: [1, 0.6, 0.3], i: 0.25 }, corpseRot: 0.6 };
 E.glowing = { w: 26, h: 68, scale: 1.05, outfit: 'glowing', hp: 96, xp: 34, caps: [8, 20], speed: 50, chase: 150, aggro: 460, ai: 'brawler', range: 46, reach: 56, windup: 0.3, strike: 0.14, recover: 0.4, dmg: 15, cd: 0.9, claws: true, swingKind: 'punch', jumper: true, jump: 700, blood: '150,210,90', alertSfx: 'growl', rad: 10, stride: 0.08, glow: 'rgb(140,255,90)', light: { r: 200, c: [0.5, 1, 0.3], i: 0.7, f: 0.1 }, big: false,
   onHurt(e) { }, leap: { min: 100, max: 240, vy: 420, vx: 340, cool: 2.4 }, knock: 300 };
 

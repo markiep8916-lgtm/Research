@@ -107,8 +107,8 @@ const OVERLAY = {
 };
 
 // ================================================================== BOSS 2: BIG BULLDOG  (Rustyard warlord)
-CD.Rig.OUTFITS.warlord = { skin: [156, 112, 88], suit: [56, 46, 36], trim: [150, 34, 22], boot: [30, 24, 20], glove: [26, 22, 18], hair: { style: 'mohawk', col: [176, 34, 22] }, belt: [44, 30, 20], armor: [98, 74, 44], plate: [138, 116, 92], style: 'cloth', tag: 'warlord', bulk: 1.3, scars: true };
-CD.Rig.OUTFITS.marrow = { skin: [150, 192, 104], suit: [196, 204, 186], trim: [130, 210, 96], boot: [56, 62, 46], glove: [150, 192, 104], hair: { style: 'bald', col: [60, 76, 44] }, belt: [90, 100, 76], coat: true, style: 'cloth', tag: 'marrow', ghoul: true, ragged: true };
+if (CD.Rig && CD.Rig.OUTFITS) CD.Rig.OUTFITS.warlord = { skin: [156, 112, 88], suit: [56, 46, 36], trim: [150, 34, 22], boot: [30, 24, 20], glove: [26, 22, 18], hair: { style: 'mohawk', col: [176, 34, 22] }, belt: [44, 30, 20], armor: [98, 74, 44], plate: [138, 116, 92], style: 'cloth', tag: 'warlord', bulk: 1.3, scars: true };
+if (CD.Rig && CD.Rig.OUTFITS) CD.Rig.OUTFITS.marrow = { skin: [150, 192, 104], suit: [196, 204, 186], trim: [130, 210, 96], boot: [56, 62, 46], glove: [150, 192, 104], hair: { style: 'bald', col: [60, 76, 44] }, belt: [90, 100, 76], coat: true, style: 'cloth', tag: 'marrow', ghoul: true, ragged: true };
 B.define('warlord', {
   w: 30, h: 72, scale: 1.6, outfit: 'warlord',
   hp: 1650, xp: 380, armor: 2, big: true, title: 'BIG BULLDOG', intro: 'RUSTYARD WARLORD',

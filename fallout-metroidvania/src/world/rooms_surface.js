@@ -92,7 +92,7 @@ H.tape_station = { title: 'Night Shift Log', text: ["Log, Red Rocket #114. Fuel'
   r.zone(22, 22, 33, 27, 'bw_brick'); r.solid(22, 28, 33, 28, 'L');
   // roof access from the west: dumpster -> ledge -> roof
   r.plat(15, 17, 26); r.plat(17, 19, 23);
-  r.ents([[24, 22, '*'], [31, 22, '*'], [28, 27, 'Z'], [36, 24, 'q'], [30, 19, 'j'], [53, 27, 'a'], [58, 27, 'x'], [55, 27, 'y'], [48, 12, 'f'], [8, 27, 'a'], [11, 27, 'F'], [61, 27, 'F'], [18, 27, '$'], [26, 27, '%'], [33, 27, '+'], [62, 27, '$'], [56, 20, 'K']]);
+  r.ents([[24, 22, '*'], [31, 22, '*'], [28, 27, 'Z'], [36, 24, 'q'], [30, 19, 'j'], [53, 27, 'a'], [58, 27, 'x'], [55, 27, 'y'], [48, 12, 'f'], [8, 27, 'a'], [11, 27, 'F'], [61, 27, 'F'], [18, 27, '$'], [26, 27, '%'], [33, 27, '+'], [62, 27, '$'], [57, 27, 'K']]);
   // background facades
   r.deco(0, 15, 'sf_shopfront', 12, 13, { sign: 'GENERAL STORE', brick: 0, ruin: 0.4 });
   r.deco(52, 15, 'sf_shopfront', 12, 13, { sign: 'HARDWARE', brick: 2, ruin: 0.7 });

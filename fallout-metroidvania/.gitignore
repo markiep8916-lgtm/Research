@@ -1,0 +1,4 @@
+tests/_usage.js
+dist/
+node_modules/
+*.png

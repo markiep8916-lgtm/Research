@@ -45,9 +45,16 @@ P.draw = function (ctx, x0, y0, x1, y1) {
   let budget = 3;   // limit rebuilds per frame to avoid hitches
   for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
     const k = cy * 4096 + cx; let c = this.cache.get(k);
-    if (c === undefined) { if (budget-- <= 0) continue; c = this.get(cx, cy); }
+    if (c === undefined) { if (budget-- <= 0) continue; c = this.get(cx, cy); this._frameBuilt = 1; }
     if (c) ctx.drawImage(c, cx * CHPX, cy * CHPX, CHPX, CHPX);
   }
+};
+// idle warm-up: build at most one missing chunk around the view per frame, and only when the visible chunks needed no builds
+P.warm = function (x0, y0, x1, y1) {
+  if (this._frameBuilt) { this._frameBuilt = 0; return; }
+  const cx0 = Math.max(0, Math.floor(x0 / CHPX)), cx1 = Math.min(Math.ceil(this.world.W / CH) - 1, Math.floor(x1 / CHPX));
+  const cy0 = Math.max(0, Math.floor(y0 / CHPX)), cy1 = Math.min(Math.ceil(this.world.H / CH) - 1, Math.floor(y1 / CHPX));
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) { if (!this.cache.has(cy * 4096 + cx)) { this.get(cx, cy); return; } }
 };
 P.prebuild = function (x0, y0, x1, y1) {
   const cx0 = Math.max(0, Math.floor(x0 / CHPX)), cx1 = Math.min(Math.ceil(this.world.W / CH) - 1, Math.floor(x1 / CHPX));

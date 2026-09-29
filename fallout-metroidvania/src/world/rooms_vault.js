@@ -136,7 +136,7 @@ const CD = window.CD, R = CD.room;
   r.deco(72, 12, 'sign', 4, 1, { text: 'OVERSEER', fg: '#ffb640', bg: '#1a1a14' });
   r.mark(90, 17, 'trigger', { w: 2, h: 3, id: 'warden_warn', say: [['OVERSEER', 'Sleeper Seven, kindly avoid the Vault Door Chamber. The Warden is... performing maintenance. Aggressively.', 6], ['OVERSEER', 'The surface is closed for your safety. Please return to your bunk.', 4]] });
   r.mark(16, 29, 'trigger', { w: 3, h: 3, id: 'atrium_hint', hint: 'Robots ahead.  V  -  V.A.T.S. slow-motion targeting.\nHold your fire until you see them.', hintDur: 6 });
-  r.mark(93, 29, 'door', { lock: 'key:overseer', style: 'blast', w: 1, h: 3, label: 'OVERSEER', hint: "The Overseer's office. Requires the OVERSEER keycard." });
+  r.mark(94, 29, 'door', { lock: 'key:overseer', style: 'blast', w: 1, h: 3, label: 'OVERSEER', hint: "The Overseer's office. Requires the OVERSEER keycard." });
   r.mark(30, 19, 'pickup', { k: 'holotape', id: 'tape_overseer' });
   r.done();
 }
@@ -150,7 +150,7 @@ const CD = window.CD, R = CD.room;
   r.deco(15, 2, 'vaultdoor', 16, 14, {});
   r.deco(4, 15, 'hazard_floor', 8, 1); r.deco(36, 15, 'hazard_floor', 8, 1);
   r.mark(4, 17, 'trigger', { w: 2, h: 3, id: 'warden_intro', boss: 'warden', hint: '' });
-  r.mark(45, 17, 'door', { lock: 'flag:boss_warden', style: 'blast', w: 1, h: 3, label: 'EXIT', hint: 'The exit is sealed until the Warden is disabled.', auto: true });
+  r.mark(46, 17, 'door', { lock: 'flag:boss_warden', style: 'blast', w: 1, h: 3, label: 'EXIT', hint: 'The exit is sealed until the Warden is disabled.', auto: true });
   r.done();
 }
 

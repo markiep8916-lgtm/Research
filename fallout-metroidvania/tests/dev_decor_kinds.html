@@ -1,0 +1,54 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>decor kinds sheet</title>
+<style>body{margin:0;background:#101416}canvas{display:block}</style></head>
+<body><canvas id="c" width="1600" height="1000"></canvas>
+<script src="../src/core/util.js"></script>
+<script src="../src/world/tiles.js"></script>
+<script src="../src/gfx/textures.js"></script>
+<script src="../src/gfx/decor.js"></script>
+<script src="../src/gfx/decor_surface.js"></script>
+<script src="../src/gfx/decor_ridge.js"></script>
+<script src="../src/gfx/decor_deep.js"></script>
+<script src="../src/gfx/decor_rustyard.js"></script>
+<script src="../src/gfx/decor_metro.js"></script>
+<script src="_usage.js"></script>
+<script>
+// Generic decor sheet driven by the world's real usage (tools/decor_usage.js --out tests/_usage.js).
+// Query: pre=dp_,rg_ (prefixes) | only=dp_cog,dp_hazdoor (kinds) | w=1600 | zoom=1 | bg=teal|dusk|tunnel | one=1 (one entry per kind) | maxh=900 (scale big ones down)
+const CD = window.CD, U = CD.U, T = CD.T;
+const q = new URLSearchParams(location.search);
+const WID = +(q.get('w') || 1600), ZOOM = +(q.get('zoom') || 1), BG = q.get('bg') || 'teal', ONE = q.get('one') === '1', MAXH = +(q.get('maxh') || 600);
+const pre = (q.get('pre') || '').split(',').filter(Boolean), only = (q.get('only') || '').split(',').filter(Boolean);
+let list = window.USAGE.filter((e) => (!pre.length || pre.some((p) => e.k.startsWith(p))) && (!only.length || only.includes(e.k)));
+if (ONE) { const s = new Set(); list = list.filter((e) => (s.has(e.k) ? false : (s.add(e.k), true))); }
+const MARG = 14, GAP = 22, LAB = 30, TOP = 16;
+const items = list.map((e) => { const sc = Math.min(ZOOM, MAXH / e.h, (WID - 2 * MARG) / e.w); return Object.assign({}, e, { sc }); });
+const rows = []; let cur = { it: [], x: MARG, h: 0 };
+for (const e of items) { const wpx = e.w * e.sc; if (cur.it.length && cur.x + wpx > WID - MARG) { rows.push(cur); cur = { it: [], x: MARG, h: 0 }; } e.px = cur.x; cur.it.push(e); cur.x += wpx + GAP; cur.h = Math.max(cur.h, e.h * e.sc); }
+if (cur.it.length) rows.push(cur);
+let H = 0; for (const r of rows) { r.y = H; r.rh = TOP + r.h + LAB; H += r.rh; }
+const c = document.getElementById('c'); c.width = WID; c.height = Math.min(H + 4, 16000); const ctx = c.getContext('2d');
+function bgFill(g, y, h) {
+  if (BG === 'dusk') { const gr = g.createLinearGradient(0, y, 0, y + h); [[0, '#2b2444'], [0.4, '#b5674c'], [1, '#f8c47c']].forEach((s) => gr.addColorStop(s[0], s[1])); g.fillStyle = gr; }
+  else if (BG === 'tunnel') { g.fillStyle = g.createPattern(CD.tex.get('bw_tunnel'), 'repeat'); }
+  else { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#16303a'); gr.addColorStop(1, '#0b1a20'); g.fillStyle = gr; }
+  g.fillRect(0, y, WID, h);
+}
+const errors = [], times = {};
+for (const row of rows) {
+  bgFill(ctx, row.y, row.rh);
+  const gy = row.y + TOP + row.h;
+  for (const e of row.it) {
+    const kf = CD.decor.kinds[e.k];
+    ctx.save(); ctx.translate(e.px, gy - e.h * e.sc); ctx.scale(e.sc, e.sc);
+    if (kf) { const t0 = performance.now(); try { kf(ctx, { k: e.k, x: 0, y: 0, w: e.w, h: e.h, s: (e.p && e.p.s) || 1234, p: e.p || {} }, U.RNG(((e.p && e.p.s) || 1234) + e.k.length)); } catch (er) { errors.push(e.k + ': ' + er.message); console.error(e.k, er.stack); } times[e.k] = Math.max(times[e.k] || 0, Math.round((performance.now() - t0) * 10) / 10); }
+    else { ctx.fillStyle = 'rgba(255,0,80,0.2)'; ctx.fillRect(0, 0, e.w, e.h); ctx.fillStyle = '#f48'; ctx.font = '14px monospace'; ctx.fillText('MISSING ' + e.k, 6, 18); errors.push('missing ' + e.k); }
+    ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.setLineDash([4, 4]); ctx.strokeRect(0.5, 0.5, e.w - 1, e.h - 1); ctx.setLineDash([]);
+    ctx.restore();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0, gy, WID, 1);
+  ctx.font = '11px monospace'; ctx.textBaseline = 'middle';
+  for (const e of row.it) { const o = Object.assign({}, e.p); delete o.x; delete o.y; delete o.kind; delete o.w; delete o.h; const s = e.k + ' ' + (e.w / T) + 'x' + (e.h / T) + (Object.keys(o).length ? ' ' + JSON.stringify(o).replace(/"/g, '') : '') + ' sc' + e.sc.toFixed(2); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(e.px - 2, gy + 6, Math.max(60, ctx.measureText(s).width + 8), 15); ctx.fillStyle = '#e8dcc0'; ctx.fillText(s, e.px + 2, gy + 14); }
+}
+window.__done = { kinds: Object.keys(times).length, errors, times, height: c.height };
+</script></body></html>

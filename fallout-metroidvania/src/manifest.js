@@ -41,6 +41,7 @@ window.CD_MANIFEST = [
   'game/story.js',
   'game/save.js',
   'game/hud.js',
+  'game/touch.js',
   'game/vats.js',
   'game/menus.js',
   'game/pipboy.js',

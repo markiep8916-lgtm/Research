@@ -1,8 +1,15 @@
-// Robot enemy art: RobCo Eyebot, pre-war security turret, Mr. Handy.
-// Everything is painted procedurally. Static bodies are baked once into supersampled offscreen canvases
-// (gradients, specular, rivets, seams, then a per-pixel rust / grime / paint-chip pass); only the moving and emissive
-// parts (eye, arms, saw, flames, LEDs, muzzle flash) are drawn per frame. Art is "fully lit albedo": the game's
-// lighting map multiplies on top, so nothing here is artificially darkened.
+// Robot enemy art: RobCo Eyebot, pre-war security turret, Mr. Handy.   CD.art.<name>(ctx, e, G, flashOnly)
+//
+// Everything is painted procedurally, no external assets. Static bodies are baked once into supersampled (4x) offscreen
+// canvases: multi-stop metal gradients, specular sheen and glints, rivets, seams, stencils and dents, then a per-pixel
+// rust / grime / paint-chip / grain pass. Left- and right-facing bakes are lit separately so the key light stays upper-left
+// after the draw-time mirror. Only the moving and emissive parts (eye lens and iris, LEDs, arms, saw, flames, muzzle flash,
+// smoke) are drawn per frame. The art is "fully lit albedo" for the game's multiply lighting: nothing is artificially darkened.
+//
+// Reads from `e`: cx, cy, face, t, vx, vy, state, atkK, alert, stun, dead / hp, recoil, aimA, mount, mountDir, spec / home
+// (spec / home only pick a paint variant and phase offsets). `G.player` is optional: when present the eyes track it and the
+// Handy's flamer aims at it. Alpha is honoured (wreck fade-out, additive hit-flash pass), and during `flashOnly` the
+// emissive extras are skipped so they do not double up. Sprite sets are also warmed shortly after load (see the end of the file).
 (function () {
 'use strict';
 const CD = window.CD, U = CD.U;
@@ -11,6 +18,7 @@ CD.art = CD.art || {};
 const SS = 4;                      // supersampling of baked parts
 const TAU = Math.PI * 2;
 const clamp = U.clamp, lerp = U.lerp;
+let BA = 1;                        // the caller's globalAlpha on entry (wreck fade-out, hit-flash pass): every alpha set here is relative to it
 let FO = false;                    // true while the caller re-draws the art additively for a hit flash: skip emissive extras, they would double up
 
 // ------------------------------------------------------------------ light / colour helpers
@@ -287,7 +295,7 @@ function glow(ctx, x, y, r, rgbStr, a, sx, sy) {   // additive halo; a > 1 over-
   if (FO || a <= 0.004 || r <= 0) return;
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(x, y); if (sx !== undefined) ctx.scale(sx, sy);
   const spr = glowSpr(rgbStr);
-  for (let k = a; k > 0.004; k -= 1) { ctx.globalAlpha = k > 1 ? 1 : k; ctx.drawImage(spr, -r, -r, r * 2, r * 2); }
+  for (let k = a; k > 0.004; k -= 1) { ctx.globalAlpha = BA * (k > 1 ? 1 : k); ctx.drawImage(spr, -r, -r, r * 2, r * 2); }
   ctx.restore();
 }
 const _puff = {};
@@ -457,10 +465,10 @@ function buildEyeBody(pal, seed, dead, v) {
   });
 }
 
-const EB_ANT = { x: -3.7, y: -11.5 };
+const EB_ANT = { x: -3.7, y: -11.0 };
 function buildEyeAntenna(pal, dead) {
   return part(22, 26, 11, 22, (g) => {
-    const mast = (g) => { g.moveTo(0, 0); g.lineTo(-0.6, -3); g.lineTo(-1.7, -6); };
+    const mast = (g) => { g.moveTo(0, 0); g.lineTo(-0.5, -2.6); g.lineTo(-1.5, -5.0); };
     // base collar
     g.save(); g.shadowColor = 'rgba(0,0,0,0.5)'; g.shadowBlur = 1.2 * SS; g.shadowOffsetX = -LX * 0.5 * SS; g.shadowOffsetY = -LY * 0.5 * SS;
     g.fillStyle = '#222'; g.fillRect(-2.5, -2.1, 5, 3); g.restore();
@@ -480,22 +488,23 @@ function buildEyeAntenna(pal, dead) {
     g.strokeStyle = 'rgba(10,8,6,0.65)'; g.lineWidth = 1.7; g.beginPath(); mast(g); g.stroke();
     g.strokeStyle = T(pal.trim, 1.0); g.lineWidth = 1.05; g.beginPath(); mast(g); g.stroke();
     g.strokeStyle = 'rgba(255,255,246,0.55)'; g.lineWidth = 0.32; g.save(); g.translate(LX * 0.3, LY * 0.15); g.beginPath(); mast(g); g.stroke(); g.restore();
-    rivet(g, -0.6, -3, 0.42, pal.band);
-    // folded dish
-    g.save(); g.translate(-2.5, -6.9); g.rotate(-0.95); g.scale(0.72, 0.72);
-    g.fillStyle = 'rgba(10,8,6,0.5)'; g.beginPath(); g.ellipse(0.2, 0.3, 4.7, 1.9, 0, 0, TAU); g.fill();
-    let gr = g.createLinearGradient(0, 1.6, 0, -1.8); gr.addColorStop(0, T(pal.band, 0.5)); gr.addColorStop(1, T(pal.band, 1.0));
-    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 4.5, 1.7, 0, 0, TAU); g.fill();
-    gr = g.createRadialGradient(-0.6, -0.5, 0.1, 0, -0.2, 4); gr.addColorStop(0, T(pal.trim, 1.75)); gr.addColorStop(0.6, T(pal.trim, 1.0)); gr.addColorStop(1, T(pal.trim, 0.55));
-    g.fillStyle = gr; g.beginPath(); g.ellipse(0, -0.35, 3.9, 1.05, 0, 0, TAU); g.fill();
-    g.strokeStyle = 'rgba(10,8,6,0.62)'; g.lineWidth = 0.35; g.beginPath(); g.ellipse(0, 0, 4.5, 1.7, 0, 0, TAU); g.stroke();
-    g.strokeStyle = T(pal.band, 1.3); g.lineWidth = 0.3; g.beginPath(); g.moveTo(0, -0.4); g.lineTo(0.3, -4.1); g.stroke(); rivet(g, 0.3, -4.2, 0.45, pal.trim);
+    rivet(g, -0.5, -2.6, 0.42, pal.band);
+    // folded radar dish, canted back on its bracket
+    g.save(); g.translate(-2.8, -6.4); g.rotate(-1.12);
+    g.fillStyle = 'rgba(10,8,6,0.5)'; g.beginPath(); g.ellipse(0.3, 0.5, 4.5, 2.3, 0, 0, TAU); g.fill();
+    let gr = g.createLinearGradient(0, 2.2, 0, -2.2); gr.addColorStop(0, T(pal.band, 0.5)); gr.addColorStop(1, T(pal.band, 1.05));
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 4.4, 2.2, 0, 0, TAU); g.fill();
+    gr = g.createRadialGradient(-0.9, -0.6, 0.1, 0, -0.3, 4.2); gr.addColorStop(0, T(pal.trim, 1.85)); gr.addColorStop(0.6, T(pal.trim, 1.0)); gr.addColorStop(1, T(pal.trim, 0.5));
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, -0.35, 3.8, 1.6, 0, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(10,8,6,0.62)'; g.lineWidth = 0.38; g.beginPath(); g.ellipse(0, 0, 4.4, 2.2, 0, 0, TAU); g.stroke();
+    g.strokeStyle = 'rgba(255,250,236,0.5)'; g.lineWidth = 0.25; g.beginPath(); g.ellipse(0, 0, 4.15, 2.0, 0, Math.PI * 1.05, Math.PI * 1.7); g.stroke();
+    g.strokeStyle = T(pal.band, 1.3); g.lineWidth = 0.35; g.beginPath(); g.moveTo(0, -0.3); g.lineTo(0.2, -4.4); g.stroke(); rivet(g, 0.2, -4.6, 0.5, pal.trim);
     g.restore();
     // whip antenna + ball tip
-    g.strokeStyle = 'rgba(10,8,6,0.7)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(1.3, -1.6); g.lineTo(1.9, -5.5); g.lineTo(2.4, -8.6); g.stroke();
+    g.strokeStyle = 'rgba(10,8,6,0.7)'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(1.3, -1.6); g.lineTo(1.9, -5.0); g.lineTo(2.4, -7.9); g.stroke();
     g.strokeStyle = T(pal.trim, 1.5); g.lineWidth = 0.36; g.stroke();
-    g.fillStyle = 'rgba(10,8,6,0.7)'; g.beginPath(); g.arc(2.4, -8.9, 1.0, 0, TAU); g.fill();
-    g.fillStyle = '#5a2016'; g.beginPath(); g.arc(2.4, -8.9, 0.76, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(10,8,6,0.7)'; g.beginPath(); g.arc(2.4, -8.2, 1.0, 0, TAU); g.fill();
+    g.fillStyle = '#5a2016'; g.beginPath(); g.arc(2.4, -8.2, 0.76, 0, TAU); g.fill();
   });
 }
 
@@ -576,7 +585,7 @@ function ebSet(dir, v, dead) {
 }
 
 CD.art.eyebot = function (ctx, e, G, flashOnly) {
-  FO = !!flashOnly;
+  FO = !!flashOnly; BA = ctx.globalAlpha;
   const dead = isDead(e), face = e.face < 0 ? -1 : 1, t = e.t || 0, ph = seedOf(e);
   const S = ebSet(face, dead ? 0 : variantOf(e, EB_PAL.length), dead), L = ebLens();
   const st = e.state, vx = e.vx || 0, vy = e.vy || 0;
@@ -611,9 +620,9 @@ CD.art.eyebot = function (ctx, e, G, flashOnly) {
       flame(ctx, ex, ey, na, (4.2 + 4.8 * thrust) * (0.7 + 0.5 * f), 3.2 * (0.8 + 0.3 * thrust), ['255,255,255', '120,200,255', '40,90,255'], 0.9);
       for (let i = 0; i < 3; i++) {
         const p = (t * 1.9 + i / 3 + n * 0.37) % 1, py = 15 + p * 9, pxx = nx + Math.sin(p * 7 + i * 2 + n) * 1.1 * p, r = 0.9 + p * 2.6;
-        ctx.globalAlpha = FO ? 0 : (1 - p) * 0.2 * smooth(0, 0.15, p) * thrust; ctx.drawImage(puffSpr('206,218,232'), pxx - r, py - r, r * 2, r * 2);
+        ctx.globalAlpha = FO ? 0 : BA * (1 - p) * 0.2 * smooth(0, 0.15, p) * thrust; ctx.drawImage(puffSpr('206,218,232'), pxx - r, py - r, r * 2, r * 2);
       }
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = BA;
     }
     glow(ctx, 0, 16, 12, '90,170,255', 0.14 * thrust, 1, 0.5); for (const nx of EB_NOZ) glow(ctx, nx - (nx < 0 ? 1 : -1) * Math.sin(EB_NOZA) * 3.7, 10.3 + Math.cos(EB_NOZA) * 3.7, 3.2, '170,220,255', 0.7 * thrust);
   }
@@ -624,10 +633,10 @@ CD.art.eyebot = function (ctx, e, G, flashOnly) {
   if (dead) { put(ctx, L.base_dead, lx, ly); }
   else {
     put(ctx, L.base_calm, lx, ly);
-    if (ak > 0.01) { ctx.globalAlpha = ak; put(ctx, L.base_alert, lx, ly); ctx.globalAlpha = 1; }
+    if (ak > 0.01) { ctx.globalAlpha = BA * ak; put(ctx, L.base_alert, lx, ly); ctx.globalAlpha = BA; }
     const jitter = fire ? Math.sin(t * 80) * 0.12 : 0;
     put(ctx, L.iris_calm, lx + sm.ix + jitter, ly + sm.iy);
-    if (ak > 0.01) { ctx.globalAlpha = ak; put(ctx, L.iris_alert, lx + sm.ix + jitter, ly + sm.iy); ctx.globalAlpha = 1; }
+    if (ak > 0.01) { ctx.globalAlpha = BA * ak; put(ctx, L.iris_alert, lx + sm.ix + jitter, ly + sm.iy); ctx.globalAlpha = BA; }
   }
   // eyelid: an occasional blink while calm, a menacing squint once alerted
   if (!dead) {
@@ -663,7 +672,7 @@ CD.art.eyebot = function (ctx, e, G, flashOnly) {
     }
     // antenna blinker + belt status light
     const bp = hostile ? (t * 2.6 + ph) % 1 : (t * 0.85 + ph) % 1, on = hostile ? smooth(0, 0.06, bp) * (1 - smooth(0.3, 0.4, bp)) : smooth(0, 0.05, bp) * (1 - smooth(0.12, 0.2, bp));
-    const ca = Math.cos(antA), sa = Math.sin(antA), tipx = EB_ANT.x + ca * 2.4 - sa * -8.9, tipy = EB_ANT.y + sa * 2.4 + ca * -8.9;
+    const ca = Math.cos(antA), sa = Math.sin(antA), tipx = EB_ANT.x + ca * 2.4 - sa * -8.2, tipy = EB_ANT.y + sa * 2.4 + ca * -8.2;
     if (on > 0.01) { glow(ctx, tipx, tipy, 5.5, hostile ? '255,60,40' : '255,170,60', 0.95 * on); glow(ctx, tipx, tipy, 1.6, '255,240,220', on); }
     glow(ctx, -10.3, ebBelt(-10.3) + EB.BT / 2, 2.6, '120,255,140', 0.5 + 0.2 * Math.sin(t * 3 + ph));
   } else {
@@ -672,7 +681,7 @@ CD.art.eyebot = function (ctx, e, G, flashOnly) {
     const rot = wx ? Math.atan2(wx.b, wx.a) : 0; ctx.translate(-6.0, -6.6); ctx.rotate(-rot * face);
     for (let i = 0; i < 6; i++) {
       const p = (t * 0.42 + i / 6) % 1, x = Math.sin(p * 5 + i * 1.7) * 2.6 * p + p * 2, y = -p * 26, r = 2 + p * 6.5;
-      ctx.globalAlpha = FO ? 0 : 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = FO ? 0 : BA * 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
     }
     ctx.restore();
   }
@@ -915,9 +924,9 @@ function muzzleFlash(ctx, x, y, k, t, sd) {
   ctx.save(); ctx.translate(x, y); ctx.globalCompositeOperation = 'lighter';
   const fr = Math.floor(t * 75) + sd * 13, h = (i) => U.hash2(fr, i, 19);
   const L = (8 + 9 * h(1)) * k, R = (7 + 6 * h(2)) * k + 2.5;
-  ctx.globalAlpha = Math.min(1, 0.95 * k); ctx.drawImage(glowSpr('255,170,70'), -R - 3, -R - 3, (R + 3) * 2, (R + 3) * 2);
-  ctx.globalAlpha = Math.min(1, k * 1.1); ctx.drawImage(glowSpr('255,246,220'), -3.6 * k - 1.2, -3.6 * k - 1.2, 7.2 * k + 2.4, 7.2 * k + 2.4);
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = BA * Math.min(1, 0.95 * k); ctx.drawImage(glowSpr('255,170,70'), -R - 3, -R - 3, (R + 3) * 2, (R + 3) * 2);
+  ctx.globalAlpha = BA * Math.min(1, k * 1.1); ctx.drawImage(glowSpr('255,246,220'), -3.6 * k - 1.2, -3.6 * k - 1.2, 7.2 * k + 2.4, 7.2 * k + 2.4);
+  ctx.globalAlpha = BA;
   const spike = (a, len, wid) => { ctx.save(); ctx.rotate(a); const g2 = ctx.createLinearGradient(0, 0, len, 0); g2.addColorStop(0, 'rgba(255,246,214,0.96)'); g2.addColorStop(0.45, 'rgba(255,180,66,0.66)'); g2.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = g2; ctx.beginPath(); ctx.moveTo(-0.8, 0); ctx.quadraticCurveTo(len * 0.18, -wid * 1.25, len, 0); ctx.quadraticCurveTo(len * 0.18, wid * 1.25, -0.8, 0); ctx.closePath(); ctx.fill(); ctx.restore(); };
   spike(0, L * 1.35, 1.7 * k + 0.5); spike(0.5 + (h(3) - 0.5) * 0.4, L * 0.62, 1.1 * k + 0.2); spike(-0.5 + (h(4) - 0.5) * 0.4, L * 0.62, 1.1 * k + 0.2);
   spike(1.35 + (h(5) - 0.5) * 0.4, L * 0.38, 0.9 * k); spike(-1.35 + (h(6) - 0.5) * 0.4, L * 0.38, 0.9 * k);
@@ -925,7 +934,7 @@ function muzzleFlash(ctx, x, y, k, t, sd) {
 }
 
 CD.art.turret = function (ctx, e, G, flashOnly) {
-  FO = !!flashOnly;
+  FO = !!flashOnly; BA = ctx.globalAlpha;
   const dead = isDead(e), t = e.t || 0, st = e.state;
   const mnt = e.mount === 'ceil' || e.mount === 'wall' ? e.mount : 'floor';
   const kind = mnt === 'wall' ? (e.mountDir < 0 ? 'wallR' : 'wallL') : mnt;
@@ -933,7 +942,7 @@ CD.art.turret = function (ctx, e, G, flashOnly) {
   let aim = typeof e.aimA === 'number' && isFinite(e.aimA) ? e.aimA : (kind === 'ceil' ? Math.PI / 2 : kind === 'floor' ? -Math.PI / 2 : kind === 'wallR' ? Math.PI : 0);
   if (dead) { const fw = Math.cos(aim) >= 0; aim = kind === 'ceil' ? Math.PI / 2 + (fw ? -0.3 : 0.3) : kind === 'floor' ? (fw ? 0.34 : Math.PI - 0.34) : kind === 'wallL' ? 0.85 : Math.PI - 0.85; }
   const M = tuMountSpr(kind, dead), Gs = tuGun(dead);
-  const recoil = dead ? 0 : Math.max(0, e.recoil || 0), fire = !dead && st === 'fire', aimS = !dead && st === 'aim';
+  const recoil = dead ? 0 : Math.max(0, e.recoil || 0), fire = !dead && (st === 'fire' || st === 'attack'), aimS = !dead && (st === 'aim' || st === 'windup');
   const pull = Math.min(recoil, 5) * 0.95, ca = Math.cos(aim), sa = Math.sin(aim), flip = ca < 0;
   const ledKey = fire ? 'fire' : aimS ? 'aim' : 'idle';
   const blinkA = fire ? 1 : aimS ? (Math.sin(t * 24) > 0 ? 1 : 0.25) : 0.55 + 0.45 * Math.sin(t * 2.6);
@@ -959,16 +968,16 @@ CD.art.turret = function (ctx, e, G, flashOnly) {
     if (bfade > 0.02) {
       const off = fire ? (t * 3.6) % 1 : 0, n = 5, bx = -pull * 0.3;
       const x0 = -14.6, y0 = -4.3, x1 = -13.6, y1 = -9.4, x2 = -8.6, y2 = -5.2;
-      ctx.globalAlpha = bfade; ctx.lineCap = 'butt'; ctx.strokeStyle = 'rgba(24,20,14,0.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x0 + bx, y0); ctx.quadraticCurveTo(x1 + bx, y1, x2 + bx, y2); ctx.stroke();
+      ctx.globalAlpha = BA * bfade; ctx.lineCap = 'butt'; ctx.strokeStyle = 'rgba(24,20,14,0.95)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x0 + bx, y0); ctx.quadraticCurveTo(x1 + bx, y1, x2 + bx, y2); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(x0 + bx - 0.5, y0 - 0.4); ctx.quadraticCurveTo(x1 + bx - 0.5, y1 - 0.4, x2 + bx - 0.5, y2 - 0.4); ctx.stroke();
       for (let i = 0; i <= n; i++) {
         const u = (i + off) / n; if (u > 1) continue;
         const mu = 1 - u, x = mu * mu * x0 + 2 * mu * u * x1 + u * u * x2 + bx, y = mu * mu * y0 + 2 * mu * u * y1 + u * u * y2;
         const gr = ctx.createRadialGradient(x - 0.25, y - 0.3, 0.05, x, y, 0.95); gr.addColorStop(0, css(tone(TP.brass, 1.7))); gr.addColorStop(0.55, css(TP.brass)); gr.addColorStop(1, css(tone(TP.brass, 0.4)));
-        ctx.globalAlpha = bfade * smooth(0, 0.1, u); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, 0.95, 0, TAU); ctx.fill();
+        ctx.globalAlpha = BA * bfade * smooth(0, 0.1, u); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, 0.95, 0, TAU); ctx.fill();
         ctx.strokeStyle = 'rgba(20,16,10,0.7)'; ctx.lineWidth = 0.22; ctx.stroke();
       }
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = BA;
     }
   }
   put(ctx, Gs.gun, -pull * 0.3, 0);
@@ -1007,7 +1016,7 @@ CD.art.turret = function (ctx, e, G, flashOnly) {
     ctx.save(); const rot = wx ? Math.atan2(wx.b, wx.a) : 0; ctx.rotate(-rot);
     for (let i = 0; i < 6; i++) {
       const p = (t * 0.4 + i / 6) % 1, x = Math.sin(p * 5 + i * 1.9) * 2.4 * p, y = (kind === 'ceil' ? 6 : -8) - p * 24, r = 2 + p * 6.5;
-      ctx.globalAlpha = FO ? 0 : 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = FO ? 0 : BA * 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
     }
     ctx.restore();
   }
@@ -1253,10 +1262,11 @@ function buildHandyParts(pal, dead) {
 }
 
 const HDC = {};
-function hdSet(dir, v, dead) {
+function hdSet(dir, v, dead, only) {     // only: 'body' | 'P' bakes just that half (used by the warm-up to keep every bake short)
   const key = (dead ? 'd' : 'a') + dir + v;
-  let s = HDC[key];
-  if (!s) { const pal = HD_PAL[v]; s = HDC[key] = withDir(dir, () => ({ body: buildHandyBody(pal, 600 + v * 53, dead, v), P: buildHandyParts(pal, dead), pal })); }
+  const s = HDC[key] || (HDC[key] = { pal: HD_PAL[v] });
+  if (!s.body && only !== 'P') s.body = withDir(dir, () => buildHandyBody(s.pal, 600 + v * 53, dead, v));
+  if (!s.P && only !== 'body') s.P = withDir(dir, () => buildHandyParts(s.pal, dead));
   return s;
 }
 
@@ -1320,10 +1330,10 @@ function flameJet(ctx, x, y, ang, len, t, k, sd) {
   for (let i = 0; i < 8; i++) {
     const u = (i + 0.5) / 8, wob = (U.vnoise(t * 12 + i * 1.9 + sd, i * 3.3 + sd, 6) - 0.5) * 2;
     const px = u * len * 0.92, py = wob * (0.6 + u * 3.6) * k, r = (3.2 + u * 6.5) * (1 - u * 0.35) * k, a = (1 - u * 0.75) * 0.34 * k;
-    ctx.globalAlpha = Math.min(1, a); ctx.drawImage(glowSpr('255,130,50'), px - r, py - r, r * 2, r * 2);
-    if (u < 0.6) { ctx.globalAlpha = Math.min(1, a * 1.5); ctx.drawImage(glowSpr('255,226,160'), px - r * 0.5, py - r * 0.5, r, r); }
+    ctx.globalAlpha = BA * Math.min(1, a); ctx.drawImage(glowSpr('255,130,50'), px - r, py - r, r * 2, r * 2);
+    if (u < 0.6) { ctx.globalAlpha = BA * Math.min(1, a * 1.5); ctx.drawImage(glowSpr('255,226,160'), px - r * 0.5, py - r * 0.5, r, r); }
   }
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = BA;
   // embers
   for (let i = 0; i < 7; i++) {
     const ph2 = (t * (1.4 + U.hash2(i, 3, 61) * 1.2) + U.hash2(i, 5, 62)) % 1, px = (0.25 + ph2 * 0.95) * len * 0.95, py = (U.hash2(i, 7, 63) - 0.5) * (3 + ph2 * 10) * k;
@@ -1352,20 +1362,22 @@ function stalk(ctx, S, x, y, ang, len, r, P, ldir, lens, glowCol, t, dead, sd) {
     glow(ctx, lx + Math.cos(a) * 1.2 * s, ly + Math.sin(a) * 1.2 * s, 5.0 * s, glowCol, 0.62 * lens); glow(ctx, lx, ly, 2.0 * s, '255,250,235', 0.5 * lens);
   } else { ctx.fillStyle = '#15171a'; ctx.beginPath(); ctx.ellipse(lx, ly, lr * 0.62, lr, a, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 0.2; ctx.beginPath(); ctx.moveTo(lx - 0.5, ly - 0.7); ctx.lineTo(lx + 0.4, ly + 0.6); ctx.stroke(); }
 }
-function sparksFx(ctx, x, y, t, k, ang0) {
+function sparksFx(ctx, x, y, t, k, ang0) {   // sparks thrown off the blade: short streaks on falling arcs, each on its own staggered cycle
   if (FO || k <= 0.05) return;
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-  const f = Math.floor(t * 28);
-  for (let i = 0; i < 9; i++) {
-    const h1 = U.hash2(f, i, 51), h2 = U.hash2(f, i, 52), a = ang0 + (h1 - 0.5) * 2.4, l = (2 + h2 * 6) * k, d0 = 1 + h2 * 3;
-    ctx.strokeStyle = 'rgba(255,' + (170 + (h1 * 70 | 0)) + ',' + (60 + (h2 * 80 | 0)) + ',' + (0.9 * k) + ')'; ctx.lineWidth = 0.55;
-    ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * d0, y + Math.sin(a) * d0); ctx.lineTo(x + Math.cos(a) * (d0 + l), y + Math.sin(a) * (d0 + l)); ctx.stroke();
+  for (let i = 0; i < 12; i++) {
+    const rate = 3.2 + U.hash2(i, 1, 71) * 1.6, off = U.hash2(i, 2, 72), cyc = Math.floor(t * rate + off), ph = (t * rate + off) % 1;
+    const life = 0.3 + U.hash2(i, 3, 73) * 0.2, a = ang0 + (U.hash2(i, cyc, 74) - 0.5) * 2.2, v = 26 + U.hash2(i, cyc, 75) * 30;
+    const tt = ph * life, tt2 = Math.max(0, tt - 0.035), g = 70;
+    const px = x + Math.cos(a) * v * tt, py = y + Math.sin(a) * v * tt + g * tt * tt, qx = x + Math.cos(a) * v * tt2, qy = y + Math.sin(a) * v * tt2 + g * tt2 * tt2;
+    ctx.strokeStyle = 'rgba(255,' + (215 - ph * 90 | 0) + ',' + (120 - ph * 70 | 0) + ',' + ((1 - ph * ph) * 0.95 * k) + ')'; ctx.lineWidth = 0.65 - ph * 0.25;
+    ctx.beginPath(); ctx.moveTo(qx, qy); ctx.lineTo(px, py); ctx.stroke();
   }
-  ctx.restore(); glow(ctx, x, y, 8, '255,190,90', 0.5 * k);
+  ctx.restore(); glow(ctx, x, y, 7, '255,190,90', 0.5 * k);
 }
 
 CD.art.handy = function (ctx, e, G, flashOnly) {
-  FO = !!flashOnly;
+  FO = !!flashOnly; BA = ctx.globalAlpha;
   const dead = isDead(e), face = e.face < 0 ? -1 : 1, t = e.t || 0, ph = seedOf(e);
   const S = hdSet(face, dead ? 0 : variantOf(e, HD_PAL.length), dead), P = S.P;
   const st = e.state, vx = e.vx || 0, vy = e.vy || 0, k = clamp(e.atkK || 0, 0, 1);
@@ -1377,20 +1389,22 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
   // ---- pose targets in local, mirrored space: saw = blade centre, flamer/claw = wrist
   const SK = HD_SOCK; let saw = [15.8 + sw(0, 0.6), 21.4 + sw(1, 0.8)], flm = [17.4 + sw(2, 0.5), 4.4 + sw(3, 0.8)], clw = [-17.4 + sw(4, 0.7), 15 + sw(5, 0.8)], flmA = 0.34 + sw(6, 0.05), open = 0.26 + 0.2 * Math.sin(t * 1.3 + ph), spin = 4.5, sweepK = -1, lean = 0, lunge = 0;
   const P0 = G && G.player;
+  const dragX = clamp(-vx * face * 0.022, -3.2, 3.2), dragY = clamp(-vy * 0.02, -2.5, 2.5);   // hoses trail behind when the robot moves
   const sweepPos = (kk) => { const u = kk * kk * (3 - 2 * kk), a = lerp(-1.25, 0.66, u), R = lerp(17.5, 19.6, u); return [SK.saw[0] + Math.cos(a) * R, SK.saw[1] + Math.sin(a) * R]; };
   if (dead) { saw = [12, 22.5]; flm = [15, 14]; clw = [-14, 20]; flmA = 1.15; open = 0.5; }
+  else if (!wind && !atk && !fire) { saw[0] += dragX; saw[1] += dragY; flm[0] += dragX; flm[1] += dragY; clw[0] += dragX; clw[1] += dragY; }
   else if (wind) { const u = easeOut(clamp(k * 1.6, 0, 1)); const a = lerp(0.95, -1.25, u), R = lerp(15.5, 17.5, u); saw = [SK.saw[0] + Math.cos(a) * R, SK.saw[1] + Math.sin(a) * R]; flm = lerp2(flm, [18.5, -8.5], u); flmA = lerp(0.34, -0.85, u); clw = lerp2(clw, [-21, -3], u); open = lerp(0.3, 0.9, u); spin = 13; lean = -0.09 * u; }
   else if (atk) { sweepK = k; saw = sweepPos(k); flm = [19.5, -6]; flmA = -0.5; clw = [-21, -3]; open = 0.8; spin = 40; lean = lerp(-0.09, 0.12, k * k * (3 - 2 * k)); lunge = Math.sin(k * Math.PI) * 3.2; }
   else if (fire) {
     let aim = 0.3; if (P0 && !P0.dead) { const nx = (P0.cx - e.cx) * face - 22, ny = P0.cy - (e.cy + bob) - 4; aim = clamp(Math.atan2(ny, Math.max(nx, 4)), -0.5, 1.2); }
     const R = 8; flm = [SK.flame[0] + Math.cos(aim) * (R + 5), SK.flame[1] + Math.sin(aim) * (R + 5)]; flmA = aim; saw = [15.2, 21.8]; clw = [-18.6, 9]; open = 0.7; spin = 9; lean = -0.05;
   }
-  const sm = smoothState(e, { sx: saw[0], sy: saw[1], fx: flm[0], fy: flm[1], cx: clw[0], cy: clw[1], fa: flmA, open, spin, lean, lunge, eye: hostile ? 1 : 0, fireK: fire ? 1 : 0, wk: wind || atk ? 1 : 0 }, { sx: atk ? 60 : 14, sy: atk ? 60 : 14, fx: 14, fy: 14, cx: 12, cy: 12, fa: 16, open: 12, spin: 8, lean: 10, lunge: 40, eye: 8, fireK: 20, wk: 12 });
+  const sm = smoothState(e, { sx: saw[0], sy: saw[1], fx: flm[0], fy: flm[1], cx: clw[0], cy: clw[1], fa: flmA, open, spin, lean, lunge, eye: hostile ? 1 : 0, fireK: fire ? 1 : atk ? 0.34 : 0, wk: wind || atk ? 1 : 0 }, { sx: atk ? 60 : 14, sy: atk ? 60 : 14, fx: 14, fy: 14, cx: 12, cy: 12, fa: 16, open: 12, spin: 8, lean: 10, lunge: 40, eye: 8, fireK: 20, wk: 12 });
   ctx.save();
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const wx = ctx.getTransform ? ctx.getTransform() : null;
   ctx.translate(e.cx, e.cy + bob);
-  let tilt = dead ? 0 : clamp(vx * 0.0012, -0.12, 0.12) + sm.lean + Math.sin(t * 1.7 + ph) * 0.015;
+  let tilt = dead ? 0 : clamp(vx * 0.0012, -0.12, 0.12) + sm.lean * face + Math.sin(t * 1.7 + ph) * 0.015;   // lean is in the robot's own frame (+ = forward)
   if (e.stun > 0) tilt += Math.sin(t * 66) * 0.05 * Math.min(1, e.stun / 0.1);
   if (tilt) ctx.rotate(tilt);
   if (face < 0) ctx.scale(-1, 1);
@@ -1420,7 +1434,7 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
     else if (!dead) tx = 0.35;
     for (let i = 0; i < 3; i++) {
       const s = HD_STALK[i];
-      let a = s.a + sw(i + 7, 0.09) + tx * 0.16 + (i === 1 ? -ty * 0.06 : 0) + (wind || atk ? -0.12 * sm.wk : 0);
+      let a = s.a + sw(i + 7, 0.09) + tx * 0.16 + (i === 1 ? -ty * 0.06 : 0) + (wind || atk ? -0.12 * sm.wk : 0) + clamp(-vx * face * 0.0006, -0.1, 0.1);
       let len = s.len + sw(i + 3, 0.6);
       if (dead) { a = i === 0 ? -1.55 : i === 1 ? 0.75 : 1.9; len = s.len * (i === 1 ? 0.55 : i === 2 ? 0.7 : 0.9); }
       stalk(ctx, S, s.x, s.y, a, len, s.r, P, ldir, ekk, ec, t, dead, i);
@@ -1457,7 +1471,7 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
     const H = sawArm.H, aa = saa, TS = 0.86;
     if (sweepK >= 0) for (let g = 3; g >= 1; g--) {   // motion ghosts while sweeping
       const gp = sweepPos(Math.max(0, sweepK - g * 0.07));
-      ctx.save(); ctx.globalAlpha = 0.17 * (4 - g) / 3; ctx.translate(gp[0], gp[1]); ctx.scale(TS, TS); ctx.rotate(t * 30); put(ctx, P.blade, 0, 0); ctx.restore();
+      ctx.save(); ctx.globalAlpha = BA * 0.17 * (4 - g) / 3; ctx.translate(gp[0], gp[1]); ctx.scale(TS, TS); ctx.rotate(t * 30); put(ctx, P.blade, 0, 0); ctx.restore();
     }
     ctx.save(); ctx.translate(H[0], H[1]); ctx.rotate(aa); ctx.scale(TS, TS); put(ctx, P.ball, 0, 0);
     ctx.save(); ctx.translate(2.6, 0); litSprite(ctx, P.guard, Math.sin(aa) * ldir[0] - Math.cos(aa) * ldir[1], 4, 0); ctx.restore();
@@ -1465,8 +1479,8 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
     const bx = sm.sx, by = sm.sy, spinA = t * sm.spin + ph;
     ctx.save(); ctx.translate(bx, by); ctx.scale(TS, TS);
     const fast = sm.spin > 20 ? 1 : sm.spin > 8 ? 0.5 : 0;
-    if (fast > 0.6) { for (let c = 0; c < 4; c++) { ctx.save(); ctx.rotate(spinA + c * 0.085); ctx.globalAlpha = [0.55, 0.42, 0.34, 0.28][c]; put(ctx, P.blade, 0, 0); ctx.restore(); } ctx.globalAlpha = 1; }
-    else if (fast > 0.2) { for (let c = 0; c < 2; c++) { ctx.save(); ctx.rotate(spinA + c * 0.1); ctx.globalAlpha = c ? 0.5 : 0.85; put(ctx, P.blade, 0, 0); ctx.restore(); } ctx.globalAlpha = 1; }
+    if (fast > 0.6) { for (let c = 0; c < 4; c++) { ctx.save(); ctx.rotate(spinA + c * 0.085); ctx.globalAlpha = BA * [0.55, 0.42, 0.34, 0.28][c]; put(ctx, P.blade, 0, 0); ctx.restore(); } ctx.globalAlpha = BA; }
+    else if (fast > 0.2) { for (let c = 0; c < 2; c++) { ctx.save(); ctx.rotate(spinA + c * 0.1); ctx.globalAlpha = BA * (c ? 0.5 : 0.85); put(ctx, P.blade, 0, 0); ctx.restore(); } ctx.globalAlpha = BA; }
     else { ctx.save(); ctx.rotate(spinA); put(ctx, P.blade, 0, 0); ctx.restore(); }
     put(ctx, P.bladeShade, 0, 0);
     if (fast > 0.6) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,240,220,0.22)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, 7.2, 0, TAU); ctx.stroke(); ctx.globalCompositeOperation = 'source-over'; }
@@ -1486,7 +1500,7 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
     ctx.save(); const rot = wx ? Math.atan2(wx.b, wx.a) : 0; ctx.translate(e.cx, e.cy); ctx.rotate(-rot);
     for (let i = 0; i < 7; i++) {
       const p = (t * 0.4 + i / 7) % 1, x = Math.sin(p * 5 + i * 1.9) * 3 * p - 1, y = -6 - p * 32, r = 2.6 + p * 8;
-      ctx.globalAlpha = FO ? 0 : 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = FO ? 0 : BA * 0.5 * (1 - p) * smooth(0, 0.12, p); ctx.drawImage(puffSpr(p < 0.4 ? '52,48,46' : '96,92,88'), x - r, y - r, r * 2, r * 2);
     }
     ctx.restore();
   }
@@ -1500,11 +1514,11 @@ CD.art.handy = function (ctx, e, G, flashOnly) {
   const jobs = [];
   for (const d of [1, -1]) {
     for (let v = 0; v < EB_PAL.length; v++) jobs.push(() => ebSet(d, v, false));
-    for (let v = 0; v < HD_PAL.length; v++) jobs.push(() => hdSet(d, v, false));
+    for (let v = 0; v < HD_PAL.length; v++) jobs.push(() => hdSet(d, v, false, 'body'), () => hdSet(d, v, false, 'P'));
   }
   jobs.push(() => ebLens(), () => tuGun(false));
   for (const k of ['floor', 'ceil', 'wallL', 'wallR']) jobs.push(() => tuMountSpr(k, false));
-  for (const d of [1, -1]) jobs.push(() => ebSet(d, 0, true), () => hdSet(d, 0, true));
+  for (const d of [1, -1]) jobs.push(() => ebSet(d, 0, true), () => hdSet(d, 0, true, 'body'), () => hdSet(d, 0, true, 'P'));
   jobs.push(() => tuGun(true));
   for (const k of ['floor', 'ceil', 'wallL', 'wallR']) jobs.push(() => tuMountSpr(k, true));
   let i = 0;

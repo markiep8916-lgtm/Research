@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const CD = window.CD;
-const A = (CD.audio = { vol: { master: 0.8, sfx: 0.9, music: 0.55 }, muted: false, ready: false, track: null, geigerRate: 0 });
+const A = (CD.audio = { vol: { master: 0.8, sfx: 0.9, music: 0.8 }, muted: false, ready: false, track: null, geigerRate: 0 });
 let ctx = null, master, sfxG, musG, verb, verbSend, comp, noiseBuf, lastT = {}, active = {};
 
 function makeIR(seconds, decay) {
@@ -29,7 +29,10 @@ A.setVolume = function (k, v) { A.vol[k] = v; if (!ctx) return; if (k === 'maste
 A.duck = function (s) { if (!ctx) return; const t = ctx.currentTime; musG.gain.cancelScheduledValues(t); musG.gain.setValueAtTime(musG.gain.value, t); musG.gain.linearRampToValueAtTime(0.05, t + 0.1); musG.gain.linearRampToValueAtTime(A.vol.music, t + (s || 1)); };
 
 // ---------------------------------------------------------------- building blocks
-function out(g, wet) { g.connect(sfxG); if (wet) { const s = ctx.createGain(); s.gain.value = wet; g.connect(s); s.connect(verbSend); } }
+let bus = null;   // per-play trim nodes (dry -> sfx bus, wet -> reverb send)
+function out(g, wet) { g.connect(bus ? bus.dry : sfxG); if (wet) { const s = ctx.createGain(); s.gain.value = wet; g.connect(s); s.connect(bus ? bus.wet : verbSend); } }
+const TRIM = {"pistol":3.24,"pipe":3.94,"rifle":3.44,"shotgun":3.33,"assault":3.47,"minigun":4.32,"laser":7.38,"plasma":7.69,"explosion":2.06,"hit_flesh":4.6,"hit_metal":4.41,"ricochet":5.41,"impact_wall":10.48,"hurt":9.35,"die":8.2,"player_die":2.04,"robot_die":2.15,"jump":10.48,"land":21.18,"land_hard":5.52,"step":22,"jet":7.32,"dash":3.94,"splash":9.84,"pickup":3.48,"caps":4.84,"ability":1.92,"bobble":2.6,"levelup":2.96,"unlock":0.74,"stimpak":3.3,"chem":4.8,"reload":1.85,"empty":11.11,"switch":8.08,"swing":18.11,"swing_heavy":9.33,"melee_hit":3.87,"melee_heavy":3.29,"wall_break":3.35,"bounce":11.54,"throw":23.78,"plasma_hit":6.17,"door":1.15,"door_lock":2.71,"beep":10.53,"ui_move":13.33,"ui_select":13.68,"ui_back":11.76,"pipboy_on":5.03,"pipboy_off":12.94,"hack_ok":3.23,"hack_bad":8.93,"key":9.76,"alarm":2.66,"robot_alert":3.49,"servo":13.33,"growl":6.64,"roar":3.08,"screech":8.81,"squelch":7.55,"buzz":16,"zap":8.63,"terminal_open":3.57,"rest":2.68,"save":3.59,"notify":4,"geiger":6.49,"boss":1.95,"thud":4.06,"elevator":8.7,"drip":15.56,"shield":11.36};   // per-effect gain trims (from tests/audio_trim.js): every effect lands near its target peak level
+function runSfx(name, o) { const tr = TRIM[name] || 1; if (tr !== 1) { const d = ctx.createGain(), w = ctx.createGain(); d.gain.value = w.gain.value = tr; d.connect(sfxG); w.connect(verbSend); bus = { dry: d, wet: w }; } try { S[name](o); } finally { bus = null; } }
 function tone(type, f0, f1, dur, vol, o) {
   o = o || {}; const t = ctx.currentTime + (o.delay || 0);
   const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = type; osc.frequency.setValueAtTime(Math.max(1, f0), t);
@@ -140,7 +143,7 @@ A.play = function (name, o) {
   const f = S[name]; if (!f) return;
   // limit polyphony for spammy sounds
   const now = ctx.currentTime; const n = active[name] || 0; if (n > 6) return; active[name] = n + 1; setTimeout(() => { active[name]--; }, 120);
-  try { f(o); } catch (e) { /* audio must never break the game */ }
+  try { runSfx(name, o); } catch (e) { /* audio must never break the game */ }
 };
 
 // ---------------------------------------------------------------- geiger
@@ -197,5 +200,31 @@ A.setTrack = function (name) {
   evTimer = setInterval(() => { if (!ctx || ctx.state !== 'running' || A.muted) return; try { tr.ev(ctx.currentTime, beat++); } catch (e) { } }, period);
 };
 A.stopMusic = function () { A.setTrack('silence'); };
+
+// ---------------------------------------------------------------- offline audit (dev tool): render a sound / track into a buffer and measure it
+A.audit = async function (kind, name, secs) {
+  const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return null;
+  const saved = { ctx, master, sfxG, musG, verb, verbSend, comp, noiseBuf, lastT, active, cur, evTimer };
+  const sr = 22050; secs = secs || 2;
+  const off = new OC(2, Math.ceil(sr * secs), sr); let vclock = 0;
+  ctx = new Proxy(off, { get(t, k) { if (k === 'currentTime') return vclock; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+  try {
+    comp = off.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 18; comp.ratio.value = 6; comp.attack.value = 0.002; comp.release.value = 0.25;
+    master = off.createGain(); master.gain.value = A.vol.master; master.connect(comp); comp.connect(off.destination);
+    sfxG = off.createGain(); sfxG.gain.value = A.vol.sfx; sfxG.connect(master); musG = off.createGain(); musG.gain.value = A.vol.music; musG.connect(master);
+    verb = off.createConvolver(); verb.buffer = (function () { const len = Math.floor(sr * 1.9), b = off.createBuffer(2, len, sr); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); } return b; })();
+    const vg = off.createGain(); vg.gain.value = 0.9; verb.connect(vg); vg.connect(master); verbSend = off.createGain(); verbSend.gain.value = 0.22; verbSend.connect(verb);
+    const len = sr * 2; noiseBuf = off.createBuffer(1, len, sr); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) nd[i] = Math.random() * 2 - 1;
+    lastT = {}; active = {};
+    if (kind === 'sfx') { if (!S[name]) return null; runSfx(name); }
+    else { const tr = TRACKS[name]; if (!tr) return null; tr.init(); const period = (tr.evFast ? 0.26 : 2.4); let b = 0; for (let t = 0; t < secs; t += period) { vclock = t; try { tr.ev(t, b++); } catch (e) { } } vclock = 0; }
+    const buf = await off.startRendering(); const d0 = buf.getChannelData(0), d1 = buf.getChannelData(1);
+    let peak = 0, sum = 0, dc = 0, bad = 0, n = d0.length, lastNZ = 0;
+    for (let i = 0; i < n; i++) { const v = (d0[i] + d1[i]) * 0.5; if (!isFinite(v)) { bad++; continue; } const a = Math.abs(v); if (a > peak) peak = a; sum += v * v; dc += v; if (a > 0.002) lastNZ = i; }
+    return { name, kind, peak: +peak.toFixed(3), rms: +Math.sqrt(sum / n).toFixed(4), dc: +(dc / n).toFixed(5), bad, tail: +(lastNZ / sr).toFixed(2) };
+  } catch (e) { return { name, kind, error: String(e) }; }
+  finally { ({ ctx, master, sfxG, musG, verb, verbSend, comp, noiseBuf, lastT, active, cur, evTimer } = saved); }
+};
+A.sfxNames = () => Object.keys(S); A.trackNames = () => Object.keys(TRACKS);
 
 })();

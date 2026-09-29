@@ -149,6 +149,7 @@ HUD.draw = function (ctx) {
     if (G.vatsActive && CD.vats) CD.vats.draw(ctx);
   }
   // fade overlay
+  if (CD.touch && CD.touch.active) CD.touch.draw(ctx);
   if (G.fade) HUD.drawFade(ctx);
   ctx.restore();
 };
