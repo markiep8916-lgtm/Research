@@ -1,0 +1,183 @@
+"""Unit tests for the LEV threshold model.
+
+They check the analytic predictions P1-P6 of ``phase1_scoping/03_analysis_plan.md``
+against numerical life-table integration. Parameters here are test fixtures, not findings.
+"""
+import os
+import sys
+
+import numpy as np
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import lev_model as m  # noqa: E402
+
+P = m.Params()  # placeholder parameters: beta 0.087, mu80 0.05, c 0.0004
+
+
+def v_traj(v, p=P):
+    return m.traj_constant(v * p.beta)
+
+
+# ---------------------------------------------------------------- P1, P3: shift property
+@pytest.mark.parametrize("c", [0.0, 0.0004, 0.001])
+def test_shift_property_at_v1_with_or_without_extrinsic_floor(c):
+    p = P.with_(c=c)
+    R = v_traj(1.0, p)
+    marg = m.dn_margin([50, 65, 80], 3, p, R)
+    assert np.max(np.abs(marg)) < 1e-6  # e(x+1, t+1) == e(x, t) exactly at v = 1
+
+
+def test_dn_sign_follows_v_minus_1():
+    for v, sign in [(0.25, -1), (0.5, -1), (0.9, -1), (1.1, +1), (1.5, +1)]:
+        marg = m.dn_margin([50, 65, 80], 2, P, v_traj(v))
+        assert np.all(np.sign(marg) == sign), (v, marg)
+
+
+def test_time_derivative_identity_without_floor():
+    p = P.with_(c=0.0)
+    for v in (0.5, 1.0):
+        R = v_traj(v, p)
+        for x in (50, 65):
+            de = m.d1_gain(x, 5.0, p, R)
+            mu = float(m.hazard(x, 5.0, p, R))
+            e = m.e_period(x, 5.0, p, R)
+            assert de == pytest.approx(v * (1 - mu * e), abs=3e-3)
+
+
+def test_d1_is_stricter_than_dn_above_young_ages():
+    R = v_traj(1.0)
+    assert np.max(np.abs(m.dn_margin([65, 80], 2, P, R))) < 1e-6  # D-N met at v = 1
+    # evaluate at t = 0, where every trajectory shares the same mu and e
+    assert m.d1_gain(65, 0.0, P, R) < 0.9                          # D-1 (>= 1) not met
+    assert m.d1_gain(80, 0.0, P, R) < 0.7
+    # D-1 needs v >= 1 / (1 - mu e)
+    mu = float(m.hazard(80, 0.0, P, R))
+    e = m.e_period(80, 0.0, P, R)
+    need = 1 / (1 - mu * e)
+    assert 1.5 < need < 2.5
+    assert m.d1_gain(80, 0.0, P, v_traj(need)) == pytest.approx(1.0, abs=0.02)
+
+
+# ---------------------------------------------------------------- P2: required decline, conversion
+def test_required_annual_decline_range():
+    lo = m.required_annual_decline(np.log(2) / 10)
+    hi = m.required_annual_decline(np.log(2) / 7)
+    assert lo == pytest.approx(0.067, abs=5e-4)
+    assert hi == pytest.approx(0.094, abs=5e-4)
+
+
+def test_age_years_and_cadence():
+    assert m.age_years(0.73, 0.09) == pytest.approx(3.5, abs=0.03)
+    assert m.age_years(0.5, np.log(2) / 8) == pytest.approx(8.0)  # halving hazard = one MRDT
+    assert m.cadence_years(0.73, 0.09, v=1.0) == pytest.approx(3.5, abs=0.03)
+
+
+# ---------------------------------------------------------------- D-H
+def test_path_hazard_frozen_at_v1_and_rising_below():
+    assert np.all(m.dh_ok(60, P, v_traj(1.0), 40))
+    assert not np.any(m.dh_ok(60, P, v_traj(0.5), 40))
+
+
+def test_dn_and_dh_coincide_under_proportional_gompertz():
+    for v in (0.8, 1.0, 1.2):
+        dn = m.dn_margin([60], 1, P, v_traj(v))[0, 0] >= -1e-6
+        dh = bool(np.all(m.dh_ok(60, P, v_traj(v), 10)))
+        assert dn == dh, v
+
+
+# ---------------------------------------------------------------- P4: resistant component
+def test_resistant_component_makes_escape_finite_not_a_switch():
+    p = P.with_(rho=0.05, r_r=0.0)
+    R = v_traj(1.5, p)  # amenable part improves faster than ageing
+    tau, h = m.path_hazard(60, p, R, 200, dt=0.1)
+    i_min = int(np.argmin(h))
+    assert 5 < i_min * 0.1 < 60            # hazard falls first ...
+    assert h[-1] > h[i_min] * 1.5          # ... then rises: D-H fails asymptotically
+    # over a finite window LEV can hold: D-N holds for a while, then fails
+    marg = m.dn_margin([50, 60, 70], 40, p, R)
+    run, start = m.longest_run(m.dn_ok_series(marg))
+    assert start == 0 and 10 <= run <= 30  # an escape lasting one to two decades, not forever
+    # a larger unimproved share shortens the escape
+    p2 = p.with_(rho=0.20)
+    run2, _ = m.longest_run(m.dn_ok_series(m.dn_margin([50, 60, 70], 40, p2, R)))
+    assert run2 < run
+
+
+# ---------------------------------------------------------------- P5: plateau
+def test_plateau_makes_dn_hold_without_progress():
+    p = P.with_(cap=0.5)
+    marg = m.dn_margin([120], 2, p, m.traj_constant(0.0))
+    assert np.max(np.abs(marg)) < 1e-9
+
+
+def test_frailty_produces_population_plateau():
+    p = P.with_(sigma2=0.2)
+    h150 = float(m.hazard(150, 0.0, p, m.traj_constant(0.0))) - p.c
+    assert h150 == pytest.approx(p.beta / p.sigma2, rel=0.1)
+    # population hazard is below the individual hazard at old ages
+    ind = float(m.ind_age_part(100, 0.0, p, m.traj_constant(0.0)))
+    assert float(m.hazard(100, 0.0, p, m.traj_constant(0.0))) - p.c < ind
+
+
+# ---------------------------------------------------------------- P6 and race table
+def test_expected_remaining_life_at_onset_is_reciprocal_hazard():
+    row = m.race_row(40.0, 30.0, P, r_pre=0.015, r_post_multiples=(1.0,))
+    assert row["e_at_onset_m1"] == pytest.approx(1.0 / row["hazard_at_onset"], rel=2e-3)
+
+
+def test_race_row_monotone_and_bounded():
+    rows = [m.race_row(50.0, T, P, r_pre=0.0, r_post_multiples=(1.0,)) for T in (10, 20, 30, 40)]
+    ps = [r["p_survive_to_onset"] for r in rows]
+    assert all(0 < x <= 1 for x in ps)
+    assert ps == sorted(ps, reverse=True)
+    # continued improvement after onset raises expected remaining life
+    r = m.race_row(50.0, 20.0, P, r_pre=0.015)
+    assert r["e_at_onset_m2"] > r["e_at_onset_m1"] > 20
+
+
+def test_period_and_path_expectancy_agree_without_progress():
+    R0 = m.traj_constant(0.0)
+    assert m.e_period(65, 0.0, P, R0) == pytest.approx(m.expected_remaining(65, P, R0), rel=2e-3)
+
+
+# ---------------------------------------------------------------- escape duration
+def test_ramp_reaches_dn_when_rate_crosses_beta():
+    p = P
+    r0, r1, t_ramp = 0.015, 1.5 * p.beta, 20.0
+    R = m.traj_ramp(r0, r1, 0.0, t_ramp)
+    marg = m.dn_margin([50, 60, 70, 80], 30, p, R)
+    ok = m.dn_ok_series(marg)
+    t_cross = t_ramp * (p.beta - r0) / (r1 - r0)  # instantaneous crossing time
+    first = int(np.argmax(ok))
+    assert abs(first - (t_cross - 0.5)) <= 1.5      # margin at year t uses the mean rate over [t, t+1]
+    assert m.longest_run(ok)[0] >= 30 - first - 1
+
+
+def test_latin_hypercube_and_spearman():
+    rng = np.random.default_rng(0)
+    s = m.latin_hypercube(200, {"a": (0, 1), "b": (2, 3)}, rng)
+    assert 0 <= s["a"].min() and s["a"].max() <= 1
+    assert 2 <= s["b"].min() and s["b"].max() <= 3
+    # one point per stratum
+    assert sorted((s["a"] * 200).astype(int)) == list(range(200))
+    assert m.spearman(s["a"], s["a"]) == pytest.approx(1.0)
+    assert abs(m.spearman(s["a"], s["b"])) < 0.2
+
+
+# ---------------------------------------------------------------- outcome classification (plan section 9)
+def test_classification_ordered_first_match_rule():
+    b = P.beta
+    # steady historical-like pace: O1
+    assert m.classify_outcome(P, m.traj_constant(0.015), v_hi=0.30)["outcome"] == "O1"
+    # sustained acceleration well short of LEV: O2
+    assert m.classify_outcome(P, m.traj_constant(0.5 * b), v_hi=0.30)["outcome"] == "O2"
+    # ramp that reaches the threshold within ten years and stays there: O3
+    early = m.classify_outcome(P, m.traj_ramp(0.015, 1.3 * b, 0.0, 10.0), v_hi=0.30)
+    assert early["outcome"] == "O3" and early["onset_year"] <= 2060
+    # ramp that starts late (onset after 2060, before 2100): O4
+    late = m.classify_outcome(P, m.traj_ramp(0.015, 1.3 * b, 55.0, 10.0), v_hi=0.30)
+    assert late["outcome"] == "O4" and 2060 < late["onset_year"] <= 2100
+    # a large unimproved share ends the D-N episode before a full window: O2, not O3/O4
+    short = m.classify_outcome(P.with_(rho=0.2, r_r=0.0), m.traj_constant(1.5 * b), v_hi=0.30)
+    assert short["outcome"] == "O2" and 0 < short["longest_dn_run"] < 20

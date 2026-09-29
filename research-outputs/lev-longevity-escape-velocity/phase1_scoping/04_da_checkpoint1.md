@@ -6,7 +6,8 @@
 | Date | 2026-09-29 |
 | Reviewer | Fresh-context subagent of the same model family, role `devils_advocate_agent` (`deep-research/agents/devils_advocate_agent.md`). Same-family review is a stated limitation; it was given the two documents but not the drafting agent's reasoning. |
 | Round 1 | Verdict **REVISE**: 0 critical, 6 major, 3 minor issues |
-| Round 2 | See the end of this file |
+| Round 2 | Verdict **REVISE (narrow, one pass)**: 0 critical, 3 new major (N1-N3), formula errors in P3 and P6, several minor items. Report and dispositions at the end of this file |
+| Round 3 | Spot check of the diffs: pending |
 
 The DA text is reproduced verbatim (it is subagent output, not a user statement). Its snippet-level facts are the DA's own search results and are **not** verified findings; they are leads for Phase 2.
 
@@ -123,6 +124,69 @@ Concession discipline: each finding is accepted, adapted, or rejected on its mer
 | Obs | **Accepted** | "Escape is not survival" and P6 (expected remaining life at onset); stake columns symmetric for both camps. | `01`, `02`, `03` |
 | Fact-check | **Accepted** | Term origin softened; frontier set defined by rule; first-in-human claim stated as company-reported Phase 1 safety; RMR1 labelled self-reported (V2-P). All DA snippet-level facts are leads only. | `01`, `02`, `00` |
 
-## Round 2 (re-check)
+## Round 2 report (verbatim)
+
+The reviewer was the same subagent, resumed with the revised files, under the Concession Threshold Protocol. Its search-derived statements are leads, not verified findings.
+
+### Devil's Advocate Report — Checkpoint 1, Round 2
+
+#### Verdict: REVISE (narrow, one pass)
+No Critical issues. Round 1's six Majors are mostly closed, and the revision is a real improvement. Three new Majors (N1–N3), all cheap to fix, and errors in two frozen predictions. Fix before the freeze; afterwards each becomes a logged deviation. Verified independently: the skill rule behind MJ2, P1–P6 and §7 by scratch numerics (nothing written), and the ACH convention by search.
+
+#### Condition-by-condition
+| Round 1 condition | Status | Reason |
+|---|---|---|
+| MJ1 frozen definitions, hazard baseline | Met | D-N, D-1, D-H frozen with band, window, ≥; baseline v = r/β; e0 context only. P3 and P6 need correction. |
+| MJ3 partition + diagnosticity matrix | Partly met | One horizon, no null, matrix present; O1–O4 has holes (N1); weighting under-specified and tilted (N3). |
+| MJ4 resistant rate, frailty, plateau, data statement | Met | M1 with own r_r, escape duration, M2/M3, Monte Carlo, literature-parameter fallback. |
+| MJ5 origin, verbatim capture, V2-P | Partly met | Origin rule, logging, V2-P, event log, re-runs present; F3 still checks link presence, not attribution (N2). |
+| MJ2 + MJ6 | Met | MJ2 by reasoned deviation; MJ6 by scenarios, vintages, RC1–RC5 ex ante, tiered SQ2. RC balance is new (N3). |
+
+#### DA-DECISION log
+[DA-DECISION: Score 5/5 | ACTION: Concede | REASON: (a) MJ2 deviation. The skill (research_question_agent.md lines 213–214) requires one sentence and no compound questions; my RQ was three-clause and its content survives as SQ1–SQ3. Residual, minor: "and" joins conditions and dates; "the arrival" mildly presupposes.]
+[DA-DECISION: Score 4/5 | ACTION: Hold | REASON: (b) MJ5 adaptation. Conceded: excerpt-only was unimplementable (tool returns links plus a model-written summary). Held: F3 never binds a figure to a source, so a sponsor-only claim can still reach V3; bar was 5/5 after (a).]
+[DA-DECISION: Score 4/5 | ACTION: Concede | REASON: (c) Novel = 3 follows a written rubric and is candid ("arithmetic itself is standard"); even a 2 leaves the average at 3.8. Gap: the rubric is self-authored and barely discriminating.]
+Pause: 2 of 3 conceded. Am I too lenient? (a) is forced by a verified rule, (c) cannot change pass/fail, and the substantive point (b) was held. Bar for further rebuttals: 5/5.
+
+#### Mathematics check (β = 0.0866, μ80 = 0.05; scratch numerics)
+Correct: ∂e/∂x = μe − 1 (derived); continuous D-N and D-H forms; P1 (∂e/∂t = v(1−μe); D-N derivative changes sign exactly at v = 1); D-N ⟺ D-H under M0; D-1 ⟺ v ≥ 1/(1−μe); P2 (6.70%, 9.43%); P5; g = ln(1/k)/β = 3.50; cadence and compounding (six stacked k = 0.73 give 0.151 vs e^{−1.8} = 0.165). D-1 needs v ≥ 1.13, 1.36, 1.96, 2.9 at ages 50, 65, 80, 90: far stricter than "above young ages" suggests. D-N needs v ≥ 1 at every age; only the e-gain (1−μe) falls with age, so headline v, not "0.5 at 80".
+Errors:
+- **P3 is false for M0 as written.** With additive c, ∂ₓμ + ∂ₜμ = (β−r)(μ−c), so D-N ⟺ D-H ⟺ v ≥ 1 exactly (c = 0.0004: negative at v = 0.98, zero at 1.0, positive at 1.02). "Slightly less than 1" holds only if progress also scales c.
+- **P6 double-counts the floor.** h is total hazard (§1): remaining life is 1/h*, not 1/(h*+c) (33% low at h* = 0.002).
+- P4 needs r_a > β; at r_a = β, D-H fails at once. "Population progress = a × individual" is first-order only (mixture: ln(1−a(1−k)) ≠ a ln k). r is a log-rate; "annual proportional decline" is 1−e^{−r}.
+
+#### New issues
+- **N1 Major: O1–O4 is not a partition.** (i) O1 "at or below the pace" vs O2 "above the range" leaves a gap; "which pace" is unresolved. (ii) D-N held for fewer than W years, or only until a resistant component binds (your P4), is neither O2 ("never met") nor O3/O4 ("sustained"). (iii) Onset, individual vs access-weighted D-N, and 2100 truncation are unspecified. Fix: classify by the first W-year window in a smoothed series; O2 = residual; O1 = no window and pace ≤ a preset r_hist.
+- **N2 Major: F3 checks domains, not attribution.** Two summaries stating a sponsor's claim, plus a co-occurring registry link, meet F3, yet registry entries are sponsor-entered (I called the registry "independent" in Round 1; it is independent of the wire chain, not of the sponsor). Fix: F3 needs summary sentences attributing the figure to ≥2 named sources whose authorship differs and whose domains are in the link list (one primary); else F2; tag figures "summary-mediated". Also: the Blueprint says V2-P is never effect-size evidence, but §8 lets V2-P set input ranges.
+- **N3 Major: the weighting devices lean one way.** (i) "Inconsistency counts double" is not the ACH convention (Heuer ranks by inconsistency alone); no numeric weights. Pre-2030 evidence can rule out O3/O4 preconditions but can barely contradict O1/O2, so ordering by least inconsistency favours the outcomes that assert least. (ii) RC2–RC4 are delay priors; RC1 shows limits fail, not that pace accelerates; nothing covers step-changes or sustained cause-specific declines (e.g. HAART-era HIV, CVD, hepatitis C cure), the natural pro-LEV rate class, convertible to v. The promised opposite-direction pairing is absent. (iii) A conjunctive F1–F5 band built from marginals is low by construction when factors correlate or routes (M-a/b/c) are separate. Fix: add RC6 and pair classes; a symmetric "expected by 2030 under each outcome" column; numeric weights; routes as disjunction.
+- **Minor:** frontier ranked by e0 imports under-5 mortality into an old-age study (rank by e65 or age-standardised 65–89 mortality, average 2015–19, vary N); baseline ages 60–90 vs band 50–90; V2-P "E2 (company page)" contradicts the E definition; 130-word cards cannot hold two query logs (cite log IDs); "citation chaining" is not executable without reference lists; W2/W4/W5 overlap; D-N "at every t" needs smoothing for realised data. Scope is tractable to collect with F3 double-querying limited to load-bearing figures, but a 6–9k-word report cannot absorb ~200 cards: set a citation budget now.
+- Frame-lock check: the premise that pre-2030 evidence discriminates O1–O4 is raised as N3; nothing else new.
+
+#### What would change my verdict
+- N1 fixed by definition (window functional, residual O2).
+- N2: attribution-bound F3, or V3 relabelled "summary-mediated".
+- N3: RC6, symmetric expectations column, numeric ACH spec.
+- P3 and P6 corrected. Then PASS; a DA spot check of the diffs suffices.
+
+#### Least sure
+N3(iii): the F1–F5 band is optional, so the conjunction tilt may never bite. Also whether attribution-bound F3 is workable at scale given summary quality.
+
+## Disposition of Round 2 findings
+
+| ID | Disposition | What changed | Where |
+|---|---|---|---|
+| N1 | **Accepted** | Outcomes are now an ordered first-match rule over a **LEV window** (at least W consecutive years of smoothed D-N at every age in the band): O3 onset by 2060; O4 first window onset 2061-2100 (may extend past 2100); O2 no window by 2100 but some W-year window above the preset bound v_hi, which includes short D-N episodes; O1 otherwise. v_hi is fixed from W1 before any rating. Population-level, access-weighted classification; individual-level reported separately. | `03` §2, §9; `02` |
+| N2 | **Accepted** | Ladder v3: figures must be attributed by search-output sentences to at least two named sources of different authorship (two separately worded queries; one primary and independent of the claim's producer); new E-P class for a party's own domain; registry entries count as sponsor-entered for effects and status; V2-P never sets a range (the §8 inconsistency is removed); every figure tagged summary-mediated; running agents were sent the amendment by message; load-bearing figures are re-verified by a second agent (Phase 2b). | `02`, `03` §8, `00` |
+| N3 (i) | **Accepted** | Heuer convention: outcomes ordered by weighted inconsistency only; numeric weights (3/2/1); expectations by 2030 written for every outcome before rating; expectation coverage reported beside each score. | `03` §9 |
+| N3 (ii) | **Accepted** | RC6 added (step-changes in cause-specific mortality) as the pro-acceleration class; classes paired (RC1 with RC2; RC3 and RC4 with RC6; RC5 general). The running W6 agent was told to collect RC6. | `03` §10, `00` |
+| N3 (iii) | **Accepted** | The conjunction is reported as an interval from the independence product to the perfect-dependence bound (Fréchet bounds noted); routes combine as a disjunction; factors renamed K1-K5 to avoid clashing with figure levels F1-F3. | `03` §9 |
+| P3 | **Accepted** (already corrected in commit e7ca103 after my own numerical check, before the DA's read; the DA's derivation confirms it) | D-N and D-H need v ≥ 1 exactly with an additive, non-improving floor. | `03` §3, §13 |
+| P4, P6, population formula, log-rate | **Accepted** | P4 needs r_a > β; P6 is 1/h* (total hazard); population hazard factor 1 − a(1 − k); r stated as a log-rate with 1 − e^{−r} as the annual proportional decline. | `03` §1-§3 |
+| D-N vs D-1 wording | **Accepted** | D-N needs v ≥ 1 at every age; only the life-expectancy gain (1 − μe) falls with age; D-1 needs v ≥ 1/(1 − μe) (about 1.1, 1.4, 2.0, 2.9 at 50, 65, 80, 90). | `01`, `03` §2 |
+| Frontier ranking | **Accepted** | Rank by life expectancy at 65, averaged 2015-2019; sensitivity N = 5 and 15 and an at-birth ranking; W1 was told. | `01` |
+| Other minor | **Accepted** | Baseline by decade of age 50-89; numbered search-log IDs and 25-word attributing sentences instead of 130-word inline logs; "citation chaining" replaced by snowballing; five-year smoothing for realised data; W2/W4/W5 overlap resolved at consolidation; citation budget (about 90 references in the body, the rest in an appendix table by card ID). | `00`, `02`, `03` |
+| DA decision (b) | **Conceded through N2** | The held point is exactly the attribution problem fixed above. | `02` |
+
+## Round 3 (spot check of the diffs)
 
 (pending)
