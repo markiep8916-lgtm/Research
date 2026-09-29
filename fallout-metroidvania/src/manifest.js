@@ -21,6 +21,7 @@ window.CD_MANIFEST = [
   'gfx/creatures_bugs.js',
   'gfx/creatures_robots.js',
   'gfx/creatures_boss.js',
+  'gfx/creatures_overseer.js',
   'world/world.js',
   'world/dsl.js',
   'world/rooms_vault.js',

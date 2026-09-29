@@ -300,6 +300,7 @@ B.define('deathclaw', {
   arena() { return { spawn: { tx: 0, ty: 0 }, gates: [] }; },
 }, function () { });
 B.defs.deathclaw.onDie = function (e) { B.defeat('deathclaw', e); };
+B.defs.deathclaw.corpseRot = 0;         // the art paints its own corpse pose
 {
   CD.AI.deathclaw = makeAI({
     p2: 0.62, p3: 0.3,
@@ -374,6 +375,7 @@ B.define('sentry', {
   arena() { return { spawn: { tx: 0, ty: 0 }, gates: [] }; },
 }, function () { });
 B.defs.sentry.onDie = function (e) { B.defeat('sentry', e); };
+B.defs.sentry.corpseRot = 0.05;         // a kneeling wreck, not upside down
 {
   const eyeOf = (e) => ({ x: e.cx + e.face * 12, y: e.y + 26 });
   CD.AI.sentry = makeAI({
@@ -462,6 +464,7 @@ B.define('overseer', {
   arena() { return { spawn: { tx: 0, ty: 0 }, gates: [] }; },
 }, function () { });
 B.defs.overseer.onDie = function (e) { B.defeat('overseer', e); };
+B.defs.overseer.corpseRot = 0.28;      // the art has its own wrecked pose: keep it (roughly) upright when it crashes
 {
   const hoverY = (e, ar) => ar.floorY - 270 + Math.sin(G.time * 1.4) * 14;
   CD.AI.overseer = makeAI({
