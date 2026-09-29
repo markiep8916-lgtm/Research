@@ -16,6 +16,7 @@ const PREVENT = new Set(['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDo
 
 const I = (CD.input = {
   BIND, keys: {}, keyEdge: {}, mouse: { x: 640, y: 360, down: false, rdown: false, moved: 0, edge: false, redge: false, inside: false }, wheel: 0,
+  rawEdge: {}, rawWheel: 0,   // this frame's raw key edges / wheel delta (poll() clears keyEdge/wheel, so UI code that wants raw codes reads these)
   virtual: {}, virtualEdge: {}, pad: null, padPrev: {}, padAxes: { lx: 0, ly: 0, rx: 0, ry: 0 },
   h: {}, p: {}, r: {}, aimMode: 'keys', lastActive: 'keys', touch: false, typed: [],
   canvas: null, viewW: 1280, viewH: 720, enabled: true,
@@ -39,7 +40,7 @@ I.init = function (canvas) {
   canvas.addEventListener('mousemove', (e) => { upd(e); I.mouse.moved = 4; I.aimMode = 'mouse'; I.lastActive = 'mouse'; });
   canvas.addEventListener('mousedown', (e) => {
     upd(e); canvas.focus();
-    if (e.button === 0) { I.mouse.down = true; I.mouse.edge = true; } if (e.button === 2) { I.mouse.rdown = true; I.mouse.redge = true; }
+    if (e.button === 0) { I.mouse.down = true; I.mouse.edge = true; I.mouse.sEdge = true; } if (e.button === 2) { I.mouse.rdown = true; I.mouse.redge = true; }
     I.aimMode = 'mouse'; I.lastActive = 'mouse'; e.preventDefault();
     if (CD.audio && CD.audio.resume) CD.audio.resume();
   });
@@ -72,19 +73,20 @@ I.poll = function () {
     for (const c of BIND[a]) { if (I.keys[c]) down = true; if (I.keyEdge[c]) edge = true; }
     if (padHeld[a]) { down = true; if (!I.padPrev[a]) edge = true; }
     if (I.virtual[a]) { down = true; if (I.virtualEdge[a]) edge = true; }
-    if (a === 'shoot') { if (I.mouse.down) down = true; if (I.mouse.edge) edge = true; }
+    if (a === 'shoot') { if (I.mouse.down) down = true; if (I.mouse.sEdge) edge = true; }
     if (a === 'melee') { if (I.mouse.rdown) down = true; if (I.mouse.redge) edge = true; }
     h[a] = down; p[a] = edge;
   }
   I.padPrev = padHeld;
+  I.rawWheel = I.wheel;
   if (I.wheel) { if (I.wheel > 0) p.next = true; else p.prev = true; I.wheel = 0; }
   I.h = h; I.p = p;
-  I.keyEdge = {}; I.mouse.edge = false; I.mouse.redge = false; I.virtualEdge = {};
+  I.rawEdge = I.keyEdge; I.keyEdge = {}; I.mouse.sEdge = false; I.mouse.redge = false; I.virtualEdge = {};   // mouse.edge is the UI click flag: it survives poll() and is cleared by consume() / the handler that used it
   if (I.mouse.moved > 0) I.mouse.moved--;
   // typed chars for menus
 };
 // Simulation steps read I.p; after the first step in a frame the edges are consumed.
-I.consume = function () { I.p = {}; };
+I.consume = function () { I.p = {}; I.rawEdge = {}; I.rawWheel = 0; I.mouse.edge = false; };
 I.held = (a) => !!I.h[a];
 I.pressed = (a) => !!I.p[a];
 

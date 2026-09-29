@@ -8,7 +8,7 @@ const UI = () => CD.UI;
 // shared overlay plumbing ---------------------------------------------------
 const OV = CD.overlay;
 OV.open = function (o) { OV.cur = o; G.prevState = G.state; G.state = 'overlay'; CD.input.consume(); CD.audio.play('terminal_open'); };
-OV.close = function () { OV.cur = null; G.state = 'play'; CD.input.consume(); };
+OV.close = function () { OV.cur = null; if (G.state === 'overlay') G.state = 'play'; CD.input.consume(); };   // a choice may have moved the game elsewhere (e.g. into the ending)
 function scanlines(ctx, x, y, w, h) { ctx.fillStyle = 'rgba(0,0,0,0.16)'; for (let i = 0; i < h; i += 3) ctx.fillRect(x, y + i, w, 1); const vg = ctx.createRadialGradient(x + w / 2, y + h / 2, h * 0.3, x + w / 2, y + h / 2, h * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = vg; ctx.fillRect(x, y, w, h); }
 CD.scanlines = scanlines;
 function panel(ctx, x, y, w, h) { ctx.fillStyle = 'rgba(2,14,8,0.93)'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = UI().green; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.globalAlpha = 0.35; ctx.strokeRect(x + 6, y + 6, w - 12, h - 12); ctx.globalAlpha = 1; }

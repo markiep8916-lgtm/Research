@@ -38,9 +38,10 @@ PB.update = function (dt) {
   if (PB.reading) { if (I.pressed('confirm') || I.pressed('back') || I.mouse.edge) { PB.reading = null; I.mouse.edge = false; } return; }
   if (I.pressed('map')) { PB.tab = PB.tab === 3 ? 0 : 3; CD.audio.play('ui_move'); if (PB.tab === 3) PB.centerMap(); }
   // tab switching: Q/E? use shift-free keys: comma/period not bound; use [ ] via left/right when at list root
-  const tabKeyL = I.keys['BracketLeft'] || I.keyEdge && I.keyEdge['BracketLeft'], tabKeyR = I.keyEdge && I.keyEdge['BracketRight'];
-  if (I.pressed('left') && PB.tab !== 3 && PB.sub === 0 || (I.keyEdge && I.keyEdge['KeyQ'])) { PB.tab = (PB.tab + 3) % 4; CD.audio.play('ui_move'); if (PB.tab === 3) PB.centerMap(); }
-  if (I.pressed('right') && PB.tab !== 3 && PB.sub === 0 || (I.keyEdge && I.keyEdge['KeyE'])) { PB.tab = (PB.tab + 1) % 4; CD.audio.play('ui_move'); if (PB.tab === 3) PB.centerMap(); }
+  const tabKeyL = I.keys['BracketLeft'] || I.rawEdge['BracketLeft'], tabKeyR = I.rawEdge['BracketRight'];
+  if (I.pressed('left') && PB.tab !== 3 && PB.sub === 0 || I.rawEdge['KeyQ']) { PB.tab = (PB.tab + 3) % 4; CD.audio.play('ui_move'); if (PB.tab === 3) PB.centerMap(); }
+  if (I.pressed('right') && PB.tab !== 3 && PB.sub === 0 || I.rawEdge['KeyE']) { PB.tab = (PB.tab + 1) % 4; CD.audio.play('ui_move'); if (PB.tab === 3) PB.centerMap(); }
+  if (I.rawEdge['KeyE'] || I.rawEdge['KeyQ']) { I.p.confirm = false; I.p.interact = false; I.p.heal = false; }   // E/Q only switch tabs here, they must not also 'use' the highlighted row
   void tabKeyL; void tabKeyR;
   const sel = PB.sel;
   if (PB.tab === 0) {   // STAT: perks list
@@ -62,8 +63,8 @@ PB.update = function (dt) {
   } else if (PB.tab === 3) {
     const sp = 14 * dt * 60 / (PB.mapZoom / 3);
     if (I.held('left')) PB.mapX -= sp * 0.5; if (I.held('right')) PB.mapX += sp * 0.5; if (I.held('up')) PB.mapY -= sp * 0.5; if (I.held('down')) PB.mapY += sp * 0.5;
-    if (I.keyEdge && I.keyEdge['Equal']) PB.mapZoom = Math.min(6, PB.mapZoom + 0.5); if (I.keyEdge && I.keyEdge['Minus']) PB.mapZoom = Math.max(1.5, PB.mapZoom - 0.5);
-    if (I.wheel) { PB.mapZoom = U.clamp(PB.mapZoom - Math.sign(I.wheel) * 0.5, 1.5, 6); I.wheel = 0; }
+    if (I.rawEdge['Equal'] || I.rawEdge['NumpadAdd']) PB.mapZoom = Math.min(6, PB.mapZoom + 0.5); if (I.rawEdge['Minus'] || I.rawEdge['NumpadSubtract']) PB.mapZoom = Math.max(1.5, PB.mapZoom - 0.5);
+    if (I.rawWheel) { PB.mapZoom = U.clamp(PB.mapZoom - Math.sign(I.rawWheel) * 0.5, 1.5, 6); I.rawWheel = 0; }
     if (I.pressed('confirm')) PB.centerMap();
   }
   // mouse tab click
