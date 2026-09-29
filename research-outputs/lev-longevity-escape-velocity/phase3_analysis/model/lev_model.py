@@ -194,39 +194,52 @@ def dh_ok(x0: float, p: Params, Ra: Trajectory, T: float, dt: float = 0.05, tol:
 # --------------------------------------------------------------------------
 # outcome classification (plan section 9: LEV window, ordered first-match rule)
 # --------------------------------------------------------------------------
-def pace_series(ages, t_max: int, p: Params, Ra: Trajectory) -> np.ndarray:
-    """Model 'observed' pace v(t) = mean over ages of -d ln hazard / dt / beta, t = 0 .. t_max - 1."""
+def traj_access(Ra: Trajectory, a: float) -> Trajectory:
+    """Population-level cumulative progress when a fraction ``a`` of the population receives the
+    individual progress ``Ra``: hazard factor 1 - a(1 - exp(-R)), i.e. R_pop = -ln(1 - a(1 - e^{-R}))."""
+    return lambda t: -np.log(1.0 - a * (1.0 - np.exp(-Ra(t))))
+
+
+def pace_by_age(ages, t_max: int, p: Params, Ra: Trajectory) -> np.ndarray:
+    """Model 'observed' pace v(t) = -d ln hazard / dt / beta for each age (rows), t = 0 .. t_max - 1."""
     t = np.arange(0, t_max + 1, dtype=float)
     lnh = np.array([np.log(hazard(x, t, p, Ra)) for x in ages])  # ages x times
-    return (-(lnh[:, 1:] - lnh[:, :-1]) / p.beta).mean(axis=0)
+    return -(lnh[:, 1:] - lnh[:, :-1]) / p.beta
 
 
-def classify_outcome(p: Params, Ra: Trajectory, W: int = 20, v_hi: float = 0.30,
+def classify_outcome(p: Params, Ra: Trajectory, v_hi: float, W: int = 20,
                      ages=(50, 60, 70, 80, 90), start_year: int = 2026, cutoff_year: int = 2100,
-                     early_cutoff: int = 2060, ds: float = 0.25) -> dict:
-    """Classify a trajectory into O1-O4 by the ordered first-match rule.
+                     early_cutoff: int = 2060, ds: float = 0.25, access: float = 1.0) -> dict:
+    """Classify a trajectory into O1-O4 by the ordered first-match rule (plan section 9).
 
     O3: a LEV window (>= W consecutive years of D-N at every age in the band) has onset by ``early_cutoff``.
     O4: the first window has onset in (early_cutoff, cutoff_year]; it may extend past the cutoff.
-    O2: no window has onset by the cutoff, but some W-year window has average pace above ``v_hi``.
-    O1: otherwise. ``v_hi`` must be fixed from evidence before any use (plan section 9).
+    O2: no window has onset by the cutoff, but D-N holds in at least one year, or in some W-year window the
+        average pace of some age group exceeds ``v_hi``.
+    O1: otherwise.
+
+    Windows (and pace windows) count if they start no later than ``cutoff_year`` and may run up to W - 1 years
+    beyond it. ``v_hi`` has no default: it must be fixed from evidence and logged before use. ``access`` < 1
+    applies the population-level progress R_pop = -ln(1 - a(1 - e^{-R})).
     """
+    Rp = traj_access(Ra, access) if access < 1.0 else Ra
     horizon = (cutoff_year - start_year) + W
-    ok = dn_ok_series(dn_margin(list(ages), horizon, p, Ra, ds))
+    ok = dn_ok_series(dn_margin(list(ages), horizon, p, Rp, ds))
     onset = None
     for i in range(0, cutoff_year - start_year + 1):
         if ok[i:i + W].size == W and ok[i:i + W].all():
             onset = start_year + i
             break
-    pace = pace_series(list(ages), horizon, p, Ra)
-    roll = np.convolve(pace, np.ones(W) / W, mode="valid")
+    pace = pace_by_age(list(ages), horizon, p, Rp)                      # ages x years
+    kernel = np.ones(W) / W
+    roll = np.array([np.convolve(row, kernel, mode="valid") for row in pace])  # windows start at 0..horizon-W
     above = bool(roll.max() > v_hi)
     if onset is not None:
         outcome = "O3" if onset <= early_cutoff else "O4"
     else:
-        outcome = "O2" if above else "O1"
+        outcome = "O2" if (bool(ok.any()) or above) else "O1"
     return {"outcome": outcome, "onset_year": onset, "max_rolling_pace": float(roll.max()),
-            "longest_dn_run": longest_run(ok)[0]}
+            "longest_dn_run": longest_run(ok)[0], "dn_any_year": bool(ok.any())}
 
 
 # --------------------------------------------------------------------------

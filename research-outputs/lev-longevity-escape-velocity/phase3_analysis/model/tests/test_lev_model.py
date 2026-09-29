@@ -181,3 +181,36 @@ def test_classification_ordered_first_match_rule():
     # a large unimproved share ends the D-N episode before a full window: O2, not O3/O4
     short = m.classify_outcome(P.with_(rho=0.2, r_r=0.0), m.traj_constant(1.5 * b), v_hi=0.30)
     assert short["outcome"] == "O2" and 0 < short["longest_dn_run"] < 20
+
+
+def test_classification_short_burst_is_o2_and_v_hi_is_required():
+    b = P.beta
+    # a brief burst above the threshold (two years at v = 1.3), otherwise the historical pace
+    def R_burst(t):
+        t = np.asarray(t, float)
+        return 0.015 * t + (1.3 * b - 0.015) * np.clip(t - 10.0, 0.0, 2.0)
+    out = m.classify_outcome(P, R_burst, v_hi=0.30)
+    assert out["outcome"] == "O2" and out["dn_any_year"]
+    with pytest.raises(TypeError):
+        m.classify_outcome(P, m.traj_constant(0.015))  # v_hi has no default
+
+
+def test_classification_uses_per_age_group_pace():
+    # frailty makes the old-age pace lower and the middle-age pace higher; the rule must look at the maximum
+    p = P.with_(sigma2=0.4)
+    R = m.traj_constant(0.35 * p.beta)
+    pace = m.pace_by_age([50, 60, 70, 80, 90], 30, p, R)
+    v_mid = float(pace[:, :20].mean(axis=1).mean())
+    v_max = float(pace[:, :20].mean(axis=1).max())
+    assert v_max > v_mid
+    v_hi = 0.5 * (v_mid + v_max)  # between mean and max: max-over-ages rule must fire, mean rule would not
+    assert m.classify_outcome(p, R, v_hi=v_hi)["outcome"] == "O2"
+
+
+def test_access_reduces_population_progress():
+    R = m.traj_constant(0.5)
+    Rp = m.traj_access(R, 0.4)
+    assert Rp(10.0) < R(10.0)
+    assert m.traj_access(R, 1.0)(10.0) == pytest.approx(R(10.0))
+    k = np.exp(-R(10.0))
+    assert np.exp(-Rp(10.0)) == pytest.approx(1 - 0.4 * (1 - k))

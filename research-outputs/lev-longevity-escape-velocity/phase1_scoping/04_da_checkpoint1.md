@@ -7,7 +7,7 @@
 | Reviewer | Fresh-context subagent of the same model family, role `devils_advocate_agent` (`deep-research/agents/devils_advocate_agent.md`). Same-family review is a stated limitation; it was given the two documents but not the drafting agent's reasoning. |
 | Round 1 | Verdict **REVISE**: 0 critical, 6 major, 3 minor issues |
 | Round 2 | Verdict **REVISE (narrow, one pass)**: 0 critical, 3 new major (N1-N3), formula errors in P3 and P6, several minor items. Report and dispositions at the end of this file |
-| Round 3 | Spot check of the diffs: pending |
+| Round 3 | **PASS**: no critical or major issues; minor items and conditions carried forward, applied below |
 
 The DA text is reproduced verbatim (it is subagent output, not a user statement). Its snippet-level facts are the DA's own search results and are **not** verified findings; they are leads for Phase 2.
 
@@ -180,7 +180,7 @@ N3(iii): the F1–F5 band is optional, so the conjunction tilt may never bite. A
 | N3 (i) | **Accepted** | Heuer convention: outcomes ordered by weighted inconsistency only; numeric weights (3/2/1); expectations by 2030 written for every outcome before rating; expectation coverage reported beside each score. | `03` §9 |
 | N3 (ii) | **Accepted** | RC6 added (step-changes in cause-specific mortality) as the pro-acceleration class; classes paired (RC1 with RC2; RC3 and RC4 with RC6; RC5 general). The running W6 agent was told to collect RC6. | `03` §10, `00` |
 | N3 (iii) | **Accepted** | The conjunction is reported as an interval from the independence product to the perfect-dependence bound (Fréchet bounds noted); routes combine as a disjunction; factors renamed K1-K5 to avoid clashing with figure levels F1-F3. | `03` §9 |
-| P3 | **Accepted** (already corrected in commit e7ca103 after my own numerical check, before the DA's read; the DA's derivation confirms it) | D-N and D-H need v ≥ 1 exactly with an additive, non-improving floor. | `03` §3, §13 |
+| P3 | **Accepted** (corrected in commit e7ca103 after my own numerical check; the Round 2 reviewer had read the earlier version and found the same error independently) | D-N and D-H need v ≥ 1 exactly with an additive, non-improving floor. | `03` §3, §13 |
 | P4, P6, population formula, log-rate | **Accepted** | P4 needs r_a > β; P6 is 1/h* (total hazard); population hazard factor 1 − a(1 − k); r stated as a log-rate with 1 − e^{−r} as the annual proportional decline. | `03` §1-§3 |
 | D-N vs D-1 wording | **Accepted** | D-N needs v ≥ 1 at every age; only the life-expectancy gain (1 − μe) falls with age; D-1 needs v ≥ 1/(1 − μe) (about 1.1, 1.4, 2.0, 2.9 at 50, 65, 80, 90). | `01`, `03` §2 |
 | Frontier ranking | **Accepted** | Rank by life expectancy at 65, averaged 2015-2019; sensitivity N = 5 and 15 and an at-birth ranking; W1 was told. | `01` |
@@ -189,4 +189,4 @@ N3(iii): the F1–F5 band is optional, so the conjunction tilt may never bite. A
 
 ## Round 3 (spot check of the diffs)
 
-(pending)
+Verdict **PASS**. The full text is in `05_da_round3.md`. Its minor items were applied in the plan's deviations log (entry dated after Round 3), the blueprint's ladder (document-type definition of primary, principals share origin, same-figure attribution, FG1-FG5 forecast grades), the protocol, and the model code (`v_hi` required, per-age-group pace, any-year D-N in O2, access argument).
