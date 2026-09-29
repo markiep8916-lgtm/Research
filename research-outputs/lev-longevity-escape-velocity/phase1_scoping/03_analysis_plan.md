@@ -28,7 +28,7 @@ Parameters common to all: age band **B** (default 50-90; sensitivity 30-90 and 6
 | **D-H** (hazard-stationarity) | For paths starting at x0 in B: dh/dτ ≤ 0, i.e. ∂μ/∂x + ∂μ/∂t ≤ 0 over the window. |
 | **Acceleration without LEV** | Sustained r above the recent historical pace but D-N not met. |
 
-Population versions use population-average hazards (with frailty selection); individual versions use an individual's hazard and carry an access fraction a (population-level progress = a × individual-level progress, in the simple case). Life expectancy at birth is reported only as context.
+Population versions use population-average hazards (with frailty selection); individual versions use an individual's hazard and carry an access fraction a (population-level proportional decline ≈ a × individual-level decline, to first order). Life expectancy at birth is reported only as context.
 
 ## 3. Analytic predictions to be verified numerically
 
@@ -36,7 +36,7 @@ Under M0 with constant r and c = 0:
 
 - **P1.** e(x,t) = G(x − v·t), where G(y) is the frozen-2026 period remaining life expectancy at age y, so ∂e/∂t = v(1 − μe). Hence **D-N ⟺ v ≥ 1 ⟺ D-H ⟺ r ≥ β**, and **D-1 ⟺ v ≥ 1/(1 − μe)** (stricter than D-N above young ages, because μe > 0 there).
 - **P2.** The required annual proportional decline in death rates is 1 − e^{−β}: about 6.7% to 9.4% per year for MRDT of 10 to 7 years (β = 0.069 to 0.099). Compared with the observed pace (to be measured in Phase 3 from Phase 2 inputs).
-- **P3.** With c > 0, D-N needs slightly less than v = 1 at ages where c matters; numerics decide.
+- **P3.** An extrinsic floor c that neither ages nor improves leaves the D-N threshold unchanged (at r = β the path hazard is constant, so e(x+1, t+1) = e(x, t) exactly) and caps remaining life at about 1/c however far the age-related part is reduced. (Corrected before Phase 2; see §13.)
 - **P4.** With a resistant component that improves at rate r_r < β, D-H fails asymptotically but can hold over a finite window; the **escape duration** (longest window in which D-N holds) is reported as a function of resistant share and r_r. It is *not* treated as a yes/no feasibility switch.
 - **P5.** At ages where the hazard is constant (a mortality plateau), D-N holds with no progress at all (e no longer shrinks with age). Band B therefore stops below plateau ages, and plateau variants are flagged.
 - **P6.** At D-H onset the hazard freezes at its onset value h*: expected remaining life is about 1/(h* + c) unless mortality keeps falling. The race table reports it by age at onset.
@@ -135,4 +135,6 @@ The classes are used as priors on delay and attrition, never as point forecasts.
 
 ## 13. Deviations log
 
-(none at freeze)
+| Date | Change | Reason | Affects a headline result? |
+|---|---|---|---|
+| 2026-09-29, before any Phase 2 search | P3 corrected: an extrinsic floor c does not lower the D-N threshold (v ≥ 1 still); it only caps remaining life at about 1/c. Access-fraction wording tightened. | A scratch numerical check of P1-P3 (Gompertz, β = 0.09, μ(80) = 0.05, c = 0.0004) gave e(x+1, t+1) − e(x, t) = 0.0000 at v = 1 for x = 50, 65, 80, contradicting P3 as first written. The same check reproduced 1 − μe = 0.95, 0.88, 0.74, 0.52, 0.34 at ages 30, 50, 65, 80, 90, D-1 requirements of v ≥ 1.13, 1.34, 1.94 at ages 50, 65, 80, and required declines of 6.7% to 9.4% per year for MRDT 10 to 7 years. The scratch script is not committed; Phase 3 reproduces these checks as committed unit tests. | No (no result existed yet) |
