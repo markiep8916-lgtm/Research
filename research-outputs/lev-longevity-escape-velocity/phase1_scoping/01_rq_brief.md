@@ -7,7 +7,7 @@
 | Version | v2.1, revised after Devil's Advocate Checkpoint 1 (Round 1 REVISE, six major issues; Round 2 REVISE, narrow; see `04_da_checkpoint1.md`) |
 | Status | Round 2 fixes applied; DA spot check of the diffs pending. User scope confirmation: "no preference" on all questions, then "keep going" (proceed with the recommended defaults: web-search-only sourcing, report for both species-level and individual readers) |
 | Requested by | User request: "deep research on LEV and when/how we might obtain it" |
-| AI disclosure | Produced with AI-assisted research tools (Claude). The scoping below uses background knowledge plus a few orientation searches; nothing here is a finding. Findings begin in Phase 2. |
+| AI disclosure | Produced with AI-assisted research tools (AI agents of one model family). The scoping below uses background knowledge plus a few orientation searches; nothing here is a finding. Findings begin in Phase 2. |
 
 ## Topic Area
 
