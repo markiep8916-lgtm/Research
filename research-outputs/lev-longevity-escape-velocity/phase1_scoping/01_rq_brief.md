@@ -4,86 +4,100 @@
 |---|---|
 | Run | `deep-research` v2.12.1, `full` mode, Phase 1 (Scoping) |
 | Date | 2026-09-29 |
-| Status | DRAFT v1 for Devil's Advocate Checkpoint 1 and user confirmation |
+| Version | v2, revised after Devil's Advocate Checkpoint 1 (verdict REVISE, six major issues; see `04_da_checkpoint1.md`) |
+| Status | Awaiting DA re-check and user confirmation |
 | Requested by | User request: "deep research on LEV and when/how we might obtain it" |
 | AI disclosure | Produced with AI-assisted research tools (Claude). The scoping below uses background knowledge plus a few orientation searches; nothing here is a finding. Findings begin in Phase 2. |
 
 ## Topic Area
 
-Longevity escape velocity (LEV): the hypothesised state in which medical progress adds more than one year to remaining life expectancy for every calendar year that passes. The request asks *when* and *how* it might be obtained. "We" is assumed to mean humanity, with implications for people alive today (to be confirmed by the user; see the confirmation gate).
+Longevity escape velocity (LEV): the hypothesised state in which medical progress extends life expectancy faster than time passes, so that people alive stop running out of expected life. The request asks *when* and *how* it might be obtained. "We" is assumed to mean humanity, with implications for people alive today (to be confirmed by the user).
 
 ## Primary Research Question
 
-> What does the best available demographic, biomedical, and institutional evidence imply about the feasibility, timing, and pathways of achieving longevity escape velocity in human populations?
+> Under what conditions, and by what dates if any, does the evidence support the arrival of longevity escape velocity, as formally defined, in human populations?
 
-The original wording ("when/how we might obtain it") is compound and presupposes attainability. It is decomposed as follows: *timing and feasibility* (the "when", and whether) and *pathways* (the "how"). Keeping "feasibility" inside the question keeps the sceptical hypothesis open (Devil's Advocate issue M1).
+Design notes on the wording:
+- **"by what dates if any"** keeps "not before 2100" a live answer. The request's original wording ("how we might obtain it") presupposed attainability.
+- **"Under what conditions"** carries the request's "how": the necessary conditions and pathways are reported as conditions, not as a route that is assumed to exist.
+- **"the evidence support"** bounds the claim. The report gives scenario-conditional statements, not a forecast date.
+- **"as formally defined"** refers to the frozen definitions below and in `03_analysis_plan.md`.
 
-## Working definitions (kept distinct throughout the report)
+## Working definitions (frozen; formal statement and mathematics in `03_analysis_plan.md`)
 
-The literature uses "LEV" for several different things. The report will not let them blur into each other (motte-and-bailey risk, DA issue M3).
+The literature uses "LEV" for several different things, and the popular one-line version and the mathematically clean version are not the same quantity. The report keeps them apart.
 
 | Label | Meaning | Note |
 |---|---|---|
-| **LEV-strict** | Sustained state in which expected remaining lifespan of people alive rises by at least 1 year per calendar year (Aubrey de Grey's formulation, 2004 onward). | Requires a formal operationalisation (period vs. cohort life expectancy; age band; duration). Phase 3 derives it. |
-| **LEV-hazard** | Sustained state in which the age-specific death risk faced by a given individual stops rising as they age. | Cleaner, stricter mathematical criterion; Phase 3 tests how it relates to LEV-strict. |
-| **Best-practice trend** | Record life expectancy rising at the historical pace (about 0.25 years per year in the best-practice country, per Oeppen and Vaupel, 2002; to be re-verified). | The empirical baseline LEV must be compared against. |
-| **Acceleration without LEV** | Faster-than-historical gains that stay below 1 year per year. | A plausible intermediate outcome that the report must not label "LEV". |
-| **Individual vs. population** | An individual's expectation not shrinking, vs. a country's life expectancy rising. | Individual LEV also requires access. |
+| **D-N** (primary) | *No-shrink LEV.* Over a window of at least W years (default 20), for ages in a band B (default 50-90), the period remaining life expectancy of a person one year older, one year later, is at least what it was: e(x+1, t+1) ≥ e(x, t). | Equivalent to gains of at least 1 − μe per year, where μ is the death rate and e the remaining life expectancy. Because μe is not zero above young ages, this needs less than one full year per year at older ages (about 0.75 at 65 and about 0.5 at 80 under typical parameters; to be computed). |
+| **D-1** (popular) | *One-for-one LEV.* Remaining life expectancy at a fixed age rises by at least 1 year per calendar year. | The headline formulation. Stricter than D-N above young ages. |
+| **D-H** | *Hazard-stationarity.* The death rate an individual faces stops rising as they age and calendar time advances. | Under proportional-decline Gompertz mortality, D-N and D-H coincide; they can diverge under heterogeneity or uneven declines (Phase 3 tests this). Also met without any progress at ages where mortality plateaus (contested above about 105), so band B stops below plateau ages. |
+| **Acceleration without LEV** | Sustained mortality decline faster than the recent historical pace but below the D-N threshold. | A plausible intermediate outcome; never labelled "LEV". |
+| **Individual vs. population** | An individual with access, vs. a population average (subject to frailty selection). | Individual LEV also requires access; the report carries an access fraction. |
 
-Explicitly not the same as: radical life extension to very old ages, "immortality", or maximum lifespan records.
+**Baseline measure.** Observed *age-specific hazard-decline rates* in the frontier set (defined below), converted to "age-years gained per calendar year" (v = r/β, where r is the annual proportional decline in death rates and β the Gompertz slope). Life expectancy at birth is context only: the often-quoted best-practice trend of about 0.24 years per year (Oeppen and Vaupel, 2002, female life expectancy at birth; to be re-verified) mixes infant, adult, and old-age components and is not comparable with an age-band criterion. Which "historical pace" is meant is stated wherever it is used (the record-trend, the Vaupel et al. 2021 view that gains have been steady, and the Olshansky et al. 2024 and Andrade et al. 2025 findings of deceleration are all treated as competing readings).
+
+**Terminology.** The 2004 formulation ("escape velocity") is de Grey's; an earlier related term, "actuarial escape velocity", is credited to others (to be verified in Phase 2). "The concept dates from 2004" is not asserted.
+
+**Escape is not survival.** At LEV onset under D-H the hazard stops rising but does not fall: expected remaining life after onset is roughly 1 divided by the hazard at onset (about 20 years for a person of 80 at onset, far more for a person of 60), unless mortality continues to fall. The report gives expected remaining life by age at onset, not "immortality".
+
+Explicitly not the same as: radical life extension to very old ages, "immortality", or maximum-lifespan records.
 
 ## FINER Assessment
 
+Rubric (written before scoring, so scores are auditable): 1 = the criterion is not met; 3 = partly met; 5 = clearly met. Feasible: 3 = key inputs indirect. Novel: 1 = duplicates existing work, 3 = new synthesis or frame of existing evidence, 5 = new data or method. Ethical: risk *after* the mitigations designed into the run (a standalone question that carried unmitigated risk scores lower, as candidate 6 shows).
+
 | Criterion | Score | Justification |
 |-----------|-------|---------------|
-| Feasible | 3/5 | Threshold arithmetic, evidence grading, and bottleneck analysis are feasible with public data. "When" is a forecast under deep uncertainty (no reference class, no human RCT evidence for large-effect ageing interventions). Primary-source access is limited in this environment (network policy), so verification is search-mediated. |
+| Feasible | 3/5 | Threshold arithmetic, evidence grading, and bottleneck analysis are feasible with public data. "By what dates" is scenario-conditional, not predictable. Primary-source access is blocked by the network policy, so verification is search-mediated and life-table inputs may be literature-derived. |
 | Interesting | 5/5 | Sharp disagreement between advocates and demographers; very large stakes. |
-| Novel | 3/5 | The concept dates from 2004. New elements: threshold arithmetic tied to observed rates, 2024-2026 developments (Olshansky et al. 2024; first reprogramming trial in humans; LEV Foundation mouse results), and an explicit forecast-weighting scheme. Not a new discovery. |
-| Ethical | 4/5 | No human subjects. Risks are hype, false hope, and medical misinformation; mitigated by claim labelling and a non-prescriptive stance. |
+| Novel | 3/5 | A new synthesis frame (hazard-based baseline, pre-specified reference classes, outcome-partition weighting) and a 2024-2026 evidence update. No new data; the threshold arithmetic itself is standard. |
+| Ethical | 4/5 | No human subjects. Residual risks (hype, false hope, medical misinformation) are mitigated by epistemic labels, a non-prescriptive individual-level section, and no dosing or product content. |
 | Relevant | 5/5 | Informs research funding, regulation, and personal planning. |
-| **Average** | **4.0/5** | Meets threshold (average at least 3.0; no criterion below 2). |
+| **Average** | **4.0/5** | Meets threshold (average at least 3.0; no criterion below 2). Single-rater; the DA re-check may challenge scores. |
 
 ## Scope Boundaries
 
 **In scope**
-- **Population:** humans. Demographic evidence from the longest-lived and best-documented countries (Japan, France, Italy, Spain, Sweden, Switzerland, South Korea, Australia, Hong Kong, United States) plus global UN projections. Animal evidence only as a translational input.
-- **Timeframe:** life-expectancy series 1850-2025; interventions and clinical evidence 2000 to 2026-09-29 (seminal earlier work allowed); forecasts through 2100, with emphasis on 2026-2060.
-- **Interventions:** biomedical approaches that target ageing biology or that drive sustained all-cause mortality reduction at older ages: geroscience drugs, senolytics, reprogramming, gene and cell therapy, tissue and organ replacement, immunotherapy, AI-enabled discovery, and cause-specific progress as a component.
-- **Enabling conditions:** biomarkers and surrogate endpoints, regulation, funding and capital, translational base rates, access and equity.
-- **Individual-level implications:** evidence-graded and non-prescriptive.
+- **Population.** Humans. The *frontier set is defined by a rule, not copied from any one paper*: the ten countries or territories with the highest period life expectancy at birth in 2019 among populations above 1 million (UN World Population Prospects 2024, or the Human Mortality Database where retrievable), with the United States added as a labelled large-population, non-frontier reference. Results are reported for the frontier set, its best-practice trend, and the US separately. Findings are stated as applying to high-income frontier populations only. Animal evidence is a translational input only.
+- **Timeframe.** Life-expectancy and mortality series 1850-2025 (hazard-decline baselines from about 1990 to 2019, pre-COVID); interventions and clinical evidence 2000 to 2026-09-29 (seminal earlier work allowed); scenario horizon to 2100, emphasis on 2026-2060.
+- **Interventions.** (a) *Demonstrated human hazard reductions*: risk-factor and cardiometabolic control, vaccines, screening, and drugs with mortality outcomes. This is the calibration anchor for what has actually been achieved. (b) Ageing-biology approaches: geroscience drugs, senolytics, partial reprogramming, gene and cell therapy, tissue and organ replacement and regeneration, immunotherapy, AI-enabled discovery. (c) Cause-specific progress as a component of both.
+- **Enabling conditions.** Biomarkers and surrogate endpoints, regulation, funding and capital, translational base rates, public attitudes and demand, access and equity.
+- **Individual-level implications.** Evidence-graded and non-prescriptive; derived from (a).
 
 **Out of scope**
 - Mind uploading, digital immortality, and speculative nanotechnology (mentioned only as speculative; no evidence grading).
 - Cryonics and biostasis as a route (a labelled contingency only; no demonstrated revival).
-- Whether life extension is *desirable* (ethical constraints are noted, not adjudicated).
+- Whether life extension is *desirable* (ethical constraints and public attitudes are noted as bottlenecks, not adjudicated).
 - Dosing, product or supplement recommendations, investment advice, company valuations.
 - Original data collection, surveys, or interviews (no human subjects).
 
 **Key assumptions**
-1. LEV is used in the senses defined above; each claim states which sense it uses.
-2. No catastrophe scenarios are modelled. Extrinsic mortality (accidents, violence, infection) is treated as a floor.
+1. LEV is used only in the frozen senses above; each claim states which sense it uses.
+2. No catastrophe scenarios are modelled. Extrinsic mortality (accidents, violence, infection) is a floor.
 3. Forecasts are treated as evidence with a track record and incentives, not as findings.
-4. The knowledge frontier is 2026-09-29 as reachable through web search; later results are not included.
-5. Scholarly-database hosts are blocked by this environment's network policy, so verification is search-mediated and labelled (see Methodology Blueprint, verification ladder).
+4. The knowledge frontier is 2026-09-29 as reachable through web search.
+5. Scholarly-database hosts are blocked by this environment's network policy: verification is search-mediated and labelled (verification ladder in the Methodology Blueprint), and model inputs that cannot be corroborated are treated as ranged free parameters.
 
-## Sub-questions
+## Sub-questions (one inference chain: requirement, gap, closure)
 
-1. **SQ1, threshold and baseline.** What sustained rate of decline in age-specific mortality would each formalisation of LEV require, and how does that compare with observed historical rates and with proposed demographic limits?
-2. **SQ2, pathways and evidence.** Which biomedical pathways could plausibly produce mortality declines of that size, and how strong, how replicated, and how far from human use is the evidence for each (human vs. animal, effect size, stage)?
-3. **SQ3, timing, bottlenecks, and levers.** What do published forecasts, translational base rates, and institutional constraints imply about when (if ever) LEV becomes attainable and for whom, and which levers (funding, regulation, measurement, individual actions) most change the odds?
+1. **SQ1, requirement.** What sustained decline in age-specific mortality does each formalisation of LEV require, over stated ages and windows?
+2. **SQ2, gap.** How does that requirement compare with observed declines and with the largest hazard reductions any intervention has demonstrated (in humans; in animals as translational input only), expressed as age-equivalent years and as a rate, and how do hazard reductions compose when combined? A finding of "no pathway demonstrates effects of that kind" is an admissible outcome.
+3. **SQ3, closure.** Under what conditions could the gap close, which arrival dates (including "not before 2100") do the conditions and the evidence support, and which bottlenecks and levers (biomarkers, regulation, capital, translation, brain and neurodegeneration, public demand, access and equity) most change those conditions?
 
 ### Sub-Question Bindings (#547)
 
-1. inherits: population=humans (longest-lived countries + global); timeframe=1850-2025 observed, projections to 2100; domain=demography and biodemography; deviations: none.
-2. inherits: population=humans (animal evidence as translational input only); timeframe=2000 to 2026-09-29; domain=geroscience and clinical translation; deviations: none.
-3. inherits: population=humans (global, emphasis on high-income countries); timeframe=forecasts to 2100; domain=forecasting, regulatory science, health economics; deviations: none.
+1. inherits: population=frontier set by rule + US reference; timeframe=1850-2025 observed, hazard baselines about 1990-2019; domain=demography and biodemography; deviations: none.
+2. inherits: population=humans (animal evidence as translational input only); timeframe=2000 to 2026-09-29; domain=demography, clinical evidence, geroscience; deviations: none.
+3. inherits: population=humans (global evidence, findings scoped to high-income frontier populations); timeframe=scenario horizon to 2100; domain=forecasting, regulatory science, health economics, bioethics; deviations: none.
 
 ## Candidate Questions Considered
 
 | # | Candidate | FINER Avg | Why not selected |
 |---|-----------|-----------|-----------------|
-| 1 | What does the best available evidence imply about the feasibility, timing, and pathways of LEV in human populations? | 4.0 | **Selected** |
-| 2 | In what year will LEV be reached? | 3.2 | Feasible = 1 (below the per-criterion floor). No single-year answer exists under deep uncertainty; would invite false precision. |
-| 3 | Which single intervention is most likely to deliver LEV? | 3.2 | Presupposes a single-intervention route; framing bias. The threshold arithmetic points to combinations, and picking winners invites cherry-picking. |
-| 4 | Is LEV physically possible in principle? | 3.0 | Not answerable with current evidence and less decision-relevant than feasibility-and-timing under stated assumptions. |
-| 5 | What should an individual do to reach LEV? | 3.0 | Ethical = 2 (medical-advice risk). Folded into SQ3 as a bounded, non-prescriptive section. |
+| 1 | Under what conditions, and by what dates if any, does the evidence support the arrival of LEV as formally defined? | 4.0 | **Selected** |
+| 2 | What sustained decline in age-specific mortality does each LEV formalisation require; how does it compare with observed declines and the largest hazard reductions any intervention has shown; and what arrival dates, including "not this century", does that support? (proposed by the DA) | 4.2 | Not selected as the *primary* question only because the skill requires a single non-compound sentence. Its three clauses are adopted verbatim as SQ1-SQ3, the inference chain of the run. |
+| 3 | In what year will LEV be reached? | 3.2 | Feasible = 1 (below the per-criterion floor); invites false precision. |
+| 4 | Which single intervention is most likely to deliver LEV? | 3.2 | Presupposes a single route; the threshold arithmetic points to combinations. |
+| 5 | Is LEV physically possible in principle? | 3.0 | Subsumed: "under what conditions, and by what dates if any" contains it, in a form that can be answered with evidence. |
+| 6 | What should an individual do to reach LEV? | 3.0 | Ethical = 2 as a standalone question (medical-advice risk, unmitigated). Retained only as a bounded, non-prescriptive implication of SQ2's demonstrated-hazard-reduction evidence. |
