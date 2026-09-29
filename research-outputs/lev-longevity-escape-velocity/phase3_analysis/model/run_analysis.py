@@ -224,7 +224,7 @@ def figure_f1(out, p):
         R = m.traj_constant(v * p.beta)
         ax.plot(t, [m.e_period(65, float(tt), p, R) for tt in t], label=f"v = {v} age-years per year")
     ax.set_xlabel("calendar years from 2026")
-    ax.set_ylabel("period remaining life expectancy at a fixed age of 65 (years)")
+    ax.set_ylabel("remaining life expectancy at 65 (years)")
     ax.legend(fontsize=7)
     ax.set_title("Life expectancy at 65 under proportional progress v = r/beta", fontsize=9)
     fig.text(0.01, 0.01, STAMP[0], fontsize=6, color="gray")

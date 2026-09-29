@@ -72,7 +72,7 @@
    "t_start": 0.12808897876643074
   }
  },
- "git_commit": "5e7fe640088efe1755bf1ba8840ba35b3388ad10",
- "runtime_seconds": 9.4,
+ "git_commit": "7c282964e75818155bfb00b1a96e0ed95a40c8cc",
+ "runtime_seconds": 9.8,
  "numpy": "2.4.6"
 }
