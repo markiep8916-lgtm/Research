@@ -315,4 +315,15 @@ def test_stepwise_progress_meets_annual_dn_only_in_step_years():
     ok20 = m.dn_ok_series(m.dn_margin(ages, 40, P, m.smooth_traj(m.traj_steps(20.0, 20.0, P.beta), 5), ds=0.25))
     assert m.longest_run(ok20)[0] <= 6
     ok5 = m.dn_ok_series(m.dn_margin(ages, 40, P, m.smooth_traj(m.traj_steps(5.0, 5.0, P.beta), 5), ds=0.25))
-    assert ok5.all()
+    assert ok5[2:].all()          # the first two years still lack a step inside the five-year window
+    assert not ok5[0] and not ok5[1]
+
+
+def test_step_trajectory_has_no_step_before_time_zero():
+    # Regression: evaluated at negative times (as the five-year smoothing does), a bare floor(t / every) puts a
+    # spurious step at t = 0 and inflated the smoothed shares in T3c (25% instead of 22% for 20-year steps).
+    R = m.traj_steps(20.0, 20.0, P.beta, r_base=0.0)
+    assert R(-3.0) == 0.0 and R(0.0) == 0.0 and R(19.99) == 0.0
+    assert R(20.0) == pytest.approx(P.beta * 20.0)
+    ok = m.dn_ok_series(m.dn_margin([50, 70, 90], 40, P, m.smooth_traj(R, 5), ds=0.25))
+    assert not ok[0] and not ok[1]

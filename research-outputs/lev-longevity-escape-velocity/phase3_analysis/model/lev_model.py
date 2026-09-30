@@ -77,7 +77,9 @@ def traj_steps(g_age_years: float, every: float, beta: float, r_base: float = 0.
 
     def R(t):
         t = np.asarray(t, float)
-        return r_base * t + beta * g_age_years * np.floor(t / every)
+        # no step before t = 0: a step function evaluated at negative times (as smoothing does) would otherwise
+        # put a spurious step at t = 0
+        return r_base * t + beta * g_age_years * np.floor(np.maximum(t, 0.0) / every)
 
     return R
 
