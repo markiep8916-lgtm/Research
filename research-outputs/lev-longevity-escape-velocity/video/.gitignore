@@ -1,0 +1,7 @@
+# build products
+frames/
+logs/
+sheets/
+tts/
+narration_16k.wav
+__pycache__/

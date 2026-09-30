@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "title": "Longevity Escape Velocity",
+    "fps": 30,
+    "lead_in": 0.9,
+    "gap": 0.5,
+    "tail": 1.3
+  },
+  "scenes": [
+    {
+      "id": "title",
+      "tag": "",
+      "min_dur": 9.0,
+      "segments": [
+        {
+          "caption": "Longevity escape velocity, or LEV, is the state in which medicine extends a person’s remaining life expectancy at least as fast as they age.",
+          "speech": "Longevity escape velocity, or L E V, is the state in which medicine extends a person's remaining life expectancy at least as fast as they age."
+        },
+        {
+          "caption": "Here is what that would take, according to a preliminary evidence review.",
+          "speech": "Here is what that would take, according to a preliminary evidence review."
+        }
+      ]
+    },
+    {
+      "id": "idea",
+      "tag": "1 · The idea",
+      "min_dur": 30.0,
+      "segments": [
+        {
+          "caption": "As you age, your remaining life expectancy normally shrinks. In the model, a 70-year-old has about 15.6 years left; a year later, about 15.1.",
+          "speech": "As you age, your remaining life expectancy normally shrinks. In the model, a seventy year old has about fifteen point six years left. A year later, about fifteen point one."
+        },
+        {
+          "caption": "On the report’s main definition, escape velocity means progress is fast enough that this stops: one year older, one year later, with at least as many expected years left.",
+          "speech": "On the report's main definition, escape velocity means progress is fast enough that this stops. One year older, one year later, you still have at least as many expected years left."
+        },
+        {
+          "caption": "That would not make anyone immortal. It only means the expected end stops getting closer.",
+          "speech": "That would not make anyone immortal. It only means the expected end stops getting closer."
+        }
+      ]
+    },
+    {
+      "id": "ageyears",
+      "tag": "2 · Age-years",
+      "min_dur": 38.0,
+      "segments": [
+        {
+          "caption": "Death rates climb steeply with age, roughly doubling every eight years. On a log scale, that is close to a straight line.",
+          "speech": "Death rates climb steeply with age, roughly doubling every eight years. On a log scale, that is close to a straight line."
+        },
+        {
+          "caption": "Shift that line three years to the right and death rates drop by about 23% at every age. That is three age-years of progress.",
+          "speech": "Shift that line three years to the right, and death rates drop by about twenty-three percent at every age. That is three age years of progress."
+        },
+        {
+          "caption": "On the report’s main definition, escape velocity needs one age-year of progress every calendar year: death rates falling about 8% a year (7–9%), at every age from 50 to 90.",
+          "speech": "On the report's main definition, escape velocity needs one age year of progress every calendar year. That means death rates falling by about eight percent a year, somewhere between seven and nine, at every age from fifty to ninety."
+        }
+      ]
+    },
+    {
+      "id": "gap",
+      "tag": "3 · The pace gap",
+      "min_dur": 34.0,
+      "segments": [
+        {
+          "caption": "Compare that with history. Since 1900, overall death rates are reported to have fallen about 1–2% a year.",
+          "speech": "Compare that with history. Since nineteen hundred, overall death rates are reported to have fallen by about one to two percent a year."
+        },
+        {
+          "caption": "On the report’s main definition, the required pace is four to eight times faster than the observed all-cause pace.",
+          "speech": "On the report's main definition, the required pace is four to eight times faster than the observed all cause pace."
+        },
+        {
+          "caption": "Other definitions ask for between about 4% and 17% a year, at ages 50 to 80. Whichever you choose, the pace has to rise several-fold.",
+          "speech": "Other definitions ask for between about four and seventeen percent a year, at ages fifty to eighty. Whichever you choose, the pace has to rise several-fold."
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "tag": "4 · Steps, not a rate",
+      "min_dur": 46.0,
+      "segments": [
+        {
+          "caption": "What has medicine actually delivered? The best-demonstrated effects on mortality come from blood pressure, cholesterol, and some diabetes and weight-loss drugs.",
+          "speech": "What has medicine actually delivered? The best demonstrated effects on mortality come from blood pressure, cholesterol, and some diabetes and weight loss drugs."
+        },
+        {
+          "caption": "Each is a one-off shift worth roughly one to five age-years, mostly in people who already have a disease. A step up, not a new rate.",
+          "speech": "Each is a one-off shift worth roughly one to five age years, mostly in people who already have a disease. A step up, not a new rate."
+        },
+        {
+          "caption": "To hold one age-year a year, a new step of that size would have to arrive every one to five years, and stack on the last. Nothing shows they do.",
+          "speech": "To hold one age year a year, a new step of that size would have to arrive every one to five years, and stack on the last. Nothing shows that they do."
+        },
+        {
+          "caption": "Even that is not enough. Mouse-scale steps of 20 age-years every 20 years pass the year-by-year test in only 5% of years, or 22% with smoothing.",
+          "speech": "Even that is not enough. Mouse scale steps of twenty age years, every twenty years, pass the year by year test in only five percent of years, or twenty-two percent with smoothing."
+        }
+      ]
+    },
+    {
+      "id": "mice",
+      "tag": "5 · The lab results",
+      "min_dur": 30.0,
+      "segments": [
+        {
+          "caption": "Lab results look more promising. In mice, the best regimens extend median lifespan by a quarter to a third, though often in one sex or against earlier cohorts.",
+          "speech": "Lab results look more promising. In mice, the best regimens extend median lifespan by a quarter to a third, though often in one sex, or against earlier cohorts."
+        },
+        {
+          "caption": "If gains like that carried over to people in full, which nothing shows, they would be worth up to about 27 age-years.",
+          "speech": "If gains like that carried over to people in full, which nothing shows, they would be worth up to about twenty-seven age years."
+        },
+        {
+          "caption": "That is an upper bound, not a finding. No intervention presented as targeting ageing has yet shown a human mortality benefit in the programmes reviewed.",
+          "speech": "That is an upper bound, not a finding. No intervention presented as targeting aging has yet shown a human mortality benefit in the programs reviewed."
+        }
+      ]
+    },
+    {
+      "id": "resist",
+      "tag": "6 · What resists",
+      "min_dur": 32.0,
+      "segments": [
+        {
+          "caption": "There is a catch. Suppose part of age-related risk resists every treatment.",
+          "speech": "There is a catch. Suppose part of age related risk resists every treatment."
+        },
+        {
+          "caption": "In the model, if 5% resists and never improves, a no-shrink escape lasts about 12 years. At 10%, about 2. At 20%, none within 60 years.",
+          "speech": "In the model, if five percent resists and never improves, a no-shrink escape lasts about twelve years. At ten percent, about two. At twenty percent, none within sixty years."
+        },
+        {
+          "caption": "The brain is the obvious candidate for stubborn risk. The report treats it as the hard case: a labelled judgment, not a finding.",
+          "speech": "The brain is the obvious candidate for stubborn risk. The report treats it as the hard case: a labeled judgment, not a finding."
+        }
+      ]
+    },
+    {
+      "id": "when",
+      "tag": "7 · When?",
+      "min_dur": 48.0,
+      "segments": [
+        {
+          "caption": "So when? The evidence cannot separate four outcomes: stagnation, acceleration that falls short of escape, escape starting by 2060, or a later start.",
+          "speech": "So when? The evidence cannot separate four outcomes: stagnation, acceleration that falls short of escape, escape starting by twenty sixty, or a later start."
+        },
+        {
+          "caption": "The model shows what each date demands. For a start around 2035, the pace must climb from 1.5% a year to about 8% within roughly nine years, then keep at least that pace.",
+          "speech": "The model shows what each date demands. For a start around twenty thirty-five, the pace must climb from one point five percent a year to about eight percent within roughly nine years, then keep at least that pace."
+        },
+        {
+          "caption": "Nothing in this capped search shows a route to that, so the author judges it unsupported. That is a labelled judgment, not a measurement.",
+          "speech": "Nothing in this capped search shows a route to that, so the author judges it unsupported. That is a labeled judgment, not a measurement."
+        },
+        {
+          "caption": "Later dates depend on steps not yet seen. Neither “by 2060” nor “not this century” is contradicted, and the report offers no probability.",
+          "speech": "Later dates depend on steps not yet seen. Neither by twenty sixty, nor not this century, is contradicted, and the report offers no probability."
+        }
+      ]
+    },
+    {
+      "id": "person",
+      "tag": "8 · One person",
+      "min_dur": 32.0,
+      "segments": [
+        {
+          "caption": "For one person, it is a race. Suppose escape began thirty years from now.",
+          "speech": "For one person, it is a race. Suppose escape began thirty years from now."
+        },
+        {
+          "caption": "Someone who is 40 today would have about an 84% chance of being alive for it. At 50, 67%. At 60, 39%. At 70, 11%.",
+          "speech": "Someone who is forty today would have about an eighty-four percent chance of being alive for it. At fifty, sixty-seven percent. At sixty, thirty-nine percent. At seventy, eleven percent."
+        },
+        {
+          "caption": "These depend on the assumed mortality level, and on an onset the evidence does not show. Age at onset matters a great deal. Separately, the best-supported levers today are ordinary prevention, not a route to escape velocity.",
+          "speech": "These depend on the assumed mortality level, and on an onset the evidence does not show. Age at onset matters a great deal. Separately, the best supported levers today are ordinary prevention, not a route to escape velocity."
+        }
+      ]
+    },
+    {
+      "id": "trust",
+      "tag": "9 · How sure are we?",
+      "min_dur": 41.0,
+      "segments": [
+        {
+          "caption": "How far should you trust this? Confidence is high in the arithmetic, low to moderate in the evidence, and low on dates. It is a preliminary review built from web-search summaries, not the original papers.",
+          "speech": "How far should you trust this? Confidence is high in the arithmetic, low to moderate in the evidence, and low on dates. It is a preliminary review built from web search summaries, not from the original papers."
+        },
+        {
+          "caption": "AI agents from a single model family did every step, and no human has checked a figure, a citation or a calculation.",
+          "speech": "A I agents from a single model family did every step, and no human has checked a figure, a citation or a calculation."
+        },
+        {
+          "caption": "What would change the conclusions: a human mortality result for a treatment that targets ageing itself, and better mortality data by age and decade.",
+          "speech": "What would change the conclusions: a human mortality result for a treatment that targets aging itself, and better mortality data by age and decade."
+        }
+      ]
+    }
+  ]
+}

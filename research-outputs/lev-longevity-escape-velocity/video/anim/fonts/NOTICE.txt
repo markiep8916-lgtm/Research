@@ -1,0 +1,4 @@
+Source Sans 3 and Source Serif 4, copyright Adobe (http://www.adobe.com/), with Reserved Font Name "Source".
+Licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+These .woff2 files are the unmodified files served by Google Fonts (fonts.google.com); each keeps the copyright and licence
+fields in its font name table.

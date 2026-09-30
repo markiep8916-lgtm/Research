@@ -4,6 +4,8 @@ A `deep-research` `full`-mode run (v2.12.1) on the question: **under what condit
 
 **Start here:** [`LEV_research_report.md`](LEV_research_report.md), the report. Its section 1 is a one-page answer.
 
+**Or watch:** a six-minute animated explainer of the report's arithmetic and evidence, [`video/`](video/README.md). It has the same preliminary, AI-produced status as the report.
+
 **Status: preliminary; draft v3, revised after two rounds of review.** Evidence collection stopped early when the session's shared web-search cap was reached, direct access to scholarly sites was blocked by the environment's network policy, every figure comes from a search summary (not primary text), some figures were present in the search queries themselves (marked with a dagger in the report), and the independent re-verification pass could not run. Every role, including the eight reviews (four of draft v1, then the same four reviewers verifying draft v2), was performed by AI agents of one model family, and no human has checked any figure, citation or calculation. The report says this at the top and in section 7, and lists what would strengthen it.
 
 ## Layout
@@ -16,6 +18,7 @@ A `deep-research` `full`-mode run (v2.12.1) on the question: **under what condit
 | `phase3_analysis/model/` | Python model (`lev_model.py`), 35 unit tests, driver (`run_analysis.py`), and `params.json` |
 | `phase3_analysis/outputs/` | Tables T1-T6b (including the cohort threshold T1c, composition T3b, race-table sensitivities T5b and T5c, stepwise cadence T3c, and onset-by-ramp T6b), figures F1-F5, Monte Carlo samples, run manifest |
 | `phase5_review/` | Editorial, ethics, devil's-advocate, and claims-audit reviews of report draft v1 (verbatim), each reviewer's verification of draft v2 (verbatim), and the author's disposition of every point |
+| `video/` | Animated explainer (5 min 56 s, captions burned in): a captions-only MP4, a version with a synthetic voice, an SRT file, the script, and the code that draws it from the model outputs |
 
 ## Reproduce the numbers
 

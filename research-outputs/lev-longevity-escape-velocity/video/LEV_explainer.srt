@@ -1,0 +1,232 @@
+1
+00:00:00,900 --> 00:00:03,086
+Longevity escape velocity, or LEV,
+
+2
+00:00:03,086 --> 00:00:09,837
+is the state in which medicine extends a person’s remaining life expectancy at least as fast as they age.
+
+3
+00:00:10,337 --> 00:00:14,705
+Here is what that would take, according to a preliminary evidence review.
+
+4
+00:00:16,900 --> 00:00:22,145
+As you age, your remaining life expectancy normally shrinks.
+
+5
+00:00:22,145 --> 00:00:29,138
+In the model, a 70-year-old has about 15.6 years left; a year later, about 15.1.
+
+6
+00:00:29,638 --> 00:00:37,387
+On the report’s main definition, escape velocity means progress is fast enough that this stops: one year older,
+
+7
+00:00:37,387 --> 00:00:41,435
+one year later, with at least as many expected years left.
+
+8
+00:00:41,936 --> 00:00:47,597
+That would not make anyone immortal. It only means the expected end stops getting closer.
+
+9
+00:00:49,800 --> 00:00:54,509
+Death rates climb steeply with age, roughly doubling every eight years.
+
+10
+00:00:54,509 --> 00:00:57,759
+On a log scale, that is close to a straight line.
+
+11
+00:00:58,259 --> 00:01:04,488
+Shift that line three years to the right and death rates drop by about 23% at every age.
+
+12
+00:01:04,488 --> 00:01:07,036
+That is three age-years of progress.
+
+13
+00:01:07,537 --> 00:01:15,905
+On the report’s main definition, escape velocity needs one age-year of progress every calendar year:
+
+14
+00:01:15,905 --> 00:01:21,847
+death rates falling about 8% a year (7–9%), at every age from 50 to 90.
+
+15
+00:01:27,800 --> 00:01:36,029
+Compare that with history. Since 1900, overall death rates are reported to have fallen about 1–2% a year.
+
+16
+00:01:36,529 --> 00:01:43,123
+On the report’s main definition, the required pace is four to eight times faster than the observed all-cause pace.
+
+17
+00:01:43,623 --> 00:01:49,230
+Other definitions ask for between about 4% and 17% a year, at ages 50 to 80.
+
+18
+00:01:49,230 --> 00:01:53,362
+Whichever you choose, the pace has to rise several-fold.
+
+19
+00:02:01,800 --> 00:02:04,222
+What has medicine actually delivered?
+
+20
+00:02:04,222 --> 00:02:09,525
+The best-demonstrated effects on mortality come from blood pressure, cholesterol,
+
+21
+00:02:09,525 --> 00:02:12,143
+and some diabetes and weight-loss drugs.
+
+22
+00:02:12,643 --> 00:02:19,628
+Each is a one-off shift worth roughly one to five age-years, mostly in people who already have a disease.
+
+23
+00:02:19,628 --> 00:02:21,358
+A step up, not a new rate.
+
+24
+00:02:21,858 --> 00:02:28,014
+To hold one age-year a year, a new step of that size would have to arrive every one to five years,
+
+25
+00:02:28,014 --> 00:02:30,840
+and stack on the last. Nothing shows they do.
+
+26
+00:02:31,341 --> 00:02:33,285
+Even that is not enough.
+
+27
+00:02:33,285 --> 00:02:41,059
+Mouse-scale steps of 20 age-years every 20 years pass the year-by-year test in only 5% of years,
+
+28
+00:02:41,059 --> 00:02:42,841
+or 22% with smoothing.
+
+29
+00:02:47,800 --> 00:02:55,333
+Lab results look more promising. In mice, the best regimens extend median lifespan by a quarter to a third,
+
+30
+00:02:55,333 --> 00:02:58,924
+though often in one sex or against earlier cohorts.
+
+31
+00:02:59,424 --> 00:03:06,740
+If gains like that carried over to people in full, which nothing shows, they would be worth up to about 27 age-years.
+
+32
+00:03:07,240 --> 00:03:09,555
+That is an upper bound, not a finding.
+
+33
+00:03:09,555 --> 00:03:16,438
+No intervention presented as targeting ageing has yet shown a human mortality benefit in the programmes reviewed.
+
+34
+00:03:18,633 --> 00:03:23,789
+There is a catch. Suppose part of age-related risk resists every treatment.
+
+35
+00:03:24,289 --> 00:03:34,214
+In the model, if 5% resists and never improves, a no-shrink escape lasts about 12 years. At 10%, about 2.
+
+36
+00:03:34,214 --> 00:03:36,955
+At 20%, none within 60 years.
+
+37
+00:03:37,456 --> 00:03:40,843
+The brain is the obvious candidate for stubborn risk.
+
+38
+00:03:40,843 --> 00:03:45,571
+The report treats it as the hard case: a labelled judgment, not a finding.
+
+39
+00:03:50,633 --> 00:03:58,819
+So when? The evidence cannot separate four outcomes: stagnation, acceleration that falls short of escape,
+
+40
+00:03:58,819 --> 00:04:02,093
+escape starting by 2060, or a later start.
+
+41
+00:04:02,593 --> 00:04:05,641
+The model shows what each date demands.
+
+42
+00:04:05,641 --> 00:04:13,456
+For a start around 2035, the pace must climb from 1.5% a year to about 8% within roughly nine years,
+
+43
+00:04:13,456 --> 00:04:15,723
+then keep at least that pace.
+
+44
+00:04:16,223 --> 00:04:21,499
+Nothing in this capped search shows a route to that, so the author judges it unsupported.
+
+45
+00:04:21,499 --> 00:04:24,285
+That is a labelled judgment, not a measurement.
+
+46
+00:04:24,785 --> 00:04:27,834
+Later dates depend on steps not yet seen.
+
+47
+00:04:27,834 --> 00:04:34,899
+Neither “by 2060” nor “not this century” is contradicted, and the report offers no probability.
+
+48
+00:04:38,633 --> 00:04:43,930
+For one person, it is a race. Suppose escape began thirty years from now.
+
+49
+00:04:44,430 --> 00:04:58,063
+Someone who is 40 today would have about an 84% chance of being alive for it. At 50, 67%. At 60, 39%. At 70, 11%.
+
+50
+00:04:58,563 --> 00:05:04,469
+These depend on the assumed mortality level, and on an onset the evidence does not show.
+
+51
+00:05:04,469 --> 00:05:06,751
+Age at onset matters a great deal.
+
+52
+00:05:06,751 --> 00:05:13,462
+Separately, the best-supported levers today are ordinary prevention, not a route to escape velocity.
+
+53
+00:05:15,667 --> 00:05:17,724
+How far should you trust this?
+
+54
+00:05:17,724 --> 00:05:23,756
+Confidence is high in the arithmetic, low to moderate in the evidence, and low on dates.
+
+55
+00:05:23,756 --> 00:05:29,514
+It is a preliminary review built from web-search summaries, not the original papers.
+
+56
+00:05:30,014 --> 00:05:37,554
+AI agents from a single model family did every step, and no human has checked a figure, a citation or a calculation.
+
+57
+00:05:38,055 --> 00:05:44,403
+What would change the conclusions: a human mortality result for a treatment that targets ageing itself,
+
+58
+00:05:44,403 --> 00:05:47,114
+and better mortality data by age and decade.
+
