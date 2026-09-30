@@ -45,10 +45,12 @@ Needs Python 3 with numpy and Pillow (for `contact.py` only), Node 22 or newer, 
 
 ```
 cd research-outputs/lev-longevity-escape-velocity/video
-./make_video.sh            # about 10 minutes on 4 cores; writes frames/ (about 5 GB) and both MP4s
+./make_video.sh            # about 7 minutes on 4 cores; writes frames/ (about 5 GB) and both MP4s
 ```
 
 The script runs `export_data.py`, `build_timeline.py`, a four-way parallel `render.mjs`, and the two encodes. Set `SKIP_RENDER=1` to re-encode from existing frames. Frames, the synthesised lines and the narration track are build products and are not committed (`.gitignore`).
+
+A clean rebuild from these committed sources (4 cores, 6.5 minutes) reproduced `anim/data.js`, `anim/timeline.js`, the SRT and both MP4s byte for byte, and every frame identically. Other versions of Chromium, ffmpeg or the voice package may give slightly different pixels or audio.
 
 ## Known limits
 
