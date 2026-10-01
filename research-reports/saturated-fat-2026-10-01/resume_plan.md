@@ -8,7 +8,7 @@ The first run used its whole allowance of 200 web searches (shared by eight sear
 
 ## What you need to change first (three steps, all outside the old session)
 
-1. **Raise the search allowance.** Add an environment variable named `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` in the cloud environment's settings (the environment menu in the session's title bar, then **Edit**). The streams' own estimates add up to roughly 250 to 350 searches; a value of 500 leaves margin. This is your decision; nothing in the repository changes it. A new session picks it up.
+1. **Raise the search allowance.** Add an environment variable named `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION` in the cloud environment's settings (the environment menu in the session's title bar, then **Edit**). The priorities table below totals about 330 searches; a value of 500 leaves margin. This is your decision; nothing in the repository changes it. A new session picks it up.
 2. **Optionally allow the blocked scholarly hosts** (same settings, network access): `pubmed.ncbi.nlm.nih.gov`, `pmc.ncbi.nlm.nih.gov`, `europepmc.org`, `doi.org`, `www.bmj.com`, `www.cochranelibrary.com`, `www.ahajournals.org`, `jamanetwork.com`, `journals.plos.org`, `academic.oup.com`, `ajcn.nutrition.org`, `www.nature.com`, `link.springer.com`, `clinicaltrials.gov`, `www.who.int`, `www.fda.gov`, `www.dietaryguidelines.gov`. With these, agents can read abstracts and tables directly and the report's V1/V2 labels can be upgraded to "primary text read".
 3. **Start a new session** on branch `ccr-bf452988-82w4wo` of this repository (a new session starts on a fresh machine and needs the files from the branch) and paste the prompt below.
 
@@ -48,7 +48,7 @@ Each row points to the ledger section that holds ready-to-run queries written by
 
 ## Material cut from the report to meet the 8,000-word limit (all still in the ledgers)
 
-Restore any of these after verification if the next run has room: the Zhu 2019 dose-response cohort meta-analysis (S3-05; no effect size displayed); the Feeney 2018 cheese-matrix trial (S5-14); the Drouin-Chartier 2016 dairy review (S5-05); the Zeraatkar 2019 cohort meta-analysis of red and processed meat (S5-20); the IARC classification of red and processed meat (S5-23); the odd-chain fatty acid and diabetes biomarker meta-analysis (S4-04); WHO's country coverage counts and certification totals (S6-18, S6-19); the NPR and FactCheck.org items on seed oils (S8-18); and the Whole Milk for Healthy Kids Act (S8-21).
+Restore any of these after verification if the next run has room: the Zhu 2019 dose-response cohort meta-analysis (S3-05; no effect size displayed); the updated cohort meta-analysis of saturated fat and type 2 diabetes with myristic and lauric acid results (S4-03); the Cochrane 2015 version's interval and trial count (S2-01); the Astrup review's red-meat argument (S5-08); Cochrane's meta-regression on degree of cholesterol reduction (S2-06); the Feeney 2018 cheese-matrix trial (S5-14); the Drouin-Chartier 2016 dairy review (S5-05); the Zeraatkar 2019 cohort meta-analysis of red and processed meat (S5-20); the IARC classification of red and processed meat (S5-23); the odd-chain fatty acid and diabetes biomarker meta-analysis (S4-04); WHO's country coverage counts and certification totals (S6-18, S6-19); the NPR and FactCheck.org items on seed oils (S8-18); and the Whole Milk for Healthy Kids Act (S8-21).
 
 ## Guardrails learned in the first run
 
