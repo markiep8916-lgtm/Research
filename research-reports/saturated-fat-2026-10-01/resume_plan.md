@@ -4,7 +4,7 @@
 
 ## Why this plan exists
 
-The first run used its whole allowance of 200 web searches (shared by nine parallel agents) and could not fetch papers from PubMed, journals, WHO or similar sites. Every stream stopped early. The report is therefore interim: its numbers come from search summaries, and large parts of the question were never searched. Everything needed to continue is in this folder.
+The first run used its whole allowance of 200 web searches (shared by eight search agents and the dispatcher) and could not fetch papers from PubMed, journals, WHO or similar sites. Every stream stopped early. The report is therefore interim: its numbers come from search summaries, and large parts of the question were never searched. Everything needed to continue is in this folder.
 
 ## What you need to change first (three steps, all outside the old session)
 
@@ -32,7 +32,7 @@ Each row points to the ledger section that holds ready-to-run queries written by
 | P8 | **Cohort completions:** biomarker studies (FORCE, EPIC-InterAct), Mendelian randomization of SFA, Global Burden of Disease, 2022–2026 syntheses, Asian and Dutch cohorts, measurement error, healthy-user bias, reverse causality, de Souza SFA estimates for CHD, stroke and diabetes | `S3_cohorts_meta_analyses.md` section E "Searches NOT run" | 30 |
 | P9 | **Controversy, susceptibility, seed oils:** the late-2025 review and dispute, symmetric conflict-of-interest checks for the defending documents, limits of nutritional epidemiology, familial hypercholesterolaemia, hyper-responders and low-carbohydrate diets, APOE, children, seed-oil primary literature (Farvid, Marklund, Hooper 2018, Ramsden and critics), post-2024 professional-body statements | `S7_controversy_susceptibility.md` section F; split into S7a (history, funding, critique) and S7b (susceptibility, seed oils) | 45 |
 | P10 | **Recency follow-ups:** the *Journal of Nutrition* 2026 review of fatty acids and the 2025–2030 guidelines; Annals letters or corrections; 2025–26 cohorts by food source; retractions and expressions of concern; Cochrane, EFSA and SACN updates; final FDA front-of-pack outcome; the third WHO trans-fat validation cycle | `S8_recency_sweep.md` section D and the hand-back list; this file | 25 |
-| P11 | **Verification:** open the primary abstracts for the 48 headline figures in Appendix B of the report; resolve the open discrepancies listed below; record "primary text displayed Y/N" for each | `report.md`, Appendix B | 20 |
+| P11 | **Verification:** open the primary abstracts for the headline figures in Appendix B of the report (K01 to K51); resolve the open discrepancies listed below; record "primary text displayed Y/N" for each | `report.md`, Appendix B | 20 |
 
 ## Open discrepancies to resolve in the next run
 
@@ -43,7 +43,12 @@ Each row points to the ledger section that holds ready-to-run queries written by
 - Imamura 2016 participant count (4,220 or 4,660) and Siri-Tarino 2010 sample size (S4 B1, S3 B2).
 - Why PURE differs from the Harvard cohorts (S3-11, S3-12).
 - NIH-AARP animal-fat hazard ratios (1.16 vs 0.96; S3 B3).
-- Whether the Annals review's authors objected to the editorial (reported only in a news summary; S8-07).
+- Whether the Annals review's authors objected to the editorial (reported only in a news summary; S8-07); the report no longer states that they did.
+- Table 4 footnotes: which Cochrane version the mortality figures (0.96 and 0.95) come from; whether the Annals mortality and heart-attack estimates are overall or stratum-specific; authorship of the 10-trial meta-analysis (PubMed 27547428; S7-06).
+
+## Material cut from the report to meet the 8,000-word limit (all still in the ledgers)
+
+Restore any of these after verification if the next run has room: the Zhu 2019 dose-response cohort meta-analysis (S3-05; no effect size displayed); the Feeney 2018 cheese-matrix trial (S5-14); the Drouin-Chartier 2016 dairy review (S5-05); the Zeraatkar 2019 cohort meta-analysis of red and processed meat (S5-20); the IARC classification of red and processed meat (S5-23); the odd-chain fatty acid and diabetes biomarker meta-analysis (S4-04); WHO's country coverage counts and certification totals (S6-18, S6-19); the NPR and FactCheck.org items on seed oils (S8-18); and the Whole Milk for Healthy Kids Act (S8-21).
 
 ## Guardrails learned in the first run
 
@@ -52,5 +57,5 @@ Each row points to the ledger section that holds ready-to-run queries written by
 3. **Do not echo.** A search summary repeats numbers placed in the query. Count a result as confirmation only when the number was not in the query.
 4. **V-levels measure transcription, not replication.** Add a field "primary text displayed Y/N" and de-duplicate sources across streams.
 5. **Account for conflicts of interest symmetrically.** Retrieve declared interests for the defending documents (AHA advisory authors, guideline writers, pharma ties) as well as for the critiques.
-6. **Add three readings of "artificial" the Devil's Advocate flagged:** endogenous versus dietary saturated fat (de novo lipogenesis from carbohydrate; plasma SFA is not intake) and engineered carriers of saturated fat (plant-based meat and dairy analogues built on coconut or palm fat; MCT oil and fractions).
+6. **Two further readings of "artificial" (R-g and R-h in the report) were added after the Devil's Advocate flagged them:** endogenous versus dietary saturated fat (de novo lipogenesis from carbohydrate; plasma SFA is not intake) and engineered carriers of saturated fat (plant-based meat and dairy analogues built on coconut or palm fat; MCT oil and fractions). Neither was searched.
 7. **Keep comparators.** Never merge "SFA vs PUFA", "SFA vs carbohydrate" and "SFA, replacement unspecified".
