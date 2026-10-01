@@ -1,0 +1,42 @@
+# Claim audit of report.md (draft 1) against evidence ledgers S1–S8
+
+Source: hand-back from an independent claim-auditor subagent, reproduced by the dispatcher. Model output, not evidence. Read-only; no web access. It audited the first draft; the revised report applies it.
+
+**Summary from the auditor:** Transcription is nearly clean. Figures, confidence intervals, sample sizes and dates in Tables 3–5, the Cochrane versions (K06–K11, Table 4 dagger), 7.2–7.3 and the Section 8 funding statements matched their ledger entries, except as listed. The faults are comparators, dropped caveats, V-levels, V0 leads and unsupported statements.
+
+| # | Severity | Report text (draft 1) | Ledger text | Fix |
+|---|---|---|---|---|
+| 1 | Critical | Abstract: "Replacing saturated fat with polyunsaturated fat … reduces combined cardiovascular events (relative risk 0.83…)"; Conclusion "with polyunsaturated fat as the replacement"; Table 7 "more clearly … when polyunsaturated fat is the replacement" | S2 §C: "never gives a comparator-specific CV-event RR except the Annals PUFA-replacement MI figure"; "replacement nutrient mixed" | RR 0.83 is reduced/modified SFA, replacement mixed. PUFA-specific: only non-fatal MI RR 0.75 (0.58–0.99), S8-01. Risk concentration is Annals-only |
+| 2 | Critical | 7.2: "nine countries had been validated … by May 2025 (World Health Organization, 2024; V2)"; "more than 278,000 deaths a year" | S6-19: the 2025 round is sourced to Resolve to Save Lives and News-Medical; S6-18: report covers "end-2023"; deaths are "modelled estimates" | Cite WHO news (2024) plus Resolve to Save Lives (2025); drop S6-19 from the WHO 2024 entry; add "modelled" |
+| 3 | Major | 4.4: "Absolute numbers support that reading: the Cochrane review's number needed to treat was 56 in primary prevention" | S2-03: "Secondary-prevention NNT: 53 (AAFP, Search 13) versus 32 (NZ Cochrane Pearls…)" | Give both; 56 versus 53 shows no risk gradient. Rest the claim on Annals alone |
+| 4 | Major | Table 4 Steen RRs beside Cochrane overall RRs; "little or none … in people at low risk"; thresholds "(V2)" | S2-07: "stratum NOT identifiable… Do not quote them as 'overall' or 'high-risk'"; S2-07 "low to intermediate" vs S8-01 "low"; thresholds from one snippet (query 12); S8-07 Forouhi: benefit "not just for those at high risk but for the whole population" | Add stratum caveat and both risk wordings; thresholds V1; cite Forouhi |
+| 5 | Major | Key takeaway 1: "Trials and cohort studies agree … (and, to a lesser degree, monounsaturated fat or whole grains)… refined carbohydrate… shows little"; 9.2: "no benefit in the sources that addressed it" | S2-06: benefits "arose from replacing saturated fats with polyunsaturated fat or starchy foods" (V2 text); "pull in different directions"; S2-B5 "no subgroup RRs"; MUFA/whole grain only in cohorts (S3-07 to S3-10) | State the carbohydrate conflict; MUFA/whole-grain ordering is cohort-only |
+| 6 | Major | Table 5, Chowdhury and de Souza, contrast "Same" | S3-03 "Comparator / contrast: not displayed"; S3-04 and S6-02 likewise | "Contrast not displayed; replacement unspecified" |
+| 7 | Major | Table 5 Zhang row "V2" (N, deaths, CI 1.08–1.22, CVD-mortality null); K29 | S3-13: "HR 1.15 and substitution HR 0.83 = V2… Other figures = V1"; CI only in S5-17 (V1) | HR 1.15 V2; the rest V1 |
+| 8 | Major | 5: "Red and processed meat, not saturated fat, carried the diabetes signal in an umbrella review" | S4-05: "Fat-quality or SFA exposures: none displayed"; meat and SFA results "should not be merged" (S4-02) | Umbrella review had no SFA exposure; cite S4-02 separately |
+| 9 | Major | 6 intro, Key takeaway 4: "no randomized trial measured heart attacks or deaths by food source" | S5 §C: "Not run (cap): … a dairy-fat vs PUFA RCT search"; S2 D3: landmark trials unsearched | "None retrieved" |
+| 10 | Major | Key takeaway 2, Table 7: "In controlled trials, replacing butter, beef tallow or tropical oils… Certainty: high" | S5-25: "result against butter, palm oil or tallow was not displayed"; no tallow trial in S2/S5; "strong" is trade-press V1 (S1-11); "neither is GRADE" (S1-B7); Mensink/Clarke unsearched (S2) | Name the butter and coconut trials; tallow and palm rest on AHA wording (V1); define or drop "high" |
+| 11 | Major | 7.2 "Certainty that industrial trans fat is harmful: high"; Table 6 "High" | No rating in S3/S6; S6-04 "industrial estimate is NOT statistically significant"; Austria null (S6-16) | High for LDL:HDL (V2 original); clinical outcomes unrated |
+| 12 | Major | 7 intro "supports no contrast for the saturated fatty acid itself", "the real differences are…"; 7.3 "above usual ruminant intakes"; 9.2 "a minor contributor"; Conclusion "rarely eaten in doses that show population harm… the largest industry-funded review" | S6 items 1, 4–9 "NOT SEARCHED"; only V0 basis (D1 "I know of no mechanism"; D3 "on the order of 0.5% of energy… (M, verify"); gap "habitual intake levels"; S6-03 "cannot exclude a modest harm" | Mark unverified or delete; drop "largest". Method says V0 "never used as findings" |
+| 13 | Major | 6.5: NESR "it is observational (V1)"; "every saturated-fat-rich food tested still raised LDL cholesterol more than a polyunsaturated-fat comparator"; "well supported" | S1-08 "study types included not displayed"; PUFA arm only in Brassard (S5-12, V1); Khaw comparator olive oil (S5-15) | Delete "observational"; limit to butter and cheese, one V1 trial |
+| 14 | Major | Conclusion "processed meat is worse than its saturated fat would predict"; 9.2 "established heart disease, high LDL cholesterol or other risk factors… trial benefit was clearest" | S5-23 "nothing here separates SFA from other meat components"; S2-07 "stratum definitions… not displayed" | Delete; "higher baseline risk (definition not displayed)" |
+| 15 | Minor | 4.2 "average about 4.7 years… in the 2020 abstract"; RR 0.79 "11 trials; 53,300" also in "a snippet of a 2024 umbrella review"; "the authors' 'may reduce' wording rests on…"; 6.4 DGA "defines them"; Table 2 "older AHA web advice"; 7.5 "products reached the US market on 24 July 2025" | S2-02 (AAFP summary); S8-15 gives RR and CI only; S8-01 (ledger writer's inference); S1-06 (Scientific Foundation document); S1-13 "date… unknown"; S8-17 "enabling… to enter", date V1 | Reattribute or reword |
+| 16 | Minor | K12 "search to July 2025" (S8-01, V2); K29 V2 with CI; K41 "both raised LDL cholesterol 2–6%"; K22, K27–K29 omit highest-vs-lowest contrast; Table 3 Khaw "50 g/day" | S2-07 (V1); S5-17 V1; S6-07 "2-6%" spans total cholesterol, LDL-C, TC:HDL, apoB vs stearic control; S3-01 "extreme quantiles"; S5-B9 "50 g… vs 50 mL" | Fix pointers and V; add control and contrast; flag dose |
+| 17 | Minor | Key takeaway 3 "low for deaths"; 9.3 "Nine AI agents"; Table 4 note "as stated in Appendix B"; Appendix C placeholder; Method "the dispatcher used four" and blocked-host list | S2-03 "GRADE moderate" for both mortality outcomes; disclosure "Eight AI search agents"; Appendix B holds only the NNT; S1, S2 record only cdn.realfood.gov and jmaj.jp blocked | Harmonise; complete Appendix C; cite run-notes for Method claims |
+
+**Gap flags.** Every NOT SEARCHED / [MATERIAL GAP] flag matches the ledger coverage tables except:
+- 4.4 "biomarker studies of circulating fatty acids were not searched": Trieu (S5-09) and S4-04 were used; narrow to circulating SFA–CHD biomarkers (S3 item 5).
+- Table 7 "hyper-responders": S8-13 searched it (V1).
+- Section 5 "searched thoroughly": S4 §C lists unsearched T2D items.
+- Table 1 R-d "Covered": S6 lists gaps (habitual intake, CLA).
+- No dedicated post-2020 Cochrane-update search (S2-02); the report does not flag this.
+
+**Citation hygiene.**
+- In the reference list but never cited: Zhu 2019.
+- Cited or described without a reference entry: Mozaffarian 2010 (7.3); Neuenschwander 2019 (K33); the AJCN Krauss/Kris-Etherton debate (8); the Nature Communications dairy analysis; the updated SFA–T2D and 2025 odd-chain meta-analyses; the PURE dairy paper (6.1); the Zeraatkar cohort meta-analysis (6.2); NZ Cochrane Pearls (4.2, K11); Resolve to Save Lives (K44).
+- All other S-ID pointers resolve except WHO [S6-19].
+
+**Counts.** Appendix B: 48 rows checked, 45 pass unchanged (K12, K29, K41 need changes). Tables 1–7: 45 rows checked, 34 pass unchanged.
+
+## Dispatcher's disposition
+Accepted in full. Both critical items and all major and minor items are applied in the revised report; the revised report is then re-audited (see Appendix C of the report).
