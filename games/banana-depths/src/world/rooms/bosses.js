@@ -22,7 +22,7 @@ queen.border('#').ground(0, 51, 2);
 queen.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');
 queen.clear(51, 3, 1, 3).rect(51, 3, 1, 3, '2').rect(50, 3, 1, 3, 'E');
 queen.plat(5, 9, 7).plat(40, 9, 7).plat(16, 13, 6).plat(30, 13, 6).plat(22, 19, 8);
-queen.set(26, 24, 'B');
+queen.set(26, 3, 'B');          // spawn column on the floor (the Queen then hangs from the ceiling by herself)
 queen.portal('1', 'c_web', '2').portal('2', 'c_grip', '1');
 
 // ---------------------------------------------------------------- Tiki Overlord

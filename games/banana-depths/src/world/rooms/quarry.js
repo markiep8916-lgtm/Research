@@ -31,21 +31,21 @@ pass.border('#');
 
 // --- left cliff: lookout ledge (Kong falls in from the caverns above), rock terraces down to the river bank
 pass.ground(1, 7, 14);                                         // lookout ledge, stand 15
-pass.ground(8, 9, 12).ground(10, 11, 10).ground(12, 13, 8);    // terraces, stand 13 / 11 / 9
-pass.ground(14, 16, 7);                                        // river bank, stand 8
+pass.ground(8, 9, 12).ground(10, 11, 10);                      // terraces, stand 13 / 11
+pass.ground(12, 16, 8);                                        // river bank, stand 9
 pass.vline(3, 15, 22, 'H');                                    // ladder up to the top portal (so Kong can climb back to the caverns)
 pass.set(3, 23, '1');
 pass.set(5, 15, '?').set(6, 15, 'S');
 pass.clear(2, 6, 5, 4).rect(2, 6, 5, 2, 'L');                  // furnace window: a sealed lava pocket glowing inside the cliff
 
 // --- the lava river, crossed first by crumbling stones (they drop 0.45 s after Kong lands, so keep moving)
-pass.rect(17, 1, 60, 5, 'L');
-pass.rect(20, 7, 2, 1, 'F').rect(25, 8, 2, 1, 'F').rect(30, 7, 2, 1, 'F');
-pass.set(15, 8, '?');
+pass.rect(17, 1, 60, 6, 'L');
+pass.rect(19, 8, 3, 1, 'F').rect(25, 10, 3, 1, 'F').rect(31, 8, 3, 1, 'F');
+pass.set(16, 9, '?');
 
 // --- tire island: a spring flush in the floor bounces Kong up onto the bridge pier
-pass.ground(34, 41, 7);
-pass.set(35, 8, '?').set(37, 7, 'Y');
+pass.ground(36, 41, 8);                                        // stand 9
+pass.set(37, 9, '?').set(39, 8, 'Y');
 
 // --- Girder Bridge: stone pier (with a save barrel), 3-thick deck over the river, ladder down at its end
 pass.rect(42, 0, 4, 13, '#');                                  // pier, stand 13
@@ -56,10 +56,11 @@ pass.set(44, 13, 'S').set(57, 13, '?');
 // --- undercroft: crystal ledge (left) and shelf (right) face each other across a 7-wide lava gap, under the low roof
 pass.rect(46, 0, 3, 8, '#');                                   // crystal ledge, stand 8
 pass.rect(56, 0, 11, 8, '#');                                  // shelf, stand 8 (also the safety net under the roll-jump gap)
+pass.clear(49, 6, 7, 1);                                       // the hall's lava sits a tile lower than the river's
 pass.set(48, 8, 'w').set(46, 8, 'U');
 pass.set(63, 8, '?');
 
-// --- right plateau with the exit; heart chamber behind gate D in its face
+// --- right plateau with the exit (a 5-tall face above the shelf, so it cannot be climbed); heart chamber behind gate D in its face
 pass.rect(67, 0, 10, 13, '#');                                 // plateau, stand 13
 pass.rect(77, 13, 1, 3, '2');
 pass.clear(68, 8, 8, 3).rect(67, 8, 1, 3, 'D');
@@ -72,9 +73,11 @@ for (const [cx, w, len] of [[10, 7, 5], [16, 5, 4], [22, 9, 6], [29, 5, 3], [50,
 // --- bananas
 pass.bananas(5, 16, 2);                                        // lookout
 pass.set(8, 14, 'o').set(9, 14, 'o').set(10, 12, 'o').set(11, 12, 'o');   // down the terraces
-pass.arc(16, 9, 20, 3, 2).arc(21, 10, 25, 3, 2).arc(26, 10, 30, 3, 2).arc(31, 9, 34, 2, 1.5);  // over the crumbling stones
-pass.bananas(39, 8, 2);
-pass.set(39, 11, 'o').set(41, 14, 'o').set(43, 15, 'o');       // the bounce up to the pier
+pass.arc(16, 10, 19, 3, 2);                                    // bank -> first stone
+pass.set(22, 11, 'o').set(23, 12, 'o').set(24, 12, 'o');       // first stone -> high stone
+pass.set(28, 12, 'o').set(29, 13, 'o').set(30, 12, 'o');       // high stone -> third stone
+pass.arc(33, 10, 36, 2, 1);                                    // third stone -> island
+pass.set(41, 13, 'o').set(42, 14, 'o').set(43, 15, 'o').set(44, 15, 'o');  // the bounce up to the pier
 pass.bananas(48, 14, 4, 2);                                    // along the deck
 pass.arc(59, 14, 67, 5, 3);                                    // over the roll-jump gap
 pass.bananas(71, 14, 2, 2);
@@ -82,7 +85,7 @@ pass.bananas(60, 9, 2, 3);                                     // lures the curi
 pass.bananas(70, 8, 3, 2);                                     // the heart chamber stash
 
 // --- enemies
-pass.set(15, 8, 'm').set(40, 8, 'm').set(52, 13, 'm').set(69, 13, 'u');
+pass.set(14, 9, 'm').set(41, 9, 'm').set(55, 13, 'm').set(69, 13, 'u');
 pass.portal('1', 'c_deep', '2').portal('2', 'q_forge', '1');
 
 export const rooms = [pass.build()];
