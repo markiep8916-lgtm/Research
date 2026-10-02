@@ -56,6 +56,7 @@ export function solveRoom(def, opts = {}) {
   const gates = { A: !!(opts.gates && opts.gates.A), B: !!(opts.gates && opts.gates.B) };
   const starts = opts.starts || [];
   const maxStates = opts.maxStates || 30000;
+  const trace = !!opts.trace;     // keep the input sequence that produced every state (for tools/ghost.mjs replays)
   const hasPound = (() => { for (let i = 0; i < def.tiles.length; i++) if (def.tiles[i] === T.POUND_BLOCK) return true; return false; })();
   const hasSlopeOneway = true; void hasSlopeOneway;
 
@@ -63,7 +64,7 @@ export function solveRoom(def, opts = {}) {
     const base = new Grid(def.w, def.h, def.tiles.slice(), def.open);
     for (const k of broken) { const [x, y] = k.split(',').map(Number); base.set(x, y, T.EMPTY); }
     if (gates.A || gates.B) for (let y = 0; y < def.h; y++) for (let x = 0; x < def.w; x++) { const t = base.tiles[y * def.w + x]; if ((gates.A && t === T.GATE_A) || (gates.B && t === T.GATE_B)) base.set(x, y, T.EMPTY); }
-    const res = bfs(def, base, abil, starts, broken, maxStates, hasPound);
+    const res = bfs(def, base, abil, starts, broken, maxStates, hasPound, trace);
     // switches: boomerang (or slap) from a reachable state opens gates
     let changed = false;
     for (const m of def.marks) {
@@ -93,11 +94,24 @@ function switchHit(def, base, states, m, abil, slapOk) {
   return false;
 }
 
-function bfs(def, base, abil, starts, brokenIn, maxStates, hasPound) {
+/** Pack one frame of macro input into a byte (dx, dy in 2 bits each, then jump / jumpP / rollP / poundP). */
+export const packInput = (o) => (o.dx + 1) | ((o.dy + 1) << 2) | (o.jump ? 16 : 0) | (o.jumpP ? 32 : 0) | (o.rollP ? 64 : 0) | (o.poundP ? 128 : 0);
+export const unpackInput = (v) => ({ dx: (v & 3) - 1, dy: ((v >> 2) & 3) - 1, jump: !!(v & 16), jumpP: !!(v & 32), rollP: !!(v & 64), poundP: !!(v & 128) });
+
+/** Macro chain that leads to a recorded trace {parent, inputs}: [{ start: state, inputs: Uint8Array }, ...] from the room start. */
+export function chainFor(tr) {
+  const out = [{ start: tr.parent, inputs: tr.inputs }];
+  for (let s = tr.parent; s && s.parent; s = s.parent) out.push({ start: s.parent, inputs: s.inputs });
+  return out.reverse();
+}
+
+function bfs(def, base, abil, starts, brokenIn, maxStates, hasPound, trace) {
   const W = new SimWorld(base, brokenIn);
   const states = new Map();            // key -> state
   const queue = [];
   const reach = { portals: new Set(), marks: new Set() };
+  const traces = { portals: new Map(), marks: new Map() };   // filled when `trace` is on
+  let ctx = null;                                            // { parent, ins } of the macro being simulated
   const newBroken = new Set();
   const marks = def.marks.map((m, i) => ({ i, m, l: m.x, r: m.x + 1, b: m.y, t: m.y + (m.kind === 'relic' ? 2 : 1.4) }));
   const interesting = marks.filter((o) => ['relic', 'heart', 'banana', 'save', 'goal', 'boss', 'switchA', 'switchB', 'sign', 'start'].includes(o.m.kind));
@@ -128,25 +142,30 @@ function bfs(def, base, abil, starts, brokenIn, maxStates, hasPound) {
     W.reset();
     const b = mkBody(s, s.vy ? { vy: s.vy } : {});
     let last = null, edgeDone = false;
+    if (trace) ctx = { parent: s, ins: [] };
+    const snapTrace = (n) => ({ parent: s, inputs: Uint8Array.from(n === undefined ? ctx.ins : ctx.ins.slice(0, n)) });
     const flush = () => { for (const [x, y] of W.newBroken) newBroken.add(x + ',' + y); };
     for (let f = 0; f < maxF; f++) {
       const o = script(f, b);
+      if (trace) ctx.ins.push(packInput(o));
       stepBody(b, o, W);
       for (const ev of b.events) if (ev.type === 'hazard') return;
       if (b.y < -1.5) return;
       const bl = b.x - b.hw, br = b.x + b.hw, bb = b.y, bt = b.y + b.h;
-      for (const o2 of interesting) if (br > o2.l && bl < o2.r && bt > o2.b && bb < o2.t) reach.marks.add(o2.i);
+      for (const o2 of interesting) if (br > o2.l && bl < o2.r && bt > o2.b && bb < o2.t) { reach.marks.add(o2.i); if (trace && !traces.marks.has(o2.i)) traces.marks.set(o2.i, snapTrace()); }
       const pch = portalAtBody(def, b);
-      if (pch) { reach.portals.add(pch); flush(); return; }
+      if (pch) { reach.portals.add(pch); if (trace && !traces.portals.has(pch)) traces.portals.set(pch, snapTrace()); flush(); return; }
       if (f < minF) continue;
       if (b.mode === 'climb') { rec(b, 'climb'); if (!o.keepClimb) { flush(); return; } continue; }
       if (b.sliding !== 0 && abil.grip && !b.ground && b.mode === 'move') { rec(b, 'wall'); flush(); return; }
       if (b.ground && b.mode === 'move' && Math.abs(b.vy) < 0.01) {
         if (!recordGround) { rec(b, 'stand'); flush(); return; }
-        rec(b, 'stand'); last = { x: b.x, y: b.y, face: b.face }; edgeDone = false;
+        rec(b, 'stand'); last = { x: b.x, y: b.y, face: b.face, n: trace ? ctx.ins.length : 0 }; edgeDone = false;
       } else if (recordGround && last && !edgeDone && !b.ground) {
         // walked off a ledge: remember the very last standing spot so maximum-range jumps are explored
-        addState({ x: last.x, y: last.y, mode: 'stand', face: last.face, dir: 'e' }); edgeDone = true;
+        const es = { x: last.x, y: last.y, mode: 'stand', face: last.face, dir: 'e' };
+        if (trace) Object.assign(es, snapTrace(last.n));
+        addState(es); edgeDone = true;
       }
       if (b.ground && b.mode === 'roll' && b.h < P.h && b.rollT <= 0) rec(b, 'ball');
     }
@@ -156,7 +175,7 @@ function bfs(def, base, abil, starts, brokenIn, maxStates, hasPound) {
   function rec(b, mode) {
     const s = { x: b.x, y: b.y, mode: mode === 'stand' ? 'stand' : mode, face: b.face };
     if (mode === 'wall') s.dir = b.sliding;
-    // snap climbing states and quantise y of ground states (always integer)
+    if (trace) { s.parent = ctx.parent; s.inputs = Uint8Array.from(ctx.ins); }
     addState(s);
   }
 
@@ -268,7 +287,7 @@ function bfs(def, base, abil, starts, brokenIn, maxStates, hasPound) {
     sim(s, () => inp({ dx: 0 }), { minF: 3 });
   }
 
-  return { states, reach, newBroken: [...newBroken] };
+  return { states, reach, newBroken: [...newBroken], traces };
 }
 
 /** Convenience: which marks (by kind) are reachable. */
