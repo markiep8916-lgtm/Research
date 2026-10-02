@@ -1,0 +1,20 @@
+{
+  "name": "banana-depths",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Banana Depths - a 3D Donkey Kong-style metroidvania (unofficial fan tribute) built with Three.js",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "serve": "node scripts/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node tools/verify-world.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

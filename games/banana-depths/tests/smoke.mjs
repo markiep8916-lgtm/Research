@@ -1,0 +1,11 @@
+import { openGame } from '../tools/harness.mjs';
+const g = await openGame();
+console.log('boot state:', (await g.snap()).state);
+await g.shot('title.png');
+await g.eval(() => window.__bd.game.newGame());
+console.log('after newGame:', JSON.stringify(await g.snap()));
+console.log(JSON.stringify(await g.run([{ n: 40, held: [] }])));
+console.log(JSON.stringify(await g.run([{ n: 60, held: ['right'] }, { n: 30, held: ['right', 'jump'], press: ['jump'] }])));
+await g.shot('play1.png');
+console.log('errors:', g.errors().join('\n') || 'none');
+await g.close();
