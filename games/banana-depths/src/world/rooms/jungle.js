@@ -61,7 +61,7 @@ canopy.set(22, 10, 'Y').plat(21, 15, 7).bananas(22, 16, 4);
 canopy.set(25, 11, 's');
 // -- gap 2: a root-walk cellar lies beneath it. A vine climbs back up to B; at the far end waits the crate door.
 canopy.arc(26, 12, 32, 4, 2.5);
-canopy.rect(27, 7, 1, 3).vine(28, 7, 10);
+canopy.rect(27, 7, 1, 3).vine(28, 7, 10);                                       // a root post hangs under B, and the vine beside it
 canopy.rect(28, 6, 15, 1).rect(29, 5, 14, 1).rect(31, 4, 12, 1);                 // the root walk (stand 7)
 canopy.set(40, 7, '?');
 canopy.bananas(31, 7, 7);
@@ -122,7 +122,7 @@ gorge.set(12, 11, '?');
 gorge.rect(10, 0, 13, 4);                                                        // left bank (stand 4)
 gorge.set(14, 4, '#').set(12, 4, 's').bananas(10, 5, 3);                         // a step pens a snapjaw into the optional pocket under the lookout
 gorge.ladder(18, 1, 3).set(18, 0, '3');                                          // the stump: ladder down to j_log
-gorge.set(19, 4, '?').set(21, 4, '?').bananas(16, 5, 2);                         // stump sign, then the tiki warning sign
+gorge.set(19, 4, '?').set(22, 4, '?').bananas(16, 5, 2);                         // stump sign, then the tiki warning sign
 gorge.rect(23, 10, 3, 1).set(23, 11, 'w');                                       // crystal islet over the pool's edge: 7 tiles from the lookout tip
 gorge.rect(23, 0, 11, 2, 'W');                                                   // the plunge pool (water at the bottom)
 gorge.plat(24, 5, 3).plat(28, 6, 3).plat(32, 5, 2);                              // bridge of logs over the pool

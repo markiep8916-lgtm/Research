@@ -32,7 +32,7 @@ const over = new RoomBuilder('g_top', 40, 26, {
 });
 over.border('#').ground(0, 39, 2);
 over.clear(19, 0, 1, 3).set(19, 0, '1').set(19, 1, 'H').set(19, 2, 'T');   // ladder up from the tower below
-over.clear(39, 15, 1, 3).rect(39, 15, 1, 3, '2').rect(38, 15, 1, 3, 'E');   // exit door, opens when the Overlord falls
+over.clear(39, 3, 1, 3).rect(39, 3, 1, 3, '2').rect(38, 3, 1, 3, 'E');     // exit door at floor level, opens when the Overlord falls
 over.plat(4, 7, 6).plat(30, 7, 6).plat(15, 11, 10).plat(4, 15, 5).plat(31, 14, 6);
 over.set(30, 3, 'B');
 over.portal('1', 'g_three', '2').portal('2', 'g_heart', '1');
