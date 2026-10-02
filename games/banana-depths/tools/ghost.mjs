@@ -100,6 +100,7 @@ const g = await openGame({ w: 640, h: 360, query: '?manual&lowq' });
 await g.eval(() => window.__bd.game.newGame());
 let fails = 0, total = 0;
 for (const def of rooms) {
+  if (!(await g.eval((id) => !!window.__bd.ROOMS[id], def.id))) { console.log(`\n== ${def.id}\n  MISSING from the built page: dist is older than src, rebuild it (run without --nobuild)`); fails++; continue; }
   const abil = HELD(def);
   const starts = (args.from ? String(args.from).split(',') : Object.keys(def.portals)).filter((c) => c !== '@').map((ch) => ({ ...arrivalFor(def, ch), label: ch }));
   const startMark = def.marks.find((m) => m.kind === 'start');

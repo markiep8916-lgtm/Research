@@ -40,6 +40,7 @@ grip.set(18, 39, '?');
 // guide bananas: a falling line down the shaft and a zig-zag up it
 for (let i = 0; i < 8; i++) grip.set(12 + (i % 2), 34 - i * 3, 'o');
 for (let i = 0; i < 10; i++) grip.set(i % 2 ? 14 : 11, 7 + i * 3, 'o');
+grip.bananas(6, 32, 3).bananas(20, 40, 3);                                  // cues in the arrival chamber and over the exit ledge
 grip.portal('1', 'c_queen', '2').portal('2', 'c_deep', '1');
 
 // ------------------------------------------------------------------------------------------------ c_deep
@@ -93,13 +94,13 @@ deep.clear(35, 52, 16, 7);                                   // gallery (stand 5
 deep.clear(45, 7, 6, 45);                                    // final shaft x45..50 down to the hall (stand 7)
 deep.ladder(45, 7, 51);                                      // long ladder up the final shaft
 // --- stalactites (kept 2+ tiles apart from each other and from walls: no 1-wide slots)
-deep.rect(3, 57, 2, 2).rect(7, 56, 1, 3).rect(11, 57, 2, 2);                 // tier 0
-deep.rect(1, 47, 3, 2).rect(6, 46, 1, 3);                                    // tier 1
-deep.rect(7, 39, 2, 2).rect(10, 38, 1, 3);                                   // tier 2
-deep.rect(1, 31, 3, 2).rect(6, 30, 1, 3);                                    // tier 3
+deep.rect(1, 57, 1, 2).rect(1, 58, 3, 1).rect(5, 56, 2, 3).rect(8, 57, 1, 2).rect(11, 57, 2, 2); // tier 0 (rounded ceiling, all out of reach)
+deep.rect(1, 47, 3, 2);                                                      // tier 1 (over the opening only)
+deep.rect(7, 40, 2, 1).rect(10, 38, 1, 3);                                   // tier 2 (low ones kept off the walking line)
+deep.rect(1, 31, 3, 2).rect(6, 31, 1, 2);                                    // tier 3
 deep.rect(15, 27, 4, 2).rect(16, 26, 2, 1).rect(21, 24, 2, 5);               // cavern, left
 deep.rect(25, 28, 5, 1).rect(26, 27, 3, 1).set(27, 26, '#').rect(32, 25, 2, 4); // cavern chandelier + right
-deep.rect(35, 57, 3, 2).rect(40, 56, 2, 3).rect(46, 57, 3, 2).rect(49, 56, 2, 3); // top gallery
+deep.rect(35, 57, 3, 2).rect(40, 57, 2, 2).rect(46, 57, 3, 2).rect(49, 56, 2, 3); // top gallery
 // --- portals
 deep.clear(0, 51, 1, 3).rect(0, 51, 1, 3, '1');              // entry (left, y51..53)
 deep.set(48, 0, '2').ladder(48, 1, 6).set(48, 1, 'T');       // bottom portal + ladder well up to the hall floor (a ladder-top right above the portal catches a non-climbing arrival)

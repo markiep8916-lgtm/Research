@@ -42,7 +42,7 @@ const canopy = new RoomBuilder('j_canopy', 78, 24, {
     signs: [
       'The canopy! Spring tires bounce you high: hold Jump for more.\nPress UP at a vine to climb it.',
       'A wall of crates, and a heart fruit behind it!\nToo sturdy to smash... for now.',
-      'The Great Tree. Walk through its hollow trunk,\nthen climb the ladder inside, all the way up.',
+      'The Great Tree, oldest on the island. Walk through its trunk,\nor climb the ladder inside all the way up.',
       'Spiked critters hurt to stomp. SLAP them (X) or leap over.',
     ],
   },
@@ -74,7 +74,7 @@ canopy.rect(38, 0, 18, 2).rect(39, 2, 16, 2).rect(40, 4, 14, 1).rect(41, 5, 12, 
 canopy.rect(43, 6, 8, 12).rect(44, 18, 6, 5).rect(40, 21, 14, 2);
 canopy.clear(43, 11, 8, 2);                                                      // corridor (stand 11)
 canopy.clear(45, 13, 3, 10).ladder(46, 11, 22);                                  // hollow shaft + ladder (T at 22)
-canopy.set(46, 23, '3');
+canopy.set(46, 23, '3').set(41, 20, '#').set(52, 20, '#').set(53, 20, '#').set(35, 16, '#');   // portal 3 on top; leaf tabs hanging from the crown and branch
 canopy.rect(43, 7, 2, 3, 'R').clear(45, 7, 5, 3);                                // SECRET: crate door + heart cellar (needs Roll)
 canopy.set(48, 7, 'h').bananas(45, 7, 2).set(45, 8, 'o');
 // -- E: past the tree. A thornbug, and the spring that launches Kong up to the bridge.
@@ -89,7 +89,8 @@ canopy.bananas(72, 17, 2);
 canopy.rect(62, 8, 8, 1).rect(63, 7, 6, 1).rect(64, 6, 4, 1).rect(65, 5, 2, 1);  // net island (stand 9)
 canopy.set(65, 9, 's').bananas(64, 10, 3);
 canopy.vine(70, 9, 15);
-canopy.rect(62, 20, 14, 1).rect(64, 21, 12, 1).rect(67, 22, 9, 1).set(66, 19, 'a');
+canopy.rect(62, 20, 14, 1).rect(64, 21, 12, 1).rect(67, 22, 9, 1).set(67, 19, 'a');
+canopy.set(63, 19, '#').set(70, 19, '#').set(73, 19, '#');                       // ragged leaf tabs under the overhang
 canopy.portal('1', 'j_start', '1').portal('2', 'j_gorge', '1').portal('3', 'j_tree', '1');
 
 // ------------------------------------------------------------------------------------------------ j_gorge
@@ -102,7 +103,7 @@ const gorge = new RoomBuilder('j_gorge', 52, 26, {
     titleCard: true,
     waterfall: { x: 29.5, y: 2, w: 5, h: 24 },
     signs: [
-      'Waterfall Gorge. Stand on a ladder top and press DOWN to climb down.',
+      'Waterfall Gorge. The Tiki Tribe built their shrine beyond it.\nStand on a ladder top and press DOWN to climb.',
       'A barred cave... and a crystal that floats beyond reach.\nSomething thrown might wake it.',
       'A hollow stump. A ladder leads down into the Hollow Log.',
       'Tiki turrets spit fire. SLAP a fireball to send it back!',
@@ -131,7 +132,7 @@ gorge.set(36, 5, 'Y').set(38, 6, 'u').bananas(34, 7, 2);
 gorge.rect(42, 0, 8, 8).rect(39, 8, 11, 3);                                      // far cliff + the overhanging ledge (stand 11)
 gorge.set(44, 11, 's').bananas(40, 12, 3);
 gorge.plat(44, 12, 2).bananas(44, 14, 2);
-gorge.rect(46, 11, 4, 4);                                                        // exit plateau (stand 15)
+gorge.rect(46, 11, 4, 4).rect(44, 19, 6, 7);                                     // exit plateau (stand 15) under a tall rock face
 gorge.set(47, 15, 'S').bananas(48, 16, 2);
 gorge.clear(50, 15, 1, 3).rect(51, 15, 1, 3, '2');                               // right door
 gorge.portal('1', 'j_canopy', '2').portal('2', 'j_shrine', '1').portal('3', 'j_log', '1');
