@@ -78,9 +78,9 @@ canopy.set(46, 23, '3').set(41, 20, '#').set(52, 20, '#').set(53, 20, '#').set(3
 canopy.rect(43, 7, 2, 3, 'R').clear(45, 7, 5, 3);                                // SECRET: crate door + heart cellar (needs Roll)
 canopy.set(48, 7, 'h').bananas(45, 7, 2).set(45, 8, 'o');
 // -- E: past the tree. A thornbug, and the spring that launches Kong up to the bridge.
-canopy.rect(51, 10, 8, 1).rect(52, 9, 6, 1).rect(53, 8, 4, 1).rect(54, 7, 2, 1);
-canopy.set(52, 11, '?').set(55, 11, 't').set(57, 10, 'Y');
-canopy.bananas(53, 12, 2).set(44, 11, 'o').set(48, 11, 'o');
+canopy.rect(52, 10, 7, 1).rect(53, 9, 5, 1).rect(54, 8, 3, 1).rect(55, 7, 1, 1);   // a 1-tile crack at x=51 pens the thornbug out of the corridor
+canopy.set(53, 11, '?').set(56, 11, 't').set(57, 10, 'Y');
+canopy.bananas(54, 12, 2).set(44, 11, 'o').set(48, 11, 'o');
 // -- the high bridge (stand 16), a net island beneath it, an overhang with the second bat, and the exit island
 canopy.plat(59, 15, 4).plat(64, 15, 4).plat(69, 15, 1);
 canopy.bananas(59, 17, 3).bananas(65, 17, 3);
