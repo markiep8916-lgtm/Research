@@ -53,10 +53,22 @@ export class Touch {
 
   enable() { this.app.classList.add('touch-on'); }
 
-  /** Hide buttons for abilities Kong has not learned yet. */
+  /** Hide buttons for abilities Kong has not learned yet, and the whole overlay outside of play (menus, map, ending). */
   update() {
     const a = this.game.save.abilities;
     this.btns.roll.style.display = a.roll ? '' : 'none';
     this.btns.boom.style.display = a.boom ? '' : 'none';
+    const st = this.game.state;
+    const show = st === 'play' || st === 'transition' || st === 'dead' || st === 'itemget' || st === 'endcine';
+    if (show !== this.shown) {
+      this.shown = show;
+      this.root.style.visibility = show ? '' : 'hidden';
+      if (!show) {                                   // let go of anything still held when a menu opens
+        const input = this.game.input;
+        for (const act of ['left', 'right', 'up', 'down', 'jump', 'slap', 'roll', 'boom']) input.setVirtual(act, false);
+        for (const b of Object.values(this.btns)) b.classList.remove('down');
+        this.nub.style.transform = '';
+      }
+    }
   }
 }

@@ -69,8 +69,9 @@ export class Menus {
     const g = this.game;
     this.returnTo = 'title';
     const logo = el('div', { class: 'logo' },
-      el('span', { class: 'l1' }, 'DONKEY KONG'),
-      el('span', { class: 'l2' }, 'BANANA DEPTHS'));
+      el('span', { class: 'l0' }, 'A KONG-STYLE METROIDVANIA'),
+      el('span', { class: 'l1' }, 'BANANA'),
+      el('span', { class: 'l3' }, 'DEPTHS'));
     const cont = this.button('Continue', () => g.continueGame(), { disabled: !g.hasSave });
     const items = [
       cont,
@@ -79,7 +80,7 @@ export class Menus {
       this.button('Options', () => this.showOptions('title')),
     ];
     const menu = el('div', { class: 'menu' }, ...items);
-    const foot = el('div', { class: 'foot' }, 'An unofficial fan tribute. Not affiliated with or endorsed by Nintendo. All art, code and sound are original and generated at runtime.');
+    const foot = el('div', { class: 'foot' }, 'An unofficial fan tribute to the classic Donkey Kong arcade games. Not affiliated with or endorsed by Nintendo. All art, code and sound are original and generated at runtime.');
     this.mount('title', 'title', logo, menu, foot);
     this.setItems(items);
     if (g.hasSave) this.setSel(0); else this.setSel(0);
