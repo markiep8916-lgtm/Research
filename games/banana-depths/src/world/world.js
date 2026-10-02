@@ -1,12 +1,18 @@
 // World registry: every room, portal validation, start position, map totals.
-import { rooms as jungle } from './rooms/jungle.js';
-import { rooms as temple } from './rooms/temple.js';
-import { rooms as cavern } from './rooms/cavern.js';
-import { rooms as quarry } from './rooms/quarry.js';
-import { rooms as tower } from './rooms/tower.js';
+import { rooms as jungleA } from './rooms/jungle.js';
+import { rooms as jungleB } from './rooms/jungle_b.js';
+import { rooms as templeA } from './rooms/temple.js';
+import { rooms as templeB } from './rooms/temple_b.js';
+import { rooms as cavernA } from './rooms/cavern.js';
+import { rooms as cavernB } from './rooms/cavern_b.js';
+import { rooms as quarryA } from './rooms/quarry.js';
+import { rooms as quarryB } from './rooms/quarry_b.js';
+import { rooms as towerA } from './rooms/tower.js';
+import { rooms as towerB } from './rooms/tower_b.js';
 import { rooms as bosses } from './rooms/bosses.js';
 
-export const ROOM_LIST = [...jungle, ...temple, ...cavern, ...quarry, ...tower, ...bosses];
+// each area's rooms are split over two files (`<area>.js` and `<area>_b.js`) so two designers could work in parallel
+export const ROOM_LIST = [...jungleA, ...jungleB, ...templeA, ...templeB, ...cavernA, ...cavernB, ...quarryA, ...quarryB, ...towerA, ...towerB, ...bosses];
 export const ROOMS = Object.fromEntries(ROOM_LIST.map((r) => [r.id, r]));
 
 export function validateWorld() {

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const geoCache = new Map();
 export function geo(key, make) {
   let g = geoCache.get(key);
-  if (!g) { g = make(); geoCache.set(key, g); }
+  if (!g) { g = make(); g.userData.shared = true; geoCache.set(key, g); }
   return g;
 }
 export const sphere = (r, ws = 20, hs = 14) => geo(`s${r}_${ws}_${hs}`, () => new THREE.SphereGeometry(r, ws, hs));
@@ -50,10 +50,12 @@ export function glowSprite(color, size, opacity, texture) {
   return s;
 }
 
-/** Dispose of everything below an object (geometries are shared by the cache and kept). */
+/** Dispose of everything below an object. Cached geometries (see geo()) are shared between models and kept;
+ *  geometries a model made for itself are freed. (three.js re-uploads a disposed geometry if it is ever drawn again.) */
 export function disposeTree(obj) {
   obj.traverse((o) => {
     if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose && m.dispose());
     if (o.isInstancedMesh) o.dispose();
+    if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose();
   });
 }

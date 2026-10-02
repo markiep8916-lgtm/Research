@@ -8,12 +8,13 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const watch = process.argv.includes('--watch');
+const dev = process.argv.includes('--dev');       // readable (unminified) standalone page at .cache/dev.html, dist/ untouched
 const TITLE = 'Banana Depths';
 
 const opts = {
   entryPoints: [resolve(root, 'src/main.js')],
   bundle: true,
-  minify: !watch,
+  minify: !watch && !dev,
   format: 'iife',
   target: 'es2020',
   write: false,
@@ -40,6 +41,12 @@ async function run() {
   const result = await build(opts);
   const js = result.outputFiles[0].text;
   const { fragment, standalone } = assemble(js);
+  if (dev) {
+    mkdirSync(resolve(root, '.cache'), { recursive: true });
+    writeFileSync(resolve(root, '.cache/dev.html'), standalone);
+    console.log('built .cache/dev.html (unminified)');
+    return;
+  }
   mkdirSync(resolve(root, 'dist'), { recursive: true });
   writeFileSync(resolve(root, 'dist/index.html'), standalone);
   writeFileSync(resolve(root, 'dist/artifact.html'), fragment);

@@ -319,7 +319,8 @@ export class RoomView {
   }
 
   dispose() {
-    this.group.traverse((o) => { if (o.isInstancedMesh) o.dispose(); if (o.geometry && o.geometry.userData?.own) o.geometry.dispose(); });
+    // free GPU buffers of everything the room created; three.js re-uploads a shared geometry (BOX, CYL, ...) on demand
+    this.group.traverse((o) => { if (o.isInstancedMesh) o.dispose(); if (o.geometry) o.geometry.dispose(); });
     for (const m of this.mats) m.dispose();
     this.group.parent?.remove(this.group);
   }
