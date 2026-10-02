@@ -35,7 +35,7 @@ export class CameraRig {
   clampTarget(x, y, aspect) {
     const { hw, hh } = this.halfView(aspect);
     const minX = hw, maxX = this.roomW - hw;
-    const minY = hh - 1.5, maxY = this.roomH - hh + 1.0;
+    const minY = hh - 0.4, maxY = this.roomH - hh + 1.0;
     return [
       maxX < minX ? this.roomW / 2 : clamp(x, minX, maxX),
       maxY < minY ? this.roomH / 2 : clamp(y, minY, maxY),

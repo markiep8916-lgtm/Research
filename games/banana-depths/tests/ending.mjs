@@ -1,0 +1,23 @@
+import { openGame } from '../tools/harness.mjs';
+const g = await openGame({ w: 1100, h: 620 });
+await g.eval(() => {
+  const B = window.__bd.RoomBuilder, G = window.__bd.game;
+  const a = new B('e_a', 40, 20, { area: 'tower', name: 'The Golden Banana' });
+  a.rect(0, 0, 2, 20, '#').rect(38, 0, 2, 20, '#').ground(0, 39, 2); a.set(4, 3, '@'); a.set(14, 3, 'K'); a.bananas(8, 3, 3);
+  window.__bd.ROOMS.e_a = a.build();
+  G.save.abilities = { roll: true, pound: true, grip: true, boom: true }; G.save.hpMax = 9; G.save.hp = 9; G.save.playtime = 3725; G.save.bananas = 48; G.save.deaths = 2;
+  G.menus.hideAll(); G.hud.show(true); G.state = 'play'; G.loadRoom('e_a', { x: 5, y: 3, face: 1 });
+});
+let s = await g.run([{ n: 40, held: ['right'] }]);
+console.log('bananas after walking:', s.bananas, 'hp', s.hp);
+s = await g.run([{ n: 70, held: ['right'] }]);
+console.log('state after reaching the banana:', s.state);
+await g.shot('end_1.png');
+s = await g.run([{ n: 200, held: [] }, { n: 120, held: [] }]);
+console.log('state later:', s.state);
+await g.shot('end_2.png');
+await g.eval(() => window.__bd.game.input.clear());
+await g.page.keyboard.press('Enter'); s = await g.step(5);
+console.log('after Enter:', s.state);
+console.log('errors:', g.errors().filter((e) => !/ERR_CERT|net::|\[world\]/.test(e)).join('\n') || 'none');
+await g.close();

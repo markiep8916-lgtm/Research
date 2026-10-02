@@ -1,5 +1,5 @@
 // Headless playtest harness. Usage:  const g = await openGame({ w: 1280, h: 720 });
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 

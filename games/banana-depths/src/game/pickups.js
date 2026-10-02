@@ -45,6 +45,11 @@ export class Banana extends Entity {
     g.sfx('banana', this.x);
     g.fx.burst(this.x, this.y + 0.45, 7, { colors: [0xffe27a, 0xffffff], speed: 4.5, life: 0.4, size: 0.3 });
     g.hud.bumpBananas();
+    if (g.save.bananas % 50 === 0) { // every 50 bananas: a free snack that restores a heart
+      g.save.hp = Math.min(g.save.hpMax, g.save.hp + 1);
+      g.toast('50 bananas!  A heart is restored', 2.5);
+      g.sfx('heart');
+    }
     this.destroy();
   }
 }

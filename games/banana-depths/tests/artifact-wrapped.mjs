@@ -1,0 +1,12 @@
+import { openGame } from '../tools/harness.mjs';
+const g = await openGame({ w: 390, h: 844, file: '.cache/artifact-wrapped.html', touch: true });
+const info = await g.eval(() => ({ title: document.title, bodyBg: getComputedStyle(document.body).backgroundColor, appBg: getComputedStyle(document.getElementById('app')).backgroundColor, canvas: !!document.querySelector('canvas'), rotate: getComputedStyle(document.querySelector('.rotate')).display, state: window.__bd.game.state }));
+console.log(JSON.stringify(info));
+await g.shot('artifact_portrait.png');
+await g.close();
+const l = await openGame({ w: 844, h: 390, file: '.cache/artifact-wrapped.html', touch: true });
+await l.eval(() => window.__bd.game.newGame());
+await l.step(40);
+await l.shot('artifact_landscape.png');
+console.log('errors:', l.errors().filter((e) => !/ERR_CERT|net::|\[world\]/.test(e)).join('\n') || 'none');
+await l.close();

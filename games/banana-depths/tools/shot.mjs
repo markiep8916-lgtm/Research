@@ -1,5 +1,5 @@
 // Screenshot helper: node tools/shot.mjs <file.html> <out.png> [--w=1280 --h=720 --wait=ready --eval="js" --query="?x=1"]
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 

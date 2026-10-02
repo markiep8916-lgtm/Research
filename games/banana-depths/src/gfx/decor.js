@@ -273,17 +273,34 @@ function quarry(view, def) {
 
 function tower(view, def) {
   const { w, h } = def, r = view.rand, g = view.group;
-  // skyline
-  const bld = view.m(new THREE.MeshBasicMaterial({ color: 0x151a3a }));
-  const win = view.m(new THREE.MeshBasicMaterial({ color: 0xffd27a }));
-  const bI = new Instancer(BOX, bld), wI = new Instancer(BOX, win);
+  // skyline: three hazy layers (far = pale, near = deep navy) with lit windows and blinking masts
   const base = Math.max(4, h * 0.25);
-  for (let i = 0; i < 26; i++) {
-    const z = -(90 + r() * 80), bw = 6 + r() * 12, bh = 22 + r() * 60, x = -90 + r() * (w + 180);
-    bI.add(x, base - 20 + bh / 2, z, { sx: bw, sy: bh, sz: 8 });
-    for (let k = 0; k < 7; k++) if (r() < 0.6) wI.add(x + (r() - 0.5) * bw * 0.8, base - 20 + r() * bh, z + 4.2, { sx: 0.8, sy: 1.1, sz: 0.1 });
-  }
-  bI.build(g); wI.build(g); view.insts.push(bI, wI);
+  const layers = [
+    { z: -250, color: 0x7a669c, n: 22, bw: [8, 18], bh: [26, 62] },
+    { z: -190, color: 0x463f86, n: 22, bw: [7, 15], bh: [24, 66] },
+    { z: -135, color: 0x1d2358, n: 20, bw: [6, 13], bh: [22, 70] },
+  ];
+  const win = view.m(new THREE.MeshBasicMaterial({ color: 0xffd27a, fog: false }));
+  const wI = new Instancer(BOX, win);
+  const masts = [];
+  layers.forEach((L, li) => {
+    const m = view.m(new THREE.MeshBasicMaterial({ color: L.color, fog: false }));
+    const bI = new Instancer(BOX, m);
+    for (let i = 0; i < L.n; i++) {
+      const bw = L.bw[0] + r() * (L.bw[1] - L.bw[0]), bh = L.bh[0] + r() * (L.bh[1] - L.bh[0]);
+      const x = -120 + (i + r() * 0.8) * ((w + 240) / L.n), z = L.z + r() * 14;
+      const cy = base - 22 + bh / 2;
+      bI.add(x, cy, z, { sx: bw, sy: bh, sz: 9 });
+      if (r() < 0.45) bI.add(x + (r() - 0.5) * bw * 0.4, cy + bh / 2 + 2.2, z, { sx: bw * 0.45, sy: 4.4, sz: 7 });
+      if (li >= 1) for (let k = 0; k < (li === 2 ? 14 : 8); k++) if (r() < 0.55) wI.add(x + (r() - 0.5) * bw * 0.78, base - 22 + 2 + r() * (bh - 4), z + 4.6, { sx: 0.7, sy: 1.0, sz: 0.1 });
+      if (r() < 0.18) masts.push([x, cy + bh / 2 + (r() < 0.5 ? 6 : 2), z]);
+    }
+    bI.build(g); view.insts.push(bI);
+  });
+  wI.build(g); view.insts.push(wI);
+  const hazeS = glowSprite(0xff8a4a, w + 400, 0.5, getTexture('glow')); hazeS.scale.set(w + 500, 90, 1); hazeS.position.set(w / 2, base - 4, -300); g.add(hazeS); view.mats.push(hazeS.material);
+  const mastLights = masts.map(([x, y, z], i) => { const b = glowSprite(0xff3030, 4, 0.9, getTexture('glow')); b.position.set(x, y, z + 5); g.add(b); view.mats.push(b.material); return b; });
+  view.anims.push((t) => { mastLights.forEach((b, i) => { b.material.opacity = 0.2 + 0.8 * Math.max(0, Math.sin(t * 1.6 + i * 2.1)); }); });
   const moon = glowSprite(0xffe9c8, 120, 0.9, getTexture('glow')); moon.position.set(w * 0.3, h * 0.6 + 45, -320); g.add(moon); view.mats.push(moon.material);
   cloudLayer(view, def, { count: 6, color: 0xc7b8ff, opacity: 0.35, yMin: base + 25, yMax: base + 90, size: 75 });
   // cross-braced scaffolding behind the action

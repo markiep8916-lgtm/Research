@@ -1,5 +1,5 @@
 // Draws annotated top-down pictures of rooms (tiles, coordinate rulers, reachable cells, items) with Playwright.
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+import { chromium } from './pw.mjs';
 import { mkdirSync } from 'node:fs';
 
 const DRAW = `(data) => {

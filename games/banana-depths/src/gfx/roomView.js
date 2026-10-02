@@ -206,6 +206,14 @@ export class RoomView {
     for (const inst of Object.values(I)) { inst.build(this.group); this.insts.push(inst); }
     for (const g of Object.values(gateInst)) { g.bars.build(this.group); g.field.build(this.group); this.insts.push(g.bars, g.field); }
 
+    // ---- dark earth under the room so nothing but ground is visible below the lowest row (the tower is an open abyss)
+    if (this.areaKey !== 'tower') {
+      const under = new THREE.Mesh(new THREE.BoxGeometry(w + 120, 70, DEPTH), this.m(new THREE.MeshStandardMaterial({ map: getTexture(theme.solid.tex), color: 0x30302c, roughness: 1 })));
+      under.position.set(w / 2, -35, ZC);
+      under.receiveShadow = true;
+      this.group.add(under);
+    }
+
     // ---- back wall for interior themes
     if (theme.back) {
       const tex = getTexture(theme.back.tex).clone();
