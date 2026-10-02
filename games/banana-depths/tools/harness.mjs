@@ -9,6 +9,7 @@ export const GL_ARGS = ['--use-angle=swiftshader', '--use-gl=angle', '--enable-u
 export async function openGame({ w = 1280, h = 720, query = '?manual&lowq', file = 'dist/index.html', touch = false } = {}) {
   const browser = await chromium.launch({ args: GL_ARGS });
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
+  await ctx.route(/^https?:/, (r) => r.abort());      // fonts etc. fail fast: tests never wait on the network
   const page = await ctx.newPage();
   const logs = [];
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });

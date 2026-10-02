@@ -138,12 +138,24 @@ export class Menus {
       t.addEventListener('click', () => { g.setSettings({ [key]: !g.settings[key] }); t.textContent = g.settings[key] ? 'ON' : 'OFF'; t.classList.toggle('off', !g.settings[key]); g.audio.sfx('menu'); });
       return el('div', { class: 'row' }, el('span', {}, label), t);
     };
+    // fullscreen is optional: some embedded frames and phones refuse it, so the request is guarded
+    let fsRow = null;
+    if (document.fullscreenEnabled) {
+      const on = () => !!document.fullscreenElement;
+      const t = el('div', { class: 'toggle' + (on() ? '' : ' off'), role: 'switch', tabindex: '0' }, on() ? 'ON' : 'OFF');
+      t.addEventListener('click', async () => {
+        try { if (on()) await document.exitFullscreen(); else await document.getElementById('app').requestFullscreen(); } catch { /* refused */ }
+        t.textContent = on() ? 'ON' : 'OFF'; t.classList.toggle('off', !on()); g.audio.sfx('menu');
+      });
+      fsRow = el('div', { class: 'row' }, el('span', {}, 'Fullscreen'), t);
+    }
     const back = this.button('Back', () => this.back());
     back.classList.add('back');
     this.mount('options', 'dim', el('div', { class: 'panel' }, el('h2', {}, 'Options'),
       el('div', { class: 'row' }, el('span', {}, 'Volume'), vol),
       toggle('music', 'Music'),
       toggle('shake', 'Screen shake'),
+      fsRow,
       back));
     this.setItems([back]);
   }

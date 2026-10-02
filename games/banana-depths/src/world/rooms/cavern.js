@@ -8,6 +8,7 @@ import { RoomBuilder } from '../builder.js';
 const grip = new RoomBuilder('c_grip', 26, 45, {
   name: 'The Grip Grotto', area: 'cavern', map: { x: 17, y: 9 },
   props: {
+    titleCard: true,
     signs: [
       'The Spider Queen kept this grotto sealed.\nA warm glow rises from below.\nStep off the ledge and drop in.',
       'GORILLA GRIP!\nHold toward a wall to cling, press JUMP\nto kick off. Zig-zag from wall to wall!',
@@ -72,16 +73,17 @@ deep.clear(1, 19, 14, 6);                                    // tier 4 (stand 19
 deep.ladder(8, 43, 50).ladder(5, 35, 42).ladder(8, 27, 34).ladder(5, 19, 26); // ladders = the way back up
 deep.rect(6, 43, 2, 1, '^');                                 // tier 1: a 2-wide spike patch to hop (teaches spikes)
 // --- tier 4 teaching pit: water with crumble stepping stones
-deep.clear(7, 15, 5, 4).rect(7, 15, 5, 2, 'W').set(8, 18, 'F').set(10, 18, 'F');
+deep.clear(7, 15, 6, 4).rect(7, 15, 6, 2, 'W').set(8, 18, 'F').set(10, 18, 'F');
 // --- the lava cavern (x15..33, y3..28)
 deep.clear(15, 3, 19, 26).rect(15, 3, 17, 8, 'L');           // lava lake, surface at y=11
-deep.rect(23, 3, 8, 6, '#').rect(24, 9, 6, 3, '#').rect(25, 12, 5, 2, '#'); // stalagmite island, top stand 14
+deep.rect(23, 3, 7, 6, '#').rect(24, 9, 6, 3, '#').rect(25, 12, 5, 2, '#'); // stalagmite island, top stand 14
 deep.set(28, 13, 'Y');                                       // spring flush in the island top
 deep.rect(16, 16, 2, 1, 'F').rect(19, 15, 2, 1, 'F').rect(22, 14, 2, 1, 'F'); // crumble stepping stones
 // --- right ledge, the 4-wide climbing shaft (x35..38), doorway at its foot
 deep.rect(32, 3, 7, 16, '#');                                // right ledge + shaft floor (stand 19)
 deep.clear(35, 19, 4, 40);                                   // shaft 2 up into the top gallery
 deep.clear(34, 19, 1, 4);                                    // doorway (y19..22)
+deep.set(35, 41, '^').set(38, 48, '^');                      // test: one spike on each wall high in the climb (above the alcove rest)
 // --- mid-way alcove with the barrel, and the twin shaft (3 wide) with the secret heart
 deep.clear(39, 33, 2, 3);                                    // alcove tunnel (y33..35)
 deep.clear(41, 33, 3, 15);                                   // twin shaft x41..43, y33..47
@@ -100,7 +102,7 @@ deep.rect(25, 28, 5, 1).rect(26, 27, 3, 1).set(27, 26, '#').rect(32, 25, 2, 4); 
 deep.rect(35, 57, 3, 2).rect(40, 56, 2, 3).rect(46, 57, 3, 2).rect(49, 56, 2, 3); // top gallery
 // --- portals
 deep.clear(0, 51, 1, 3).rect(0, 51, 1, 3, '1');              // entry (left, y51..53)
-deep.set(48, 0, '2').ladder(48, 1, 6);                       // bottom portal + ladder well up to the hall floor
+deep.set(48, 0, '2').ladder(48, 1, 6).set(48, 1, 'T');       // bottom portal + ladder well up to the hall floor (a ladder-top right above the portal catches a non-climbing arrival)
 // --- signs, barrels, heart, enemies
 deep.set(3, 51, '?').set(3, 19, '?').set(36, 19, '?').set(42, 33, '?').set(41, 52, '?');
 deep.set(13, 19, 'S').set(40, 33, 'S');
@@ -109,9 +111,8 @@ deep.set(6, 27, 's');                                        // snapjaw on floor
 deep.set(12, 40, 'a');                                       // bat under floor 1, far from the landing
 deep.set(21, 23, 'a').set(32, 24, 'a');                      // bats under the cavern stalactites (wake on solid ground)
 // --- bananas (~40): drops, arcs over hazards, the bounce path, the climbing zig-zag
-deep.bananas(4, 52, 2);
 deep.bananas(10, 46, 2, 0, -1).bananas(3, 38, 2, 0, -1).bananas(10, 30, 2, 0, -1).bananas(3, 22, 2, 0, -1);
-deep.arc(5, 44, 8, 3, 2).arc(6, 20, 12, 4, 2);
+deep.arc(5, 44, 8, 3, 2).arc(6, 20, 13, 4, 2);
 deep.set(16, 18, 'o').set(19, 17, 'o').set(22, 16, 'o').bananas(25, 15, 3);
 deep.set(29, 17, 'o').set(30, 19, 'o').set(31, 20, 'o').set(32, 20, 'o');
 for (let i = 0; i < 8; i++) deep.set(i % 2 ? 38 : 35, 22 + i * 4, 'o');

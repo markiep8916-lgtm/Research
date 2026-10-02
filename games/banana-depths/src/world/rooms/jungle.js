@@ -32,100 +32,108 @@ start.set(6, 15, 'h');                                                          
 start.portal('1', 'j_canopy', '1');
 
 // ------------------------------------------------------------------------------------------------ j_canopy
-// THE GREAT HOLLOW TREE. A run across the treetops: landing bough, spring isle, a root-walk cellar sealed by a
-// crate wall (SECRET: needs ROLL), then the giant tree you walk straight through. A ladder inside the trunk climbs
-// to the top portal (-> j_tree). Past the tree, a spring launches Kong onto a high log bridge over the void.
+// THE GREAT HOLLOW TREE. A run across the treetops: a landing bough, a spring isle, a root-walk cellar sealed by a
+// crate wall (SECRET: needs ROLL), then a giant tree you walk straight through. A ladder inside the trunk climbs to
+// the top portal (-> j_tree). Past the tree a spring launches Kong onto a high log bridge over the void.
 const canopy = new RoomBuilder('j_canopy', 78, 24, {
   name: 'Canopy Path', area: 'jungle', map: { x: 2, y: 2 },
   props: {
     titleCard: true,
     signs: [
-      'The canopy! Springs bounce you high: hold Jump for a bigger boost.\nPress UP at a vine to climb it.',
-      'The Great Tree. Its hollow trunk climbs all the way up.\nWho knows what grows at the top?',
+      'The canopy! Spring tires bounce you high: hold Jump for more.\nPress UP at a vine to climb it.',
+      'A wall of crates, and a heart fruit behind it!\nToo sturdy to smash... for now.',
+      'The Great Tree. Walk through its hollow trunk,\nthen climb the ladder inside, all the way up.',
+      'Spiked critters hurt to stomp. SLAP them (X) or leap over.',
     ],
   },
 });
 canopy.rect(0, 0, 2, 24, '#').rect(76, 0, 2, 24, '#');                          // thick side walls
 canopy.clear(1, 10, 1, 3).rect(0, 10, 1, 3, '1');                                // left door (portal 1), on the landing bough
 canopy.clear(76, 16, 1, 3).rect(77, 16, 1, 3, '2');                              // right door (portal 2), on the high bridge end
-// -- A: landing bough (stand 10), tapering like a limb
+// -- A: landing bough (stand 10), tapering like a limb. Nothing hostile here: this is the arrival point.
 canopy.rect(2, 9, 12, 1).rect(2, 8, 10, 1).rect(2, 7, 8, 1).rect(2, 6, 6, 1).rect(2, 5, 4, 1);
 canopy.set(4, 10, '?');
-canopy.bananas(7, 11, 5).arc(13, 11, 18, 6, 2.5);
-// -- B: spring isle (stand 11) + optional high log guarded by a bat
+canopy.bananas(7, 11, 3).arc(11, 11, 17, 4, 2.5);
+canopy.plat(14, 6, 4).vine(14, 7, 9);                                            // safety log under gap 1, with a vine back up
+// -- B: spring isle (stand 11). The spring flings Kong to an optional high log.
 canopy.rect(17, 10, 11, 1).rect(18, 9, 9, 1).rect(19, 8, 7, 1).rect(20, 7, 5, 1);
-canopy.set(25, 10, 'Y');
-canopy.plat(21, 15, 6).bananas(21, 16, 6);
-canopy.rect(20, 19, 8, 2).set(24, 18, 'a');
-canopy.set(20, 11, 's');
-// -- gap 2 with the root walk beneath it: a vine hangs down to it and a crate door waits at its far end
-canopy.arc(27, 12, 33, 6, 2.5);
-canopy.rect(27, 7, 1, 3).vine(28, 7, 10);                                       // hanging root post + the vine up to B
-canopy.rect(28, 4, 15, 3);                                                       // the root walk (stand 7)
-canopy.bananas(30, 7, 11);
-// -- C: island above the root walk, with the checkpoint
+canopy.set(22, 10, 'Y').plat(21, 15, 7).bananas(22, 16, 4);
+canopy.set(25, 11, 's');
+// -- gap 2: a root-walk cellar lies beneath it. A vine climbs back up to B; at the far end waits the crate door.
+canopy.arc(26, 12, 32, 4, 2.5);
+canopy.rect(27, 7, 1, 3).vine(28, 7, 10);
+canopy.rect(28, 6, 15, 1).rect(29, 5, 14, 1).rect(31, 4, 12, 1);                 // the root walk (stand 7)
+canopy.set(40, 7, '?');
+canopy.bananas(31, 7, 7);
+// -- C: island above the root walk, with the checkpoint, and a branch above it for the first bat
 canopy.rect(32, 10, 8, 1).rect(33, 9, 6, 1);
 canopy.set(34, 11, 'S').set(38, 11, '?');
-// -- the Great Tree
-canopy.rect(41, 0, 12, 6).rect(43, 6, 8, 12).rect(44, 18, 6, 5);
-canopy.clear(43, 11, 8, 2);                                                      // corridor through the trunk
-canopy.clear(45, 13, 3, 10).ladder(46, 11, 22);                                  // hollow shaft + ladder (stand at 11, T at 22)
+canopy.rect(34, 17, 9, 2).set(37, 16, 'a');
+// -- the Great Tree: root flare, trunk, flat crown; a corridor through the trunk and a ladder shaft inside
+canopy.rect(38, 0, 18, 2).rect(39, 2, 16, 2).rect(40, 4, 14, 1).rect(41, 5, 12, 1);
+canopy.rect(43, 6, 8, 12).rect(44, 18, 6, 5).rect(40, 21, 14, 2);
+canopy.clear(43, 11, 8, 2);                                                      // corridor (stand 11)
+canopy.clear(45, 13, 3, 10).ladder(46, 11, 22);                                  // hollow shaft + ladder (T at 22)
 canopy.set(46, 23, '3');
 canopy.rect(43, 7, 2, 3, 'R').clear(45, 7, 5, 3);                                // SECRET: crate door + heart cellar (needs Roll)
-canopy.set(48, 7, 'h').bananas(45, 7, 3).bananas(45, 8, 3);
-canopy.rect(34, 17, 9, 2).set(37, 16, 'a');                                      // branch with the first bat... (second bat below)
-// -- E: past the tree
+canopy.set(48, 7, 'h').bananas(45, 7, 2).set(45, 8, 'o');
+// -- E: past the tree. A thornbug, and the spring that launches Kong up to the bridge.
 canopy.rect(51, 10, 8, 1).rect(52, 9, 6, 1).rect(53, 8, 4, 1).rect(54, 7, 2, 1);
-canopy.set(54, 11, 't').set(57, 10, 'Y');
-canopy.bananas(52, 12, 4);
-canopy.rect(50, 21, 10, 2).set(56, 20, 'a');
-// -- the high bridge (stand 16)
+canopy.set(52, 11, '?').set(55, 11, 't').set(57, 10, 'Y');
+canopy.bananas(53, 12, 3);
+// -- the high bridge (stand 16), a net island beneath it, an overhang with the second bat, and the exit island
 canopy.plat(59, 15, 4).plat(64, 15, 4).plat(69, 15, 1);
-canopy.bananas(59, 17, 4).bananas(64, 17, 4);
+canopy.bananas(59, 17, 3).bananas(65, 17, 3);
 canopy.rect(71, 15, 5, 1).rect(72, 14, 4, 1).rect(73, 13, 3, 1).rect(74, 12, 2, 1);
+canopy.bananas(72, 17, 2);
+canopy.rect(62, 8, 8, 1).rect(63, 7, 6, 1).rect(64, 6, 4, 1).rect(65, 5, 2, 1);  // net island (stand 9)
+canopy.set(65, 9, 's').bananas(64, 10, 3);
 canopy.vine(70, 9, 15);
-canopy.rect(62, 4, 8, 5).set(65, 9, 's');                                        // net island under the bridge
-canopy.bananas(63, 10, 5);
-canopy.bananas(72, 17, 3);
+canopy.rect(62, 20, 14, 1).rect(64, 21, 12, 1).rect(67, 22, 9, 1).set(66, 19, 'a');
 canopy.portal('1', 'j_start', '1').portal('2', 'j_gorge', '1').portal('3', 'j_tree', '1');
 
 // ------------------------------------------------------------------------------------------------ j_gorge
-// WATERFALL GORGE. Drop from the high plateau, cross the riverbed and the plunge pool, climb the far cliff.
+// WATERFALL GORGE. From the high plateau climb down to a lookout ledge (a barred cave behind you, a crystal on a
+// floating islet across the chasm), down again to the riverbed, cross the plunge pool on logs while a tiki spits
+// fire along the bridge, then spring up the far cliff to the exit.
 const gorge = new RoomBuilder('j_gorge', 52, 26, {
   name: 'Waterfall Gorge', area: 'jungle', map: { x: 5, y: 2 },
   props: {
     titleCard: true,
-    waterfall: { x: 34, y: 2, w: 4, h: 24 },
+    waterfall: { x: 29.5, y: 2, w: 5, h: 24 },
     signs: [
-      'Waterfall Gorge. The river is cold and the logs are slippery.\nA stump in the riverbed leads down to the Hollow Log.',
-      'A barred cave, and a crystal that floats beyond reach.\nSomething that flies could trigger it.',
+      'Waterfall Gorge. Stand on a ladder top and press DOWN to climb down.',
+      'A barred cave... and a crystal that floats beyond reach.\nSomething thrown might wake it.',
+      'A hollow stump. A ladder leads down into the Hollow Log.',
+      'Tiki turrets spit fire. SLAP a fireball to send it back!',
     ],
   },
 });
-gorge.rect(0, 0, 12, 15, '#').rect(0, 15, 2, 11, '#').rect(50, 12, 2, 14, '#');
-gorge.clear(1, 15, 1, 3).rect(0, 15, 1, 3, '1');                                 // left door on the plateau
-gorge.ladder(12, 4, 14);                                                         // ladder down the cliff face
-gorge.rect(12, 0, 32, 4, '#');                                                   // riverbed (stand 4)
-gorge.ladder(12, 4, 14);
-gorge.set(5, 15, '?').set(14, 4, '?');
-gorge.ladder(16, 1, 3).set(16, 0, '3');                                          // the stump: ladder down to j_log
-gorge.clear(19, 0, 4, 4).rect(19, 0, 4, 2, 'W');                                 // pit 1
-gorge.arc(18, 5, 23, 5, 2.5);
-gorge.set(25, 4, 's').set(28, 3, 'Y');
-gorge.clear(30, 0, 8, 4).rect(30, 0, 8, 2, 'W');                                 // the plunge pool
-gorge.plat(30, 5, 2).plat(33, 6, 2).plat(36, 5, 2);
-gorge.bananas(30, 7, 2).bananas(33, 8, 2).bananas(36, 7, 2);
-gorge.set(39, 4, 'u');
-gorge.plat(42, 5, 2);
-gorge.rect(44, 0, 8, 8).plat(45, 9, 3).rect(48, 0, 4, 12);
-gorge.bananas(44, 9, 3).bananas(46, 11, 2);
-gorge.set(46, 12, 'S');
-gorge.clear(50, 12, 1, 3).rect(51, 12, 1, 3, '2');                               // right door
-// the crystal isle + barred cave
-gorge.rect(20, 11, 4, 4).rect(21, 10, 2, 1);
-gorge.set(20, 15, 'w').bananas(22, 15, 2);
-gorge.clear(5, 4, 5, 3).rect(10, 4, 2, 3, 'D');
-gorge.set(7, 4, 'h').bananas(5, 4, 2).bananas(8, 4, 1);
+gorge.rect(0, 0, 2, 26).rect(50, 0, 2, 26);                                      // thick side walls
+gorge.rect(0, 0, 10, 19);                                                        // left cliff: plateau at stand 19
+gorge.clear(1, 19, 1, 3).rect(0, 19, 1, 3, '1');                                 // left door on the plateau
+gorge.set(5, 19, '?').bananas(3, 20, 3);
+gorge.clear(3, 11, 5, 3).rect(8, 11, 2, 3, 'D');                                 // barred cave in the cliff face (gate A)
+gorge.set(5, 11, 'h').set(3, 11, 'o').set(7, 11, 'o').set(4, 12, 'o').set(6, 12, 'o');
+gorge.ladder(10, 11, 18);                                                        // down the cliff to the lookout ledge
+gorge.rect(10, 9, 5, 2).rect(10, 8, 4, 1).ladder(15, 4, 10);                     // lookout ledge (stand 11); its tip is a ladder top
+gorge.set(12, 11, '?');
+gorge.rect(10, 0, 16, 4);                                                        // left bank (stand 4), under the crystal islet
+gorge.ladder(12, 1, 3).set(12, 0, '3');                                          // the stump: ladder down to j_log
+gorge.set(13, 4, '?').set(16, 4, '#');                                           // stump sign, and a step that pens in the snapjaw
+gorge.set(23, 4, 's').set(18, 4, '?').bananas(19, 5, 3);
+gorge.rect(23, 10, 3, 1).set(24, 9, '#').set(23, 11, 'w');                       // crystal islet: 7 tiles from the lookout tip
+gorge.rect(26, 0, 8, 2, 'W');                                                    // the plunge pool (water at the bottom)
+gorge.plat(26, 5, 3).plat(30, 6, 3);                                             // bridge of logs over the pool
+gorge.bananas(26, 7, 3).bananas(30, 8, 3);
+gorge.rect(34, 0, 8, 6);                                                         // right bank (stand 6)
+gorge.set(36, 5, 'Y').set(38, 6, 'u').bananas(34, 7, 2);
+gorge.rect(42, 0, 8, 8).rect(39, 8, 11, 3);                                      // far cliff + the overhanging ledge (stand 11)
+gorge.set(44, 11, 's').bananas(40, 12, 3);
+gorge.plat(44, 12, 2).bananas(44, 14, 2);
+gorge.rect(46, 11, 4, 4);                                                        // exit plateau (stand 15)
+gorge.set(47, 15, 'S').bananas(48, 16, 2);
+gorge.clear(50, 15, 1, 3).rect(51, 15, 1, 3, '2');                               // right door
 gorge.portal('1', 'j_canopy', '2').portal('2', 'j_shrine', '1').portal('3', 'j_log', '1');
 
 export const rooms = [start, canopy, gorge].map((b) => b.build());

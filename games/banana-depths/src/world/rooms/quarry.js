@@ -1,11 +1,19 @@
 // SMOLDERING QUARRY (q_pass): lava, crumbling blocks and old machinery. Kong enters with ROLL, POUND and GRIP.
 import { RoomBuilder } from '../builder.js';
 
+/** Hanging rock: a tapering stalactite of `len` rows under the ceiling, centred on cx (pure silhouette, always out of reach). */
+function stalactite(b, cx, w, len) {
+  for (let i = 0; i < len; i++) {
+    const hw = Math.max(0, Math.round(((w - 1) / 2) * (1 - i / len)));
+    b.rect(cx - hw, b.h - 2 - i, 2 * hw + 1, 1, '#');
+  }
+}
+
 // ------------------------------------------------------------------------------------------------ q_pass
-// The Slag River. Kong drops in from the caverns onto a lookout ledge, climbs down rock terraces to a lava river, hops a field
-// of crumbling blocks to a tire island, and bounces up onto the Girder Bridge: a long stone deck over the river. The bridge ends
-// in a 7-wide roll-jump gap guarded by a tiki sniper. Under the bridge hides the secret: a crystal across a lava hall (needs the
-// boomerang) that opens a gate to a heart chamber in the cliff.
+// The Slag River. Kong drops in from the caverns onto a lookout ledge, climbs rock terraces down to a lava river, hops a field of
+// crumbling blocks to a tire island, and bounces up onto the Girder Bridge: a long stone deck over the river that ends in a 7-wide
+// roll-jump gap watched by a tiki sniper. Under the bridge hides the secret: a crystal at the end of a low lava tunnel (too far
+// to cross, in range of the boomerang) that opens a gate to a heart chamber in the cliff.
 const pass = new RoomBuilder('q_pass', 78, 24, {
   name: 'Slag River Pass', area: 'quarry', map: { x: 13, y: 13 },
   props: {
@@ -13,45 +21,68 @@ const pass = new RoomBuilder('q_pass', 78, 24, {
     signs: [
       'The Tiki Tribe shattered the Golden Banana\nand left its fire burning down here.\nMind the lava, Kong.',
       'Scorched stone crumbles underfoot.\nHop on, hop off, and keep moving!',
+      'Tires bounce you sky-high: hold Jump\nas you land to bounce higher.\nSteer toward the bridge!',
       'Too far to jump? Curl into a roll (C),\nthen jump out of the roll for a huge leap.',
       'A crystal glimmers across the lava...\nIt would take something thrown\nfrom afar to wake it.',
     ],
   },
 });
 pass.border('#');
-// --- left cliff: lookout ledge (Kong falls in from the caverns above) and stepped terraces down to the river bank
-pass.ground(1, 9, 14);                                     // lookout ledge, stand 15
-pass.ground(10, 11, 12).ground(12, 13, 10).ground(14, 15, 8);  // terraces, stand 13 / 11 / 9
-pass.ground(16, 21, 7);                                    // river bank, stand 8
-pass.vline(3, 15, 22, 'H');                                // ladder up to the top portal (so Kong can go back to the caverns)
-pass.set(3, 23, '1');
-pass.set(5, 15, '?').set(7, 15, 'S');
-// --- the lava river
-pass.rect(22, 1, 55, 5, 'L');
-// crumbling stepping stones
-pass.rect(25, 7, 2, 1, 'F').rect(29, 8, 2, 1, 'F');
-pass.set(22, 8, '?');
-// --- tire island with a save barrel
-pass.ground(33, 40, 7);
-pass.set(35, 8, 'S').set(37, 7, 'Y');
-// --- Girder Bridge: stone pier, deck over the river, ladder at the end
-pass.rect(41, 0, 4, 13, '#');                              // pier (top = stand 13)
-pass.rect(45, 10, 13, 3, '#');                             // deck (x 45..57), 3 thick: the undercroft below is only 2 tiles high
-pass.ladder(58, 8, 12);                                    // ladder from the undercroft ledge up to the end of the bridge
-pass.set(57, 13, '?');
-// --- undercroft: crystal ledge (left) and shelf (right), under the deck so the lava gap between them cannot be jumped
-pass.rect(45, 0, 3, 8, '#');                               // crystal ledge (stand 8)
-pass.rect(55, 0, 11, 8, '#');                              // shelf (stand 8)
-pass.set(47, 8, 'w').set(45, 8, 'U');
-// --- right plateau with the exit; heart chamber behind gate D in its face
-pass.rect(66, 0, 11, 13, '#');                             // plateau (stand 13)
-pass.rect(77, 13, 1, 3, '2');
-pass.clear(67, 8, 8, 3).rect(66, 8, 1, 3, 'D');
-pass.set(70, 8, 'h');
-pass.set(62, 8, '?');
-// --- enemies
-pass.set(18, 8, 'm').set(49, 13, 'm').set(53, 13, 'm').set(69, 13, 'u');
-pass.portal('1', 'c_deep', '2').portal('2', 'q_forge', '1');
 
+// --- left cliff: lookout ledge (Kong falls in from the caverns above), rock terraces down to the river bank
+pass.ground(1, 7, 14);                                         // lookout ledge, stand 15
+pass.ground(8, 9, 12).ground(10, 11, 10).ground(12, 13, 8);    // terraces, stand 13 / 11 / 9
+pass.ground(14, 16, 7);                                        // river bank, stand 8
+pass.vline(3, 15, 22, 'H');                                    // ladder up to the top portal (so Kong can climb back to the caverns)
+pass.set(3, 23, '1');
+pass.set(5, 15, '?').set(6, 15, 'S');
+pass.clear(2, 6, 5, 4).rect(2, 6, 5, 2, 'L');                  // furnace window: a sealed lava pocket glowing inside the cliff
+
+// --- the lava river, crossed first by crumbling stones (they drop 0.45 s after Kong lands, so keep moving)
+pass.rect(17, 1, 60, 5, 'L');
+pass.rect(20, 7, 2, 1, 'F').rect(25, 8, 2, 1, 'F').rect(30, 7, 2, 1, 'F');
+pass.set(15, 8, '?');
+
+// --- tire island: a spring flush in the floor bounces Kong up onto the bridge pier
+pass.ground(34, 41, 7);
+pass.set(35, 8, '?').set(37, 7, 'Y');
+
+// --- Girder Bridge: stone pier (with a save barrel), 3-thick deck over the river, ladder down at its end
+pass.rect(42, 0, 4, 13, '#');                                  // pier, stand 13
+pass.rect(46, 10, 13, 3, '#');                                 // deck x 46..58; the undercroft below it is only 2 tiles high
+pass.ladder(59, 8, 12);                                        // ladder from the undercroft shelf up to the end of the bridge
+pass.set(44, 13, 'S').set(57, 13, '?');
+
+// --- undercroft: crystal ledge (left) and shelf (right) face each other across a 7-wide lava gap, under the low roof
+pass.rect(46, 0, 3, 8, '#');                                   // crystal ledge, stand 8
+pass.rect(56, 0, 11, 8, '#');                                  // shelf, stand 8 (also the safety net under the roll-jump gap)
+pass.set(48, 8, 'w').set(46, 8, 'U');
+pass.set(63, 8, '?');
+
+// --- right plateau with the exit; heart chamber behind gate D in its face
+pass.rect(67, 0, 10, 13, '#');                                 // plateau, stand 13
+pass.rect(77, 13, 1, 3, '2');
+pass.clear(68, 8, 8, 3).rect(67, 8, 1, 3, 'D');
+pass.set(71, 8, 'h');
+pass.clear(69, 3, 5, 3).rect(69, 3, 5, 1, 'L');                // second furnace window under the chamber
+
+// --- ceiling formations (the entry shaft at x 2..4 and the air above the tire island stay clear)
+for (const [cx, w, len] of [[10, 7, 5], [16, 5, 4], [22, 9, 6], [29, 5, 3], [50, 7, 3], [56, 5, 3], [63, 7, 4], [72, 9, 6]]) stalactite(pass, cx, w, len);
+
+// --- bananas
+pass.bananas(5, 16, 2);                                        // lookout
+pass.set(8, 14, 'o').set(9, 14, 'o').set(10, 12, 'o').set(11, 12, 'o');   // down the terraces
+pass.arc(16, 9, 20, 3, 2).arc(21, 10, 25, 3, 2).arc(26, 10, 30, 3, 2).arc(31, 9, 34, 2, 1.5);  // over the crumbling stones
+pass.bananas(39, 8, 2);
+pass.set(39, 11, 'o').set(41, 14, 'o').set(43, 15, 'o');       // the bounce up to the pier
+pass.bananas(48, 14, 4, 2);                                    // along the deck
+pass.arc(59, 14, 67, 5, 3);                                    // over the roll-jump gap
+pass.bananas(71, 14, 2, 2);
+pass.bananas(60, 9, 2, 3);                                     // lures the curious down the ladder
+pass.bananas(70, 8, 3, 2);                                     // the heart chamber stash
+
+// --- enemies
+pass.set(15, 8, 'm').set(40, 8, 'm').set(52, 13, 'm').set(69, 13, 'u');
+pass.portal('1', 'c_deep', '2').portal('2', 'q_forge', '1');
 
 export const rooms = [pass.build()];
