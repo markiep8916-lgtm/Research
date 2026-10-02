@@ -4,7 +4,7 @@ import { RoomBuilder } from '../builder.js';
 // ---------------------------------------------------------------- Stone Golem
 const golem = new RoomBuilder('t_golem', 40, 20, {
   name: 'Golem Chamber', area: 'temple', map: { x: 12, y: 4 },
-  props: { boss: 'golem', bossRoom: true, bossTrigger: 9, bossName: 'STONE GOLEM', bossCam: { zoom: 1.42 }, titleCard: true },
+  props: { boss: 'golem', bossRoom: true, bossTrigger: 9, bossName: 'STONE GOLEM', bossCam: { zoom: 1.42, y: 7.6 }, titleCard: true },
 });
 golem.border('#').ground(0, 39, 2);
 golem.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');
@@ -16,7 +16,7 @@ golem.portal('1', 't_hall', '2').portal('2', 't_pound', '1');
 // ---------------------------------------------------------------- Crystal Spider Queen
 const queen = new RoomBuilder('c_queen', 52, 30, {
   name: "Queen's Nest", area: 'cavern', map: { x: 16, y: 7 },
-  props: { boss: 'queen', bossRoom: true, bossTrigger: 11, bossName: 'CRYSTAL SPIDER QUEEN', bossCam: { zoom: 1.8 }, titleCard: true },
+  props: { boss: 'queen', bossRoom: true, bossTrigger: 11, bossName: 'CRYSTAL SPIDER QUEEN', bossCam: { zoom: 1.8, y: 10.6 }, titleCard: true },
 });
 queen.border('#').ground(0, 51, 2);
 queen.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');
@@ -28,7 +28,7 @@ queen.portal('1', 'c_web', '2').portal('2', 'c_grip', '1');
 // ---------------------------------------------------------------- Tiki Overlord
 const over = new RoomBuilder('g_top', 40, 26, {
   name: "Overlord's Perch", area: 'tower', map: { x: 19, y: 3 },
-  props: { boss: 'overlord', bossRoom: true, bossTrigger: 6, bossName: 'TIKI OVERLORD', bossCam: { zoom: 1.4 }, titleCard: true },
+  props: { boss: 'overlord', bossRoom: true, bossTrigger: 6, bossName: 'TIKI OVERLORD', bossCam: { zoom: 1.45, y: 8.2 }, titleCard: true },
 });
 over.border('#').ground(0, 39, 2);
 over.clear(19, 0, 1, 3).set(19, 0, '1').set(19, 1, 'H').set(19, 2, 'T');   // ladder up from the tower below

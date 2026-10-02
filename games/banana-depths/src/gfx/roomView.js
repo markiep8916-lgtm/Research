@@ -242,7 +242,7 @@ export class RoomView {
       case 'slab': return { geo: new THREE.BoxGeometry(1.0, 0.3, 2.0), mat: this.m(new THREE.MeshStandardMaterial({ map: getTexture('stone'), color, roughness: 0.9 })), top: 0.85, z: -0.2, rot: 0, tint: true };
       case 'crystal': return { geo: new THREE.BoxGeometry(1.0, 0.2, 1.7), mat: this.m(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55, roughness: 0.2, metalness: 0.2, transparent: true, opacity: 0.88 })), top: 0.9, z: -0.1, rot: 0, tint: false };
       case 'grate': return { geo: new THREE.BoxGeometry(1.0, 0.16, 2.0), mat: this.m(new THREE.MeshStandardMaterial({ map: getTexture('steel'), color, roughness: 0.6, metalness: 0.5 })), top: 0.92, z: -0.1, rot: 0, tint: true };
-      case 'girder': return { geo: girderGeo(), mat: this.m(new THREE.MeshStandardMaterial({ map: getTexture('steel'), color, roughness: 0.55, metalness: 0.45 })), top: 1.0, z: -0.1, rot: 0, tint: false };
+      case 'girder': return { geo: girderGeo(), mat: this.m(new THREE.MeshStandardMaterial({ color: 0xff9a2e, roughness: 0.5, metalness: 0.3, emissive: 0x401800, emissiveIntensity: 0.35 })), top: 1.0, z: -0.1, rot: 0, tint: false };
       default: return { geo: new THREE.BoxGeometry(1, 0.3, 2), mat: this.m(new THREE.MeshStandardMaterial({ color })), top: 0.85, z: 0, rot: 0 };
     }
   }

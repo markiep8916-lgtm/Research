@@ -20,6 +20,7 @@ export class Player extends Entity {
     this.attackHit = new Set();
     this.throwT = -1;
     this.invuln = 0;
+    this.grace = 0;   // spawn protection: invulnerable but does not blink
     this.hurtT = 0;
     this.hazardCd = 0;
     this.respawnT = -1;
@@ -58,13 +59,14 @@ export class Player extends Entity {
     const b = this.body;
     b.x = x; b.y = y; b.vx = 0; b.vy = 0; b.face = face;
     b.mode = 'move'; b.hw = P.hw; b.h = P.h; b.stun = 0; b.rollT = 0; b.ground = false; b.poundPhase = 0;
+    b.rollCd = 0; b.landLock = 0; b.coyote = 0; b.jumpBuf = 0; b.dropT = 0; b.wallLock = 0; b.wallCoyote = 0; b.climbCd = 0; b.springCd = 0; b.sliding = 0; b.jumping = false;
     this.attackT = -1; this.throwT = -1; this.hurtT = 0; this.respawnT = -1;
     this.lastSafe = { x, y };
     this.snap();
     this.model.visible = true;
   }
 
-  get invulnerable() { return this.invuln > 0; }
+  get invulnerable() { return this.invuln > 0 || this.grace > 0; }
   get rolling() { return this.body.mode === 'roll'; }
   get attacking() { return this.attackT >= 0 && this.attackT >= SLAP_ON && this.attackT <= SLAP_OFF; }
 
@@ -79,6 +81,7 @@ export class Player extends Entity {
     const g = this.game, b = this.body, save = g.save;
     b.abil.roll = save.abilities.roll; b.abil.pound = save.abilities.pound; b.abil.grip = save.abilities.grip; b.abil.boom = save.abilities.boom;
     this.invuln = Math.max(0, this.invuln - dt);
+    this.grace = Math.max(0, this.grace - dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.hazardCd = Math.max(0, this.hazardCd - dt);
 
@@ -225,7 +228,7 @@ export class Player extends Entity {
   // ------------------------------------------------------------------ damage
   hurt(dmg, srcX, opts = {}) {
     const g = this.game;
-    if (this.invuln > 0 || this.respawnT >= 0 || g.state !== 'play') return false;
+    if (this.invuln > 0 || this.grace > 0 || this.respawnT >= 0 || g.state !== 'play') return false;
     const b = this.body;
     g.save.hp = Math.max(0, g.save.hp - dmg);
     cancelState(b, g.grid);

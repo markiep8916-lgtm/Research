@@ -18,6 +18,7 @@ export async function openGame({ w = 1280, h = 720, query = '?manual&lowq', file
   const api = {
     browser, page, logs,
     run: (segs) => page.evaluate((s) => window.__bd.run(s.map((x) => ({ ...x, until: x.untilExpr ? new Function('g', 'return ' + x.untilExpr) : undefined }))), segs),
+    step: (n) => page.evaluate((k) => { window.__bd.game.stepFrames(k); return window.__bd.game.snapshot(); }, n),
     snap: () => page.evaluate(() => window.__bd.game.snapshot()),
     eval: (fn, arg) => page.evaluate(fn, arg),
     shot: (name) => page.screenshot({ path: resolve(root, '.cache', name) }),

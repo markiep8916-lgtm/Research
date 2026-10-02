@@ -1,6 +1,7 @@
 import { Game } from './game/game.js';
 import { Touch } from './ui/touch.js';
-import { validateWorld } from './world/world.js';
+import { validateWorld, ROOMS } from './world/world.js';
+import { RoomBuilder } from './world/builder.js';
 
 const app = document.getElementById('app');
 const stage = document.createElement('div');
@@ -21,7 +22,8 @@ window.addEventListener('keydown', unlock);
 
 // handy for tests and tinkering from the console
 window.__bd = {
-  game,
+  game, ROOMS, RoomBuilder,
+  info() { const i = game.gfx.renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geos: i.memory.geometries, tex: i.memory.textures, programs: i.programs ? i.programs.length : 0 }; },
   /** run scripted input: [{n, held:['right','jump'], press:['jump']}]  (press = edge on the segment's first frame) */
   run(segs) {
     for (const s of segs) {

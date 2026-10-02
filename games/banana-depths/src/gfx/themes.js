@@ -2,6 +2,7 @@
 export const THEMES = {
   jungle: {
     name: 'Jungle Canopy',
+    env: 0.14,
     sky: { top: 0x2a86c4, mid: 0x7fcfd0, horizon: 0xffe0a0, bottom: 0x2d5a34 },
     fog: { color: 0x8fcfba, near: 40, far: 260 },
     hemi: { sky: 0xbfe8ff, ground: 0x3a5a2a, intensity: 1.25 },
@@ -16,6 +17,7 @@ export const THEMES = {
   },
   temple: {
     name: 'Sunken Temple',
+    env: 0.2,
     sky: { top: 0x0a1a1f, mid: 0x123238, horizon: 0x1d5a5a, bottom: 0x06100f },
     fog: { color: 0x0d2a2c, near: 24, far: 110 },
     hemi: { sky: 0x8fe0d2, ground: 0x2c4a3c, intensity: 1.6 },
@@ -30,6 +32,7 @@ export const THEMES = {
   },
   cavern: {
     name: 'Crystal Caverns',
+    env: 0.22,
     sky: { top: 0x070615, mid: 0x0d0b26, horizon: 0x1a1440, bottom: 0x04030c },
     fog: { color: 0x0c0a24, near: 22, far: 105 },
     hemi: { sky: 0x9a92ff, ground: 0x2c2358, intensity: 1.55 },
@@ -44,6 +47,7 @@ export const THEMES = {
   },
   quarry: {
     name: 'Smoldering Quarry',
+    env: 0.35,
     sky: { top: 0x1a0807, mid: 0x4a1710, horizon: 0xd2501c, bottom: 0x1a0604 },
     fog: { color: 0x3a120b, near: 26, far: 120 },
     hemi: { sky: 0xffa078, ground: 0x5a2216, intensity: 1.5 },
@@ -58,6 +62,7 @@ export const THEMES = {
   },
   tower: {
     name: 'Girder Tower',
+    env: 0.4,
     sky: { top: 0x0b1030, mid: 0x2a2f6a, horizon: 0xff9a5a, bottom: 0x0a0c1c },
     fog: { color: 0x1d2350, near: 30, far: 135 },
     hemi: { sky: 0xa8c0ff, ground: 0x3a3048, intensity: 1.6 },

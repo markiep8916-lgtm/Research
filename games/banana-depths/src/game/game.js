@@ -135,7 +135,7 @@ export class Game {
     this.hud.show(true);
     const sp = this.save.spawn;
     this.loadRoom(sp.room, { x: sp.x, y: sp.y, face: 1 });
-    this.player.invuln = 1.0;
+    this.player.grace = 1.0;
     this.state = 'play';
     this.audio.unlock();
     this.input.clear();
@@ -329,7 +329,7 @@ export class Game {
     this.player.kong.root.rotation.z = 0;
     const sp = this.save.spawn;
     this.loadRoom(sp.room, { x: sp.x, y: sp.y, face: 1 });
-    this.player.invuln = 1.5;
+    this.player.grace = 1.5;
     this.state = 'play';
     this.hud.refresh(true);
   }
@@ -388,7 +388,9 @@ export class Game {
     const frame = this.input.poll();
     this.input.lastFrame = frame;
     this.time += dt;
+    const before = this.state;
     this.menus.update(frame, dt);
+    if (this.state !== before) for (const a of Object.keys(frame.pressed)) frame.pressed[a] = false; // a menu consumed this press
     switch (this.state) {
       case 'title': this.tickTitle(dt, frame); break;
       case 'play': this.tickPlay(dt, frame); break;
@@ -422,7 +424,15 @@ export class Game {
     if (frame.pressed.map) { this.openMap(); return; }
     this.runTime += dt;
     this.save.playtime += dt;
-    if (this.hitstopT > 0) { this.hitstopT -= dt; this.afterUpdate(dt); return; }
+    if (this.hitstopT > 0) {
+      // hit-stop freezes the simulation, but button presses made meanwhile are kept for the first live frame
+      this.hitstopT -= dt;
+      this.carry = this.carry || {};
+      for (const a of Object.keys(frame.pressed)) if (frame.pressed[a]) this.carry[a] = true;
+      this.afterUpdate(dt);
+      return;
+    }
+    if (this.carry) { for (const a of Object.keys(this.carry)) frame.pressed[a] = true; this.carry = null; }
 
     const p = this.player;
     p.snap();
@@ -455,7 +465,7 @@ export class Game {
   checkBossTrigger() {
     const d = this.bossDef, p = this.player;
     const trig = d.def.bossTrigger ?? 6;
-    if (Math.abs(p.x - d.x) < trig && Math.abs(p.y - d.y) < 12) this.startBoss();
+    if (Math.abs(p.x - d.x) < trig) this.startBoss();
   }
 
   checkPortals() {
@@ -468,15 +478,16 @@ export class Game {
   checkContacts(frame) {
     const p = this.player, b = p.body;
     if (p.respawnT >= 0) return;
-    // ---- slap
+    // ---- slap (reflects fireballs / barrels first, then hurts whatever is in reach)
     if (p.attacking) {
       const sb = p.slapBox();
       for (const e of this.entities) {
         if (e.dead || p.attackHit.has(e)) continue;
+        if (e.reflectable && !e.friendly && overlap(sb, e.box)) { p.attackHit.add(e); e.onSlap(p); this.hitstop(0.04); continue; }
         if ((e.kind === 'enemy' || e.kind === 'boss') && !(e.dying > 0) && overlap(sb, e.box)) {
           p.attackHit.add(e);
           if (e.hit(1, b.face, 'slap')) { this.hitstop(0.05); this.shake(0.14); }
-        } else if (e.reflectable && overlap(sb, e.box)) { p.attackHit.add(e); e.onSlap(p); this.hitstop(0.04); }
+        }
       }
     }
     // ---- bodies
@@ -498,6 +509,7 @@ export class Game {
     const it = this.itemGet;
     if (!it) { this.state = 'play'; return; }
     it.t += dt;
+    this.player.model.visible = true;
     this.player.kong.update({ face: 1, vx: 0, vy: 0, ground: true, mode: 'move', attack: -1, throwing: -1, hurt: 0 }, dt, this.time);
     this.camera.update(dt, this.player.x, this.player.y + 1.2, 1, 0, this.aspect);
     this.view.update(dt, this.fx, this.camera.x, this.camera.y);
@@ -528,7 +540,7 @@ export class Game {
       if (tr.t >= 0.28) {
         const p = tr.portal;
         this.loadRoom(p.to, { portal: p.at });
-        this.player.invuln = Math.max(this.player.invuln, 0.6);
+        this.player.grace = Math.max(this.player.grace, 0.7);
         this.continueClimb(tr.climbing);
         tr.phase = 'in'; tr.t = 0;
       }

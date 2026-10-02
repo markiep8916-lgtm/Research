@@ -96,6 +96,7 @@ export class Enemy extends Entity {
 export class Snapjaw extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'snapjaw';
     this.hw = 0.55; this.h = 0.85; this.hp = 1;
     this.dir = Math.random() < 0.5 ? -1 : 1; this.face = this.dir;
     this.lunge = 0; this.cool = 0;
@@ -124,6 +125,7 @@ export class Snapjaw extends Enemy {
 export class Thornbug extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'thornbug';
     this.hw = 0.55; this.h = 0.8; this.hp = 2; this.stompable = false;
     this.dir = Math.random() < 0.5 ? -1 : 1; this.face = this.dir;
     this.dmgs = { slap: 1, roll: 2, boom: 1, pound: 3, stomp: 0, reflect: 2 };
@@ -146,6 +148,7 @@ export class Thornbug extends Enemy {
 export class Bat extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'bat';
     this.hw = 0.5; this.h = 0.75; this.hp = 1;
     this.home = { x: this.x, y: y + 1 - this.h }; // hangs from the tile above
     this.y = this.home.y;
@@ -181,6 +184,7 @@ export class Bat extends Enemy {
 export class Tiki extends Enemy {
   constructor(game, x, y, face = -1) {
     super(game, x + 0.5, y);
+    this.label = 'tiki';
     this.hw = 0.5; this.h = 1.9; this.hp = 3; this.contact = false; this.stompable = false;
     this.face = face; this.cool = 1.2 + Math.random(); this.charge = 0;
     this.dmgs = { slap: 1, roll: 2, boom: 1, pound: 2, stomp: 0, reflect: 3 };
@@ -212,6 +216,7 @@ export class Tiki extends Enemy {
 export class Magma extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'magma';
     this.hw = 0.5; this.h = 0.9; this.hp = 2; this.stompable = false;
     this.dmgs = { slap: 1, roll: 2, boom: 1, pound: 3, stomp: 0, reflect: 2 };
     this.cool = 0.6 + Math.random(); this.squat = 0;
@@ -243,6 +248,7 @@ export class Magma extends Enemy {
 export class Spider extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'spider';
     this.hw = 0.55; this.h = 0.85; this.hp = 1; this.stompable = false;
     this.ay = y + 1;
     // how far can it drop before hitting the floor?
@@ -273,6 +279,7 @@ export class Spider extends Enemy {
 export class Wisp extends Enemy {
   constructor(game, x, y) {
     super(game, x + 0.5, y);
+    this.label = 'wisp';
     this.hw = 0.45; this.h = 0.9; this.hp = 1; this.stompable = false;
     this.dmgs = { slap: 0, roll: 0, boom: 1, pound: 0, stomp: 0, reflect: 2 };
     this.hx = this.x; this.hy = y;
@@ -295,6 +302,7 @@ export class Wisp extends Enemy {
 export class Barrel extends Enemy {
   constructor(game, x, y, dir) {
     super(game, x, y);
+    this.label = 'barrel';
     this.hw = 0.42; this.h = 0.84; this.hp = 1; this.dir = dir; this.life = 22;
     this.dmgs = { slap: 1, roll: 2, boom: 1, pound: 3, stomp: 1, reflect: 2 };
     this.dropChance = 0.25;
@@ -322,6 +330,7 @@ export class Barrel extends Enemy {
 export class Cannon extends Enemy {
   constructor(game, x, y, dir) {
     super(game, x + 0.5, y);
+    this.label = 'cannon';
     this.hw = 0.55; this.h = 1.2; this.hp = 99; this.contact = false; this.stompable = false;
     this.face = dir; this.dir = dir;
     this.dmgs = { slap: 0, roll: 0, boom: 0, pound: 0, stomp: 0, reflect: 0 };

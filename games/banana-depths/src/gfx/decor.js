@@ -287,7 +287,7 @@ function tower(view, def) {
   const moon = glowSprite(0xffe9c8, 120, 0.9, getTexture('glow')); moon.position.set(w * 0.3, h * 0.6 + 45, -320); g.add(moon); view.mats.push(moon.material);
   cloudLayer(view, def, { count: 6, color: 0xc7b8ff, opacity: 0.35, yMin: base + 25, yMax: base + 90, size: 75 });
   // cross-braced scaffolding behind the action
-  const steelMat = view.m(new THREE.MeshStandardMaterial({ map: getTexture('steel'), color: 0x58627a, roughness: 0.6, metalness: 0.6 }));
+  const steelMat = view.m(new THREE.MeshStandardMaterial({ map: getTexture('steel'), color: 0x8794b2, roughness: 0.55, metalness: 0.35 }));
   const orange = view.m(new THREE.MeshStandardMaterial({ color: 0xd9741f, roughness: 0.6, metalness: 0.3 }));
   const beams = new Instancer(BOX, steelMat, { cast: false }), paint = new Instancer(BOX, orange, { cast: false });
   for (let x = 4; x < w; x += 14) { beams.add(x, h / 2, -2.4, { sx: 0.8, sy: h + 10, sz: 0.8 }); paint.add(x, h / 2, -2.2, { sx: 0.9, sy: 0.5, sz: 0.9 }); }

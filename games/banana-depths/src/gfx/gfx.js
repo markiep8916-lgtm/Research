@@ -1,5 +1,6 @@
 // Renderer, scene, lighting, sky dome, fog. One instance for the whole game.
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { THEMES } from './themes.js';
 
 const SKY_VERT = `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
@@ -56,6 +57,12 @@ export class Gfx {
     this.sky.frustumCulled = false;
     this.scene.add(this.sky);
 
+    // subtle image-based lighting so metals (iron, gold, steel girders) have something to reflect
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.38;
+    pmrem.dispose();
+
     this.theme = null;
     this.sunOffset = new THREE.Vector3(-16, 24, 26);
     this.resScale = 1;
@@ -76,6 +83,7 @@ export class Gfx {
     this.sunOffset.set(...t.sun.pos);
     this.rim.color.set(t.rim.color); this.rim.intensity = t.rim.intensity;
     this.renderer.toneMappingExposure = t.exposure;
+    this.scene.environmentIntensity = t.env ?? 0.25;
     const u = this.skyMat.uniforms;
     u.cTop.value.set(t.sky.top); u.cMid.value.set(t.sky.mid); u.cHor.value.set(t.sky.horizon); u.cBot.value.set(t.sky.bottom);
   }
