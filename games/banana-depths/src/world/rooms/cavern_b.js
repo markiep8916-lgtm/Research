@@ -19,72 +19,107 @@ function narc(b, x0, y0, x1, n, rise = 2) {
   }
   return b;
 }
+/** Hanging rock cone: first row at yTop (just under the ceiling), narrowing to a 1-wide tip after `len` rows. w must be odd. */
+function stalactite(b, cx, yTop, w, len) {
+  for (let i = 0; i < len; i++) {
+    const ww = Math.max(1, w - 2 * Math.floor((i * ((w - 1) / 2 + 1)) / len));
+    b.rect(cx - (ww - 1) / 2, yTop - i, ww, 1);
+  }
+  return b;
+}
+/** Rock cone rising from yBase. w must be odd. */
+function stalagmite(b, cx, yBase, w, len) {
+  for (let i = 0; i < len; i++) {
+    const ww = Math.max(1, w - 2 * Math.floor((i * ((w - 1) / 2 + 1)) / len));
+    b.rect(cx - (ww - 1) / 2, yBase + i, ww, 1);
+  }
+  return b;
+}
 
 // ------------------------------------------------------------------------------------------------ c_drop
-// The Crystal Descent: a tall chimney of six rock tiers. Kong falls in from the temple onto the arrival ledge, drops tier
-// by tier (bats, a snapjaw, a spike patch, a slab shortcut) and leaves by the right wall. Every tier is linked to the one
-// above by a ladder that passes through a slot in its floor, so the whole chain climbs back to the top portal.
+// The Crystal Descent. Kong falls in from the temple onto the arrival ledge, drops down three tiers of rock, then meets
+// the CRYSTAL CRUST: a solid floor across the whole chimney with one patch of cracked slabs. Ground Pound through it and
+// plunge eleven tiles into the lower cavern (the exit is on its right wall). The way back up is a chain of ladders (one
+// passes through a slot in the crust) and a vine, ending in a ladder that runs into the top border.
 const drop = new RoomBuilder('c_drop', 26, 45, {
   name: 'Crystal Descent', area: 'cavern', map: { x: 10, y: 6 },
   props: {
     signs: [
       'The Crystal Caves.\nLadders lead back up to the temple.',
-      'Cracked slabs: GROUND POUND\n(Down + X in the air) to smash through.',
+      'A crystal crust seals the way down.\nGROUND POUND the cracked slabs\n(Down + X in the air).',
       'The Spider Queen spun her lair\nbeyond the Glowworm Gallery.',
     ],
   },
 });
-drop.border('#');
-// side walls two tiles thick (no 1-wide slots to fall into), ragged bulges and ceiling stubs
-drop.rect(0, 0, 2, 45).rect(24, 0, 2, 45);
-drop.rect(2, 39, 2, 5).rect(22, 39, 2, 5).rect(7, 41, 2, 3).rect(18, 42, 2, 2).rect(5, 43, 1, 1);
-drop.rect(2, 30, 2, 4).rect(2, 18, 2, 3).rect(21, 24, 3, 3);
-// tiers: [x0..x1, rows top-1..top] + a stepped underside
-drop.rect(8, 36, 11, 2).rect(10, 35, 7, 1);            // A  arrival ledge, stand 38
-drop.rect(9, 30, 15, 2).rect(11, 29, 12, 1);           // B  stand 32
-drop.rect(2, 24, 11, 2).rect(2, 23, 8, 1);             // C  stand 26
-drop.rect(12, 18, 12, 2).rect(14, 17, 10, 1);          // D  stand 20
-drop.rect(16, 18, 4, 2, 'G').clear(16, 17, 4, 1);      //    slab patch (pound shortcut straight down to F)
-drop.rect(2, 12, 12, 2).rect(2, 11, 9, 1).rect(2, 10, 5, 1);   // E  stand 14
-drop.rect(12, 0, 13, 9);                               // F  stand 9 (exit tier)
-drop.rect(2, 0, 10, 3).set(3, 2, 'Y');                 // pocket under E: shallow retry nook with a spring
-// exit portal on the right wall, on top of F
-drop.rect(25, 9, 1, 3, '2').clear(24, 9, 1, 3);
-// hazards and enemies
-drop.set(8, 14, '^').set(9, 14, '^');
-drop.set(10, 34, 'a').set(20, 28, 'a').set(4, 22, 'a').set(12, 32, 's');
-// savers, signs
-drop.set(9, 38, 'S').set(11, 38, '?');
-drop.set(14, 20, '?');
-drop.set(21, 9, '?').set(19, 9, 'S');
-// bananas (before the ladders, which may overwrite a banana but never the other way round)
+drop.fromAscii([
+  //0         1         2
+  //01234567890123456789012345
+  '#############1############', // 44
+  '######.......H......######', // 43
+  '#####........H.......#####', // 42
+  '####...##....H........####', // 41
+  '####.........H........####', // 40
+  '###..........H.........###', // 39
+  '##......S.?..H..........##', // 38  arrival ledge A (x 7..19), save barrel, sign
+  '##.....##########T##....##', // 37
+  '##.....##########H##....##', // 36
+  '##.......########H......##', // 35
+  '##...............H......##', // 34
+  '####.............H......##', // 33
+  '####.............H......##', // 32  tier B (right), ladder up to A at x=17
+  '####........V#############', // 31
+  '####........V#############', // 30
+  '##..........V..###########', // 29
+  '##..........V.....########', // 28
+  '##.....##...V.........a.##', // 27
+  '##..s..##...V...........##', // 26  tier C (left): snapjaw pen, vine up to B
+  '#############T..........##', // 25
+  '#############H..........##', // 24
+  '##########...H..........##', // 23
+  '##.a.........H..........##', // 22
+  '##...........H..........##', // 21
+  '##...........H?.........##', // 20  tier D = the crust (stand 20): ladder down-left slot at x=11, slabs x 15..20
+  '###########T###GGGGGG#####', // 19
+  '###########H###GGGGGG#####', // 18
+  '##.a.......H.........#####', // 17
+  '##.........H............##', // 16
+  '##.........H............##', // 15
+  '##......^^.H............##', // 14  tier E (left): spikes + stash, ladder x=11 up through the crust
+  '##############T.........##', // 13
+  '##############H.........##', // 12
+  '###########...H..........2', // 11
+  '#######.......H..........2', // 10
+  '##............H....S.?...2', // 9   tier F (stand 9): landing, save barrel, sign, exit portal 2
+  '##.........T##############', // 8
+  '##.........H##############', // 7
+  '##.........H##############', // 6
+  '##.........H##############', // 5
+  '##.........H##############', // 4
+  '##.........H##############', // 3   retry nook under E (ladder out at x=11, spring at x=3)
+  '###Y######################', // 2
+  '##########################', // 1
+  '##########################', // 0
+]);
+// bananas: breadcrumbs down the tiers, over the slab patch, down the fall line, stashes at the optional spots
 nanas(drop, 14, 38, 3);
-nanas(drop, 19, 37, 4, 1, -1);
-nanas(drop, 14, 32, 3);
-nanas(drop, 8, 31, 3, -1, -1);
-nanas(drop, 4, 26, 3);
-nanas(drop, 14, 24, 3, 1, -1);
-nanas(drop, 16, 21, 4);
-nanas(drop, 10, 19, 3, -1, -1);
-nanas(drop, 3, 14, 2);
-narc(drop, 6, 15, 11, 4, 2.2);
-nanas(drop, 15, 13, 3, 1, -1);
+nanas(drop, 20, 37, 2, 1, -1);
+nanas(drop, 15, 32, 2);
+nanas(drop, 11, 32, 2, -1, -2);
+nanas(drop, 2, 26, 2); nanas(drop, 5, 26, 2);
+nanas(drop, 14, 24, 2, 1, -1);
+nanas(drop, 15, 21, 4);
+nanas(drop, 17, 16, 3, 0, -2);
+nanas(drop, 3, 14, 3);
+narc(drop, 7, 15, 10, 4, 2);
+nanas(drop, 15, 13, 2, 1, -1);
 nanas(drop, 15, 9, 3);
-nanas(drop, 5, 3, 5);
-// climbing route (ladders through floor slots) and the portal ladder that runs up into the top border
-drop.ladder(14, 9, 13);      // F -> E
-drop.ladder(11, 14, 19);     // E -> D
-drop.ladder(13, 20, 25);     // D -> C
-drop.ladder(10, 26, 31);     // C -> B  (through the slot in B)
-drop.ladder(17, 32, 37);     // B -> A  (through the slot in A)
-drop.ladder(11, 3, 8);       // nook -> F
-drop.vline(13, 38, 43, 'H'); // A -> top portal
-drop.set(13, 44, '1');
+nanas(drop, 4, 3, 4);
 drop.portal('1', 't_hall', '4').portal('2', 'c_gallery', '1');
 
 // ------------------------------------------------------------------------------------------------ c_gallery
-// The Glowworm Gallery: a long hall with a lava river. Crumbling planks over lava, a 7-wide roll-jump gap (with stepping
-// stones as the safe alternative), a spring up to the high gallery, and a dark side tunnel closed by a crate wall.
+// The Glowworm Gallery: a long hall that steps up from the entry cave to a high gallery. Crumbling planks over a harmless
+// dip, then over lava; a 7-wide roll-jump gap with stepping stones as the safe alternative; a spring up to the high
+// gallery; and, at the foot of the rock face under it, a dark tunnel closed by a crate wall with a heart behind.
 const gal = new RoomBuilder('c_gallery', 78, 24, {
   name: 'Glowworm Gallery', area: 'cavern', map: { x: 11, y: 7 },
   props: {
@@ -98,93 +133,85 @@ const gal = new RoomBuilder('c_gallery', 78, 24, {
 gal.border('#');
 gal.rect(1, 20, 76, 3);                                 // ceiling mass (interior ceiling at y = 20)
 gal.ground(1, 76, 2);                                   // base floor (stand 3)
-gal.rect(1, 6, 2, 10).rect(74, 14, 3, 6);              // wall bulges (the portal rows stay clear)
-// entry + the crumbling-plank dip (a harmless place to learn planks)
+// the entry cave: a low vault that steps up into the hall
+gal.rect(0, 6, 3, 14).rect(3, 11, 7, 9).rect(10, 13, 3, 7).rect(13, 16, 3, 4);
+gal.rect(74, 14, 3, 6);                                 // right wall bulge (portal rows stay clear)
+// stalactites; two of them hold a bat
+for (const [cx, w, len] of [[21, 5, 8], [29, 3, 5], [37, 5, 7], [46, 3, 5], [53, 5, 6], [70, 5, 4]]) stalactite(gal, cx, 19, w, len);
+// a shallow dip crossed on crumbling planks (falling in is harmless)
 gal.rect(12, 2, 5, 1, 'F');
-// island 1 -> pit 2 (lava) crossed on two crumbling stones
+// pit 2: lava crossed on two crumbling stones
 gal.rect(25, 0, 10, 3, 'L');
 gal.rect(26, 3, 2, 1, 'F').rect(31, 4, 2, 1, 'F');
-// P2 (stand 6), the long gap (lava, 7 wide) with three stepping stones, P3 (stand 6)
+// P2 (stand 6): the runway; the long gap (lava, 7 wide) with three stepping stones; P3 (stand 6): save island
 gal.rect(35, 3, 7, 3);
 gal.rect(42, 0, 7, 3, 'L');
 gal.set(43, 3, 'F').set(45, 3, 'F').set(47, 3, 'F');
 gal.rect(49, 3, 12, 3);
-// the high gallery H (stand 11) with the secret tunnel under it
+gal.set(57, 5, 'Y');                                    // spring up to the high gallery
+// the high gallery H (stand 11) and the secret tunnel at the foot of its face
 gal.rect(61, 3, 16, 8);
-gal.clear(61, 6, 6, 2);                                 // side tunnel (2 high, walkable) off the foot of the rock face
+gal.clear(61, 6, 6, 2);                                 // side tunnel, 2 high (walkable), 6 long
 gal.rect(67, 6, 2, 2, 'R');                             // crate wall
 gal.clear(69, 6, 3, 3).set(70, 6, 'h');                 // heart chamber
-gal.set(57, 5, 'Y');                                    // spring up to H
 gal.rect(64, 9, 5, 2, 'L');                             // lava pool on top of the rock
 gal.set(65, 11, 'F').set(67, 11, 'F');
-// ceiling stubs for the bats
-gal.rect(11, 12, 3, 8).rect(36, 13, 3, 7);
-gal.rect(54, 16, 2, 4).rect(28, 17, 2, 3).rect(72, 17, 3, 3).rect(46, 18, 3, 2);
 // exits
 gal.rect(0, 3, 1, 3, '1').rect(77, 11, 1, 3, '2');
-// enemies, saves, signs
-gal.set(12, 11, 'a').set(37, 12, 'a');
+// enemies, save barrel, signs (signs are numbered in the order they are placed)
+gal.set(11, 12, 'a').set(37, 12, 'a');
 gal.set(23, 3, 's').set(55, 6, 's');
-gal.set(6, 3, '?').set(36, 6, '?').set(52, 6, '?');
-gal.set(51, 6, 'S');
-// secret heart
+gal.set(4, 3, '?').set(36, 6, '?').set(52, 6, '?');
+gal.set(50, 6, 'S');
 // bananas
-nanas(gal, 3, 3, 2);
-nanas(gal, 8, 3, 3);
-narc(gal, 11, 4, 17, 5, 2.2);
-nanas(gal, 19, 3, 3);
-narc(gal, 23, 4, 27, 3, 1.5);
-nanas(gal, 26, 4, 2);
-nanas(gal, 31, 5, 2);
-nanas(gal, 37, 6, 4);
-narc(gal, 41, 8, 49, 7, 3);
-nanas(gal, 43, 4, 1).set(45, 4, 'o').set(47, 4, 'o');
-nanas(gal, 53, 6, 3);
-nanas(gal, 58, 8, 2, 1, 1);
-nanas(gal, 62, 6, 4);
-nanas(gal, 69, 6, 1);
+nanas(gal, 6, 3, 2);
+narc(gal, 11, 4, 17, 4, 2);
+nanas(gal, 26, 4, 2); nanas(gal, 31, 5, 2);
+nanas(gal, 37, 6, 3);
+narc(gal, 41, 7, 49, 7, 3);
+nanas(gal, 43, 4, 1); nanas(gal, 45, 4, 1); nanas(gal, 47, 4, 1);
+nanas(gal, 54, 6, 2);
+nanas(gal, 58, 9, 3, 1, 1);
+nanas(gal, 62, 6, 3);
+nanas(gal, 69, 6, 1); nanas(gal, 71, 6, 1);
 nanas(gal, 62, 11, 2);
 nanas(gal, 65, 12, 1); nanas(gal, 67, 12, 1);
-nanas(gal, 70, 11, 4);
+nanas(gal, 71, 11, 2);
 gal.portal('1', 'c_drop', '2').portal('2', 'c_web', '1');
 
 // ------------------------------------------------------------------------------------------------ c_web
-// The Web Lair: four spiders on their threads. A terrace of entry, a staircase, a floor to run (or roll) along, and a
-// spiked pit crossed on two pillars that each have a spider hanging over them. Barrel before the right exit.
+// The Web Lair: four spiders hang from stalactite tips. A terrace, a staircase of planks, a long floor with two spider
+// gates, and a stepped mound with the last gate on top. The barrel stands just before the right exit.
 const web = new RoomBuilder('c_web', 39, 22, {
   name: 'The Web Lair', area: 'cavern', map: { x: 14, y: 7 },
   props: {
     signs: [
-      'Spiders drop on anyone below.\nSlap (X) or ROLL through them!',
+      'Spiders drop on anyone below.\nSlap (X) when they come down,\nor ROLL through them!',
       'Rest at the barrel.\nThe Spider Queen waits beyond.',
     ],
   },
 });
 web.border('#');
 web.rect(1, 17, 37, 4);                                 // ceiling mass (interior ceiling at y = 17)
-web.rect(1, 0, 7, 9);                                   // entry terrace, stand 9
-web.ground(8, 37, 2);                                   // lair floor, stand 3
-web.plat(9, 6, 3).plat(13, 4, 3);                       // staircase down from the terrace
-web.clear(26, 1, 8, 2);                                 // spiked pit (floor row 0 stays)
-web.rect(26, 1, 2, 3).rect(30, 1, 2, 3);                // two pillars, stand 4
-web.set(28, 1, '^').set(29, 1, '^').set(32, 1, '^').set(33, 1, '^');
-// spider anchors (ceiling stubs) and spiders
-web.rect(17, 11, 2, 6).rect(22, 11, 2, 6).rect(26, 9, 2, 8).rect(30, 9, 2, 8);
-web.set(17, 10, 'p').set(22, 10, 'p').set(26, 8, 'p').set(30, 8, 'p');
+web.rect(1, 0, 5, 9);                                   // entry terrace, stand 9
+web.ground(6, 37, 2);                                   // lair floor, stand 3
+web.plat(8, 6, 3).plat(12, 4, 3);                       // plank staircase down (stand 7, stand 5)
+web.rect(27, 3, 2, 2).rect(29, 3, 3, 3).rect(32, 3, 2, 2);   // the mound: stand 5, stand 6, stand 5
+// stalactites: the four tips at (13,11) (19,11) (24,11) (30,11) anchor the spiders; the others are scenery
+for (const [cx, w, len] of [[13, 5, 6], [19, 5, 6], [24, 5, 6], [30, 5, 6], [4, 5, 5], [35, 3, 4]]) stalactite(web, cx, 16, w, len);
+web.set(13, 10, 'p').set(19, 10, 'p').set(24, 10, 'p').set(30, 10, 'p');
 web.rect(0, 9, 1, 3, '1').rect(38, 3, 1, 3, '2');
-web.set(3, 9, '?').set(35, 3, '?').set(34, 3, 'S');
-nanas(web, 3, 10, 0);
-nanas(web, 9, 7, 3);
-nanas(web, 13, 5, 3);
-nanas(web, 16, 3, 3);
-nanas(web, 19, 3, 2);
-nanas(web, 24, 3, 2);
-narc(web, 25, 5, 28, 3, 1.5);
-nanas(web, 26, 4, 2);
-nanas(web, 30, 4, 2);
-narc(web, 28, 5, 32, 3, 1.5);
+web.set(4, 9, '?').set(35, 3, '?').set(34, 3, 'S');
+narc(web, 5, 10, 8, 3, 1.5);
+nanas(web, 8, 7, 3); nanas(web, 12, 5, 3);
+nanas(web, 16, 3, 2);
+nanas(web, 21, 3, 2);
+nanas(web, 26, 3, 1);
+nanas(web, 27, 5, 2);
+nanas(web, 29, 6, 3);
+nanas(web, 32, 5, 2);
 nanas(web, 36, 3, 1);
-web.ladder(8, 3, 8);                                    // climb back to the terrace
+web.ladder(6, 3, 8);                                    // climb back up to the terrace
 web.portal('1', 'c_gallery', '2').portal('2', 'c_queen', '1');
 
 export const rooms = [drop, gal, web].map((b) => b.build());

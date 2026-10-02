@@ -12,8 +12,9 @@ const topShaft = (b, x, from, ch) => { b.vline(x, from, b.h - 2, 'H'); b.set(x, 
 const legs = (b, y0) => { b.rect(0, y0, 2, b.h - y0, '#'); b.rect(b.w - 2, y0, 2, b.h - y0, '#'); };
 
 // ------------------------------------------------------------------------------------------------ g_base
-// "Tower Base": the arcade classic. Three sloping girders joined by ladders at alternating ends, barrels rolling
-// downhill from the high end. Level 0 teaches (snapjaws, bumps), levels 1 and 2 are the barrel runs.
+// "Tower Base": the arcade classic. Two sloping steel-wedge girders on a foundation, joined by ladders at alternating
+// ends, with barrels rolling downhill from the high end. Level 0 teaches (rivet blocks, snapjaws); levels 1 and 2 are
+// the barrel runs. Barrels from level 1 tumble off its low end onto level 0; level 2's barrels hit the left leg.
 const base = new RoomBuilder('g_base', 52, 20, {
   name: 'Tower Base', area: 'tower', map: { x: 19, y: 11 },
   props: {
@@ -33,8 +34,8 @@ base.set(22, 3, '#').set(31, 3, '#').set(40, 3, '#');    // knee-high rivet bloc
 base.set(26, 3, 's').set(36, 3, 's');
 base.set(41, 3, '?');
 base.bananas(18, 4, 2).arc(20, 4, 24, 5, 2).arc(29, 4, 33, 5, 2);
-// -- level 1: slopes down to the right (stand 10 -> 9 -> 8); cannon at the high left end
-// the girders are steel wedges: flat underside, sloping top (stand 10 -> 9 -> 8); the low end stops short so barrels tumble off onto level 0
+// -- level 1: a wedge sloping down to the right (stand 10 -> 9 -> 8) with the cannon at the high left end;
+//    the low end stops short so barrels tumble off onto level 0
 base.rect(2, 7, 12, 3, '#').rect(14, 7, 14, 2, '#').rect(28, 7, 19, 1, '#');
 base.ladder(43, 3, 7);                                   // from level 0 up to level 1's low end
 base.set(3, 10, 'N');
@@ -44,10 +45,9 @@ base.rect(2, 14, 18, 1, '#').rect(20, 14, 30, 2, '#');   // stand 15 -> 16
 base.ladder(12, 10, 14);                                 // from level 1's high end up to level 2's low end
 base.set(49, 16, 'n');
 base.bananas(5, 16, 3).arc(17, 16, 23, 5, 2).bananas(30, 17, 3);
-base.vline(34, 13, 14, 'H').set(34, 15, 'T');           // a broken ladder hangs from level 2: only useful for climbing down
+base.vline(34, 13, 14, 'H').set(34, 15, 'T');            // a broken ladder hangs from level 2: only useful for climbing down
 topShaft(base, 40, 16, '2');                             // exit ladder up to the top portal
 base.portal('1', 'q_lift', '2').portal('2', 'g_one', '1');
-
 
 // ------------------------------------------------------------------------------------------------ g_one
 // "Rivet Rise": a pier of riveted steel stands in the middle of level B. The high road climbs over it (ladder, a
@@ -111,7 +111,7 @@ topShaft(one, 10, 18, '2');
 one.set(45, 17, 'Y');
 one.plat(43, 21, 5);
 one.bananas(43, 22, 4);
-one.set(46, 20, 'f');                                       // a wisp guards the ledge (boomerang it)
+one.set(46, 20, 'f');                                     // a wisp guards the ledge (boomerang it)
 one.portal('1', 'g_base', '2').portal('2', 'g_two', '1');
 
 export const rooms = [base.build(), one.build()];

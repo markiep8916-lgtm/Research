@@ -541,7 +541,9 @@ export class Game {
         const p = tr.portal;
         this.loadRoom(p.to, { portal: p.at });
         this.player.grace = Math.max(this.player.grace, 0.7);
-        this.continueClimb(tr.climbing);
+        // a bottom portal opens onto a ladder shaft: always grab it, so jumping or wall-jumping in cannot bounce Kong
+        // straight back down through the portal
+        this.continueClimb(tr.climbing || this.room.def.portals[p.at].side === 'bottom');
         tr.phase = 'in'; tr.t = 0;
       }
     } else {

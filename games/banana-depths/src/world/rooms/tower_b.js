@@ -103,32 +103,30 @@ three.set(44, 7, 'n').set(21, 7, 's');
 three.bananas(14, 8, 4).arc(27, 8, 31, 5, 2.2).bananas(34, 8, 4);
 
 // ---- second girder (one-way, back to the left) + the ladder between the two
-three.plat(10, 11, 37);                                       // girder 2: x10..46 (stand y=12)
-three.clear(33, 11, 3, 1);                                    // another 3-wide gap
-three.ladder(47, 7, 11);                                      // H rows 7..10, T at row 11 (stand 12)
-three.set(15, 12, 'N').set(24, 12, 't').set(28, 17, 'f');
-three.bananas(44, 13, 3, -1, 0).arc(32, 13, 36, 5, 2.2).bananas(26, 13, 3, -1, 0);
+three.plat(10, 10, 37);                                       // girder 2: x10..46 (stand y=11)
+three.clear(33, 10, 3, 1);                                    // another 3-wide gap
+three.ladder(47, 7, 10);                                      // H rows 7..9, T at row 10 (stand 11)
+three.set(15, 11, 'N').set(24, 11, 't').set(28, 16, 'f');
+three.bananas(44, 12, 3, -1, 0).arc(32, 12, 36, 5, 2.2).bananas(26, 12, 3, -1, 0);
 
 // ---- the spiked wall-jump shaft (interior x4..7)
-three.rect(4, 10, 6, 2, '#');                                 // shaft floor x4..9
-three.rect(0, 10, 4, 17, '#');                                // left wall x0..3, rows 10..26
-three.rect(8, 14, 2, 8, '#');                                 // right wall x8..9, rows 14..21 (2-tall doorway under it)
-three.set(4, 12, '^').set(5, 12, '^');                        // floor spikes on the far half
-three.vline(4, 15, 16, '^');                                  // spiked stretch of the left wall face
-three.vline(7, 18, 19, '^');                                  // spiked stretch of the right wall face
-three.set(11, 12, '?');
+three.rect(4, 10, 6, 1, '#');                                 // shaft floor x4..9 (stand y=11)
+three.rect(0, 7, 4, 21, '#');                                 // left wall x0..3, rows 7..27
+three.rect(8, 13, 2, 10, '#');                                // right wall x8..9, rows 13..22 (2-tall doorway under it)
+three.set(4, 11, '^').set(5, 11, '^').vline(4, 12, 13, '^');  // spiky bottom-left corner
+three.set(11, 11, '?');
 
-// ---- the Switch Hall (stand y=22): sealed deck, two gates, two switches, the barrel and the way out
-three.rect(8, 20, 44, 2, '#');                                // deck x8..51, rows 20..21
-three.hline(12, 15, 22, '^').set(17, 22, 'w').rect(18, 22, 2, 6, 'D');
-three.set(11, 22, '?');
-three.hline(23, 26, 22, '^').set(28, 22, 'x').rect(29, 22, 2, 6, 'E');
-three.set(25, 25, 'f');
-three.set(33, 22, 'S').set(35, 22, '?');
-three.rect(37, 20, 4, 2, 'G');                                // cracked deck: the shortcut back down
-three.set(43, 22, '?');
-three.vline(45, 22, 26, 'H').set(45, 27, '2');
-three.bananas(13, 24, 3).bananas(24, 24, 3).bananas(37, 24, 4).bananas(46, 24, 3);
+// ---- the Switch Hall (stand y=23): sealed deck, two gates, two switches, the barrel and the way out
+three.rect(8, 21, 44, 2, '#');                                // deck x8..51, rows 21..22
+three.hline(12, 15, 23, '^').set(17, 23, 'w').rect(18, 23, 2, 5, 'D');
+three.set(11, 23, '?');
+three.hline(23, 26, 23, '^').set(28, 23, 'x').rect(29, 23, 2, 5, 'E');
+three.set(25, 26, 'f');
+three.set(33, 23, 'S').set(35, 23, '?');
+three.rect(37, 21, 4, 2, 'G');                                // cracked deck: the shortcut back down
+three.set(43, 23, '?');
+three.vline(45, 23, 26, 'H').set(45, 27, '2');
+three.bananas(13, 25, 3).bananas(24, 25, 3).bananas(37, 25, 4).bananas(46, 25, 3);
 
 three.portal('1', 'g_two', '2').portal('2', 'g_top', '1');
 

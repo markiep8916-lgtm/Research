@@ -8,8 +8,8 @@ const bn = (b, pts) => { for (const [x, y] of pts) b.set(x, y, 'o'); return b; }
 // ------------------------------------------------------------------------------------------------ t_gate
 // "Fang Gate": a stone gatehouse with two roads.
 //   OVER    - stairs up the left face to the battlement: cover pillar, a 4-wide spike pit, a tiki at the far end.
-//   THROUGH - a crate door (Roll!), a sealed spike corridor, a second crate door. This is also the only way back
-//             from the hall (the battlement ends in a drop), so it is the shortcut.
+//   THROUGH - a crate door (Roll!) into a spike corridor with an open mouth on the courtyard side. This is also the
+//             only way back from the hall (the battlement ends in a drop), so it is the shortcut.
 // Above the forecourt a ladder leads to an optional sky balcony: bananas guarded by a second tiki.
 const gate = new RoomBuilder('t_gate', 39, 22, {
   name: 'The Temple Gate', area: 'temple', map: { x: 7, y: 4 },
@@ -28,10 +28,11 @@ gate.rect(5, 3, 2, 1, '^');                                           // teach: 
 gate.set(7, 3, '#');                                                  // lip (stand 4); boxes in the snapjaw pocket x 8..11
 gate.plat(8, 4, 2);                                                   // stair A (stand 5)
 gate.rect(10, 5, 2, 2, '#');                                          // buttress (stand 7)
-// --- the gatehouse: roof slab (battlement at y = 9) over a sealed corridor with a crate door at each end
-gate.rect(12, 7, 15, 2, '#');
-gate.rect(12, 3, 1, 4, 'R').rect(26, 3, 1, 4, 'R');
-gate.rect(17, 3, 3, 1, '^');                                          // corridor spike bed (3 wide)
+// --- the gatehouse: roof slab (battlement at y = 9) over a spike corridor behind a crate door
+gate.rect(12, 7, 16, 2, '#');
+gate.rect(12, 3, 1, 4, 'R');                                          // crate door (Roll!); the right end is an open mouth
+gate.set(27, 3, '#');                                                 // threshold stone at the mouth (also bounds the right snapjaw pocket)
+gate.rect(22, 3, 3, 1, '^');                                          // corridor spike bed (3 wide): 9 safe tiles after the door (a roll carries ~7)
 // --- battlement
 gate.rect(15, 9, 1, 2, '#');                                          // cover pillar
 gate.rect(18, 9, 4, 1, '^');                                          // 4-wide spike pit
@@ -40,19 +41,25 @@ gate.ladder(14, 9, 14);
 gate.rect(1, 13, 13, 2, '#');
 gate.rect(8, 15, 1, 2, '#');                                          // cover pillar on the balcony
 // --- right side: the battlement drops to a ledge (too high to climb back), snapjaw pocket under it, courtyard
-gate.plat(27, 6, 3);
+gate.plat(28, 6, 3);
 gate.set(31, 3, '#');                                                 // lip
+
+// --- masonry: a heavy stepped ceiling, a keystone hanging over the spike pit, a corbel stepping down to the exit
+gate.rect(1, 19, 37, 2, '#');
+gate.rect(10, 17, 19, 2, '#');
+gate.rect(17, 15, 6, 2, '#');
+gate.rect(29, 17, 9, 2, '#').rect(32, 15, 6, 2, '#').rect(35, 13, 3, 2, '#');
 
 // entities (after the terrain)
 gate.set(3, 3, '?').set(8, 5, '?');                                   // signs in reading order
-gate.set(10, 3, 's').set(28, 3, 's');                                 // snapjaws
-gate.set(26, 9, 'u');                                                 // tiki 1: far end of the battlement
+gate.set(10, 3, 's').set(29, 3, 's');                                 // snapjaws
+gate.set(27, 9, 'u');                                                 // tiki 1: far end of the battlement
 gate.set(2, 15, 'U');                                                 // tiki 2: dead end of the sky balcony
 gate.set(11, 7, 'S');                                                 // save barrel on the buttress
-bn(gate, [[4, 4], [5, 5], [6, 5], [7, 4], [10, 4], [11, 4], [9, 6], [10, 7]]);                       // forecourt
+bn(gate, [[4, 4], [5, 5], [6, 5], [7, 4], [10, 4], [9, 6], [10, 7]]);                                // forecourt
 bn(gate, [[13, 10], [17, 10], [18, 11], [19, 12], [20, 12], [21, 11], [22, 10], [24, 10], [25, 10]]); // battlement
-bn(gate, [[13, 4], [14, 4], [16, 4], [17, 5], [18, 5], [19, 5], [20, 4], [21, 4], [22, 4], [23, 4], [24, 4]]); // corridor
-bn(gate, [[27, 8], [28, 8], [33, 4], [34, 4], [35, 4]]);              // right side
+bn(gate, [[14, 4], [16, 4], [18, 4], [20, 4], [21, 4], [22, 5], [23, 5], [24, 5], [25, 4], [26, 4]]); // corridor
+bn(gate, [[28, 8], [29, 8], [33, 4], [34, 4], [35, 4]]);              // right side
 bn(gate, [[3, 16], [4, 16], [5, 16], [6, 16], [10, 16], [11, 16], [12, 16]]);                        // sky balcony
 gate.portal('1', 'j_log', '2').portal('2', 't_hall', '1');
 
@@ -87,23 +94,23 @@ bn(pound, [[16, 8], [17, 8], [18, 10], [19, 10], [20, 12], [21, 12]]);
 pound.portal('1', 't_golem', '2');
 
 // ------------------------------------------------------------------------------------------------ t_vault
-// "The Hidden Vault": up the ladder from the hall, a spike bed, then a roll-jump across a spiked pit to the heart altar.
+// "The Hidden Vault": up the ladder from the hall, a spike bed, then a roll-jump across a 7-wide spiked pit to the heart altar.
 const vault = new RoomBuilder('t_vault', 26, 15, {
   name: 'The Hidden Vault', area: 'temple', map: { x: 10, y: 3 },
   props: { titleCard: true, signs: ['The priests kept their finest fruit\nbehind a gap no ape could leap...\nunless he rolled.'] },
 });
 vault.border('#').ground(0, 25, 3);                                   // floor rows 0..3 (stand at y = 4)
 vault.set(3, 0, '1').rect(3, 1, 1, 2, 'H').set(3, 3, 'T');            // ladder shaft up from the bottom portal
-vault.rect(9, 4, 2, 1, '^');                                          // spike bed
-vault.clear(15, 1, 6, 3).rect(15, 1, 6, 1, '^');                      // the roll-jump gap (6 wide), spikes below
-vault.rect(21, 4, 4, 1, '#');                                         // altar step (stand 5)
-vault.set(6, 4, '?');
-vault.set(23, 5, 'h');
-bn(vault, [[4, 5], [5, 5], [7, 5], [8, 5]]);
-bn(vault, [[8, 6], [9, 7], [10, 7], [11, 6]]);
-bn(vault, [[12, 5], [13, 5], [14, 5]]);
-bn(vault, [[15, 6], [16, 7], [17, 8], [18, 8], [19, 7], [20, 6]]);
-bn(vault, [[22, 6], [23, 7], [24, 6]]);
+vault.rect(7, 4, 2, 1, '^');                                          // spike bed (teach)
+vault.clear(13, 1, 7, 3).rect(13, 1, 7, 1, '^');                      // the roll-jump gap (7 wide, spikes below)
+vault.rect(20, 4, 2, 1, '#').rect(22, 4, 2, 2, '#').rect(24, 4, 1, 3, '#');   // heart altar: three steps (stands 5, 6, 7)
+vault.rect(1, 13, 24, 1, '#').rect(5, 11, 2, 2, '#').rect(11, 11, 2, 2, '#').rect(17, 11, 2, 2, '#').rect(22, 11, 3, 2, '#');   // coffered ceiling
+vault.set(5, 4, '?');
+vault.set(24, 7, 'h');
+bn(vault, [[4, 5], [5, 5], [6, 5], [7, 6], [8, 6], [9, 5]]);
+bn(vault, [[10, 5], [11, 5], [12, 5]]);
+bn(vault, [[13, 6], [14, 7], [15, 8], [16, 8], [17, 8], [18, 7], [19, 6]]);
+bn(vault, [[20, 6], [21, 7], [22, 7], [23, 8]]);
 vault.portal('1', 't_hall', '3');
 
 export const rooms = [gate, pound, vault].map((b) => b.build());

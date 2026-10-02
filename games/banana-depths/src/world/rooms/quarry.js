@@ -52,11 +52,12 @@ pass.rect(42, 0, 4, 13, '#');                                  // pier, stand 13
 pass.rect(46, 10, 13, 3, '#');                                 // deck x 46..58; the undercroft below it is only 2 tiles high
 pass.ladder(59, 8, 12);                                        // ladder from the undercroft shelf up to the end of the bridge
 pass.set(44, 13, 'S').set(57, 13, '?');
+pass.clear(43, 4, 2, 4).rect(43, 4, 2, 2, 'L');                // furnace window in the pier
 
-// --- undercroft: crystal ledge (left) and shelf (right) face each other across a 7-wide lava gap, under the low roof
+// --- undercroft: crystal ledge (left) and shelf (right) face each other across a 6-wide lava gap, under the low roof
 pass.rect(46, 0, 3, 8, '#');                                   // crystal ledge, stand 8
-pass.rect(56, 0, 11, 8, '#');                                  // shelf, stand 8 (also the safety net under the roll-jump gap)
-pass.clear(49, 6, 7, 1);                                       // the hall's lava sits a tile lower than the river's
+pass.rect(55, 0, 12, 8, '#');                                  // shelf, stand 8 (also the safety net under the roll-jump gap)
+pass.clear(49, 6, 6, 1);                                       // the hall's lava sits a tile lower than the river's
 pass.set(48, 8, 'w').set(46, 8, 'U');
 pass.set(63, 8, '?');
 
@@ -85,7 +86,7 @@ pass.bananas(60, 9, 2, 3);                                     // lures the curi
 pass.bananas(70, 8, 3, 2);                                     // the heart chamber stash
 
 // --- enemies
-pass.set(14, 9, 'm').set(41, 9, 'm').set(55, 13, 'm').set(69, 13, 'u');
+pass.set(14, 9, 'm').set(52, 13, 'm').set(55, 13, 'm').set(69, 13, 'u');
 pass.portal('1', 'c_deep', '2').portal('2', 'q_forge', '1');
 
 export const rooms = [pass.build()];
