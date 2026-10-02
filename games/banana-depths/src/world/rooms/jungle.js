@@ -80,7 +80,7 @@ canopy.set(48, 7, 'h').bananas(45, 7, 2).set(45, 8, 'o');
 // -- E: past the tree. A thornbug, and the spring that launches Kong up to the bridge.
 canopy.rect(51, 10, 8, 1).rect(52, 9, 6, 1).rect(53, 8, 4, 1).rect(54, 7, 2, 1);
 canopy.set(52, 11, '?').set(55, 11, 't').set(57, 10, 'Y');
-canopy.bananas(53, 12, 3);
+canopy.bananas(53, 12, 2).set(44, 11, 'o').set(48, 11, 'o');
 // -- the high bridge (stand 16), a net island beneath it, an overhang with the second bat, and the exit island
 canopy.plat(59, 15, 4).plat(64, 15, 4).plat(69, 15, 1);
 canopy.bananas(59, 17, 3).bananas(65, 17, 3);
@@ -101,7 +101,7 @@ const gorge = new RoomBuilder('j_gorge', 52, 26, {
   name: 'Waterfall Gorge', area: 'jungle', map: { x: 5, y: 2 },
   props: {
     titleCard: true,
-    waterfall: { x: 29.5, y: 2, w: 5, h: 24 },
+    waterfall: { x: 27.5, y: 2, w: 5, h: 24 },
     signs: [
       'Waterfall Gorge. The Tiki Tribe built their shrine beyond it.\nStand on a ladder top and press DOWN to climb.',
       'A barred cave... and a crystal that floats beyond reach.\nSomething thrown might wake it.',
@@ -119,14 +119,14 @@ gorge.set(5, 11, 'h').set(3, 11, 'o').set(7, 11, 'o').set(4, 12, 'o').set(6, 12,
 gorge.ladder(10, 11, 18);                                                        // down the cliff to the lookout ledge
 gorge.rect(10, 9, 5, 2).rect(10, 8, 4, 1).ladder(15, 4, 10);                     // lookout ledge (stand 11); its tip is a ladder top
 gorge.set(12, 11, '?');
-gorge.rect(10, 0, 16, 4);                                                        // left bank (stand 4), under the crystal islet
-gorge.ladder(12, 1, 3).set(12, 0, '3');                                          // the stump: ladder down to j_log
-gorge.set(13, 4, '?').set(16, 4, '#');                                           // stump sign, and a step that pens in the snapjaw
-gorge.set(23, 4, 's').set(18, 4, '?').bananas(19, 5, 3);
-gorge.rect(23, 10, 3, 1).set(24, 9, '#').set(23, 11, 'w');                       // crystal islet: 7 tiles from the lookout tip
-gorge.rect(26, 0, 8, 2, 'W');                                                    // the plunge pool (water at the bottom)
-gorge.plat(26, 5, 3).plat(30, 6, 3);                                             // bridge of logs over the pool
-gorge.bananas(26, 7, 3).bananas(30, 8, 3);
+gorge.rect(10, 0, 13, 4);                                                        // left bank (stand 4)
+gorge.set(14, 4, '#').set(12, 4, 's').bananas(10, 5, 3);                         // a step pens a snapjaw into the optional pocket under the lookout
+gorge.ladder(18, 1, 3).set(18, 0, '3');                                          // the stump: ladder down to j_log
+gorge.set(19, 4, '?').set(21, 4, '?').bananas(16, 5, 2);                         // stump sign, then the tiki warning sign
+gorge.rect(23, 10, 3, 1).set(23, 11, 'w');                                       // crystal islet over the pool's edge: 7 tiles from the lookout tip
+gorge.rect(23, 0, 11, 2, 'W');                                                   // the plunge pool (water at the bottom)
+gorge.plat(24, 5, 3).plat(28, 6, 3).plat(32, 5, 2);                              // bridge of logs over the pool
+gorge.bananas(24, 7, 3).bananas(28, 8, 3).bananas(32, 7, 2);
 gorge.rect(34, 0, 8, 6);                                                         // right bank (stand 6)
 gorge.set(36, 5, 'Y').set(38, 6, 'u').bananas(34, 7, 2);
 gorge.rect(42, 0, 8, 8).rect(39, 8, 11, 3);                                      // far cliff + the overhanging ledge (stand 11)

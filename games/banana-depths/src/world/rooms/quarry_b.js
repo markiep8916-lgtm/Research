@@ -2,20 +2,22 @@
 import { RoomBuilder } from '../builder.js';
 
 // ------------------------------------------------------------------------------------------------ q_forge
-// The Old Forge. Kong arrives in a low entry hall, climbs the FLUE (a 4-wide wall-jump chimney, Grip) to a gallery that
-// runs over the furnace, and ground-pounds through a cap of cracked slabs into the Crucible Hall where the Banana Boomerang
-// waits on its altar. A roll-sized return chute leads back down into the flue; the east door leads out over a slag pit to
-// the exit hall.
+// The Old Forge. Kong arrives in a low entry hall, climbs the FLUE (a 4-wide wall-jump chimney, Grip) to a gallery that runs
+// over the furnace, and ground-pounds through a cap of cracked slabs (Pound) onto the Great Anvil in the Crucible Hall, where the
+// Banana Boomerang rests. A roll-sized chute (Roll) leads back down into the flue; the east door leads out over the slag pit
+// (stepping stones with a few far bananas) to the exit hall. The player comes back through the chute.
 const forge = new RoomBuilder('q_forge', 52, 26, {
   name: 'The Old Forge', area: 'quarry', map: { x: 16, y: 13 },
   props: {
     titleCard: true,
     relic: 'boom',
     signs: [
-      'The old forge still smoulders.\nGrip a wall, press toward it and Jump\nto kick up the flue.',
+      'The old forge still smoulders.\nThe flue climbs to the gallery above:\nhold toward a wall, press Jump to kick off.',
       'Cracked slabs! Jump, then Down + X\nto Ground Pound straight through.',
+      'A roll-sized chute leads back down\nthe flue. Curl up (C) and roll through.',
       'BANANA BOOMERANG!  Press V to throw it.\nIt flies 8 tiles, then comes back to you.\nFace your target first.',
-      'It flips far-off crystal switches\nand snatches bananas you cannot reach.\nThe Gantry beyond is sealed by them.',
+      'It flips far-off crystal switches\nand snatches bananas you cannot reach.\nThe Gantry beyond is sealed by crystals.',
+      'The Tribe stoked this forge for ages,\nburying the Golden Banana\'s power.\nThe Gantry lies to the east.',
     ],
   },
 });
@@ -23,32 +25,46 @@ forge.border('#');
 forge.ground(1, 50, 2);                                    // forge floor, stand 3
 // --- west block: low entry hall, the flue beside it
 forge.rect(1, 10, 11, 15, '#');                            // ceiling mass over the hall (x1..11, y10..24)
+forge.rect(7, 8, 2, 2, '#').rect(10, 9, 2, 1, '#');        // hanging chunks (a heavier, lower ceiling toward the flue)
 forge.rect(12, 6, 1, 19, '#');                             // flue left wall (door below it at y3..5)
-// --- the furnace body (x17..36): flue right wall, gallery deck on top (stand 17), the Crucible Hall inside
-forge.rect(17, 3, 20, 14, '#');
-forge.clear(22, 9, 12, 6);                                 // Crucible Hall x22..33, y9..14 (floor stand 9)
-forge.rect(26, 15, 5, 2, 'G');                             // slab cap x26..30, two layers
+// --- the furnace body (x17..34): flue right wall, gallery deck on top (stand 17), the Crucible Hall inside
+forge.rect(17, 3, 18, 14, '#');
+forge.clear(22, 9, 10, 6);                                 // Crucible Hall x22..31, y9..14 (floor stand 9)
+forge.rect(24, 15, 5, 2, 'G');                             // slab cap x24..28, two layers
+forge.rect(24, 10, 7, 1, '#').rect(26, 9, 4, 1, '#');      // the Great Anvil: face x24..30 (stand 11) on a waist x26..29
 forge.clear(17, 9, 5, 1);                                  // return chute: 1-tile tunnel from the hall west into the flue
-forge.clear(34, 9, 3, 3);                                  // east doorway of the hall (x34..36, y9..11)
-// --- gallery: sealed at the east end, boiler hanging from the ceiling
-forge.rect(34, 17, 3, 8, '#');
-forge.rect(18, 21, 16, 4, '#');
-// --- east: slag pit and exit hall
-forge.rect(37, 0, 3, 9, '#');                              // east ledge, stand 9
-forge.rect(40, 1, 5, 2, 'L');                              // slag pit x40..44
-forge.set(41, 2, 'F').set(42, 2, 'F');                     // crumble stones
-forge.rect(45, 0, 6, 3, '#');
+forge.clear(32, 9, 3, 3);                                  // east doorway of the hall (x32..34, y9..11)
+// --- gallery: sealed at the east end, a boiler hanging from the ceiling
+forge.rect(32, 17, 3, 8, '#');
+forge.rect(18, 21, 14, 4, '#');
+forge.rect(22, 19, 3, 2, '#').rect(28, 19, 2, 2, '#');     // two heavy pipes hanging lower (head room stays >= 2 over the deck)
+// --- east: boiler over the pit, slag pit, stepping stones, exit hall
+forge.rect(35, 14, 16, 11, '#');
+forge.rect(41, 11, 2, 3, '#').rect(46, 12, 3, 2, '#');     // hanging columns
+forge.rect(35, 0, 4, 9, '#');                              // east ledge, stand 9
+forge.rect(39, 1, 8, 2, 'L');                              // slag pit x39..46
+forge.rect(40, 0, 2, 7, '#');                              // stone I (x40..41, stand 7)
+forge.rect(43, 0, 2, 5, '#');                              // stone II (x43..44, stand 5)
 forge.clear(51, 3, 1, 3).rect(51, 3, 1, 3, '2');           // exit portal (right wall)
 forge.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');             // entry portal (left wall)
+// --- spikes and enemies
+forge.rect(19, 17, 2, 1, '^');                             // spike patch on the gallery deck (hop it)
+forge.set(10, 3, 'm').set(31, 17, 'u').set(37, 9, 'm');
 // --- furniture
-forge.set(5, 3, '?').set(9, 3, 'S');
-forge.set(22, 17, '?').set(24, 9, '?').set(28, 9, '?');
-forge.set(32, 9, 'Q');
-forge.bananas(3, 4, 3).bananas(13, 6, 3, 0, 3);
-forge.arc(15, 18, 24, 6, 2).bananas(36, 17, 1);
-forge.set(46, 3, 'm');
+forge.set(4, 3, '?').set(7, 3, 'S');
+forge.set(22, 17, '?').set(23, 9, '?').set(27, 9, '?');
+forge.set(29, 11, 'Q');
+forge.set(25, 9, 'S');
+forge.set(31, 9, '?');
+forge.set(36, 9, '?');
+// --- bananas
+forge.bananas(2, 4, 3).bananas(5, 4, 3);                                  // entry hall
+forge.arc(8, 5, 12, 4, 1.4);
+forge.bananas(13, 6, 3, 0, 3).bananas(16, 9, 2, 0, 3);                     // up the flue
+forge.arc(17, 18, 23, 5, 2).bananas(25, 18, 5);                            // gallery
+forge.bananas(18, 9, 3);                                                   // chute
+forge.arc(35, 10, 40, 5, 2).arc(40, 8, 44, 5, 2).bananas(46, 4, 2);       // east steps (also far bananas for the boomerang)
 forge.portal('1', 'q_pass', '2').portal('2', 'q_lift', '1');
-
 
 // ------------------------------------------------------------------------------------------------ q_lift
 // The Gantry. Three halls stacked in a tall steel shaft; each hall's lift (a ladder in a closet) is sealed by a crystal-locked
