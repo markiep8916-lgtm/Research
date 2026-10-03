@@ -37,7 +37,7 @@ forge.clear(32, 9, 3, 3);                                  // east doorway of th
 // --- gallery: sealed at the east end, a boiler hanging from the ceiling
 forge.rect(32, 17, 3, 8, '#');
 forge.rect(18, 21, 14, 4, '#');
-forge.rect(22, 19, 3, 2, '#').rect(28, 19, 2, 2, '#');     // two heavy pipes hanging lower (head room stays >= 2 over the deck)
+forge.rect(29, 19, 2, 2, '#');                             // a heavy pipe hanging low over the tiki (the spikes and the cap keep full head room)
 // --- east: boiler over the pit, slag pit, stepping stones, exit hall
 forge.rect(35, 14, 16, 11, '#');
 forge.rect(41, 11, 2, 3, '#').rect(46, 12, 3, 2, '#');     // hanging columns
@@ -49,13 +49,12 @@ forge.clear(51, 3, 1, 3).rect(51, 3, 1, 3, '2');           // exit portal (right
 forge.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');             // entry portal (left wall)
 // --- spikes and enemies
 forge.rect(19, 17, 2, 1, '^');                             // spike patch on the gallery deck (hop it)
-forge.set(10, 3, 'm').set(31, 17, 'u').set(37, 9, 'm');
-// --- furniture
-forge.set(4, 3, '?').set(7, 3, 'S');
-forge.set(22, 17, '?').set(23, 9, '?').set(27, 9, '?');
-forge.set(29, 11, 'Q');
-forge.set(25, 9, 'S');
-forge.set(31, 9, '?');
+forge.set(11, 3, 'm').set(31, 17, 'u').set(37, 9, 'm');
+// --- furniture (signs are consumed in placement order)
+forge.set(4, 3, '?').set(6, 3, 'S');
+forge.set(22, 17, '?');
+forge.set(23, 9, '?').set(22, 9, 'S');
+forge.set(25, 11, '?').set(27, 11, '?').set(29, 11, 'Q');   // on the anvil face
 forge.set(36, 9, '?');
 // --- bananas
 forge.bananas(2, 4, 3).bananas(5, 4, 3);                                  // entry hall
@@ -67,8 +66,9 @@ forge.arc(35, 10, 40, 5, 2).arc(40, 8, 44, 5, 2).bananas(46, 4, 2);       // eas
 forge.portal('1', 'q_pass', '2').portal('2', 'q_lift', '1');
 
 // ------------------------------------------------------------------------------------------------ q_lift
-// The Gantry. Three halls stacked in a tall steel shaft; each hall's lift (a ladder in a closet) is sealed by a crystal-locked
-// gate. The crystal sits on a ledge across a lava pit: only a thrown boomerang can wake it.
+// The Gantry. Three halls stacked in a tall steel shaft; each lift (a ladder in a closet) is sealed by a crystal-locked gate.
+// The crystal sits on a ledge across a lava pit: only a thrown boomerang can wake it. Hall 1 teaches the throw in peace, hall 2
+// tests it under fire (a fire wisp and a magma blob), and the open shaft above is a platform climb to the top ladder.
 const lift = new RoomBuilder('q_lift', 26, 45, {
   name: 'The Gantry', area: 'quarry', map: { x: 18, y: 13 },
   props: {
@@ -84,6 +84,7 @@ lift.border('#');
 lift.rect(1, 0, 24, 3, '#').rect(1, 10, 24, 2, '#').rect(1, 20, 24, 2, '#').rect(1, 30, 24, 2, '#');   // floor + three slabs
 lift.clear(0, 3, 1, 3).rect(0, 3, 1, 3, '1');
 // --- hall 0: arrival, save barrel, a lava hop, the ladder up
+lift.rect(14, 8, 3, 2, '#').rect(21, 7, 3, 3, '#');           // hanging machinery
 lift.set(3, 3, '?').set(4, 3, 'S');
 lift.rect(6, 1, 3, 2, 'L');
 lift.arc(5, 4, 9, 5, 2.2);
@@ -92,24 +93,27 @@ lift.bananas(13, 4, 4).bananas(18, 4, 3);
 lift.set(20, 3, 'm');
 // --- hall 1 (gate D): crystal w on the far ledge, across a lava pit; the lift is the closet on the right
 lift.rect(3, 11, 6, 1, 'L');
+lift.rect(4, 17, 4, 3, '#');                                  // hanging machinery over the pit (the throw line at y13 stays clear)
 lift.set(2, 12, 'w').set(9, 12, '?');
 lift.rect(14, 12, 11, 8, '#').clear(15, 12, 3, 8).rect(14, 12, 1, 3, 'D');
 lift.ladder(16, 12, 21);
 lift.bananas(10, 13, 3);
 // --- hall 2 (gate E): arrival from the lift, crystal x across a pit on the right; the lift is the closet on the left
-lift.rect(18, 21, 6, 1, 'L');
+lift.rect(18, 21, 5, 1, 'L');
+lift.rect(10, 27, 4, 3, '#');                                 // hanging machinery
 lift.set(24, 22, 'x').set(15, 22, '?');
 lift.rect(1, 22, 5, 8, '#').clear(2, 22, 3, 8).rect(5, 22, 1, 3, 'E');
 lift.ladder(3, 22, 31);
 lift.bananas(8, 23, 5);
-lift.set(8, 26, 'f').set(11, 22, 'm');
-// --- hall 3: climb the platforms to the deck, ladder up to the top portal
+lift.set(9, 22, 'm').set(6, 27, 'f');
+// --- hall 3: climb the platforms to the deck, ladder up to the top portal; a tire on the right leads to a banana ledge
 lift.plat(6, 33, 4).plat(2, 35, 4);
 lift.rect(9, 36, 8, 2, '#');
 lift.vline(12, 38, 43, 'H');
 lift.set(12, 44, '2');
 lift.bananas(7, 35, 3).bananas(2, 37, 3);
-lift.set(18, 37, 'f').set(14, 38, '?');
+lift.set(19, 31, 'Y').rect(22, 36, 3, 1, '#').bananas(22, 37, 3).bananas(19, 34, 3, 0, 2);
+lift.set(23, 33, 'f').set(14, 38, '?');
 lift.portal('1', 'q_forge', '2').portal('2', 'g_base', '1');
 
 export const rooms = [forge, lift].map((b) => b.build());

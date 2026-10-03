@@ -67,8 +67,8 @@ canopy.set(40, 7, '?');
 canopy.bananas(31, 7, 7);
 // -- C: island above the root walk, with the checkpoint, and a branch above it for the first bat
 canopy.rect(32, 10, 8, 1).rect(33, 9, 6, 1);
-canopy.set(34, 11, 'S').set(38, 11, '?');
-canopy.rect(34, 17, 9, 2).set(37, 16, 'a');
+canopy.set(33, 11, 'S').set(38, 11, '?');                                       // checkpoint at the island's far end, outside the bat's reach
+canopy.rect(34, 17, 9, 2).set(41, 16, 'a');
 // -- the Great Tree: root flare, trunk, flat crown; a corridor through the trunk and a ladder shaft inside
 canopy.rect(38, 0, 18, 2).rect(39, 2, 16, 2).rect(40, 4, 14, 1).rect(41, 5, 12, 1);
 canopy.rect(43, 6, 8, 12).rect(44, 18, 6, 5).rect(40, 21, 14, 2);
