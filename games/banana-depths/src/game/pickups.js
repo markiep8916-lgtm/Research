@@ -112,7 +112,9 @@ export class SaveBarrel extends Entity {
     this.fx.update(this.t, this.active);
     const g = this.game;
     if (this.active && Math.random() < dt * 4) g.fx.spark(this.x + (Math.random() - 0.5), this.y + 1.4, { vy: 1, color: 0xffe14a, size: 0.2, life: 0.8, grav: -0.5 });
-    if (g.state === 'play' && g.player.respawnT < 0 && near(this.box, g.player.box, 0) && this.cool <= 0) {
+    // standing next to the active barrel with full health must not re-save, re-toast and re-write storage every 2 s
+    const needed = !this.active || g.save.hp < g.save.hpMax;
+    if (needed && g.state === 'play' && g.player.respawnT < 0 && near(this.box, g.player.box, 0) && this.cool <= 0) {
       this.cool = 2;
       g.saveCheckpoint(this);
     }
