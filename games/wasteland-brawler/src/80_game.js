@@ -343,7 +343,11 @@ const Game = {
     const p = this.player;
     if (this.t < 40) { p.setState('walk'); p.vx = p.walkX; p.vy = 0; p.facing = 1; p.x += 0; }
     else if (p.state === 'walk') { p.setState('idle'); p.vx = 0; }
-    if (this.t > 130 || (this.t > 50 && Input.anyPressed)) { this.setState('play'); p.setState('idle'); p.vx = 0; }
+    if (this.t > 130 || (this.t > 50 && Input.anyPressed)) {
+      this.setState('play'); p.setState('idle'); p.vx = 0;
+      // the player looked away during the intro (or the run was just hot-resumed): start paused
+      if (this.pauseOnPlay) { this.pauseOnPlay = false; this.resumeHold = false; this.pause(true); }
+    }
   },
   upd_play() {
     if (Input.pressed('start')) { this.pause(); return; }
@@ -357,8 +361,8 @@ const Game = {
     }
     this.simulate(true);
   },
-  pause(quiet) { this.setState('pause'); if (!quiet) Sound.sfx('pause'); this.menuSel = 0; Sound.musicFilter(600, 0.15); Sound.setMusicLevel(0.4); },
-  resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(this.silhouetteDist ? 900 : 20000, 0.15); Sound.setMusicLevel(1); },
+  pause(quiet) { this.setState('pause'); if (!quiet) Sound.sfx('pause'); this.menuSel = 0; Sound.musicFilter(600, 0.15, true); Sound.setMusicLevel(0.4); },
+  resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(Sound.baseHz, 0.15); Sound.setMusicLevel(1); },
   upd_pause() {
     if (this.fadeDir) return;
     if (Input.pressed('start')) { this.resume(); return; }
@@ -374,7 +378,7 @@ const Game = {
   },
   toTitle() {
     this.player = null; this.ents = []; this.solids = []; this.letterboxTarget = 0; this.letterbox = 0; this.menuSel = 0;
-    this.silhouetteDist = 0; this.titleReady = false; this.howto = false; this.titleIdle = 0; this.showTop = 0; this.respawnDrop = false;
+    this.silhouetteDist = 0; this.titleReady = false; this.howto = false; this.titleIdle = 0; this.showTop = 0; this.respawnDrop = false; this.pauseOnPlay = false; this.resumeHold = false;
     FX.reset(); Sound.musicFilter(20000, 0.1); Sound.setMusicLevel(1, 0.05);
     this.setState('title'); Sound.playSong('title');
   },
@@ -598,6 +602,7 @@ const Game = {
       st.drawFg(ctx, camX, this.frame, this);
       ctx.restore();
     }
+    if (st.drawFgOverlay) st.drawFgOverlay(ctx, camX, this.frame, this);
     ctx.restore();
     if (this.superFreeze > 0) {
       ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;

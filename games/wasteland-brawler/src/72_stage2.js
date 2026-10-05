@@ -1231,6 +1231,12 @@
           drawWeed(ctx, Math.round(sx), Math.round(w.y - w.r - bob), w.r, w.ph);
         }
       }
+    },
+    // Full-screen layers (sandstorm tint, collapse black-out, hint): drawn outside the foreground's
+    // HUD clip so they cover the whole screen.
+    drawFgOverlay(ctx, camX, frame, g) {
+      if (!S) return;
+      Px.use(ctx);
       if (S.stormK > 0) drawStorm(ctx, camX, g);
       if (S.fadeA > 0 || S.hintT > 0) {
         ctx.save();

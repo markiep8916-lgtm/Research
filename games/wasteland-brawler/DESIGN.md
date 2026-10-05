@@ -269,7 +269,8 @@ angle_i = π + sin(t·0.1 + i·0.8)·0.25 − clamp(vx·0.15, −0.6, 0.6)
 - **Cost:** 8 HP, which becomes **grey recoverable HP**.
   - Each hit Juno lands restores 2 grey HP to real HP.
   - Any damage Juno takes erases all grey HP.
-  - It never drops HP below 1. At HP ≤ 8 it costs HP−1.
+  - It needs more than 8 HP (Meteor Fist: more than 12), so it cannot be chained at 1 HP to stun-lock a boss.
+  - Breaking a hold is the exception: it works down to 2 HP and then costs HP−1, never dropping HP below 1.
 - **Usable from:** idle, walk, run, any ground attack's recovery, and while held by a Ghoul or a boss (it breaks the hold). Not usable in hitstun or in the air.
 - **Visual:**
   - An ellipse ring growing from r6 to r44 (height ratio 0.35) over 10 f, 2 px stroke, colour lerping #FFE08A → #E2591E.
@@ -508,7 +509,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - Cooldown 100 f. Only one bottle of his in flight at a time.
 - **Panic Shove:** when cornered at a wall with Juno within 28 px. WINDUP 8, 4 dmg, push 6.
 
-**Tank Pop:** killed by a T3 hit, he bursts: explosion radius 32, 16 dmg to enemies and 12 to Juno.
+**Tank Pop:** killed by a T3 hit, his tank hisses for 24 f (sparks, a red ring growing to r32 on the ground under the body), then bursts where the body lies: explosion radius 32, 16 dmg to enemies and 12 to Juno.
 
 **Drops:** a Molotov 40% of the time.
 
@@ -809,7 +810,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
 
 **Attacks:**
 - **Claw Sweep** (dx ≤ 72):
-  - WINDUP 18 f, one claw raised and open; red rim.
+  - WINDUP 28 f (reactable: leaving the lane takes about 15 f), one claw raised and open; red rim.
   - Sweeps the lane out to 72 px, depth 14. 12 dmg, KD.
 - **Tail Hammer** (signature; any range):
   - WINDUP 36 f: a red reticle (circle stroked #FF4A2A) shrinks from r20 to r8 under Juno. It tracks her until frame 24, then **locks**.
@@ -857,7 +858,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - A cone from +10 to +80 px: a wedge of circles in #E8ECEF at alpha 0.6, depth 12, for 30 f.
   - 5 dmg per 8 f, and it pushes Juno 1.5 px/f.
 - **Piston Punch** (dx ≤ 50):
-  - WINDUP 16 f: piston retracts 8 px, rod glows #FFB04A; red rim.
+  - WINDUP 24 f: piston retracts 8 px, rod glows #FFB04A; red rim.
   - The fist shoots to +50 px in 4 f. 16 dmg, KD.
 - **Crown Wheel** (dx > 80):
   - WINDUP 20 f: lifts a wheel and spins it.

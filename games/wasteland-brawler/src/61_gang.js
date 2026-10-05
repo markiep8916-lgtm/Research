@@ -41,6 +41,7 @@
     o.start(now); o.stop(now + dur + 0.02); lfo.start(now); lfo.stop(now + dur + 0.02);
   }
   // "HEY!": sawtooth 220 Hz through two bandpasses (700 / 1200 Hz), 120 ms.
+  SFX.gangTankHiss = (a, p) => { a.noise(0.4, 0.22, 2600, 1.2, 'highpass', 0, a.out(p), 6200); a.tone(1400, 2200, 0.4, 'square', 0.05, 0, a.out(p)); };
   SFX.gangHey = (a, p) => {
     const c = a.ctx, now = c.currentTime, d = a.out(p);
     const o = c.createOscillator(); o.type = 'sawtooth';
@@ -639,6 +640,39 @@
     if (Math.abs(this.x - tx) > 4 || ady > 3) move(this, tx, laneY(p.y), sx, 0.9);
     else { this.vx = this.vy = 0; if (this.state !== 'idle') this.setState('idle'); }
   }
+
+  // Torcher's Tank Pop fuse: follows the body for 24 f, then explodes (r32, 16 to enemies, 12 to Juno).
+  const TANK_FUSE = 24, TANK_R = 32;
+  class TankFuse extends Ent {
+    constructor(body, src) {
+      super(body.x, body.y);
+      Object.assign(this, { body, src, team: 'fx', shadowR: 0 });
+      FX.text(body.x, body.y, body.h + 24, 'TANK POP!', '#ff8a2a', 50);
+      Sound.sfx('gangTankHiss', body.x);
+    }
+    sortY() { return this.y - 0.5; }
+    update() {
+      const b = this.body;
+      if (b && !b.remove) { this.x = b.x; this.y = b.y; }
+      if (++this.t % 3 === 0) FX.add({ kind: 'spark', x: this.x + rr(-3, 3), y: this.y, z: 22 + rr(-3, 3), vx: rr(-1, 1), vz: rr(0.5, 2), life: 10, g: 0.1, drag: 0.9 });
+      if (this.t >= TANK_FUSE) {
+        this.remove = true;
+        Game.explode(this.x, this.y, this.src, { r: TANK_R, dmg: 16, pdmg: 12 });
+      }
+    }
+    draw() {}
+    // ground layer, under every fighter
+    drawMarker(ctx, camX) {
+      const k = clamp(this.t / TANK_FUSE, 0, 1), r = lerp(10, TANK_R, k);
+      ctx.save();
+      ctx.globalAlpha = 0.5 + 0.4 * k;
+      ctx.strokeStyle = (this.t >> 1) % 2 ? '#ff3030' : '#ffd040'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(Math.round(this.x - camX) + 0.5, Math.round(this.y) + 0.5, r, r * 0.4, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.12 + 0.12 * k; ctx.fillStyle = '#ff3030'; ctx.fill();
+      ctx.restore();
+    }
+  }
+
   ENEMY_TYPES.torcher = {
     name: 'TORCHER', family: 'gang', hp: 22, speed: 1.0, w: 8, h: 40, score: 450, downTime: 40, gear: C.canister,
     ranged: true, coolMin: 100, coolMax: 100,
@@ -672,11 +706,9 @@
     },
     onHurt(src, a) { hurtGrunt(this, a); },
     onDeath(src, a) {
-      // Tank Pop: killed by a T3+ hit, the fuel tank bursts
-      if (a && (a.tier || 0) >= 3) {
-        FX.text(this.x, this.y, this.h + 24, 'TANK POP!', '#ff8a2a', 50);
-        Game.explode(this.x, this.y, src, { r: 32, dmg: 16, pdmg: 12 });
-      }
+      // Tank Pop: killed by a T3+ hit, the fuel tank hisses for 24 f (red blast ring on the
+      // ground) and then bursts where the body lies, so a hero who just landed the kill can step clear
+      if (a && (a.tier || 0) >= 3) Game.add(new TankFuse(this, src));
       if (chance(0.4)) dropItem(this, 'molotov');
     },
     drawBody() {

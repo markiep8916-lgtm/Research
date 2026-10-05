@@ -93,7 +93,12 @@ class Player extends Fighter {
   }
   buffered(k, win = 8) { return this.pf - this.buf[k] <= win; }
   // Called by Game.update right after Input.update while in play.
-  recordInput() { for (const k of ['attack', 'jump', 'special']) if (Input.pressed(k)) this.buf[k] = this.pf + 1; }
+  recordInput() {
+    for (const k of ['attack', 'jump', 'special']) if (Input.pressed(k)) this.buf[k] = this.pf + 1;
+    if (Input.pressed('attack')) this.bufDir = Input.dirX();       // direction held with the press
+  }
+  // Direction for a buffered J: what is held now, else what was held when J was pressed.
+  pressDir() { return Input.dirX() || this.bufDir || 0; }
   consume(k) { this.buf[k] = -99; }
 
   // ---------- states ----------
@@ -124,7 +129,11 @@ class Player extends Fighter {
       case 'land':
         this.vx *= 0.6;
         if (this.t >= 2 && !this.landLag && this.buffered('attack')) return false;
-        if (this.t >= (this.landLag || 4)) { this.landLag = 0; this.setState('idle'); }
+        if (this.t >= (this.landLag || 4)) {
+          // keep a J pressed up to ~12 f before touchdown alive through the landing lag
+          if (this.landLag && this.buffered('attack', this.landLag + 12)) this.buf.attack = this.pf;
+          this.landLag = 0; this.setState('idle');
+        }
         return true;
       case 'skid':
         this.vx *= 0.82;
@@ -183,7 +192,7 @@ class Player extends Fighter {
       this.setState('jumpsquat');
       return true;
     }
-    if (afterActive && this.connected && (a === P_ATK.jab || a === P_ATK.cross) && this.buffered('attack', 10) && Input.dirX() === -this.facing) {
+    if (afterActive && this.connected && (a === P_ATK.jab || a === P_ATK.cross) && this.buffered('attack', 10) && this.pressDir() === -this.facing) {
       // J with away held mid-chain: turn and back fist (the chain then restarts at step 1)
       this.consume('attack');
       this.facing = -this.facing;
@@ -193,7 +202,7 @@ class Player extends Fighter {
     if (afterActive && this.connected && a.next && this.buffered('attack', 10)) {
       this.consume('attack');
       let next = P_ATK[a.next] || null;
-      if (a.next === 'fin') next = Input.dirX() === this.facing ? P_ATK.straight : P_ATK.upper;
+      if (a.next === 'fin') next = this.pressDir() === this.facing ? P_ATK.straight : P_ATK.upper;
       this.chain(next);
       return true;
     }
@@ -295,6 +304,7 @@ class Player extends Fighter {
       if (this.weapon && this.weapon.kind !== 'molotov') { this.throwWeapon(); return; }
       if (this.weapon && this.weapon.kind === 'molotov') { this.throwBottle(); return; }
       if (this.canPay(8)) { this.doBurst(); return; }
+      FX.text(this.x, this.y, 50, 'LOW HP', '#ff6a4a', 30); Sound.sfx('menu', this.x);   // not enough HP to burst
     }
     if (this.buffered('attack')) {
       this.consume('attack');
@@ -308,11 +318,11 @@ class Player extends Fighter {
         return;
       }
       if (this.state === 'run') { this.startAttack(P_ATK.ram); return; }
-      if (dx && dx === -this.facing) { this.chainT = 0; this.facing = dx; this.startAttack(P_ATK.backfist); return; }
+      if (this.pressDir() === -this.facing) { this.chainT = 0; this.facing = -this.facing; this.startAttack(P_ATK.backfist); return; }
       if (this.chainT > 0 && this.chainNext) {
         // late press inside the 16 f window: carry on with the chain
         let next = P_ATK[this.chainNext];
-        if (this.chainNext === 'fin') next = dx === this.facing ? P_ATK.straight : P_ATK.upper;
+        if (this.chainNext === 'fin') next = this.pressDir() === this.facing ? P_ATK.straight : P_ATK.upper;
         this.chainT = 0; this.chainNext = null;
         this.startAttack(next);
         return;
@@ -364,7 +374,9 @@ class Player extends Fighter {
   }
 
   // ---------- costs, specials ----------
-  canPay(c) { return this.hp > 1; }
+  // A special needs more HP than it costs (no spamming Scrap Burst at 1 HP); breaking a hold keeps the
+  // desperation rule and works down to 2 HP (floor = 1).
+  canPay(c, floor) { return this.hp > (floor != null ? floor : c); }
   pay(c) {
     const paid = Math.min(c, this.hp - 1);
     this.hp -= paid;
@@ -461,12 +473,13 @@ class Player extends Fighter {
   }
   barrageUpdate() {
     this.vx = 0;
-    const live = this.pinned.filter(e => !e.remove);
+    // a target the barrage kills keeps its own death state (e.g. the Matriarch's KO crumble)
+    const live = this.pinned.filter(e => !e.remove && !e.dying);
     if (this.t > 0 && this.t <= 24 && this.t % 4 === 0) {
       for (const e of live) {
         e.state = 'pinned';
         e.takeHit(this, { dmg: 6, tier: 1, hitstop: 2, kb: 0, stun: 30, zr: [16, 36] }, this.facing);
-        if (e.state !== 'pinned' && e.state !== 'fall') e.state = 'pinned';
+        if (!e.dying && e.state !== 'pinned' && e.state !== 'fall') e.state = 'pinned';
       }
       FX.steam(this.x + this.facing * 10, this.y, 26, 1);
     }
@@ -479,7 +492,7 @@ class Player extends Fighter {
       if (!live.length) Sound.sfx('hitFinisher', this.x);
     }
     if (this.t >= 44) {
-      for (const e of this.pinned) if (e.state === 'pinned') e.setState('idle');
+      for (const e of this.pinned) if (!e.dying && e.state === 'pinned') e.setState('idle');
       this.pinned = [];
       this.setState('idle');
       this.inv = 30;
@@ -630,7 +643,7 @@ class Player extends Fighter {
     const h = this.heldBy;
     if (!h || h.remove || h.dying || !h.holding) { this.heldBy = null; this.setState('idle'); return; }
     if (Input.anyPressed) h.clutchT = (h.clutchT || 0) + (h.mashK || 8);
-    if (this.buffered('special') && h.burstEscapes !== false && this.canPay(8)) {
+    if (this.buffered('special') && h.burstEscapes !== false && this.canPay(8, 1)) {
       this.consume('special');
       this.heldBy = null; h.holding = false;
       h.releaseClutch && h.releaseClutch();
@@ -702,6 +715,19 @@ class Player extends Fighter {
     if (this.state === 'fall') { this.recentHits = []; if (this.weapon) this.dropWeapon(); }
   }
   onDeath() { /* handled by Game.playerDied after the knockdown */ }
+  // Chip damage from hazards (acid, toxic puddles): no hitstun, but scaled by difficulty and counted
+  // like any other damage (grey HP lost, Rage, no-damage bonus, hurt feedback).
+  chip(n) {
+    if (this.heldBy) { this.holdDamage(n); return; }
+    n = Math.max(1, Math.round(n * Game.diff.dmg));
+    this.hp = Math.max(0, this.hp - n);
+    this.grey = 0; this.flash = 2; this.tintT = 6;
+    this.damageTaken = (this.damageTaken || 0) + n;
+    Game.addRage(n);
+    Game.portraitHit = 6;
+    FX.hurtVignette();
+    if (this.hp <= 0) this.knockDown(-(this.facing || 1), 1.2, 2.4);
+  }
 
   // ---------- drawing ----------
   currentPose() {

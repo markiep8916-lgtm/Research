@@ -115,8 +115,10 @@ hazard (6 dmg + knockdown on touch).
   waves: [{ at /* camera-lock x */, spawns: [{ type, side: 'R'|'L'|'top'|'in'|custom, x /* screen-relative, for 'in'/'top'/custom */,
             y, delay /* frames since wave start */, whenBelow /* wait until <= n alive */, cap, variant, opts, onSpawn(e, g) }],
             onStart(g), update(g), until(g), onClear(g), boss, music, noGo, endsStage, clearDelay }],
-  setup(g), update(g), onExplosion(g, x, y) }
+  setup(g), update(g), onExplosion(g, x, y), drawFgOverlay(ctx, camX, frame, game) }
 ```
+`drawFg` is clipped to the play area below the HUD band (y >= 23); full-screen layers (weather tints,
+black-outs) go in `drawFgOverlay`, which is not clipped.
 The camera scrolls right only, locks at `wave.at` while a wave is live, then shows GO.
 Custom spawn sides call `def.enterStyles[side].call(enemy, spec)`.
 

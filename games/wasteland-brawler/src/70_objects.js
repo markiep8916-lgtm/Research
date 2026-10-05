@@ -448,11 +448,11 @@ class AcidPool extends Ent {
       const last = this.ticks.get(v.id) || -99;
       if (this.t - last < 20) continue;
       this.ticks.set(v.id, this.t);
-      v.hp = Math.max(v.team === 'player' ? 0 : 0, v.hp - this.dmg);
-      v.flash = 2;
+      if (v.team === 'player' && v.chip) { v.chip(this.dmg); }
+      else { v.hp = Math.max(0, v.hp - this.dmg); v.flash = 2; }
       FX.add({ kind: 'bubble', x: v.x, y: v.y, z: 4, vz: 0.6, g: 0, life: 20, color: this.color });
       Sound.sfx('hiss', v.x);
-      if (v.hp <= 0) { if (v.team === 'player') v.knockDown(1, 1, 2); else if (!v.dying) { v.onDeath(Game.player, {}, 1); v.knockDown(1, 1, 2); } }
+      if (v.hp <= 0) { if (v.team === 'player') { if (v.state !== 'fall' && v.state !== 'down') v.knockDown(1, 1, 2); } else if (!v.dying) { v.onDeath(Game.player, {}, 1); v.knockDown(1, 1, 2); } }
     }
     if (this.t % 12 === 0) FX.add({ kind: 'bubble', x: this.x + rr(-this.w, this.w), y: this.y, z: 0, vz: 0.3, g: 0, life: 16, color: this.color });
     if (this.t > this.life) this.remove = true;

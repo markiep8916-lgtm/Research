@@ -585,7 +585,7 @@
     Enemy.prototype.drawMarker.call(e, ctx, camX);
     Px.use(ctx);
     if (e.state === 'kvleap' && (e.kvSub === 'rise' || e.kvSub === 'track' || e.kvSub === 'lock')) {
-      const k = e.kvSub === 'rise' ? 0.2 : e.kvSub === 'track' ? 0.2 + 0.5 * e.t / 40 : 0.7 + 0.3 * e.t / 16;
+      const k = e.kvSub === 'rise' ? 0.2 : e.kvSub === 'track' ? 0.2 + 0.5 * e.t / 40 : 0.7 + 0.3 * Math.min(1, e.t / leapLockF());
       ctx.globalAlpha = 0.35 + 0.25 * k;
       Px.oval(e.x - camX, e.y, 9 + 15 * k, (9 + 15 * k) * 0.38, '#000');
       if (e.kvSub === 'track' && (e.t >> 3) % 2 === 0) { ctx.globalAlpha = 0.45; Px.oval(e.x - camX, e.y, 4 + 8 * k, (4 + 8 * k) * 0.38, '#000'); }
@@ -835,6 +835,8 @@
     return true;
   }
 
+  // lock-to-land frames of the leaping slam: 16, plus easy's extra telegraph time
+  const leapLockF = () => 16 + Math.max(0, Game.diff.tele || 0);
   function leapUpdate(e, p) {
     switch (e.kvSub) {
       case 'crouch':
@@ -864,9 +866,9 @@
         return true;
       case 'lock': {
         e.vx = e.vy = 0;
-        const k = clamp(e.t / 16, 0, 1);
+        const k = clamp(e.t / leapLockF(), 0, 1);
         e.z = e.kvTop * (1 - k * k); e.vz = 0;
-        if (e.t >= 16) { e.z = 0; slamLand(e); setSub(e, 'recover'); }
+        if (e.t >= leapLockF()) { e.z = 0; slamLand(e); setSub(e, 'recover'); }
         return true;
       }
       default: // recover
@@ -1594,7 +1596,7 @@
       // Steam Jet: 5 dmg per 8f and a 1.5 px/f push inside the +10..+80 cone (depth 12) for 30f
       steam: { start: 24, active: 30, rec: 20, dmg: 5, tier: 1, reach: [10, 80], zr: [0, 40], depth: 12, custom: true, tell: 'glint', glint: [26, -40] },
       // Piston Punch: the fist shoots to +50 in 4f; 16 dmg KD
-      punch: { start: 16, active: 6, rec: 26, dmg: 16, tier: 3, knock: true, kx: 3.0, kz: 3.2, reach: [8, 50], zr: [10, 52], depth: 9, custom: true, tell: 'heavy', glint: [10, -52] },
+      punch: { start: 24, active: 6, rec: 26, dmg: 16, tier: 3, knock: true, kx: 3.0, kz: 3.2, reach: [8, 50], zr: [10, 52], depth: 9, custom: true, tell: 'heavy', glint: [10, -52] },
       // Crown Wheel: a boomerang thrown from the crown (projectile, 10 dmg T2)
       wheel: { start: 20, active: 4, rec: 24, dmg: 10, tier: 2, reach: [0, 0], zr: [0, 12], projectile: true, tell: 'glint', glint: [6, -82] },
     },

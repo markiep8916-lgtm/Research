@@ -146,7 +146,8 @@ class Fighter extends Ent {
     const T = TIERS[tier];
     const hs = (a.hitstop != null ? a.hitstop : T.hs) + Math.min(3, nth - 1);
     this.hs = Math.max(this.hs, hs); this.hitJitter = true;
-    if (src && src.hs != null && src.team !== 'proj') src.hs = Math.max(src.hs, hs);
+    // the attacker shares the hitstop, except for remote impacts (a body she threw bowling someone over)
+    if (src && src.hs != null && src.team !== 'proj' && !a.bowling) src.hs = Math.max(src.hs, hs);
     if (tier >= 4) Game.hitstop = Math.max(Game.hitstop, hs);
     FX.shake(T.shake + (a.shakeAdd || 0));
     FX.kick(dir * T.kick);
@@ -337,7 +338,7 @@ class Fighter extends Ent {
 // Thrown or blasted bodies bowl over other enemies once each.
 function bowlingCollisions(body, others) {
   const src = body.thrownBy || body.blasted;
-  if (!src || Math.abs(body.vx) < 3) return;
+  if (!src || Math.abs(body.vx) < 2.4) return;
   body.bowled = body.bowled || new Set();
   for (const t of others) {
     if (t === body || !t.vulnerable || body.bowled.has(t.id) || t.team !== 'enemy') continue;
@@ -345,7 +346,7 @@ function bowlingCollisions(body, others) {
     if (body.z > t.h) continue;
     body.bowled.add(t.id);
     t.takeHit(src, { dmg: body.state === 'thrown' ? 12 : 10, tier: 3, knock: true, kx: 2.6, kz: 3.2, zr: [0, 40], bowling: true }, sign(body.vx) || 1);
-    body.vx *= 0.7;
+    body.vx *= 0.85;      // a toss plows 2-3 bodies (4.2 -> 3.6 -> 3.0 -> 2.6)
     if (body.bowled.size === 2) FX.text(t.x, t.y, 50, 'STRIKE!', '#ffe066', 50);
   }
   // thrown bodies also smash props (and set red fuel drums off instantly)

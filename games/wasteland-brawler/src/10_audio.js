@@ -101,7 +101,10 @@ const Sound = {
     try { fn(this, pan); } finally { this.pm = 1; }
   },
   // Sweep the music lowpass (sandstorm, pause). 20000 = open.
-  musicFilter(freq, sec = 1) {
+  // temp = a passing change (pause) that resume() undoes; otherwise freq becomes the stage's base cutoff.
+  baseHz: 20000,
+  musicFilter(freq, sec = 1, temp) {
+    if (!temp) this.baseHz = freq;
     if (!this.ctx) return;
     const f = this.musicLP.frequency, t = this.ctx.currentTime;
     f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.exponentialRampToValueAtTime(Math.max(60, freq), t + sec);

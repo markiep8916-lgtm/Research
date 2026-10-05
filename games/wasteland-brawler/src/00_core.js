@@ -51,6 +51,7 @@ const KEYMAP = {
 
 const Input = {
   key: {}, touch: {}, pad: {},
+  latch: {},           // presses seen since the last step, so a tap shorter than a frame still counts
   cur: {}, prev: {},
   tapTime: { left: -99, right: -99 },
   tapPrev: { left: -99, right: -99 },
@@ -66,15 +67,17 @@ const Input = {
       if (e.target && e.target.closest && e.target.closest('button')) return;
       e.preventDefault();
       this.key[a] = true;
+      if (!e.repeat) this.latch[a] = true;
       this.lastDevice = 'keyboard';
     });
     window.addEventListener('keyup', e => {
       const a = KEYMAP[e.code];
       if (!a) return;
-      e.preventDefault();
       this.key[a] = false;
+      if (e.target && e.target.closest && e.target.closest('button')) return;   // Space clicks on keyup
+      e.preventDefault();
     });
-    window.addEventListener('blur', () => { this.key = {}; this.touch = {}; });
+    window.addEventListener('blur', () => { this.key = {}; this.touch = {}; this.latch = {}; });
     document.addEventListener('visibilitychange', () => { if (document.hidden) { this.key = {}; this.touch = {}; } });
   },
   // Bind on-screen buttons. Each element carries data-act="left" etc. A d-pad element uses data-dpad.
@@ -101,6 +104,7 @@ const Input = {
         e.preventDefault();
         try { e.target.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
         pointers.set(e.pointerId, { el, acts: actsAt(el, e.clientX, e.clientY) });
+        for (const a of pointers.get(e.pointerId).acts) this.latch[a] = true;
         this.lastDevice = 'touch';
       } else if (e.type === 'pointermove') {
         const p = pointers.get(e.pointerId);
@@ -155,11 +159,12 @@ const Input = {
     const c = {};
     let any = false;
     for (const a of ACTIONS) {
-      c[a] = !!(this.key[a] || this.touch[a] || this.pad[a]);
+      c[a] = !!(this.key[a] || this.touch[a] || this.pad[a] || this.latch[a]);
       if (a === 'attack' && this.tap) { c[a] = c[a] || !this.prev[a]; this.tap = false; }
       if (c[a] && !this.prev[a]) any = true;
     }
     this.cur = c;
+    this.latch = {};
     this.anyPressed = any;
     for (const d of ['left', 'right']) {
       if (this.pressed(d)) { this.tapPrev[d] = this.tapTime[d]; this.tapTime[d] = this.frame; }
@@ -172,7 +177,7 @@ const Input = {
   doubleTap(d, win = 14) { return this.pressed(d) && this.tapTime[d] - this.tapPrev[d] <= win; },
   dirX() { return (this.down('right') ? 1 : 0) - (this.down('left') ? 1 : 0); },
   dirY() { return (this.down('down') ? 1 : 0) - (this.down('up') ? 1 : 0); },
-  clear() { this.key = {}; this.touch = {}; this.cur = {}; this.prev = {}; this.tap = false; },
+  clear() { this.key = {}; this.touch = {}; this.cur = {}; this.prev = {}; this.tap = false; this.latch = {}; },
 };
 
 // ---------- 5x7 bitmap font ----------

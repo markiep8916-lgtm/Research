@@ -55,9 +55,12 @@ const scor_TP = {
   raise:  { c1: [-33, -24], c2: [-31, -53], tip: [-13, -47], ang: 1.25 },
   // Matriarch's raise: at k = 3.2 the full raise would tower ~150 px; the spec caps her tail at ~96.
   mraise: { c1: [-33, -20], c2: [-31, -33], tip: [-13, -29], ang: 1.25 },
+  mspit:  { c1: [-28, -21], c2: [-9, -33], tip: [9, -30], ang: 0.1 },
   limp:   { c1: [-30, -5], c2: [-39, -3], tip: [-45, -6], ang: 2.5 },
   back:   { c1: [-27, -12], c2: [-38, -22], tip: [-33, -30], ang: -0.7 },
 };
+// Easy's extra telegraph frames (never shorter on hard) for location attacks that bypass Enemy.attack.
+function scor_tel() { return Math.max(0, Game.diff.tele || 0); }
 function scor_pl(a, b, k) {
   const L = (p, q) => [lerp(p[0], q[0], k), lerp(p[1], q[1], k)];
   return { c1: L(a.c1, b.c1), c2: L(a.c2, b.c2), tip: L(a.tip, b.tip), ang: lerp(a.ang, b.ang, k) };
@@ -395,7 +398,7 @@ function scor_burrowUpdate(e) {
   // eruption telegraph: shakes, grows, red ellipse
   e.vx = e.vy = 0;
   if (e.t % 4 === 0) scor_specks(e.x, e.y, 2);
-  if (e.t >= (m.tele || 16)) scor_erupt(e);
+  if (e.t >= (m.tele || 16) + scor_tel()) scor_erupt(e);
   return true;
 }
 function scor_enterMound(spec) {
@@ -539,7 +542,7 @@ function scor_attackTick(a, ph) {
 function scor_drawMarker(ctx, camX) {
   Enemy.prototype.drawMarker.call(this, ctx, camX);
   if (this.state === 'burrowed' && this.sub === 'tele') {
-    const m = this.def.mound, k = clamp(this.t / (m.tele || 16), 0, 1);
+    const m = this.def.mound, k = clamp(this.t / ((m.tele || 16) + scor_tel()), 0, 1);
     ctx.save();
     ctx.globalAlpha = 0.4 + 0.4 * k;
     ctx.strokeStyle = (this.t >> 1) % 2 ? scor_RED : '#ff7a50'; ctx.lineWidth = 1;
@@ -633,7 +636,7 @@ function scor_drawSmall() {
   const e = this, d = e.def;
   e._tipL = null;
   if (e.state === 'burrowed' && e.sub !== 'sink') {
-    const k = e.sub === 'tele' ? clamp(e.t / (d.mound.tele || 16), 0, 1) : 0;
+    const k = e.sub === 'tele' ? clamp(e.t / ((d.mound.tele || 16) + scor_tel()), 0, 1) : 0;
     scor_mound(e, d.mound, k, e.sub === 'tele' ? ((e.t >> 1) % 2 ? 1 : -1) : 0);
     return;
   }
@@ -781,7 +784,7 @@ function scor_mTurn(e) {
 // Where the tail hammer may land: in front of her, 40..190 px from the rig origin.
 function scor_mClampTarget(e, x, y) {
   const rx = scor_mRig(e);
-  const d = clamp((x - rx) * e.facing, 40, 190);
+  const d = clamp((x - rx) * e.facing, 0, 190);
   return { x: clamp(rx + e.facing * d, Game.cam.x + 10, Game.cam.x + W - 10), y: clamp(y, Game.bounds.yMin, Game.bounds.yMax) };
 }
 function scor_mVulnerable() {
@@ -902,11 +905,11 @@ function scor_mBurrowUpdate(e) {
     } else { e.vx = e.vy = 0; if (e.t >= 120) { e.sub = 'tele'; e.t = 0; } }
     return true;
   }
-  // 20 f eruption telegraph: rumble, 1 px shake, red ellipse r30
+  // 20 f eruption telegraph (+4 on easy): rumble, 1 px shake, red ellipse r30
   e.vx = e.vy = 0;
   FX.shake(1, 2);
   if (e.t % 3 === 0) scor_specks(rx + rr(-20, 20), e.y, 2);
-  if (e.t >= 20) {
+  if (e.t >= 20 + scor_tel()) {
     // face the screen centre so her body fits, then burst out under the mound
     e.facing = rx < Game.cam.x + W / 2 ? 1 : -1;
     scor_mSetRig(e, rx);
@@ -956,6 +959,7 @@ function scor_mEmerge(e) {
 }
 function scor_mStateUpdate() {
   const e = this;
+  if (e.dying && e.state !== 'ko') { scor_mKO(e); return true; }
   const moving = Math.abs(e.vx) + Math.abs(e.vy) > 0.1;
   e.legPh += moving ? 0.28 : 0.02;
   e.noShadow = true;                       // she draws her own shadow under the rig (drawMarker)
@@ -1032,7 +1036,7 @@ function scor_mAttackTick(a, ph) {
     if (e.t === a.start) { Sound.sfx('whooshBig', e.x); FX.dust(e.x + e.facing * 40, e.y, 5, 1.5); }
   }
   if (a.key === 'hammer') {
-    const lockAt = a.start - 12;
+    const lockAt = a.start - 12 - scor_tel();
     if (e.t === 1) { Sound.sfx('scorWhineLong', e.x); e.tgt = scor_mClampTarget(e, p ? p.x : e.x + e.facing * 80, p ? p.y : e.y); e.locked = false; }
     if (ph === 'start' && e.t < lockAt && p) e.tgt = scor_mClampTarget(e, p.x, p.y);
     if (e.t === lockAt) { e.locked = true; Sound.sfx('tink', e.x); }
@@ -1073,7 +1077,7 @@ function scor_mAttackTick(a, ph) {
     }
     const i = (e.t - a.start) / 4;
     if (ph === 'active' && e.rainT && i === Math.floor(i) && i < 5) {
-      const tl = scor_mTipLocal(e, scor_TP.spit);
+      const tl = scor_mTipLocal(e, scor_TP.mspit);
       const ox = e.x + e.facing * tl.x, oz = -tl.y;
       const tg = e.rainT[i];
       scor_lob(e, ox, e.y, oz, tg.x, tg.y, 40, { dmg: 8, tier: 2, color: scor_VENOM, puddle: scor_PUDDLE, puddleLife: 90, puddleDmg: 3, r: 14 });
@@ -1100,8 +1104,9 @@ function scor_mDrawMarker(ctx, camX) {
     }
   }
   if (e.state === 'attack' && e.atk && e.atk.key === 'hammer' && e.tgt && e.atkPhase() === 'start') {
-    const a = e.atk, lockAt = a.start - 12, k = clamp(e.t / a.start, 0, 1);
-    const r = lerp(20, 8, k), cx = Math.round(e.tgt.x - camX) + 0.5, cy = sy + Math.round(e.tgt.y - e.y) + 0.5;
+    const a = e.atk, lockAt = a.start - 12 - scor_tel(), k = clamp(e.t / a.start, 0, 1);
+    // shrinks while tracking, then holds the true stinger radius once locked (the hit is |dx| <= 14 + half her width)
+    const r = e.t >= lockAt ? 14 : lerp(20, 14, clamp(e.t / lockAt, 0, 1)), cx = Math.round(e.tgt.x - camX) + 0.5, cy = sy + Math.round(e.tgt.y - e.y) + 0.5;
     const locked = e.t >= lockAt;
     const col = locked ? ((e.t >> 1) % 2 ? '#ffffff' : '#ff4a2a') : '#ff4a2a';
     ctx.save();
@@ -1116,7 +1121,7 @@ function scor_mDrawMarker(ctx, camX) {
     if (locked && e.t - lockAt < 3) { ctx.save(); ctx.globalAlpha = 0.8; ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(cx, cy, r + 4, (r + 4) * 0.45, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
   }
   if (e.state === 'burrowed' && e.sub === 'tele') {
-    const k = clamp(e.t / 20, 0, 1), r = lerp(10, 30, k);
+    const k = clamp(e.t / (20 + scor_tel()), 0, 1), r = lerp(10, 30, k);
     ctx.save();
     ctx.globalAlpha = 0.45 + 0.45 * k;
     ctx.strokeStyle = (e.t >> 1) % 2 ? scor_RED : '#ff7a50'; ctx.lineWidth = 1;
@@ -1174,7 +1179,7 @@ function scor_mDraw() {
   g.save();
   g.translate(-scor_M_OFF, 0);
   if (e.state === 'burrowed' && e.sub !== 'sink') {
-    const k = e.sub === 'tele' ? clamp(e.t / 20, 0, 1) : 0;
+    const k = e.sub === 'tele' ? clamp(e.t / (20 + scor_tel()), 0, 1) : 0;
     const j = e.sub === 'tele' ? ((e.t >> 1) % 2 ? 1 : -1) : 0;
     scor_mound(e, { rx: 20, ry: 5, rx2: 26, ry2: 8, specks: 6 }, k, j);
     g.restore();
@@ -1284,10 +1289,10 @@ function scor_mDraw() {
           o.glowCol = '#c04cff'; o.glowA = 0.5 * k;
         } else if (ph === 'active') {
           const pump = Math.abs(Math.sin((t - a.start) * Math.PI / 4));
-          o.pose = scor_pl(scor_TP.mraise, scor_TP.spit, pump); o.bodyDip = -1; o.clawRaise = 0.8; o.clawOpen = 0.8;
+          o.pose = scor_pl(scor_TP.mraise, scor_TP.mspit, pump); o.bodyDip = -1; o.clawRaise = 0.8; o.clawOpen = 0.8;
           o.glowCol = '#c04cff'; o.glowA = 0.5;
         } else {
-          o.pose = scor_pl(scor_TP.spit, scor_TP.rest, clamp((t - a.start - a.active) / a.rec, 0, 1));
+          o.pose = scor_pl(scor_TP.mspit, scor_TP.rest, clamp((t - a.start - a.active) / a.rec, 0, 1));
         }
       }
       break;
@@ -1370,10 +1375,10 @@ ENEMY_TYPES.matriarch = {
   coolMin: 70, coolMax: 70,
   deathSfx: 'scorShriek',
   attacks: {
-    claw: { start: 18, active: 6, rec: 24, dmg: 12, tier: 3, knock: true, kx: 3.0, kz: 3.4, reach: [-8, 72], zr: [0, 34], depth: 14,
+    claw: { start: 28, active: 6, rec: 24, dmg: 12, tier: 3, knock: true, kx: 3.0, kz: 3.4, reach: [-8, 72], zr: [0, 34], depth: 14,
       tell: 'glint', glint: [56, -40], rim: true, whiff: 'whooshBig' },
     hammer: { start: 36, active: 1, rec: 80, dmg: 20, tier: 3, custom: true, tell: 'glint', glint: [-84, -94], rim: true },
-    rain: { start: 24, active: 20, rec: 30, dmg: 8, tier: 2, custom: true, tell: 'glint', glint: [-70, -130] },
+    rain: { start: 24, active: 20, rec: 30, dmg: 8, tier: 2, custom: true, tell: 'glint', glint: [-84, -94] },
   },
   init() {
     scor_hookExplode();

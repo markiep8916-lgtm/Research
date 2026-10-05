@@ -116,11 +116,18 @@ const FX = {
     this.flash(pal[0], 3, 0.35);
   },
   text(x, y, z, str, color = '#fff', life = 45, scale = 1) {
-    // stack above recent popups near the same spot instead of drawing on top of them
-    for (let n = 0; n < 4; n++) {
-      const hit = this.texts.some(t => t.t < 30 && Math.abs(t.x - x) < 40 && Math.abs((t.y - t.z) - (y - z)) < 8);
+    // Stack above live popups that would overlap, measured where they are drawn now (they rise up to
+    // 14 px). Starting 9 px above the old one keeps the gap: both rise on the same concave curve.
+    const rise = t => easeOut(Math.min(1, t.t / t.life * 2)) * 14;
+    const hw = textWidth(str, scale) / 2;
+    // A new popup at base row B clashes with an older one (base Bo, drawn now at Do = Bo - rise) when
+    // Do - 9 < B < Bo + 9: it would meet it on the way up. Placing it at Do - 9 keeps them apart.
+    for (let n = 0; n < 6; n++) {
+      const B = y - z;
+      const hit = this.texts.find(t => Math.abs(t.x - x) < textWidth(t.str, t.scale) / 2 + hw + 2 &&
+        B > t.y - t.z - rise(t) - 9 && B < t.y - t.z + 9);
       if (!hit) break;
-      z += 9;
+      z = y - (hit.y - hit.z - rise(hit) - 9);
     }
     this.texts.push({ x, y, z, str, color, t: 0, life, scale });
   },

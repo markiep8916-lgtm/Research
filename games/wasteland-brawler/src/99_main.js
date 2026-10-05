@@ -42,17 +42,25 @@ const TEST_ARENA = {
   // Boot is left to the unlock listener above, which runs after this one.
   view.addEventListener('pointerdown', () => {
     view.focus({ preventScroll: true, focusVisible: false });
-    if (['title', 'story', 'continue', 'gameover', 'results'].includes(Game.state)) Input.tap = true;
+    if (['title', 'story', 'continue', 'gameover', 'results', 'entry'].includes(Game.state)) Input.tap = true;
   });
   // Leaving the page mid-fight pauses instead of letting enemies beat on a hero with dead controls.
-  const autoPause = () => { if (Game.state === 'play' && !(window.__wb && window.__wb.manual)) Game.pause(true); };
+  const autoPause = () => {
+    if (window.__wb && window.__wb.manual) return;
+    if (Game.state === 'play') Game.pause(true);
+    else if (Game.state === 'stageintro') Game.pauseOnPlay = true;
+  };
   window.addEventListener('blur', autoPause);
+  window.addEventListener('focus', () => { if (Game.state === 'stageintro' && !Game.resumeHold) Game.pauseOnPlay = false; });
   document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
   const soundBtn = document.getElementById('btn-sound');
   const syncSound = () => { if (soundBtn) { soundBtn.textContent = Sound.muted ? 'Sound off' : 'Sound on'; soundBtn.setAttribute('aria-pressed', String(!Sound.muted)); } };
   syncSound();
   if (soundBtn) soundBtn.addEventListener('click', () => { Sound.unlock(); Sound.toggleMute(); syncSound(); view.focus({ preventScroll: true, focusVisible: false }); });
+  // focus ring only for keyboard navigation
+  window.addEventListener('keydown', e => { if (e.key === 'Tab') document.body.classList.add('kbnav'); });
+  window.addEventListener('pointerdown', () => document.body.classList.remove('kbnav'));
   window.addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) { Sound.unlock(); Sound.toggleMute(); syncSound(); } });
 
   const fullBtn = document.getElementById('btn-full');
@@ -79,20 +87,47 @@ const TEST_ARENA = {
   if (hot && hot.snapshot) {
     try {
       hot.snapshot(() => {
-        const G = Game, p = G.player;
-        if (!p || !['play', 'pause', 'stageintro', 'clear', 'continue'].includes(G.state)) return { diff: G.diffKey };
-        return { diff: G.diffKey, run: { stage: G.stageIndex, score: G.score, lives: Math.max(1, G.lives), credits: G.credits, rage: G.rage, hp: Math.max(30, Math.round(p.hp)), stats: G.stats } };
+        const G = Game, p = G.player, base = { diff: G.diffKey };
+        if (!p) return base;
+        const run = { stage: G.stageIndex, score: G.score, lives: Math.max(1, G.lives), credits: G.credits, rage: G.rage, hp: Math.max(30, Math.round(p.hp)), stats: G.stats };
+        if (['play', 'pause', 'stageintro'].includes(G.state)) return Object.assign(base, { run });
+        if (G.state === 'continue') {
+          // resume as if the continue was taken (a credit spent), never as a free life
+          if (G.credits <= 0) return base;
+          return Object.assign(base, { run: Object.assign(run, { lives: 3, rage: 50, credits: G.credits < 99 ? G.credits - 1 : G.credits,
+            stats: Object.assign({}, G.stats, { continues: G.stats.continues + 1 }) }) });
+        }
+        if (G.state === 'clear' || (G.state === 'story' && G.storyPages !== STORY.intro)) {
+          // the stage is won: bank the rest of the bonus tally and go on to the next stage (or the results)
+          let score = G.score;
+          if (G.state === 'clear' && G.clearBonus) G.clearBonus.rows.forEach((r, k) => { score += r[1] - G.clearBonus.shown[k]; });
+          const next = G.stageIndex + 1;
+          if (next < STAGES.length) return Object.assign(base, { run: Object.assign(run, { stage: next, score, hp: Math.max(60, run.hp) }) });
+          return Object.assign(base, { results: { score, lives: G.lives, stats: G.stats, bestCombo: p.bestCombo } });
+        }
+        return base;
       });
     } catch (e) { /* hot updates unavailable */ }
   }
   const resume = data => {
-    if (!data || !data.run || !STAGES[data.run.stage]) return;
-    const r = data.run;
+    if (!data) return;
     if (data.diff && DIFFS[data.diff]) Game.diffKey = data.diff;
+    if (data.results) {
+      const r = data.results;
+      Game.newGame();
+      Object.assign(Game, { score: r.score, shownScore: r.score, lives: r.lives, stats: r.stats || Game.stats });
+      Game.player.bestCombo = r.bestCombo || 0;
+      Game.showResults();
+      return;
+    }
+    if (!data.run || !STAGES[data.run.stage]) return;
+    const r = data.run;
     Game.newGame();
     Object.assign(Game, { score: r.score, shownScore: r.score, lives: r.lives, credits: r.credits, rage: r.rage, stats: r.stats || Game.stats });
     Game.startStage(r.stage);
     Game.player.hp = r.hp;
+    // nobody may be watching (and audio needs a gesture): open on the pause menu once the intro ends
+    Game.pauseOnPlay = true; Game.resumeHold = true;
   };
   try { if (hot && hot.ready) hot.ready(resume); else if (hot && hot.data) resume(hot.data); } catch (e) { console.warn("hot resume failed", e); }
 

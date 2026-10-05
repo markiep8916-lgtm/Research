@@ -59,8 +59,9 @@ h1 span { color: var(--ink); }
 }
 .tools button:hover { border-color: var(--hazard); }
 .tools button:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
+/* the game reads keys on the window, so the canvas shows a focus ring only while navigating by Tab */
 canvas#screen:focus { outline: none; }
-canvas#screen:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
+body.kbnav canvas#screen:focus { outline: 2px solid var(--hazard); outline-offset: -2px; }
 .stage {
   flex: 1 1 auto; min-height: 0;
   display: flex; align-items: center; justify-content: center;

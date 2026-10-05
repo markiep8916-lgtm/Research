@@ -275,7 +275,7 @@ function drawHowTo(ctx, g) {
     ['HIT', 'ATTACK / PICK UP'],
     ['JUMP', 'JUMP (HIT IN THE AIR TO KICK)'],
     ['SPEC', 'SCRAP BURST / THROW WEAPON'],
-    ['PAUSE', 'PAUSE (TOP CORNER)'],
+    ['PAUSE', window.matchMedia && window.matchMedia('(orientation: landscape)').matches ? 'PAUSE (TOP CORNER)' : 'PAUSE (UNDER THE BUTTONS)'],
   ] : K.dev === 'gamepad' ? [
     ['D-PAD/STICK', 'MOVE    DOUBLE-TAP TO RUN'],
     ['X', 'ATTACK / PICK UP'],
@@ -404,7 +404,7 @@ function drawResults(ctx, g) {
     drawTextO(ctx, rank, 330, 62 - (1 - k) * 10, rank === 'S' ? UI.gold : UI.ink, Math.round(lerp(9, 5, k)), 'center');
   }
   if (g.t > 200) drawTextO(ctx, 'THANKS FOR PLAYING', W / 2, 176, UI.ink, 1, 'center');
-  if (g.t > 220 && (g.frame >> 4) % 2) drawTextO(ctx, 'PRESS ATTACK', W / 2, 192, UI.dim, 1, 'center');
+  if (g.t > 220 && (g.frame >> 4) % 2) drawTextO(ctx, devKeys().dev === 'touch' ? 'TAP THE SCREEN' : 'PRESS ' + (devKeys().dev === 'gamepad' ? 'X' : 'ATTACK'), W / 2, 192, UI.dim, 1, 'center');
 }
 function drawEntry(ctx, g) {
   ctx.fillStyle = '#0e0a08'; ctx.fillRect(0, 0, W, H);
@@ -419,5 +419,5 @@ function drawEntry(ctx, g) {
     drawTextO(ctx, ch === ' ' ? '_' : ch, x, 112, sel ? '#ffffff' : UI.gold, 3, 'center');
     if (sel && (g.frame >> 3) % 2) { Px.use(ctx); Px.rect(x - 8, 136, 16, 2, UI.gold); }
   }
-  drawTextO(ctx, 'UP/DOWN CHANGE   ATTACK CONFIRM', W / 2, 160, UI.dim, 1, 'center');
+  drawTextO(ctx, devKeys().dev === 'touch' ? 'D-PAD UP/DOWN CHANGE   HIT OR TAP CONFIRM' : 'UP/DOWN CHANGE   ' + (devKeys().dev === 'gamepad' ? 'X' : 'ATTACK') + ' CONFIRM', W / 2, 160, UI.dim, 1, 'center');
 }
