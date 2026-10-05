@@ -1,7 +1,5 @@
 // Game: state machine, world simulation, camera and waves, screens.
 
-const STAGES = [];          // filled by the stage modules
-const STORY = { intro: [], between: [], ending: [] };
 
 const DIFFS = {
   easy:   { name: 'EASY',   tokens: 1, dmg: 0.7, hp: 1.0, tele: 4,  credits: 99 },

@@ -56,6 +56,28 @@ const TEST_ARENA = {
   Game.hiscore = HiScores.top();
   Sound.songName = 'title';
 
+  // Artifact viewer hot updates: keep the run (stage, score, lives) across a republish.
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) {
+    try {
+      hot.snapshot(() => {
+        const G = Game, p = G.player;
+        if (!p || !['play', 'pause', 'stageintro', 'clear', 'continue'].includes(G.state)) return { diff: G.diffKey };
+        return { diff: G.diffKey, run: { stage: G.stageIndex, score: G.score, lives: Math.max(1, G.lives), credits: G.credits, rage: G.rage, hp: Math.max(30, Math.round(p.hp)), stats: G.stats } };
+      });
+    } catch (e) { /* hot updates unavailable */ }
+  }
+  const resume = data => {
+    if (!data || !data.run || !STAGES[data.run.stage]) return;
+    const r = data.run;
+    if (data.diff && DIFFS[data.diff]) Game.diffKey = data.diff;
+    Game.newGame();
+    Object.assign(Game, { score: r.score, shownScore: r.score, lives: r.lives, credits: r.credits, rage: r.rage, stats: r.stats || Game.stats });
+    Game.startStage(r.stage);
+    Game.player.hp = r.hp;
+  };
+  try { if (hot && hot.ready) hot.ready(resume); else if (hot && hot.data) resume(hot.data); } catch (e) { console.warn("hot resume failed", e); }
+
   let acc = 0, last = performance.now();
   function frame(now) {
     if (window.__wb && window.__wb.manual) { last = now; requestAnimationFrame(frame); return; }

@@ -2,6 +2,9 @@
 // Core: constants, math, seeded RNG, input (keyboard, touch, gamepad), bitmap font, screen.
 
 const W = 384, H = 216;           // internal resolution
+// Content registries, declared first so every content module can fill them while the script loads.
+const STAGES = [];                                   // stage modules assign STAGES[0..2]
+const STORY = { intro: [], between: [], ending: [] }; // story cards
 const STEP = 1 / 60;              // fixed simulation step
 
 // ---------- math ----------
