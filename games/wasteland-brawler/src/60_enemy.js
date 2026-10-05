@@ -263,9 +263,17 @@ class Enemy extends Fighter {
     if (this.venom > 0) tint = ['#7cff4f', 0.3];
     if (this.burn > 0 && (this.t >> 2) % 2) tint = ['#ff8a1e', 0.35];
     const sil = Game.silhouetteDist && Game.player && Math.abs(this.x - Game.player.x) > Game.silhouetteDist;
+    // red rim (telegraph grammar 4.2b): heavy, knockdown or grab attacks outline the attacker in red,
+    // 4f on / 4f off, during the last 10 wind-up frames
+    let rim = null;
+    if (tele && (tele.tell === 'heavy' || tele.tell === 'grab' || tele.dmg >= 12 || tele.knock || tele.rim) && tele.rim !== false) {
+      const left = tele.start - this.t;
+      if (left <= 10 && (left >> 2) % 2 === 0) rim = '#ff3b30';
+    }
     Sprite.end(ctx, this.x - camX + this.jitter, this.y - this.z, this.facing, {
       flash: sil ? '#3a2a1a' : this.flash > 0 || this.armorFlash-- > 0 ? '#ffffff' : null,
       tint: sil ? null : tint,
+      outline: rim && !sil ? rim : undefined,
     });
     if (sil && d.eyes) {
       // only the eyes glow through the storm: def.eyes() returns [[localX, localY, colour], ...]

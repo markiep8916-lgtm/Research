@@ -137,7 +137,7 @@ class Fighter extends Ent {
     const dead = this.hp <= 0;
     let tier = a.tier || 1;
     if (dead && this.team !== 'player') tier = Math.min(4, tier + 1);
-    if (dead && this.team === 'enemy' && Game.isWaveFinalKill(this)) tier = 5;
+    if (dead && this.team === 'enemy' && !this.noFinalKill && Game.isWaveFinalKill(this)) tier = 5;
     if (this.boss && dead) tier = 5;
 
     // feel: hitstop, shake, sparks, sound

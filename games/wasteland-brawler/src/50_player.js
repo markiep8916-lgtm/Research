@@ -238,7 +238,8 @@ class Player extends Fighter {
     if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
     if (a.weapon && this.weapon) {
       const wd = WEAPONS[this.weapon.kind];
-      if (wd.kdEvery && ++this.pipeStreak % wd.kdEvery === 0 && target.launchable && !target.boss) {
+      const armored = target.armorTier >= 2 || target.poiseMax > 0 || (target.def && target.def.noWeaponKD) || target.boss;
+      if (wd.kdEvery && ++this.pipeStreak % wd.kdEvery === 0 && target.launchable && !armored && !target.dying) {
         target.knockDown(this.facing, 2.8 * target.weight, 3.0);
       }
       if (--this.weapon.uses <= 0) this.breakWeapon();
