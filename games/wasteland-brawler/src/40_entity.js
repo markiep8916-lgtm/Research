@@ -125,6 +125,7 @@ class Fighter extends Ent {
     if (this.dmgMul) dmg = Math.round(dmg * this.dmgMul);
     if (this.team === 'player') dmg = Math.max(1, Math.round(dmg * Game.diff.dmg));
     if (a.dmgMul) dmg = Math.round(dmg * a.dmgMul);
+    if (a.hammer && this.family === 'scorpion') dmg = Math.max(dmg, 13);
     const wasAir = this.airborne && this.state === 'fall';
     this.hp = Math.max(0, this.hp - dmg);
     this.lastHitBy = src;
@@ -242,6 +243,7 @@ class Fighter extends Ent {
       }
       this.x = clamp(this.x, bounds.xMin, bounds.xMax);
     }
+    if (Game.solids.length) resolveSolids(this);
   }
   wallSplat(wx) {
     this.splatted = true;
@@ -337,5 +339,30 @@ function bowlingCollisions(body, others) {
     t.takeHit(src, { dmg: body.state === 'thrown' ? 12 : 10, tier: 3, knock: true, kx: 2.6, kz: 3.2, zr: [0, 40], bowling: true }, sign(body.vx) || 1);
     body.vx *= 0.7;
     if (body.bowled.size === 2) FX.text(t.x, t.y, 50, 'STRIKE!', '#ffe066', 50);
+  }
+  // thrown bodies also smash props (and set red fuel drums off instantly)
+  for (const pr of Game.ents) {
+    if (pr.team !== 'prop' || pr.remove || body.bowled.has(pr.id)) continue;
+    if (Math.abs(pr.y - body.y) > 8 || Math.abs(pr.x - body.x) > pr.w + body.w * 0.5 || body.z > pr.h) continue;
+    body.bowled.add(pr.id);
+    pr.takeHit(src, { dmg: 10, tier: 3, thrownBody: true, zr: [0, 40] }, sign(body.vx) || 1);
+  }
+}
+
+// Solid rectangles on the floor (wrecks, the burning bus, crates): { x0, x1, y0, y1, h, splat }.
+// Bodies are pushed out along the shallower axis; launched bodies hitting one fast get wall-splatted.
+function resolveSolids(e) {
+  for (const r of Game.solids) {
+    if (r.off) continue;
+    if (e.z > (r.h || 999)) continue;
+    const x0 = r.x0 - e.w * 0.6, x1 = r.x1 + e.w * 0.6;
+    if (e.x <= x0 || e.x >= x1 || e.y <= r.y0 || e.y >= r.y1) continue;
+    const pl = e.x - x0, pr = x1 - e.x, pu = e.y - r.y0, pd = r.y1 - e.y;
+    const m = Math.min(pl, pr, pu, pd);
+    if ((e.state === 'fall' || e.state === 'thrown') && Math.abs(e.vx) > 3 && r.splat !== false && !e.splatted && (m === pl || m === pr)) {
+      e.wallSplat && e.wallSplat(m === pl ? x0 : x1);
+    }
+    if (m === pl) e.x = x0; else if (m === pr) e.x = x1; else if (m === pu) e.y = r.y0; else e.y = r.y1;
+    if (e.onSolid) e.onSolid(r);
   }
 }

@@ -1,5 +1,18 @@
 // Boot: wire the page, run the fixed-step loop.
 
+// Plain arena used by the test tools when a stage module is missing.
+const TEST_ARENA = {
+  title: 'TEST ARENA', sub: 'SANDBOX', len: 1200, yMin: 134, yMax: 200, music: null,
+  drawBg(ctx, camX) {
+    Px.use(ctx);
+    Px.rect(0, 0, W, 134, '#3a2a30'); Px.rect(0, 70, W, 64, '#4a3a36');
+    for (let x = -(camX % 48); x < W; x += 48) Px.rect(x, 70, 1, 64, '#2a1e20');
+    Px.rect(0, 134, W, 82, '#3e3530');
+    for (let x = -(camX % 48); x < W; x += 48) Px.rect(x, 168, 16, 2, '#8a7a5a');
+  },
+  waves: [],
+};
+
 (function boot() {
   const view = document.getElementById('screen');
   Screen.init(view);
@@ -94,8 +107,9 @@
       }
       return Game.state;
     },
-    // Arena with the given enemy types in the current stage.
+    // Arena with the given enemy types in the given stage (or a plain test arena if it doesn't exist yet).
     sandbox(types, stage = 0) {
+      if (!STAGES[stage]) STAGES[stage] = TEST_ARENA;
       this.play(stage);
       Game.stage = Object.assign({}, Game.stage, { waves: [] });
       Game.ents = Game.ents.filter(e => e.team === 'player');

@@ -29,3 +29,21 @@ export async function openGame(html = join(root, 'wasteland-brawler.html'), view
   };
   return { page, browser, errors, ev, shot, close: () => browser.close() };
 }
+
+// Register placeholder humanoid enemies for any of `keys` not yet defined (lets stage modules be
+// tested before the enemy modules exist). Call after openGame().
+export async function stubEnemies(g, keys) {
+  return g.ev(keys => {
+    const made = [];
+    for (const k of keys) {
+      if (ENEMY_TYPES[k]) continue;
+      made.push(k);
+      ENEMY_TYPES[k] = {
+        name: k.toUpperCase() + '?', family: 'gang', hp: 20, speed: 1, score: 50,
+        attacks: { poke: { start: 14, active: 3, rec: 18, dmg: 4, tier: 1, reach: [2, 20], zr: [14, 38], depth: 8, tell: 'glint' } },
+        drawBody() { drawHumanoid(enemyHumanPose(this, (ph, t) => PlayerPoses.jab(ph, t)), { skin: '#c0c0c0', top: '#ff00ff', pants: '#555', boots: '#222' }); },
+      };
+    }
+    return made;
+  }, keys);
+}

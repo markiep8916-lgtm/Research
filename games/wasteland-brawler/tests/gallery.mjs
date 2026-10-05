@@ -1,12 +1,13 @@
 // Render enemy types in every common state into one PNG (3x scale) for art review.
 // node tests/gallery.mjs --types skid,chainer [--html path] [--out file.png] [--attacks]
 import { join, resolve } from 'node:path';
-import { openGame, argv, root } from './lib.mjs';
+import { openGame, argv, root, stubEnemies } from './lib.mjs';
 
 const o = argv();
 const outFile = resolve(o.out || join(root, 'tests', 'out', 'gallery.png'));
 const g = await openGame(o.html, { width: 1600, height: 1000 });
-const types = String(o.types || 'skid').split(',');
+const types = String(o.types || 'punk').split(',');
+if (o.stub) console.log('stubbed:', await stubEnemies(g, String(o.stub).split(',')));
 const dataUrl = await g.ev(({ types }) => {
   window.__wb.sandbox([], 0);
   const states = ['idle', 'walk', 'hurt', 'fall', 'down', 'getup', 'grabbed'];

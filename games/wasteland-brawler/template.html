@@ -17,7 +17,7 @@
   --font-mono: "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
-html, body { height: 100%; }
+html, body { height: 100%; margin: 0; }
 body {
   background: var(--ground);
   color: var(--ink);
@@ -131,6 +131,15 @@ body.touch .pad {
 .btn.start {
   width: auto; aspect-ratio: auto; border-radius: 3px; padding: 4px 10px; font-size: 11px;
   grid-column: span 2; justify-self: center;
+}
+@media (orientation: portrait) {
+  /* phones held upright: screen pinned under the header, thumb pad fills the rest */
+  body.touch .stage { flex: 0 0 auto; height: calc((100vw - 32px) * 0.5625 + 6px); }
+  body.touch .pad { flex: 1 1 auto; align-items: center; }
+}
+.tools button { white-space: nowrap; }
+@media (max-width: 480px) {
+  .tools button { padding: 5px 8px; font-size: 11px; }
 }
 @media (orientation: landscape) {
   /* phones held sideways: float the pad over the bottom corners of the screen */

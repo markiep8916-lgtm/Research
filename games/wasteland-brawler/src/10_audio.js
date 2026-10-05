@@ -21,7 +21,8 @@ const Sound = {
     this.master.gain.value = this.muted ? 0 : 0.8;
     this.sfxBus = c.createGain(); this.sfxBus.gain.value = 0.7;
     this.musicBus = c.createGain(); this.musicBus.gain.value = 0.32;
-    this.sfxBus.connect(this.comp); this.musicBus.connect(this.comp);
+    this.musicLP = c.createBiquadFilter(); this.musicLP.type = 'lowpass'; this.musicLP.frequency.value = 20000;
+    this.sfxBus.connect(this.comp); this.musicBus.connect(this.musicLP); this.musicLP.connect(this.comp);
     this.comp.connect(this.master); this.master.connect(c.destination);
     // 1s of white noise shared by every noise voice
     const len = c.sampleRate;
@@ -98,6 +99,12 @@ const Sound = {
     if (!fn) return;
     this.pm = pitch * (0.94 + Math.random() * 0.12);
     try { fn(this, pan); } finally { this.pm = 1; }
+  },
+  // Sweep the music lowpass (sandstorm, pause). 20000 = open.
+  musicFilter(freq, sec = 1) {
+    if (!this.ctx) return;
+    const f = this.musicLP.frequency, t = this.ctx.currentTime;
+    f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.exponentialRampToValueAtTime(Math.max(60, freq), t + sec);
   },
   // Duck the music bus briefly (heavy hits).
   duck(level = 0.5, sec = 0.15) {
@@ -329,6 +336,7 @@ const SFX = {
   matMutant(a, p) { const d = a.out(p); a.noise(0.09, 0.3, 900, 1.2, 'lowpass', 0, d, 200); a.tone(90, 70, 0.09, 'sine', 0.2, 0, d); },
   matChitin(a, p) { const d = a.out(p); a.noise(0.025, 0.35, 3500, 1, 'highpass', 0, d); a.noise(0.025, 0.3, 3500, 1, 'highpass', 0.015, d); },
   matMetal(a, p) { const d = a.out(p); a.tone(1200, 0, 0.06, 'square', 0.06, 0, d); a.tone(1800, 0, 0.06, 'square', 0.05, 0, d); },
+  clank(a, p) { const d = a.out(p); a.tone(620, 0, 0.12, 'square', 0.08, 0, d); a.tone(873, 0, 0.12, 'square', 0.06, 0, d); a.noise(0.02, 0.2, 3000, 1, 'highpass', 0, d); },
   tink(a, p) { a.tone(1800, 0, 0.03, 'square', 0.12, 0, a.out(p)); },
   hitMetal(a, p) {
     const d = a.out(p, true);
@@ -413,6 +421,14 @@ const SFX = {
   shout(a, p) { const d = a.out(p); a.tone(220, 200, 0.12, 'sawtooth', 0.12, 0, d); a.noise(0.12, 0.15, 1000, 3, 'bandpass', 0, d); },
   groan(a, p) { const d = a.out(p); a.tone(90, 130, 0.4, 'sawtooth', 0.18, 0, d, 0.05); a.noise(0.4, 0.1, 500, 1, 'lowpass', 0, d); },
   rattle(a, p) { const d = a.out(p); for (let i = 0; i < 6; i++) a.tone(2600, 1800, 0.02, 'square', 0.06, i * (0.08 - i * 0.008), d); },
+  bossSting(a) { const d = a.out(0, true); ['C2', 'C#2', 'D2'].forEach(n => a.tone(noteFreq(n), 0, 1.0, 'sawtooth', 0.12, 0, d, 0.05)); a.noise(1.0, 0.25, 200, 0.7, 'lowpass', 0, d, 2000); },
+  rumble(a, p) { const d = a.out(p); a.noise(0.6, 0.4, 120, 0.7, 'lowpass', 0, d); a.tone(40, 0, 0.6, 'sine', 0.4, 0, d, 0.05); },
+  steam(a, p) { a.noise(0.5, 0.25, 2000, 0.6, 'highpass', 0, a.out(p), 4000); },
+  water(a, p) { const d = a.out(p); a.noise(0.7, 0.35, 900, 0.6, 'lowpass', 0, d); a.tone(200, 260, 0.7, 'sine', 0.1, 0, d); },
+  shingKnife(a, p) { const d = a.out(p); a.tone(3200, 0, 0.15, 'sine', 0.08, 0, d); a.tone(4100, 0, 0.15, 'sine', 0.06, 0, d); },
+  whine(a, p) { a.tone(400, 1200, 0.35, 'sine', 0.08, 0, a.out(p)); },
+  inflate(a, p) { a.tone(200, 600, 0.4, 'sine', 0.12, 0, a.out(p)); },
+  flame(a, p) { const d = a.out(p); a.noise(0.18, 0.25, 1200, 0.6, 'lowpass', 0, d); a.noise(0.02, 0.15, 3000, 2, 'bandpass', 0.05, d); },
   tick(a) { a.tone(1200, 0, 0.01, 'square', 0.05); },
   beep(a, p) { a.tone(800, 0, 0.05, 'square', 0.12, 0, a.out(p)); },
   zap(a, p) { const d = a.out(p); a.tone(1200, 300, 0.2, 'sawtooth', 0.15, 0, d); a.noise(0.2, 0.2, 5000, 4, 'bandpass', 0, d); },

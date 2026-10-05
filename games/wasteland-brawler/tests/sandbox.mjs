@@ -1,15 +1,16 @@
 // Spawn enemies in an arena and let them fight. Screenshots every --every frames.
-// node tests/sandbox.mjs --types skid,chainer [--stage 0] [--frames 900] [--every 150] [--html path] [--out dir] [--god] [--mash]
+// node tests/sandbox.mjs --types punk,knifer [--stub missing1,missing2] [--stage 0] [--frames 900] [--every 150] [--html path] [--out dir] [--god] [--mash]
 //   --god   hero takes no damage   --mash  hero mashes attack while facing the nearest enemy
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { openGame, argv, root } from './lib.mjs';
+import { openGame, argv, root, stubEnemies } from './lib.mjs';
 
 const o = argv();
 const out = resolve(o.out || join(root, 'tests', 'out', 'sandbox'));
 mkdirSync(out, { recursive: true });
 const g = await openGame(o.html);
-const types = String(o.types || 'skid').split(',');
+const types = String(o.types || 'punk').split(',');
+if (o.stub) console.log('stubbed:', await stubEnemies(g, String(o.stub).split(',')));
 const frames = +(o.frames || 900), every = +(o.every || 150);
 await g.ev(({ types, stage }) => window.__wb.sandbox(types, stage), { types, stage: +(o.stage || 0) });
 let n = 0;

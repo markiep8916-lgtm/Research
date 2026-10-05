@@ -56,10 +56,14 @@ class Enemy extends Fighter {
     return ['idle', 'walk', 'hurt'].includes(this.state);
   }
 
-  takeToken() {
+  // Attack tokens: 2 melee + 1 ranged at once (3 melee in stage 3). Bosses and def.noToken ignore the pool.
+  // Pass ranged=true (or set def.ranged) to draw from the ranged pool.
+  takeToken(ranged = !!this.def.ranged) {
     if (this.token) return true;
-    const holders = Game.foes().filter(e => e.token).length;
-    if (holders < Game.maxAttackers()) { this.token = true; return true; }
+    if (this.boss || this.def.noToken) { this.token = true; return true; }
+    const holders = Game.foes().filter(e => e.token && !e.boss && !e.def.noToken && !!e.tokenRanged === ranged).length;
+    const max = ranged ? 1 : Game.maxAttackers();
+    if (holders < max) { this.token = true; this.tokenRanged = ranged; return true; }
     return false;
   }
   dropToken() { this.token = false; }
@@ -77,7 +81,8 @@ class Enemy extends Fighter {
     if (this.def.stateUpdate && this.def.stateUpdate.call(this)) return;
     if (this.reactionStates()) return;
     this.aiT++;
-    if (this.state === 'drop') { if (this.z <= 0) { this.setState('idle'); FX.dust(this.x, this.y, 8, 1.4); FX.shake(2, 8); Sound.sfx('thud', this.x); } return; }
+    if (this.state === 'drop') { if (this.z <= 0) { this.setState('idle'); this.grace = 10; FX.dust(this.x, this.y, 8, 1.4); FX.shake(2, 8); Sound.sfx('thud', this.x); } return; }
+    if (this.state === 'door') { this.vx = 0; this.vy = this.speed * 0.8; if (this.t > 20) { this.setState('idle'); this.vy = 0; } return; }
     if (this.state === 'attack') { this.attackUpdate(); return; }
     if (this.state === 'enter') { this.enterUpdate(); return; }
     if (this.state === 'taunt') { this.vx = this.vy = 0; if (this.t > (this.tauntT || 40)) this.setState('idle'); return; }
@@ -107,7 +112,7 @@ class Enemy extends Fighter {
     this.setState('idle');
     this.dropToken();
     this.ai = 'retreat'; this.aiT = 0;
-    this.cool = ri(this.def.coolMin || 40, this.def.coolMax || 90);
+    this.cool = Math.round(ri(this.def.coolMin || 60, this.def.coolMax || 110) * Game.stageMult() * (this.coolMul || 1));
   }
   enterUpdate() {
     const cx = Game.cam.x;
@@ -256,10 +261,17 @@ class Enemy extends Fighter {
     if (tele && tele.tell === 'heavy') tint = ['#ff6a3d', 0.25 + 0.25 * Math.sin(this.t * 0.5)];
     if (this.venom > 0) tint = ['#7cff4f', 0.3];
     if (this.burn > 0 && (this.t >> 2) % 2) tint = ['#ff8a1e', 0.35];
+    const sil = Game.silhouetteDist && Game.player && Math.abs(this.x - Game.player.x) > Game.silhouetteDist;
     Sprite.end(ctx, this.x - camX + this.jitter, this.y - this.z, this.facing, {
-      flash: this.flash > 0 || this.armorFlash-- > 0 ? '#ffffff' : null,
-      tint,
+      flash: sil ? '#3a2a1a' : this.flash > 0 || this.armorFlash-- > 0 ? '#ffffff' : null,
+      tint: sil ? null : tint,
     });
+    if (sil && d.eyes) {
+      // only the eyes glow through the storm: def.eyes() returns [[localX, localY, colour], ...]
+      Px.use(ctx);
+      for (const [ex, ey, c] of d.eyes.call(this)) Px.rect(this.x - camX + this.facing * ex - (this.facing < 0 ? 1 : 0), this.y - this.z + ey, 1, 1, c);
+      return;
+    }
     // glint 6f before the active window
     if (tele && tele.tell && this.t >= tele.start - 6) {
       const g = tele.glint || [tele.reach ? tele.reach[1] * 0.6 : 14, -this.h * 0.6];

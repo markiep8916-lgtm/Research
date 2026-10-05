@@ -13,19 +13,19 @@ const P_ATK = {
   straight:{ pose: 'straight', start: 9, active: 4, rec: 22, dmg: 16, tier: 4, knock: true, kx: 5.5, kz: 1.6, reach: [0, 30], zr: [10, 40], depth: 9, whiff: 'whooshBig', steam: true, blast: true, lunge: 1.2 },
   backfist:{ pose: 'backfist', start: 5, active: 3, rec: 12, dmg: 9, tier: 2, kb: 2.0, stun: 20, reach: [2, 26], zr: [16, 40], depth: 8, whiff: 'whoosh', turn: true },
   ram:     { pose: 'ram',   start: 5, active: 12, rec: 16, dmg: 13, tier: 3, knock: true, kx: 3.8, kz: 2.2, reach: [-2, 22], zr: [6, 40], depth: 9, whiff: 'whooshBig', ram: true },
-  airkick: { pose: 'airkick', start: 3, active: 18, rec: 0, dmg: 11, tier: 2, knock: true, kx: 2.6, kz: 2.4, reach: [-2, 24], zr: [-14, 24], depth: 9, whiff: 'whoosh', air: true },
-  knee:    { pose: 'flyknee', start: 3, active: 60, rec: 0, dmg: 14, tier: 3, knock: true, kx: 3.6, kz: 2.6, reach: [0, 22], zr: [-10, 26], depth: 9, whiff: 'whoosh', air: true },
-  burst:   { pose: 'burst', start: 2, active: 9, rec: 18, dmg: 14, tier: 3, knock: true, kx: 3.5, kz: 3.2, reach: [-40, 40], zr: [-4, 50], depth: 18, radial: true, cost: 10 },
+  flykick: { pose: 'airkick', start: 4, active: 90, rec: 0, dmg: 10, tier: 3, knock: true, kx: 3.2, kz: 3.0, reach: [4, 26], zr: [-12, 24], depth: 8, whiff: 'whoosh', air: true },
+  hammer:  { pose: 'hammer', start: 5, active: 12, rec: 0, dmg: 9, tier: 2, kb: 1.0, stun: 20, reach: [-4, 20], zr: [-30, 10], depth: 8, whiff: 'whooshBig', air: true, hammer: true },
+  burst:   { pose: 'burst', start: 4, active: 10, rec: 14, dmg: 14, tier: 3, knock: true, kx: 3.5, kz: 3.2, reach: [-42, 42], zr: [-4, 36], depth: 14, radial: true, cost: 8 },
   // weapons
-  pipe:    { pose: 'swing', start: 7, active: 4, rec: 14, dmg: 14, tier: 2, kb: 1.6, stun: 22, reach: [4, 34], zr: [10, 44], depth: 9, whiff: 'whooshBig', sfx: 'hitMetal', weapon: true },
-  sign:    { pose: 'bigswing', start: 10, active: 5, rec: 18, dmg: 17, tier: 3, knock: true, kx: 3.2, kz: 3.4, reach: [0, 38], zr: [4, 48], depth: 14, whiff: 'whooshBig', sfx: 'boing', weapon: true },
-  spear:   { pose: 'thrust', start: 6, active: 4, rec: 12, dmg: 12, tier: 2, kb: 1.4, stun: 20, reach: [6, 44], zr: [14, 36], depth: 6, whiff: 'whoosh', venom: 120, weapon: true, sfx: 'hitShell' },
+  pipe:    { pose: 'swing', start: 6, active: 4, rec: 12, dmg: 10, tier: 2, kb: 1.6, stun: 20, reach: [8, 38], zr: [4, 44], depth: 8, whiff: 'whooshBig', sfx: 'hitMetal', weapon: true },
+  machete: { pose: 'swing', start: 4, active: 3, rec: 9, dmg: 12, tier: 2, kb: 1.4, stun: 16, reach: [8, 34], zr: [4, 40], depth: 8, whiff: 'whoosh', sfx: 'hitMid', weapon: true },
+  axe:     { pose: 'bigswing', start: 12, active: 5, rec: 18, dmg: 20, tier: 3, knock: true, kx: 3.2, kz: 3.4, reach: [6, 44], zr: [4, 48], depth: 12, whiff: 'whooshBig', sfx: 'boing', weapon: true },
 };
 const WEAPONS = {
-  pipe:   { atk: 'pipe', uses: 8, name: 'PIPE' },
-  sign:   { atk: 'sign', uses: 6, name: 'STOP SIGN' },
-  spear:  { atk: 'spear', uses: 10, name: 'STINGER' },
-  bottle: { atk: null, uses: 1, name: 'FIRE BOTTLE' },
+  pipe:    { atk: 'pipe', uses: 24, name: 'LEAD PIPE', kdEvery: 3 },
+  machete: { atk: 'machete', uses: 18, name: 'MACHETE', kdEvery: 3 },
+  axe:     { atk: 'axe', uses: 10, name: 'STOP-SIGN AXE' },
+  molotov: { atk: null, uses: 1, name: 'MOLOTOV' },
 };
 
 class Player extends Fighter {
@@ -54,7 +54,7 @@ class Player extends Fighter {
   get grabbable() { return false; }
   get vulnerable() {
     if (this.inv > 0 || ['down', 'getup', 'dead', 'overdrive', 'meteor', 'barrage'].includes(this.state)) return false;
-    if (this.state === 'attack' && this.atk === P_ATK.burst && this.t <= 16) return false;
+    if (this.state === 'attack' && this.atk === P_ATK.burst && this.t <= 24) return false;
     if (this.state === 'grab' && this.sub === 'toss') return false;
     return true;
   }
@@ -108,8 +108,8 @@ class Player extends Fighter {
         if (this.buffered('attack') && !this.airUsed) {
           this.consume('attack');
           this.airUsed = true;
-          if (this.weapon && this.weapon.kind === 'bottle') { this.throwBottle(); return true; }
-          this.airAttack(this.jumpDir ? P_ATK.knee : P_ATK.airkick);
+          if (this.weapon && this.weapon.kind === 'molotov') { this.throwBottle(); return true; }
+          this.airAttack(this.jumpDir ? P_ATK.flykick : P_ATK.hammer);
         }
         return true;
       case 'land':
@@ -141,8 +141,10 @@ class Player extends Fighter {
     const ph = this.atkPhase();
     if (a.air) {
       this.resolveAttack(foes);
-      if (this.z <= 0 && this.t > 1) { this.setState('land'); this.atk = null; this.t = -4; }
-      else if (a === P_ATK.airkick && this.t > a.start + a.active) { this.state = 'jump'; this.atk = null; }
+      if (this.z <= 0 && this.t > 1) {
+        if (a.hammer) this.hammerLand();
+        this.setState('land'); this.atk = null; this.t = -4;
+      } else if (a.hammer && this.t > a.start + a.active) { this.atkHit = this.atkHit || new Set(); }
       return true;
     }
     if (a.ram && ph === 'active') this.vx = this.ramV = (this.ramV || 4.0) * 0.92 * (this.t === a.start ? 0 : 1) + (this.t === a.start ? 4.0 * this.facing : 0);
@@ -155,7 +157,7 @@ class Player extends Fighter {
     void n;
     // cancels
     const afterActive = this.t >= a.start + a.active;
-    if (this.buffered('special') && this.t >= a.start + 1 && !a.radial && this.canPay(10)) {
+    if (this.buffered('special') && this.t >= a.start + 1 && !a.radial && this.canPay(8)) {
       this.consume('special');
       this.doBurst();
       return true;
@@ -186,7 +188,7 @@ class Player extends Fighter {
     let n = 0;
     for (const t of foes) {
       if (this.atkHit.has(t.id) || !t.vulnerable) continue;
-      if (Math.abs(t.y - this.y) > a.depth || Math.abs(t.x - this.x) > 40 + t.w || t.z > 50) continue;
+      if (Math.abs(t.y - this.y) > a.depth || Math.abs(t.x - this.x) > 42 + t.w || t.z > 36) continue;
       this.atkHit.add(t.id);
       n++;
       t.takeHit(this, a, t.x >= this.x ? 1 : -1, n);
@@ -194,6 +196,12 @@ class Player extends Fighter {
     return n;
   }
   chain(a) { this.connected = false; this.startAttack(a); }
+  // Hammer Drop landing: dust, and any enemy type with def.onHammerLand reacts (burrow mounds pop).
+  hammerLand() {
+    FX.dust(this.x, this.y, 6, 1.2);
+    Sound.sfx('thud', this.x);
+    for (const e of Game.foes()) if (e.def.onHammerLand) e.def.onHammerLand.call(e, this.x, this.y);
+  }
   airAttack(a) {
     this.atk = a; this.atkHit = new Set();
     this.state = 'attack'; this.t = 0;
@@ -212,9 +220,9 @@ class Player extends Fighter {
     Game.addScore(Math.round((dmg || a.dmg || 0) * 10 * (1 + 0.1 * Math.min(this.comboHits, 30))));
     Game.addRage((dmg || a.dmg || 0) / 2);
     if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
-    if (a.air && a === P_ATK.knee) this.vx += 0.5 * this.facing;
     if (a.weapon && this.weapon) {
-      if (a === P_ATK.pipe && ++this.pipeStreak % 3 === 0) {
+      const wd = WEAPONS[this.weapon.kind];
+      if (wd.kdEvery && ++this.pipeStreak % wd.kdEvery === 0 && target.launchable && !target.boss) {
         target.knockDown(this.facing, 2.8 * target.weight, 3.0);
       }
       if (--this.weapon.uses <= 0) this.breakWeapon();
@@ -245,9 +253,9 @@ class Player extends Fighter {
     if (this.buffered('special')) {
       this.consume('special');
       if (Game.rage >= 100) { this.startOverdrive(); return; }
-      if (this.weapon && this.weapon.kind !== 'bottle') { this.throwWeapon(); return; }
-      if (this.weapon && this.weapon.kind === 'bottle') { this.throwBottle(); return; }
-      if (this.canPay(10)) { this.doBurst(); return; }
+      if (this.weapon && this.weapon.kind !== 'molotov') { this.throwWeapon(); return; }
+      if (this.weapon && this.weapon.kind === 'molotov') { this.throwBottle(); return; }
+      if (this.canPay(8)) { this.doBurst(); return; }
     }
     if (this.buffered('attack')) {
       this.consume('attack');
@@ -255,7 +263,7 @@ class Player extends Fighter {
       if (item && !this.enemyAhead(foes, 30)) { this.pickup(item); return; }
       this.connected = false;
       if (this.weapon) {
-        if (this.weapon.kind === 'bottle') { this.throwBottle(); return; }
+        if (this.weapon.kind === 'molotov') { this.throwBottle(); return; }
         if (dx) this.facing = dx;
         this.startAttack(P_ATK[WEAPONS[this.weapon.kind].atk]);
         return;
@@ -454,7 +462,7 @@ class Player extends Fighter {
     f.x = this.x + this.facing * (12 + f.w * 0.3);
     f.y = this.y + 0.5;
     if (this.sub === 'knee') { if (this.t < 13) return true; this.sub = 'hold'; }
-    if (this.buffered('special') && this.canPay(10)) { this.consume('special'); this.releaseHold(); this.doBurst(); return true; }
+    if (this.buffered('special') && this.canPay(8)) { this.consume('special'); this.releaseHold(); this.doBurst(); return true; }
     if (this.buffered('attack')) {
       this.consume('attack');
       const dx = Input.dirX();
@@ -532,14 +540,41 @@ class Player extends Fighter {
     this.grabbing = null;
   }
 
-  // being held by an enemy (Shambler clutch etc). The holder drives damage; we handle mashing.
+  // ---------- being held by an enemy (Ghoul bite, boss grabs) ----------
+  // Holder protocol: call hero.holdBy(enemy) and set enemy.holding = true; each frame position the hero
+  // yourself and deal damage with hero.holdDamage(n). Every button press the hero makes adds
+  // enemy.mashK (default 8) to enemy.clutchT, so count your hold timer with clutchT. Scrap Burst (L)
+  // breaks the hold unless enemy.burstEscapes === false; then enemy.releaseClutch() is called.
+  // Release with hero.freeFromHold(dir) and set enemy.holding = false.
+  holdBy(e) {
+    if (this.grabbing) this.releaseHold();
+    this.heldBy = e; this.atk = null;
+    this.setState('grabbed');
+    this.vx = this.vy = 0;
+    e.clutchT = 0;
+  }
+  holdDamage(n) {
+    n = Math.max(1, Math.round(n * Game.diff.dmg));
+    this.hp = Math.max(0, this.hp - n);
+    this.grey = 0; this.flash = 2; this.tintT = 6;
+    this.damageTaken += n;
+    Game.addRage(n);
+    Game.portraitHit = 8;
+    FX.hurtVignette(); FX.shake(1, 4);
+    Sound.sfx('hurt', this.x);
+    if (this.hp <= 0) { const h = this.heldBy; this.heldBy = null; if (h) { h.holding = false; h.releaseClutch && h.releaseClutch(); } this.knockDown(h && h.x > this.x ? -1 : 1, 2.0, 3.0); }
+  }
+  freeFromHold(dir = 0) {
+    this.heldBy = null;
+    if (this.state === 'grabbed') { this.setState('idle'); this.vx = dir * 2; this.inv = Math.max(this.inv, 20); }
+  }
   heldUpdate() {
     const h = this.heldBy;
-    if (!h || h.remove || h.dying || h.state !== 'clutch') { this.heldBy = null; this.setState('idle'); return; }
-    if (Input.anyPressed) h.clutchT = (h.clutchT || 0) + (h.mashK || 5);
-    if (this.buffered('special') && h.burstEscapes !== false && this.canPay(10)) {
+    if (!h || h.remove || h.dying || !h.holding) { this.heldBy = null; this.setState('idle'); return; }
+    if (Input.anyPressed) h.clutchT = (h.clutchT || 0) + (h.mashK || 8);
+    if (this.buffered('special') && h.burstEscapes !== false && this.canPay(8)) {
       this.consume('special');
-      this.heldBy = null;
+      this.heldBy = null; h.holding = false;
       h.releaseClutch && h.releaseClutch();
       this.setState('idle');
       this.doBurst();
@@ -568,13 +603,13 @@ class Player extends Fighter {
   throwWeapon() {
     const k = this.weapon.kind;
     this.weapon = null;
-    Game.add(new Proj(this.x + this.facing * 10, this.y, 24, { kind: 'thrown_' + k, vx: this.facing * 6, vz: 0, gravity: 0, dmg: 18, tier: 3, knock: true, owner: this, life: 27, friendly: true, pierce: 1 }));
+    Game.add(new Proj(this.x + this.facing * 10, this.y, 22, { kind: 'thrown_' + k, vx: this.facing * 5, vz: 0, gravity: 0, dmg: 12, tier: 3, knock: true, owner: this, life: 60, friendly: true, pierce: 1 }));
     this.setState('throwing');
     Sound.sfx('throwObj', this.x);
   }
   throwBottle() {
     this.weapon = null;
-    Game.add(new Proj(this.x + this.facing * 8, this.y, 30, { kind: 'molotov', vx: this.facing * 2.7, vz: 2.0, gravity: 0.15, dmg: 8, tier: 2, knock: true, owner: this, friendly: true, burn: 60 }));
+    Game.add(new Proj(this.x + this.facing * 8, this.y, 30, { kind: 'molotov', vx: this.facing * 3.0, vz: 2.6, gravity: 0.28, dmg: 10, tier: 3, knock: true, owner: this, friendly: true, burn: 60 }));
     if (this.state !== 'jump') this.setState('throwing');
     Sound.sfx('throwObj', this.x);
   }
@@ -582,6 +617,7 @@ class Player extends Fighter {
   // ---------- getting hit ----------
   takeHit(src, a, dir, nth) {
     if (this.grabbing) this.releaseHold();
+    if (this.heldBy) { const h = this.heldBy; this.heldBy = null; h.holding = false; h.releaseClutch && h.releaseClutch(); }
     if (this.state === 'jumpsquat') this.setState('idle');
     this.grey = 0;
     const heavy = a.knock;
@@ -694,6 +730,10 @@ const PlayerPoses = {
   airkick(ph, t, a, pl) {
     if (ph === 'start') return Poses.jump(pl.vz);
     return pose({ hy: -20, rot: -0.35, fThigh: 1.7, fKnee: -0.05, bThigh: 0.3, bKnee: -1.5, fUpper: 1.0, fElbow: 1.6, bUpper: -1.0, bElbow: 0.8 });
+  },
+  hammer(ph, t) {
+    if (ph === 'start') return pose({ hy: -21, rot: -0.2, fThigh: 0.6, fKnee: -1.2, bThigh: 0.2, bKnee: -1.0, fUpper: 3.0, fElbow: 0.2, bUpper: 2.9, bElbow: 0.3, head: -0.2 });
+    return pose({ hy: -20, rot: 0.35, fThigh: 0.5, fKnee: -0.8, bThigh: 0.1, bKnee: -0.7, fUpper: 1.2, fElbow: 0.1, bUpper: 1.1, bElbow: 0.2, head: 0.2 });
   },
   flyknee(ph, t, a, pl) {
     if (ph === 'start') return Poses.jump(pl.vz);
@@ -867,21 +907,21 @@ function drawHeldWeapon(kind, x, y, ang) {
   // weapons extend along the forearm direction, past the fist
   switch (kind) {
     case 'pipe':
-      Px.line(x - ux * 6, y - uy * 6, x + ux * 18, y + uy * 18, 2, '#8a8f96');
-      Px.rect(x + ux * 18 - 1, y + uy * 18 - 1, 3, 3, '#5e6168');
+      Px.line(x - ux * 6, y - uy * 6, x + ux * 18, y + uy * 18, 3, '#8a929c');
+      Px.rect(x + ux * 6 - 1, y + uy * 6 - 1, 3, 3, '#5e666e');
       break;
-    case 'sign':
-      Px.line(x - ux * 4, y - uy * 4, x + ux * 22, y + uy * 22, 2, '#8a8f96');
-      Px.disc(x + ux * 24, y + uy * 24, 6, '#ffffff');
-      Px.disc(x + ux * 24, y + uy * 24, 5, '#c8282e');
+    case 'machete':
+      Px.line(x - ux * 2, y - uy * 2, x + ux * 4, y + uy * 4, 3, '#3a2a1a');
+      Px.quad(x + ux * 4, y + uy * 4, x + ux * 18, y + uy * 18, 3, 4, '#d8dce0');
       break;
-    case 'spear':
-      for (let i = 0; i < 4; i++) Px.disc(x + ux * (i * 6 - 2), y + uy * (i * 6 - 2), 2, '#9a3f1e');
-      Px.poly([x + ux * 22 - uy * 2, y + uy * 22 + ux * 2, x + ux * 30, y + uy * 30, x + ux * 22 + uy * 3, y + uy * 22 - ux * 3], '#f2e9c9');
+    case 'axe':
+      Px.line(x - ux * 4, y - uy * 4, x + ux * 22, y + uy * 22, 2, '#8a8a8a');
+      Px.disc(x + ux * 24, y + uy * 24, 7, '#f2eee0');
+      Px.disc(x + ux * 24, y + uy * 24, 6, '#c8322a');
       break;
-    case 'bottle':
-      Px.rect(x - 2, y - 6, 4, 6, '#4a7a3a');
-      Px.disc(x, y - 8, 1.5 + (Game.frame >> 2) % 2 * 0.5, '#ffb030');
+    case 'molotov':
+      Px.rect(x - 2, y - 7, 4, 7, '#6a8a3a');
+      Px.disc(x, y - 9, 1.5 + (Game.frame >> 2) % 2 * 0.5, '#ffb030');
       break;
   }
 }

@@ -19,6 +19,7 @@ const Game = {
   bounds: { xMin: 0, xMax: 0, yMin: 124, yMax: 196, walls: false },
   score: 0, shownScore: 0, hiscore: Store.get('hiscore', 30000), lives: 3, credits: 3,
   rage: 0, rageReadyShown: false,
+  solids: [], silhouetteDist: 0, bossCardInfo: null, warning: null,
   waveIdx: 0, wave: null, waveSpawned: 0, waveT: 0,
   goT: 0, foe: null, foeT: 0, bossRef: null,
   fade: 0, fadeDir: 0, fadeCb: null,
@@ -36,6 +37,11 @@ const Game = {
   foes() { return this.ents.filter(e => e.team === 'enemy' && !e.remove); },
   livingFoes() { return this.ents.filter(e => e.team === 'enemy' && !e.remove && !e.dying && !e.ignoreForWave); },
   maxAttackers() { return this.diff.tokens + (this.stageIndex === 2 && this.diffKey !== 'easy' ? 1 : 0); },
+  stageMult() { return [1, 0.85, 0.75][this.stageIndex] || 1; },
+  // Boss intro card: darkens the screen, slides letterbox bars in, shows the name for 90f.
+  bossCard(name, epithet) { this.bossCardInfo = { name, epithet, t: 0 }; this.letterboxTarget = 20; Sound.sfx('bossSting'); Sound.duck(0.3, 0.3); },
+  // Red warning band that flashes 3 times (e.g. SANDSTORM!).
+  warn(text, frames = 180) { this.warning = { text, t: 0, life: frames }; Sound.sfx('alarm'); },
   addScore(n) {
     const before = this.score;
     this.score += Math.round(n);
@@ -112,6 +118,8 @@ const Game = {
     this.waveIdx = 0; this.wave = null; this.goT = 0; this.foe = null; this.bossRef = null;
     this.playerGone = false;
     this.hitstop = 0; this.slow = 0; this.superFreeze = 0;
+    this.solids = []; this.silhouetteDist = 0; this.bossCardInfo = null; this.warning = null; this.letterboxTarget = 0;
+    Sound.musicFilter(20000, 0.1);
     for (const pr of st.props || []) this.add(new Breakable(pr.kind, pr.x, pr.y, pr.drop));
     for (const it of st.items || []) this.add(new Item(it.kind, it.x, it.y));
     if (st.setup) st.setup(this);
@@ -213,7 +221,8 @@ const Game = {
     const e = new Enemy(s.type, x, y, Object.assign({ variant: s.variant || 0, enter: side }, s.opts || {}));
     e.facing = side === 'L' ? 1 : side === 'R' ? -1 : (this.player.x > x ? 1 : -1);
     if (side === 'L' || side === 'R') e.setState('enter');
-    else if (side === 'top') { e.z = 120; e.vz = 0; e.setState('drop'); }
+    else if (side === 'top') { e.z = 60; e.vz = 0; e.y = s.y != null ? s.y : this.bounds.yMin + 4; e.setState('drop'); }
+    else if (side === 'door') { e.y = this.bounds.yMin; e.setState('door'); }
     else if (e.def.enterStyles && e.def.enterStyles[side]) e.def.enterStyles[side].call(e, s);
     if (e.boss) this.bossRef = e;
     this.add(e);
@@ -411,6 +420,8 @@ const Game = {
     if (this.goT > 0) this.goT--;
     this.updateCamera(live);
     if (this.stage.update) this.stage.update(this);
+    if (this.bossCardInfo && ++this.bossCardInfo.t > 110) { this.bossCardInfo = null; this.letterboxTarget = 0; }
+    if (this.warning && ++this.warning.t > this.warning.life) this.warning = null;
     FX.update();
   },
   // Keep grounded, free-moving enemies from stacking on one another.
@@ -498,6 +509,23 @@ const Game = {
       drawText(ctx, this.superText, W / 2, 70, '#ffe066', Math.round(lerp(4, 2, k)), 'center');
     }
     FX.drawOverlay(ctx);
+    if (this.warning) {
+      const w = this.warning, on = Math.floor(w.t / 20) % 2 === 0 && w.t < 120;
+      if (on || w.t >= 120) {
+        ctx.globalAlpha = w.t >= 120 ? Math.max(0, 1 - (w.t - 120) / 30) * 0.9 : 0.9;
+        ctx.fillStyle = '#b8322a'; ctx.fillRect(0, 100, W, 16);
+        ctx.globalAlpha = 1;
+        if (on) drawText(ctx, w.text, W / 2, 104, '#ffffff', 1, 'center');
+      }
+    }
+    if (this.bossCardInfo) {
+      const b = this.bossCardInfo, k = Math.min(1, b.t / 12) * (b.t > 96 ? Math.max(0, 1 - (b.t - 96) / 14) : 1);
+      ctx.globalAlpha = 0.3 * k; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+      if (k > 0.05) {
+        drawText(ctx, b.name, lerp(-120, W / 2, easeOut(k)), 86, '#ffe08a', 2, 'center');
+        drawText(ctx, b.epithet, lerp(W + 120, W / 2, easeOut(k)), 106, '#e8e0d0', 1, 'center');
+      }
+    }
     if (this.letterbox > 0) {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, W, Math.round(this.letterbox));
