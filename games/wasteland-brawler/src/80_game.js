@@ -17,7 +17,8 @@ const Game = {
   ents: [], player: null,
   stage: null, stageIndex: 0,
   bounds: { xMin: 0, xMax: 0, yMin: 124, yMax: 196, walls: false },
-  score: 0, shownScore: 0, hiscore: Store.get('hiscore', 30000), lives: 3, credits: 3,
+  score: 0, shownScore: 0, hiscore: 50000, lives: 3, credits: 3, time: 99, timeTick: 0,
+  titleIdle: 0, showTop: 0, titleReady: false, howto: false, entry: null, results: null,
   rage: 0, rageReadyShown: false,
   solids: [], silhouetteDist: 0, bossCardInfo: null, warning: null,
   waveIdx: 0, wave: null, waveSpawned: 0, waveT: 0,
@@ -35,6 +36,7 @@ const Game = {
   setState(s) { this.state = s; this.t = 0; },
   add(e) { this.ents.push(e); return e; },
   foes() { return this.ents.filter(e => e.team === 'enemy' && !e.remove); },
+  aliveWeight() { let n = 0; for (const e of this.livingFoes()) n += e.def.spawnWeight != null ? e.def.spawnWeight : 1; return n; },
   livingFoes() { return this.ents.filter(e => e.team === 'enemy' && !e.remove && !e.dying && !e.ignoreForWave); },
   maxAttackers() { return this.diff.tokens + (this.stageIndex === 2 && this.diffKey !== 'easy' ? 1 : 0); },
   stageMult() { return [1, 0.85, 0.75][this.stageIndex] || 1; },
@@ -45,7 +47,7 @@ const Game = {
   addScore(n) {
     const before = this.score;
     this.score += Math.round(n);
-    for (const mark of [50000, 150000, 300000]) {
+    for (const mark of [50000, 150000]) {
       if (before < mark && this.score >= mark) {
         this.lives++;
         Sound.sfx('oneUp');
@@ -100,7 +102,8 @@ const Game = {
   newGame() {
     seedRng(0xC0FFEE);
     this.score = 0; this.shownScore = 0; this.lives = 3; this.credits = this.diff.credits; this.rage = 0;
-    this.stats = { kills: 0, time: 0 };
+    this.stats = { kills: 0, time: 0, continues: 0 };
+    this.hiscore = HiScores.top();
     this.player = null;
     this.startStage(0);
   },
@@ -123,7 +126,10 @@ const Game = {
     for (const pr of st.props || []) this.add(new Breakable(pr.kind, pr.x, pr.y, pr.drop));
     for (const it of st.items || []) this.add(new Item(it.kind, it.x, it.y));
     if (st.setup) st.setup(this);
-    this.card = { title: 'STAGE ' + (i + 1) + ' - ' + st.title, sub: st.sub };
+    this.card = { num: 'STAGE ' + (i + 1), title: st.title, sub: st.sub };
+    this.time = 99; this.timeTick = 0;
+    this.stageDmg0 = this.player.damageTaken;
+    this.finaleDone = false; this.bossDone = false;
     this.setState('stageintro');
     this.player.vx = 0;
     Sound.playSong(st.music);
@@ -159,6 +165,8 @@ const Game = {
   },
   doContinue() {
     if (this.credits < 99) this.credits--;
+    this.stats.continues++;
+    this.time = 99;
     this.lives = 3;
     this.rage = 50;
     this.playerGone = false;
@@ -178,6 +186,7 @@ const Game = {
         this.wave = next; this.waveSpawned = 0; this.waveT = 0;
         this.cam.lock = next.at;
         this.goT = 0;
+        if (next.boss) this.time = 99;
         if (next.onStart) next.onStart(this);
         if (next.music) Sound.playSong(next.music);
       }
@@ -190,6 +199,7 @@ const Game = {
         if (this.waveT < (s.delay || 0)) break;
         if (s.whenBelow != null && this.livingFoes().length > s.whenBelow) break;
         if (s.cap != null && this.livingFoes().length >= s.cap) break;
+        if (this.aliveWeight() >= 6 && !s.force) break;          // never more than 6 enemies at once
         this.spawn(s);
         this.waveSpawned++;
       }
@@ -202,7 +212,8 @@ const Game = {
         this.cam.lock = null;
         if (wv.boss) { setTimeoutFrames(wv.clearDelay || 120, () => this.stageClear()); this.bossDone = true; return; }
         if (wv.endsStage) { this.stageClear(); return; }
-        if (!wv.noGo) { this.goT = 150; Sound.sfx('go'); }
+        this.time = 99; this.timeTick = 0;
+        if (!wv.noGo) { this.goT = 600; this.goFrom = this.cam.x; Sound.sfx('go'); }
       }
     }
     if (!this.wave && this.waveIdx >= st.waves.length && this.cam.x >= st.len - W - 1 && p.x > st.len - 50 && this.state === 'play' && !this.bossDone) {
@@ -234,7 +245,23 @@ const Game = {
     this.bossDone = false;
     this.setState('clear');
     Sound.playSong('fanfare');
-    this.clearBonus = { hp: Math.round(this.player.hp) * 30, stage: (this.stageIndex + 1) * 5000 };
+    const p = this.player;
+    if (p.state !== 'down' && p.state !== 'fall') { p.setState('victory'); p.vx = p.vy = 0; }
+    this.clearBonus = { rows: [
+      ['TIME BONUS', this.time * 100],
+      ['VITALITY BONUS', Math.round(p.hp) * 50],
+      ['NO-DAMAGE BONUS', p.damageTaken === this.stageDmg0 ? 5000 : 0],
+    ], shown: [0, 0, 0], line: ['NEXT.', "WATER'S THAT WAY.", "STINGS. DIDN'T KILL ME."][this.stageIndex] || 'NEXT.' };
+  },
+  dehydrate() {
+    const p = this.player;
+    if (!p || p.hp <= 0 || this.playerGone) return;
+    p.hp = 0; p.grey = 0;
+    if (p.heldBy) { const h = p.heldBy; p.heldBy = null; h.holding = false; h.releaseClutch && h.releaseClutch(); }
+    if (p.grabbing) p.releaseHold();
+    p.knockDown(-p.facing, 1.0, 2.0);
+    FX.showBanner('DEHYDRATED', '#e2591e', 120);
+    Sound.sfx('death', p.x);
   },
 
   // ---------- simulation ----------
@@ -259,24 +286,28 @@ const Game = {
   upd_boot() {},
   upd_title() {
     FX.update();
-    if (this.t === 60) { FX.shake(4, 12); Sound.sfx('hitFinisher'); for (let i = 0; i < 12; i++) FX.add({ kind: 'spark', x: W / 2, y: 80, z: 0, vx: rr(-4, 4), vz: rr(-1, 4), life: 14, g: 0.1, drag: 0.9 }); }
+    if (this.t === 20) { this.hitstop = 0; FX.shake(3, 10); Sound.sfx('hitFinisher'); for (let i = 0; i < 12; i++) FX.add({ kind: 'spark', x: W / 2, y: 54, z: 0, vx: rr(-4, 4), vz: rr(-1, 4), life: 14, g: 0.1, drag: 0.9 }); }
     if (this.fadeDir) return;
-    if (this.t < 20) return;
-    if (this.t < 60 && (Input.pressed('start') || Input.pressed('attack'))) { this.t = 59; return; }
+    if (this.howto) { if (Input.anyPressed && this.t > 10) { this.howto = false; Sound.sfx('menu'); } return; }
+    if (Input.anyPressed) this.titleIdle = 0;
+    else if (++this.titleIdle > 60 * 20) { this.showTop = 360; this.titleIdle = 0; }
+    if (this.showTop > 0) { this.showTop--; if (Input.anyPressed) this.showTop = 0; return; }
+    if (this.t < 26) return;
+    if (!this.titleReady) { if (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump')) { this.titleReady = true; Sound.unlock(); Sound.sfx('select'); } return; }
     const items = 4;
     if (Input.pressed('up')) { this.menuSel = (this.menuSel + items - 1) % items; Sound.sfx('menu'); }
     if (Input.pressed('down')) { this.menuSel = (this.menuSel + 1) % items; Sound.sfx('menu'); }
     const lr = Input.pressed('left') ? -1 : Input.pressed('right') ? 1 : 0;
     const go = Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump');
-    if (this.menuSel === 1 && (lr || go)) {
+    if (this.menuSel === 1 && go) { this.howto = true; this.t = 0; Sound.sfx('select'); return; }
+    if (this.menuSel === 2 && (lr || go)) {
       const keys = Object.keys(DIFFS);
       const i = (keys.indexOf(this.diffKey) + (lr || 1) + keys.length) % keys.length;
       this.diffKey = keys[i]; Store.set('diff', this.diffKey); Sound.sfx('menu');
       return;
     }
-    if (this.menuSel === 2 && (lr || go)) { Sound.unlock(); Sound.toggleMute(); syncSoundButton(); Sound.sfx('menu'); return; }
-    if (this.menuSel === 3 && (lr || go)) { FX.reducedShake = !FX.reducedShake; Store.set('reducedShake', FX.reducedShake); Sound.sfx('menu'); return; }
-    if (go) {
+    if (this.menuSel === 3 && (lr || go)) { Sound.unlock(); Sound.toggleMute(); syncSoundButton(); Sound.sfx('menu'); return; }
+    if (this.menuSel === 0 && go) {
       Sound.unlock();
       Sound.sfx('select');
       this.transition(() => { this.storyPages = STORY.intro; this.storyIdx = 0; this.storyChar = 0; this.storyNext = () => this.newGame(); this.setState('story'); Sound.playSong('story'); });
@@ -307,7 +338,7 @@ const Game = {
     if (this.t > 130 || (this.t > 50 && Input.anyPressed)) { this.setState('play'); p.setState('idle'); p.vx = 0; }
   },
   upd_play() {
-    if (Input.pressed('start')) { this.setState('pause'); Sound.sfx('pause'); this.menuSel = 0; return; }
+    if (Input.pressed('start')) { this.setState('pause'); Sound.sfx('pause'); this.menuSel = 0; Sound.musicFilter(600, 0.15); return; }
     // slow motion: run the simulation on a fraction of frames
     if (this.slow > 0) {
       this.slow--;
@@ -318,42 +349,72 @@ const Game = {
     }
     this.simulate(true);
   },
+  resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(this.silhouetteDist ? 900 : 20000, 0.15); },
   upd_pause() {
-    if (Input.pressed('start')) { this.setState('play'); Sound.sfx('pause'); return; }
+    if (Input.pressed('start')) { this.resume(); return; }
     const n = 4;
     if (Input.pressed('up')) { this.menuSel = (this.menuSel + n - 1) % n; Sound.sfx('menu'); }
     if (Input.pressed('down')) { this.menuSel = (this.menuSel + 1) % n; Sound.sfx('menu'); }
     if (Input.pressed('attack') || Input.pressed('jump')) {
-      if (this.menuSel === 0) { this.setState('play'); Sound.sfx('pause'); }
+      if (this.menuSel === 0) this.resume();
       else if (this.menuSel === 1) { Sound.unlock(); Sound.toggleMute(); syncSoundButton(); }
       else if (this.menuSel === 2) { FX.reducedShake = !FX.reducedShake; Store.set('reducedShake', FX.reducedShake); Sound.sfx('menu'); }
       else { Sound.sfx('select'); Sound.fadeOut(0.6); this.transition(() => this.toTitle()); }
     }
   },
-  toTitle() { this.player = null; this.ents = []; this.letterboxTarget = 0; this.letterbox = 0; this.menuSel = 0; this.setState('title'); Sound.playSong('title'); },
+  toTitle() {
+    this.player = null; this.ents = []; this.solids = []; this.letterboxTarget = 0; this.letterbox = 0; this.menuSel = 0;
+    this.silhouetteDist = 0; this.titleReady = false; this.howto = false; this.titleIdle = 0; this.showTop = 0;
+    FX.reset(); Sound.musicFilter(20000, 0.1);
+    this.setState('title'); Sound.playSong('title');
+  },
   upd_continue() {
     FX.update();
     if (this.credits <= 0) { if (this.t > 40) this.gameOver(); return; }
     const count = 9 - Math.floor(this.t / 60);
-    if (this.t % 60 === 0 && count >= 0) Sound.sfx('thud');
+    if (this.t % 60 === 0 && count >= 0) Sound.sfx('beep');
     if ((Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump')) && this.t > 20) { Sound.sfx('select'); this.doContinue(); return; }
     if (count < 0) this.gameOver();
   },
   gameOver() {
     this.setState('gameover');
-    this.saveHi();
     Sound.playSong('gameover');
   },
-  saveHi() { if (this.score >= Store.get('hiscore', 0)) Store.set('hiscore', this.hiscore); },
+  saveHi() {},
   upd_gameover() {
-    if (this.t > 120 && (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump'))) this.transition(() => this.toTitle());
+    if (this.t > 150 || (this.t > 60 && (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump')))) this.transition(() => this.afterRun());
+  },
+  // After game over or the results: initials entry if the score makes the top 5, then the title.
+  afterRun() {
+    if (HiScores.qualifies(this.score)) { this.entry = { letters: [0, 0, 0], pos: 0 }; this.setState('entry'); Sound.playSong('title'); }
+    else this.toTitle();
+  },
+  upd_entry() {
+    const e = this.entry, CH = HiScores.CHARS;
+    if (Input.pressed('up')) { e.letters[e.pos] = (e.letters[e.pos] + 1) % CH.length; Sound.sfx('menu'); }
+    if (Input.pressed('down')) { e.letters[e.pos] = (e.letters[e.pos] + CH.length - 1) % CH.length; Sound.sfx('menu'); }
+    if (Input.pressed('left') && e.pos > 0) { e.pos--; Sound.sfx('menu'); }
+    if (Input.pressed('attack') || Input.pressed('start') || Input.pressed('right')) {
+      Sound.sfx('select');
+      if (++e.pos >= 3) {
+        HiScores.add(e.letters.map(i => CH[i]).join(''), this.score);
+        this.hiscore = HiScores.top();
+        this.transition(() => { this.toTitle(); this.showTop = 300; });
+      }
+    }
   },
   upd_clear() {
     this.simulate(false);
     const b = this.clearBonus;
-    if (this.t === 100) { this.addScore(b.hp); Sound.sfx('pickup'); }
-    if (this.t === 140) { this.addScore(b.stage); Sound.sfx('pickup'); }
-    if (this.t > 250 && !this.fadeDir) {
+    if (this.t > 70 && this.t % 5 === 0) {
+      const i = b.shown.findIndex((v, k) => v < b.rows[k][1]);
+      if (i >= 0) {
+        const step = Math.max(100, Math.ceil(b.rows[i][1] / 20 / 100) * 100);
+        const add = Math.min(step, b.rows[i][1] - b.shown[i]);
+        b.shown[i] += add; this.addScore(add); Sound.sfx('tick');
+      } else if (!b.doneAt) b.doneAt = this.t;
+    }
+    if (b.doneAt && this.t > b.doneAt + 90 && !this.fadeDir) {
       this.transition(() => {
         const next = this.stageIndex + 1;
         if (next < STAGES.length) {
@@ -361,20 +422,29 @@ const Game = {
           if (pages && pages.length) { this.storyPages = pages; this.storyIdx = 0; this.storyChar = 0; this.storyNext = () => this.startStage(next); this.setState('story'); Sound.playSong('story'); }
           else this.startStage(next);
         } else {
-          this.saveHi();
           this.storyPages = STORY.ending; this.storyIdx = 0; this.storyChar = 0;
-          this.storyNext = () => { this.setState('results'); Sound.playSong('title'); };
+          this.storyNext = () => this.showResults();
           this.setState('story');
           Sound.playSong('ending');
         }
       });
     }
   },
+  showResults() {
+    const noCont = this.stats.continues === 0;
+    const rows = [['NO-CONTINUE BONUS', noCont ? 30000 : 0], ['LIFE BONUS', this.lives * 10000]];
+    for (const r of rows) this.addScore(r[1]);
+    let rank = this.score >= 200000 && noCont ? 'S' : this.score >= 140000 ? 'A' : this.score >= 80000 ? 'B' : 'C';
+    if (!noCont && (rank === 'S' || rank === 'A')) rank = 'B';
+    this.results = { rows, rank };
+    this.setState('results');
+    Sound.playSong('ending');
+  },
   upd_results() {
     FX.update();
     if (this.t < 120 && this.t >= 20 && (this.t - 20) % 20 === 0) Sound.sfx('tick');
     if (this.t === 130) { FX.shake(3, 10); Sound.sfx('hitFinisher'); }
-    if (this.t > 200 && (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump'))) this.transition(() => this.toTitle());
+    if (this.t > 220 && (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump'))) this.transition(() => this.afterRun());
   },
 
   // One world tick. `live` = player input and waves are active.
@@ -401,7 +471,22 @@ const Game = {
       if (this.respawnDrop && p.z <= 0 && p.state !== 'jump') this.respawnLanded();
       p.x = clamp(p.x, this.cam.x + 10, this.cam.x + W - 10);
     }
-    if (live) { this.stats.time++; this.updateWaves(); }
+    if (live) {
+      this.stats.time++;
+      this.updateWaves();
+      if (!this.bossCardInfo && !this.finaleRunning && p && p.hp > 0 && !this.playerGone) {
+        if (++this.timeTick >= 60) {
+          this.timeTick = 0;
+          if (this.time > 0) this.time--;
+          if (this.time > 0 && this.time <= 10) Sound.sfx('beep');
+          if (this.time === 0) this.dehydrate();
+        }
+      }
+      if (this.goT > 0) {
+        if (this.cam.x > (this.goFrom || 0) + 40) this.goT = 0;
+        else if (this.goT % 120 === 0) Sound.sfx('go');
+      }
+    }
     for (const e of this.ents) {
       if (e === p) continue;
       if (e.hs > 0) { e.hs--; continue; }
@@ -539,6 +624,7 @@ const Game = {
   draw_title(ctx) { drawTitleScreen(ctx, this); },
   draw_story(ctx) { drawStoryScreen(ctx, this.storyPages[this.storyIdx], this.storyChar, this); },
   draw_results(ctx) { drawResults(ctx, this); },
+  draw_entry(ctx) { drawEntry(ctx, this); },
   draw_stageintro(ctx) { this.drawWorld(ctx); drawHUD(ctx, this); drawStageCard(ctx, this.card, this.t); },
   draw_play(ctx) { this.drawWorld(ctx); drawHUD(ctx, this); },
   draw_pause(ctx) {
@@ -556,8 +642,11 @@ const Game = {
       const k = (this.t % 60) / 8;
       drawText(ctx, 'CONTINUE?', W / 2, 52, '#ffe066', 3, 'center');
       drawText(ctx, String(count), W / 2, 92 - (k < 1 ? (1 - k) * 6 : 0), '#ffffff', k < 1 ? 7 : 6, 'center');
+      drawVultures(ctx, this);
       drawText(ctx, Input.lastDevice === 'touch' ? 'TAP HIT' : 'PRESS ATTACK', W / 2, 150, (this.t >> 4) % 2 ? '#e9d9bf' : '#9c8670', 1, 'center');
       drawText(ctx, this.credits >= 99 ? 'FREE PLAY' : 'CREDITS ' + this.credits, W / 2, 164, '#9c8670', 1, 'center');
+    } else {
+      drawText(ctx, 'NO CREDITS', W / 2, 90, '#e83b3b', 2, 'center');
     }
   },
   draw_gameover(ctx) { drawGameOver(ctx, this); },
@@ -573,3 +662,21 @@ function runTimers() {
   }
 }
 function syncSoundButton() { const b = document.getElementById('btn-sound'); if (b) { b.textContent = Sound.muted ? 'Sound off' : 'Sound on'; b.setAttribute('aria-pressed', String(!Sound.muted)); } }
+
+// Top-5 high scores, kept in localStorage when it is available (a convenience; the game works without it).
+const HiScores = {
+  KEY: 'rustfist_hi',
+  CHARS: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ. ',
+  defaults: [['JNO', 50000], ['TEO', 40000], ['VLV', 30000], ['DSL', 20000], ['MTR', 10000]],
+  list() {
+    try { const v = JSON.parse(localStorage.getItem(this.KEY)); if (Array.isArray(v) && v.length) return v; } catch (e) { /* storage blocked */ }
+    return this.mem || this.defaults.slice();
+  },
+  top() { return this.list()[0][1]; },
+  qualifies(score) { const l = this.list(); return score > 0 && (l.length < 5 || score > l[l.length - 1][1]); },
+  add(name, score) {
+    const l = this.list().concat([[name, score]]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    this.mem = l;
+    try { localStorage.setItem(this.KEY, JSON.stringify(l)); } catch (e) { /* storage blocked */ }
+  },
+};

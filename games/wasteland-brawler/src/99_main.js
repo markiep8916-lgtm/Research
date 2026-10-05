@@ -27,7 +27,7 @@ const TEST_ARENA = {
   window.addEventListener('touchstart', markTouch, { passive: true, once: true });
 
   // first interaction unlocks audio
-  const unlock = () => { Sound.unlock(); if (Game.state === 'boot') Game.setState('title'); if (Sound.ok() && !Sound.timer && Sound.songName) Sound.playSong(Sound.songName, true); };
+  const unlock = () => { Sound.unlock(); if (Game.state === 'boot') Game.toTitle(); if (Sound.ok() && !Sound.timer && Sound.songName) Sound.playSong(Sound.songName, true); };
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
   view.addEventListener('pointerdown', () => view.focus({ preventScroll: true }));
 
@@ -53,6 +53,7 @@ const TEST_ARENA = {
   }
 
   Game.setState('boot');
+  Game.hiscore = HiScores.top();
   Sound.songName = 'title';
 
   let acc = 0, last = performance.now();

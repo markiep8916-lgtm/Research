@@ -57,7 +57,7 @@ class Fighter extends Ent {
     this.weight = 1;          // knockback multiplier
     this.launchable = true;
     this.grabbedBy = null;
-    this.downTime = 36;
+    this.downTime = 40;
     this.dying = false;
     this.juggle = 0;
     this.burn = 0; this.venom = 0;
@@ -70,7 +70,7 @@ class Fighter extends Ent {
   get vulnerable() {
     if (this.inv > 0 || this.dying || this.remove) return false;
     if (['down', 'getup', 'dead', 'burrowed', 'enter', 'offstage'].includes(this.state)) return false;
-    if (this.juggle >= 4 && this.airborne) return false;  // untouchable until it lands
+    if (this.juggle >= 2 && this.airborne && this.state === 'fall') return false;  // 2 juggle hits per launch, then intangible
     return true;
   }
   face(target) { if (target) this.facing = target.x >= this.x ? 1 : -1; }
@@ -109,6 +109,7 @@ class Fighter extends Ent {
     let hits = 0;
     for (const t of targets) {
       if (t === this || this.atkHit.has(t.id) || !t.vulnerable) continue;
+      if (a.maxTargets && this.atkHit.size >= a.maxTargets) break;
       if (!this.overlaps(a, t)) continue;
       this.atkHit.add(t.id);
       hits++;
@@ -121,7 +122,7 @@ class Fighter extends Ent {
   // Apply a hit. a = attack data, dir = knockback direction (+1 = right), nth = victim index for multi-hits.
   takeHit(src, a, dir, nth = 1) {
     let dmg = a.dmg;
-    if (this.airborne && this.juggle > 0) dmg = Math.round(dmg * Math.max(0.5, 1 - 0.1 * this.juggle));
+    if (this.state === 'fall' && this.airborne) dmg = Math.max(1, Math.round(dmg * 0.7));   // juggle hits
     if (this.dmgMul) dmg = Math.round(dmg * this.dmgMul);
     if (this.team === 'player') dmg = Math.max(1, Math.round(dmg * Game.diff.dmg));
     if (a.dmgMul) dmg = Math.round(dmg * a.dmgMul);
@@ -173,11 +174,14 @@ class Fighter extends Ent {
     if (this.onHurt) this.onHurt(src, a, tier, flinch, launch);
     if (!flinch) return;
     if (launch) {
-      if (this.airborne && this.state === 'fall') this.juggle++;
-      const jv = this.juggle > 0 && wasAir ? 3.0 * Math.pow(0.8, this.juggle) : null;
+      const juggling = wasAir;
+      if (juggling) this.juggle++;
       let kx = a.kx != null ? a.kx : 2.2, kz = a.kz != null ? a.kz : 3.0;
       if (dead && !a.knock) { kx = 3.5; kz = 3.5; }
-      this.knockDown(dir, kx * this.weight, (jv != null ? Math.max(jv, kz * 0.5) : kz) * Math.min(1.3, this.weight));
+      if (juggling && !dead) { kx = Math.min(kx, 2.0); kz = 2.6; }
+      const j = this.juggle;
+      this.knockDown(dir, kx * this.weight, kz * Math.min(1.3, this.weight));
+      this.juggle = j;
       if (a.blast) { this.blasted = src; this.bowled = new Set(); }
     } else {
       this.atk = null;
@@ -229,7 +233,7 @@ class Fighter extends Ent {
     }
     if (this.z > 0 || this.vz !== 0) {
       this.z += this.vz;
-      this.vz -= GRAV;
+      this.vz -= (this.state === 'fall' || this.state === 'thrown') ? GRAV : (this.grav || GRAV);
       if (this.state === 'fall' || this.state === 'thrown') this.vx *= 0.985;
       if (this.z <= 0) { this.z = 0; this.onLand(); }
     }
@@ -310,13 +314,13 @@ class Fighter extends Ent {
         if (Math.abs(this.vx) > 1 && this.t % 4 === 0) FX.dust(this.x, this.y, 1, 0.5);
         if (this.dying || this.hp <= 0) {
           if (!this.dying) this.onDeath(this.lastHitBy, {}, 1);
-          if (this.t > 72) { this.remove = true; this.onRemoved && this.onRemoved(); }
+          if (this.t > 80) { this.remove = true; this.onRemoved && this.onRemoved(); }
           return true;
         }
         if (this.t >= this.downTime) this.setState('getup');
         return true;
       case 'getup':
-        if (this.t >= 12) { this.setState('idle'); this.grace = 10; this.inv = Math.max(this.inv, 2); }
+        if (this.t >= 16) { this.setState('idle'); this.grace = 10; this.inv = Math.max(this.inv, 10); }
         return true;
       case 'grabbed':
         this.vx = 0;

@@ -35,7 +35,7 @@ class Enemy extends Fighter {
     this.launchable = d.launchable !== false;
     this.launchCap = d.launchCap || 0;
     this.heavy = !!d.heavy;
-    this.downTime = d.downTime || 36;
+    this.downTime = d.downTime || 40;
     this.name = d.name;
     this.score = d.score || 100;
     this.boss = !!d.boss;
@@ -249,8 +249,9 @@ class Enemy extends Fighter {
     }
   }
   draw(ctx, camX) {
-    if (this.dying && this.state === 'down' && this.t > 40 && (this.t >> 2) % 2) return;
-    if (this.juggle >= 4 && this.airborne && (this.t >> 1) % 2) return;
+    if (this.dying && this.state === 'down' && this.t > 50 && (this.t >> 1) % 2) return;
+    const intangible = this.juggle >= 2 && this.airborne && this.state === 'fall';
+    if (intangible && (this.t >> 1) % 2) return;
     const d = this.def;
     const sp = d.sprite || [112, 96, 56, 88];
     Sprite.begin(sp[0], sp[1], sp[2], sp[3]);

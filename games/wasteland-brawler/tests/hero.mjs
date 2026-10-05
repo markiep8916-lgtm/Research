@@ -1,24 +1,18 @@
 // Scripted hero playtest: exercises every move against sandbox enemies with deterministic stepping.
 // Usage: node tests/hero.mjs [outDir] [enemyType]
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { mkdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { openGame, argv, root, stubEnemies } from './lib.mjs';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const out = resolve(process.argv[2] || join(root, 'tests', 'out'));
-const foe = process.argv[3] || 'skid';
+// node tests/hero.mjs [--out dir] [--foe type] [--html path] [--stub]
+const o = argv();
+const out = resolve(o.out || join(root, 'tests', 'out', 'hero'));
+const foe = o.foe || 'punk';
 mkdirSync(out, { recursive: true });
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1152, height: 700 } });
-await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-const errors = [];
-page.on('pageerror', e => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
-page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
-await page.goto('file://' + join(root, 'wasteland-brawler.html'));
-await page.waitForTimeout(300);
-const ev = (fn, ...a) => page.evaluate(fn, ...a);
-const shot = async name => page.screenshot({ path: join(out, name + '.png'), clip: await page.evaluate(() => { const r = document.getElementById('screen').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }) });
+const g = await openGame(o.html);
+const { page, errors, ev } = g;
+if (o.stub) await stubEnemies(g, [foe]);
+const shot = async name => g.shot(join(out, name + '.png'));
 const snap = async label => { const s = await ev(() => window.__wb.snapshot()); console.log(label.padEnd(14), JSON.stringify({ p: [s.pstate, s.hp, s.grey, s.px, s.py, s.pz], rage: s.rage, combo: s.combo, score: s.score, foes: s.foes.map(f => f.type + ':' + f.hp + ':' + f.state) })); return s; };
 
 await ev(() => { window.__wb.manual = true; });
@@ -67,4 +61,4 @@ await S(`(()=>{ const w=window.__wb, G=w.Game; for (let i=0;i<3;i++) G.spawn({ty
 await shot('h09-crowd');
 await snap('crowd');
 console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no page errors');
-await browser.close();
+await g.close();

@@ -1,18 +1,18 @@
 // The hero: movement, the gauntlet string, air attacks, run ram, grabs and throws, weapons,
 // health-costing specials (with recoverable grey HP) and the Rage overdrive.
 
-const HERO = { name: 'MAGS' };
+const HERO = { name: 'JUNO' };
 
 // Attack table. Frame data at 60fps. reach = [near, far] px ahead of the body centre,
 // zr = [low, high] px above the feet, depth = max |dy| for a hit to land.
 const P_ATK = {
-  jab:     { pose: 'jab',   start: 4, active: 2, rec: 8,  dmg: 5,  tier: 1, kb: 1.2, stun: 16, reach: [2, 24], zr: [16, 40], depth: 8, whiff: 'whoosh', next: 'cross' },
-  cross:   { pose: 'cross', start: 4, active: 2, rec: 9,  dmg: 6,  tier: 1, kb: 1.2, stun: 16, reach: [2, 26], zr: [16, 40], depth: 8, whiff: 'whoosh', next: 'hook', lunge: 1.2 },
-  hook:    { pose: 'hook',  start: 6, active: 3, rec: 12, dmg: 9,  tier: 2, kb: 1.8, stun: 22, reach: [2, 26], zr: [14, 40], depth: 8, whiff: 'whoosh', next: 'fin', lunge: 1.2 },
-  upper:   { pose: 'upper', start: 8, active: 4, rec: 22, dmg: 15, tier: 4, knock: true, kx: 2.0, kz: 5.0, reach: [0, 26], zr: [6, 46], depth: 9, whiff: 'whooshBig', steam: true, jumpCancel: 8, lunge: 1.0 },
-  straight:{ pose: 'straight', start: 9, active: 4, rec: 22, dmg: 16, tier: 4, knock: true, kx: 5.5, kz: 1.6, reach: [0, 30], zr: [10, 40], depth: 9, whiff: 'whooshBig', steam: true, blast: true, lunge: 1.2 },
-  backfist:{ pose: 'backfist', start: 5, active: 3, rec: 12, dmg: 9, tier: 2, kb: 2.0, stun: 20, reach: [2, 26], zr: [16, 40], depth: 8, whiff: 'whoosh', turn: true },
-  ram:     { pose: 'ram',   start: 5, active: 12, rec: 16, dmg: 13, tier: 3, knock: true, kx: 3.8, kz: 2.2, reach: [-2, 22], zr: [6, 40], depth: 9, whiff: 'whooshBig', ram: true },
+  jab:     { pose: 'jab',   start: 3, active: 2, rec: 7,  dmg: 4,  tier: 1, kb: 0.6, stun: 14, reach: [6, 28], zr: [4, 36], depth: 8, whiff: 'whoosh', next: 'cross' },
+  cross:   { pose: 'cross', start: 3, active: 2, rec: 7,  dmg: 5,  tier: 1, kb: 0.6, stun: 14, reach: [6, 28], zr: [4, 36], depth: 8, whiff: 'whoosh', next: 'hook', lunge: 0.8 },
+  hook:    { pose: 'hook',  start: 5, active: 3, rec: 10, dmg: 7,  tier: 2, kb: 1.2, stun: 18, reach: [6, 30], zr: [4, 36], depth: 8, whiff: 'whoosh', next: 'fin', lunge: 0.8 },
+  upper:   { pose: 'upper', start: 7, active: 4, rec: 20, dmg: 12, tier: 3, knock: true, kx: 3.2, kz: 3.4, reach: [4, 28], zr: [4, 44], depth: 8, whiff: 'whooshBig', steam: true, jumpCancel: 8, lunge: 0.9 },
+  straight:{ pose: 'straight', start: 8, active: 4, rec: 20, dmg: 12, tier: 3, knock: true, kx: 5.0, kz: 1.6, reach: [6, 32], zr: [4, 36], depth: 8, whiff: 'whooshBig', steam: true, blast: true, lunge: 0.8 },
+  backfist:{ pose: 'backfist', start: 4, active: 3, rec: 12, dmg: 8, tier: 2, kb: 2.0, stun: 18, reach: [6, 28], zr: [4, 36], depth: 8, whiff: 'whoosh', turn: true },
+  ram:     { pose: 'ram',   start: 4, active: 12, rec: 14, dmg: 10, tier: 3, knock: true, kx: 3.5, kz: 3.0, reach: [0, 22], zr: [4, 36], depth: 8, whiff: 'whooshBig', ram: true, maxTargets: 3 },
   flykick: { pose: 'airkick', start: 4, active: 90, rec: 0, dmg: 10, tier: 3, knock: true, kx: 3.2, kz: 3.0, reach: [4, 26], zr: [-12, 24], depth: 8, whiff: 'whoosh', air: true },
   hammer:  { pose: 'hammer', start: 5, active: 12, rec: 0, dmg: 9, tier: 2, kb: 1.0, stun: 20, reach: [-4, 20], zr: [-30, 10], depth: 8, whiff: 'whooshBig', air: true, hammer: true },
   burst:   { pose: 'burst', start: 4, active: 10, rec: 14, dmg: 14, tier: 3, knock: true, kx: 3.5, kz: 3.2, reach: [-42, 42], zr: [-4, 36], depth: 14, radial: true, cost: 8 },
@@ -35,8 +35,9 @@ class Player extends Fighter {
     this.family = 'hero';
     this.hp = this.maxHp = 100;
     this.grey = 0;
-    this.w = 7; this.h = 42;
-    this.walkX = 1.6; this.walkY = 1.0; this.runX = 3.0; this.runY = 0.8;
+    this.grav = 0.28;
+    this.w = 8; this.h = 40;
+    this.walkX = 1.5; this.walkY = 1.0; this.runX = 2.8; this.runY = 0.8;
     this.shadowR = 9;
     this.grabbing = null; this.grabT = 0; this.knees = 0; this.grabPush = 0;
     this.connected = false;
@@ -46,7 +47,6 @@ class Player extends Fighter {
     this.pipeStreak = 0;
     this.downTime = 36;
     this.recentHits = [];
-    this.scarf = null; this.tail = null;
     this.ghosts = [];
     this.airUsed = false;
     this.damageTaken = 0;
@@ -64,12 +64,12 @@ class Player extends Fighter {
     if (this.comboT > 0 && --this.comboT === 0) this.endCombo();
     if (this.comboPop > 0) this.comboPop--;
     this.physics(bounds);
-    if (this.state === 'down' && Input.anyPressed) this.t += 2;      // mash to get up sooner
+    if (this.state === 'down' && Input.anyPressed && this.hp > 0 && this.downTime - this.t > 18) this.t += 2;      // mash to get up sooner
     if (this.state === 'hurt' || this.state === 'fall' || this.state === 'down' || this.state === 'getup' || this.state === 'grabbed') {
       if (this.state === 'grabbed') this.heldUpdate();
-      if (this.state === 'getup' && this.t >= 18) { this.setState('idle'); this.inv = 60; this.blink = true; return; }
+      if (this.state === 'getup' && this.t >= 16) { this.setState('idle'); this.inv = 50; this.blink = true; return; }
       if (this.state === 'down') {
-        if (this.hp <= 0) { if (this.t > 70) Game.playerDied(); return; }
+        if (this.hp <= 0) { if (this.t > 90) Game.playerDied(); return; }
         if (this.t >= this.downTime) this.setState('getup');
         return;
       }
@@ -93,10 +93,10 @@ class Player extends Fighter {
       case 'attack': return this.attackUpdate(foes);
       case 'jumpsquat':
         if (this.t >= 3) {
-          this.vz = 5.0; this.z = 0.1;
+          this.vz = 4.6; this.z = 0.1;
           const dx = Input.dirX();
           this.jumpDir = dx;
-          this.vx = dx * (this.wasRunning ? this.runX : this.walkX);
+          this.vx = dx * (this.wasRunning ? 2.6 : 1.6);
           if (dx) this.facing = dx;
           this.setState('jump');
           this.airUsed = false;
@@ -114,8 +114,8 @@ class Player extends Fighter {
         return true;
       case 'land':
         this.vx *= 0.6;
-        if (this.t >= 2 && this.buffered('attack')) return false;
-        if (this.t >= 4) this.setState('idle');
+        if (this.t >= 2 && !this.landLag && this.buffered('attack')) return false;
+        if (this.t >= (this.landLag || 4)) { this.landLag = 0; this.setState('idle'); }
         return true;
       case 'skid':
         this.vx *= 0.82;
@@ -147,11 +147,11 @@ class Player extends Fighter {
       this.resolveAttack(foes);
       if (this.z <= 0 && this.t > 1) {
         if (a.hammer) this.hammerLand();
-        this.setState('land'); this.atk = null; this.t = -4;
+        this.setState('land'); this.atk = null; this.landLag = 8;
       } else if (a.hammer && this.t > a.start + a.active) { this.atkHit = this.atkHit || new Set(); }
       return true;
     }
-    if (a.ram && ph === 'active') this.vx = this.ramV = (this.ramV || 4.0) * 0.92 * (this.t === a.start ? 0 : 1) + (this.t === a.start ? 4.0 * this.facing : 0);
+    if (a.ram && ph === 'active') this.vx = 3.2 * this.facing;
     else if (a.lunge && ph === 'start') this.vx = a.lunge * this.facing;
     else this.vx *= 0.7;
     if (a.ram && ph === 'active' && this.t % 3 === 0) FX.steam(this.x - this.facing * 6, this.y, 22, 1);
@@ -218,10 +218,11 @@ class Player extends Fighter {
   onLanded(target, a, dmg, tier) {
     this.connected = true;
     this.comboHits++;
-    this.comboT = 60;
+    this.comboT = 75;
     this.comboPop = 6;
     this.bestCombo = Math.max(this.bestCombo, this.comboHits);
-    Game.addScore(Math.round((dmg || a.dmg || 0) * 10 * (1 + 0.1 * Math.min(this.comboHits, 30))));
+    Game.addScore((dmg || a.dmg || 0) * 10);
+    if (Input.lastDevice === 'touch' && tier >= 2 && navigator.vibrate) { try { navigator.vibrate(tier >= 4 ? 30 : tier >= 3 ? 15 : 8); } catch (e) { /* unsupported */ } }
     Game.addRage((dmg || a.dmg || 0) / 2);
     if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
     if (a.weapon && this.weapon) {
@@ -237,10 +238,11 @@ class Player extends Fighter {
   }
   endCombo() {
     const n = this.comboHits;
-    if (n >= 40) FX.showBanner('APOCALYPTIC!', '#ff3b6b');
-    else if (n >= 25) FX.showBanner('SAVAGE!', '#ff8a1e');
-    else if (n >= 15) FX.showBanner('BRUTAL!', '#ffd23f');
-    if (n >= 15) Sound.sfx('chime');
+    if (n >= 3) { Game.addScore(100 * (n - 1)); FX.text(this.x, this.y, 60, 'COMBO +' + 100 * (n - 1), '#ffe08a', 50); }
+    if (n >= 30) FX.showBanner('APOCALYPTIC!', '#ff3b30');
+    else if (n >= 20) FX.showBanner('SAVAGE!', '#ff8a2a');
+    else if (n >= 10) FX.showBanner('BRUTAL!', '#ffe08a');
+    if (n >= 10) Sound.sfx('chime');
     this.comboHits = 0;
   }
 
@@ -272,7 +274,7 @@ class Player extends Fighter {
         this.startAttack(P_ATK[WEAPONS[this.weapon.kind].atk]);
         return;
       }
-      if (this.state === 'run') { this.ramV = 4.0; this.startAttack(P_ATK.ram); return; }
+      if (this.state === 'run') { this.startAttack(P_ATK.ram); return; }
       if (dx && dx === -this.facing) { this.facing = dx; this.startAttack(P_ATK.backfist); return; }
       if (dx) this.facing = dx;
       this.startAttack(P_ATK.jab);
@@ -300,8 +302,8 @@ class Player extends Fighter {
     // grab: keep pushing into an enemy
     if (dx && !this.weapon) {
       const f = foes.find(e => e.team === 'enemy' && e.grabbable && e.canBeGrabbed() && Math.abs(e.y - this.y) < 5 &&
-        sign(e.x - this.x) === dx && Math.abs(e.x - this.x) < 14 + e.w * 0.3 && e.z < 2);
-      if (f) { if (++this.grabPush >= 4) this.startGrab(f); }
+        sign(e.x - this.x) === dx && Math.abs(e.x - this.x) <= 16 + Math.max(0, e.w - 8) && e.z < 2);
+      if (f) { if (++this.grabPush >= 6) this.startGrab(f); }
       else this.grabPush = 0;
     } else this.grabPush = 0;
   }
@@ -471,10 +473,16 @@ class Player extends Fighter {
       this.consume('attack');
       const dx = Input.dirX();
       if (dx === -this.facing && !f.noSuplex) { this.startThrow('suplex'); return true; }
-      if (dx === this.facing || this.knees >= 2 || f.tossOnly) { this.startThrow('toss'); return true; }
+      if (dx === this.facing || f.tossOnly) { this.startThrow('toss'); return true; }
       this.knees++;
       this.sub = 'knee'; this.t = 0;
-      f.takeHit(this, { dmg: 6, tier: 1, kb: 0, stun: 40, zr: [10, 30] }, this.facing);
+      if (this.knees >= 3) {
+        this.releaseHold();
+        f.state = 'idle';
+        f.takeHit(this, { dmg: 8, tier: 3, knock: true, kx: 2.6, kz: 3.0, zr: [0, 40] }, this.facing);
+        return true;
+      }
+      f.takeHit(this, { dmg: 6, tier: 2, kb: 0, stun: 40, zr: [10, 30] }, this.facing);
       if (f.state !== 'grabbed' && !f.dying && f.state !== 'fall') { f.setState('grabbed'); f.grabbedBy = this; }
       if (f.dying || f.state === 'fall') { this.grabbing = null; this.setState('idle'); }
       return true;
@@ -500,7 +508,7 @@ class Player extends Fighter {
       if (f && this.t === 6) {
         this.releaseHold();
         f.setState('thrown'); f.atk = null;
-        f.vx = this.facing * 5.0 * Math.min(1.2, f.weight); f.vz = 2.8; f.z = 12;
+        f.vx = this.facing * 4.2 * Math.min(1.2, f.weight); f.vz = 3.0; f.z = 12;
         f.facing = -this.facing;
         f.thrownBy = this; f.bowled = new Set();
         f.tossDmg = 14;
@@ -508,36 +516,35 @@ class Player extends Fighter {
         Sound.sfx('throwObj', this.x);
         this.addCombo();
       }
-      if (this.t >= 22) this.setState('idle');
+      if (this.t >= 26) this.setState('idle');
       return true;
     }
-    // suplex: 10f lift, 14f arc over the head, slam behind
+    // backward toss: lift, arc over the head to z 30, then fling the body backwards (a bowling projectile)
     if (f) {
       if (this.t <= 10) { f.x = this.x + this.facing * 12; f.z = this.t * 2.2; }
       else if (this.t <= 24) {
         const k = (this.t - 10) / 14;
         f.x = this.x + this.facing * lerp(12, -16, k);
-        f.z = 22 + Math.sin(k * Math.PI) * 18 - k * 22;
+        f.z = 22 + Math.sin(k * Math.PI) * 10;
         f.facing = k > 0.5 ? this.facing : -this.facing;
       }
       if (this.t === 24) {
-        const sx = this.x - this.facing * 16;
         this.releaseHold();
-        f.x = sx; f.z = 0;
-        f.state = 'idle';
-        f.takeHit(this, { dmg: 20, tier: 4, knock: true, kx: 1.0, kz: 2.0, zr: [0, 50], sfx: 'hitFinisher' }, -this.facing);
-        for (const e of Game.foes()) {
-          if (e === f || !e.vulnerable || Math.abs(e.y - this.y) > 12 || Math.abs(e.x - sx) > 22 + e.w) continue;
-          e.takeHit(this, { dmg: 10, tier: 3, knock: true, kx: 2.4, kz: 3.0, zr: [0, 50] }, e.x >= sx ? 1 : -1);
-        }
-        FX.dustRing(sx, this.y, 12);
-        FX.shake(3, 12);
+        f.x = this.x - this.facing * 14; f.z = 26;
+        f.setState('thrown'); f.atk = null;
+        f.vx = -this.facing * 4.2 * Math.min(1.2, f.weight); f.vz = 1.5;
+        f.facing = this.facing;
+        f.thrownBy = this; f.bowled = new Set();
+        f.tossDmg = 14;
+        if (f.onTossed) f.onTossed(this);
+        Sound.sfx('throwObj', this.x);
+        this.addCombo();
       }
     }
-    if (this.t >= 36) this.setState('idle');
+    if (this.t >= 30) this.setState('idle');
     return true;
   }
-  addCombo() { this.comboHits++; this.comboT = 60; this.comboPop = 6; this.bestCombo = Math.max(this.bestCombo, this.comboHits); }
+  addCombo() { this.comboHits++; this.comboT = 75; this.comboPop = 6; this.bestCombo = Math.max(this.bestCombo, this.comboHits); }
   releaseHold() {
     const f = this.grabbing;
     if (f) { f.grabbedBy = null; if (f.state === 'grabbed' || f.state === 'held') f.setState('idle'); }
@@ -641,7 +648,9 @@ class Player extends Fighter {
     FX.hurtVignette();
     Game.portraitHit = 8;
     Sound.sfx('hurt', this.x);
-    if (this.state === 'hurt') this.hurtTime = (a.tier || 1) >= 2 ? 18 : 14;
+    if (this.state === 'hurt') { this.hurtTime = 16; this.vx = dir * 0.8; }
+    if (this.state === 'fall' && this.hp > 0) { this.vx = dir * 2.6; this.vz = Math.max(this.vz, 3.0); }
+    if (this.hp <= 0 && !this.deathFx) { this.deathFx = true; Game.hitstop = Math.max(Game.hitstop, 20); Game.slowmo(40, 0.5); Sound.sfx('death', this.x); }
     if (this.state === 'fall') { this.recentHits = []; if (this.weapon) this.dropWeapon(); }
   }
   onDeath() { /* handled by Game.playerDied after the knockdown */ }
@@ -659,7 +668,7 @@ class Player extends Fighter {
       case 'hurt': return (this.hurtAlt || 0) % 2 ? Poses.hurt(t) : PlayerPoses.gutfold(t);
       case 'fall': return Poses.fall(t, this.vz);
       case 'down': return Poses.down();
-      case 'getup': return Poses.getup(t * 16 / 18);
+      case 'getup': return Poses.getup(t);
       case 'grabbed': return Poses.grabbed(t);
       case 'grab':
         if (this.sub === 'knee') return PlayerPoses.kneeHit(t);
@@ -794,114 +803,104 @@ const PlayerPoses = {
 
 // ---------- hero art ----------
 const HERO_PAL = {
-  skin: '#c68a5a', jaw: '#9a6440', hair: '#d9452b', hairDk: '#a02f1c',
-  top: '#5b6b3a', topDk: '#3e4a27', pants: '#4a3424', boots: '#2a2020', belt: '#2a1a10', buckle: '#e0b04a',
-  scarf: '#e0b04a', scarfDk: '#b88a2a', bandage: '#d9cbb0',
-  steel: '#8c8f96', steelDk: '#5e6168', steelHi: '#c9ced6', rust: '#a0522d', fist: '#6e7178',
-  goggle: '#3fd0e0', strap: '#3a2a1a', kneepad: '#8c8f96',
+  skin: '#c68a5e', jaw: '#9a6440', eye: '#1a0e0a', hair: '#1e1414', bandana: '#c8322a',
+  goggle: '#ffb04a', goggleRim: '#3a2a20', scarf: '#e2591e', scarfDk: '#b04014',
+  top: '#5b6b3a', topDk: '#3e4a27', bandolier: '#8a6a3a', brass: '#d4af37',
+  pants: '#9a8a68', pocket: '#7e6e52', kneepad: '#4a4a4a', boots: '#2a1e18', sole: '#4a3a30', wrap: '#6a4a30',
+  plate: '#7a8088', iron: '#7a4a2c', ironHi: '#b8703a', rivet: '#e0b070', rod: '#c8ced4', fist: '#6a6e78', knuckle: '#3a3e48',
+  // aliases used by UI art
+  steel: '#7a8088', steelDk: '#5e6168', steelHi: '#b8bec4', rust: '#8c6a4a', strap: '#3a2a20',
 };
 
-function updateChain(pts, ax, ay, n, seg, facing, droop, wind) {
-  if (!pts || pts.length !== n) { pts = []; for (let i = 0; i < n; i++) pts.push({ x: ax - facing * seg * (i + 1), y: ay + i }); }
-  let px = ax, py = ay;
-  for (let i = 0; i < n; i++) {
-    const p = pts[i];
-    const tx = px - facing * seg + wind, ty = py + droop;
-    p.x = lerp(p.x, tx, 0.35);
-    p.y = lerp(p.y, ty, 0.35);
-    // keep segment length bounded
-    const dx = p.x - px, dy = p.y - py, d = Math.hypot(dx, dy) || 1;
-    if (d > seg * 1.6) { p.x = px + dx / d * seg * 1.6; p.y = py + dy / d * seg * 1.6; }
-    px = p.x; py = p.y;
-  }
-  return pts;
+// Piston rods slide back (0..-4 px) during gauntlet wind-ups and snap forward on impact.
+function heroPiston(pl) {
+  if (pl.state === 'attack' && pl.atk && pl.atkPhase() === 'start' && !pl.atk.air && pl.atk.pose !== 'jab') return -Math.min(4, pl.t);
+  if (pl.state === 'meteor' && pl.sub === 'hang') return -4;
+  return 0;
 }
 
 function HERO_STYLE(pl, ghost) {
   const P = HERO_PAL;
-  const rage = Game.rage / 100;
+  const rageFull = Game.rage >= 100 && (Game.frame >> 3) % 2;
   return {
-    skin: P.skin, top: P.top, sleeve: P.skin, arm: P.skin, pants: P.pants, boots: P.boots, belt: P.belt,
-    hipW: 9, shW: 12, limbW: 5,
+    skin: P.skin, top: P.top, sleeve: P.skin, arm: P.skin, pants: P.pants, boots: P.boots, belt: P.bandolier,
+    hipW: 10, shW: 12, limbW: 5,
     torso(R, s) {
-      // tank top seam + shoulders in skin
-      Px.line(lerp(R.H.x, R.S.x, 0.2), lerp(R.H.y, R.S.y, 0.2), lerp(R.H.x, R.S.x, 0.85), lerp(R.H.y, R.S.y, 0.85), 1, P.topDk);
-      Px.disc(R.S.x, R.S.y + 1, 3, P.skin);
-      const b = { x: lerp(R.H.x, R.S.x, 0.06), y: lerp(R.H.y, R.S.y, 0.06) };
-      Px.rect(b.x - 1, b.y - 1, 2, 2, P.buckle);
+      // bandolier: near shoulder to far hip, 4 brass dots
+      const sx = R.S.x + 2, sy = R.S.y + 1, hx = R.H.x - 3, hy = R.H.y - 1;
+      Px.line(sx, sy, hx, hy, 2, P.bandolier);
+      for (let i = 1; i <= 4; i++) Px.dot(lerp(sx, hx, i / 5), lerp(sy, hy, i / 5) - 1, P.brass);
+      Px.disc(R.S.x, R.S.y + 1, 2.5, P.skin);
     },
-    backHand(Hn, ang) {
-      Px.disc(Hn.x, Hn.y, 2, P.skin);
-      Px.dot(Hn.x - 1, Hn.y - 2, P.bandage);
+    backHand(Hn, ang, s, R) {
+      // leather wrap on the far forearm, small fist
+      Px.line(lerp(R.ba.E.x, Hn.x, 0.3), lerp(R.ba.E.y, Hn.y, 0.3), lerp(R.ba.E.x, Hn.x, 0.8), lerp(R.ba.E.y, Hn.y, 0.8), 3, shade(P.wrap, -0.3));
+      Px.rect(Hn.x - 2, Hn.y - 2, 4, 4, shade(P.skin, -0.32));
     },
     head(Hd, th, s, R) {
-      const fx = dirX(th - Math.PI / 2) , fy = dirY(th - Math.PI / 2); // forward-facing unit (perp to neck)
-      void fx; void fy;
-      // ponytail (behind head) — secondary motion chain in world space
-      if (!ghost) {
-        const wx = pl.x + pl.facing * (Hd.x - 4), wy = pl.y - pl.z + Hd.y - 3;
-        pl.tail = updateChain(pl.tail, wx, wy, 3, 3, pl.facing, 1.2, -0.3 * pl.facing * 0);
-      }
-      if (pl.tail) pl.tail.forEach((p, i) => {
-        const lx = (p.x - pl.x) * pl.facing, ly = p.y - (pl.y - pl.z);
-        Px.disc(lx, ly, 2.5 - i * 0.5, i ? P.hairDk : P.hair);
-      });
-      Px.disc(Hd.x, Hd.y, 5, P.skin);
-      Px.rect(Hd.x - 1, Hd.y + 2, 5, 2, P.jaw);
-      // undercut swept back: three triangles
-      Px.poly([Hd.x - 5, Hd.y - 1, Hd.x - 4, Hd.y - 6, Hd.x + 3, Hd.y - 6, Hd.x + 5, Hd.y - 3, Hd.x - 1, Hd.y - 3], P.hair);
-      Px.poly([Hd.x - 6, Hd.y - 4, Hd.x - 1, Hd.y - 7, Hd.x - 2, Hd.y - 3], P.hairDk);
-      Px.rect(Hd.x - 5, Hd.y - 2, 2, 4, P.hairDk);
-      // goggles strap + lens
-      Px.rect(Hd.x - 4, Hd.y - 3, 9, 1, P.strap);
-      Px.disc(Hd.x + 2.5, Hd.y - 3.5, 1.5, P.goggle);
-      Px.dot(Hd.x + 2, Hd.y - 4, '#e0ffff');
-      Px.rect(Hd.x + 3, Hd.y - 1, 1, 2, '#1a1a1a');
+      const x = Math.round(Hd.x), y = Math.round(Hd.y);
+      // bandana knot tails flutter behind
+      const fl = Math.sin(Game.frame * 0.3 + (pl.id || 0)) * 1.5;
+      Px.line(x - 4, y - 3, x - 8, y - 2 + fl, 2, P.bandana);
+      Px.line(x - 4, y - 2, x - 7, y + 1 + fl * 0.6, 2, shade(P.bandana, -0.25));
+      // head block with a jaw notch
+      Px.rect(x - 4, y - 5, 9, 10, P.skin);
+      Px.rect(x + 4, y + 3, 1, 2, '#00000000');
+      Px.rect(x - 1, y + 3, 5, 2, P.jaw);
+      Px.rect(x + 4, y + 4, 1, 1, P.jaw);
+      // bob hair: covers top and back with a tuft
+      Px.poly([x - 5, y + 3, x - 6, y - 4, x - 3, y - 7, x + 4, y - 6, x + 5, y - 3, x - 1, y - 3, x - 2, y + 4], P.hair);
+      Px.rect(x - 6, y + 2, 2, 2, P.hair);
+      // bandana band and pushed-up goggles
+      Px.rect(x - 4, y - 4, 9, 2, P.bandana);
+      Px.disc(x + 1, y - 6, 2, P.goggleRim); Px.disc(x + 4, y - 6, 2, P.goggleRim);
+      Px.dot(x + 1, y - 6, P.goggle); Px.dot(x + 4, y - 6, P.goggle);
+      // eye
+      Px.rect(x + 3, y - 1, 1, 2, P.eye);
     },
     hand(Hn, ang, s, R) {
-      // the Scrapfist: draw forearm block + fist over the plain arm
-      const E = R.fa.E;
-      Px.line(R.S.x, R.S.y, E.x, E.y, 3, P.steelDk);
-      Px.line(R.S.x, R.S.y - 1, E.x, E.y - 1, 1, P.steel);
-      Px.quad(E.x, E.y, Hn.x, Hn.y, 7, 8, P.steel);
-      const mx = lerp(E.x, Hn.x, 0.5), my = lerp(E.y, Hn.y, 0.5);
-      Px.rect(mx - 1, my - 1, 2, 2, P.rust);
-      const vc = rage >= 1 && (Game.frame >> 2) % 2 ? '#ffe066' : rage > 0.05 ? '#ff9a2e' : '#1a1a1a';
-      for (let i = 0; i < 3; i++) {
-        const k = 0.25 + i * 0.2;
-        const vx = lerp(E.x, Hn.x, k), vy = lerp(E.y, Hn.y, k);
-        Sprite.cur.ga.globalAlpha = rage > 0.05 ? 0.2 + 0.8 * rage : 1;
-        Px.rect(vx, vy - 2, 1, 2, vc);
-        Sprite.cur.ga.globalAlpha = 1;
-      }
-      // fist block, oriented along the forearm
+      const E = R.fa.E, S = R.S;
       const ux = dirX(ang), uy = dirY(ang), vx = -uy, vy = ux;
-      const fx = Hn.x + ux * 2, fy = Hn.y + uy * 2;
-      Px.poly([fx - ux * 3 - vx * 4, fy - uy * 3 - vy * 4, fx + ux * 4 - vx * 4, fy + uy * 4 - vy * 4,
-        fx + ux * 4 + vx * 4, fy + uy * 4 + vy * 4, fx - ux * 3 + vx * 4, fy - uy * 3 + vy * 4], P.fist);
-      Px.dot(fx + ux * 2 - vx * 2, fy + uy * 2 - vy * 2, P.steelHi);
-      Px.dot(fx + ux * 2 + vx * 2, fy + uy * 2 + vy * 2, P.steelHi);
-      // held weapon
-      if (pl.weapon && !ghost) drawHeldWeapon(pl.weapon.kind, fx, fy, ang);
+      // upper-arm plates
+      Px.limb(S.x, S.y, E.x, E.y, 5, 5, P.plate);
+      Px.dot(lerp(S.x, E.x, 0.5), lerp(S.y, E.y, 0.5), shade(P.plate, -0.35));
+      // forearm block 8 wide, along the forearm, with a highlight on its top edge and rivets
+      const fx0 = E.x - ux * 1, fy0 = E.y - uy * 1, fx1 = Hn.x - ux * 1, fy1 = Hn.y - uy * 1;
+      Px.quad(fx0, fy0, fx1, fy1, 8, 8, P.iron);
+      Px.line(fx0 - vx * 3.5, fy0 - vy * 3.5, fx1 - vx * 3.5, fy1 - vy * 3.5, 1, P.ironHi);
+      for (let i = 0; i < 3; i++) { const k = 0.25 + i * 0.25; Px.dot(lerp(fx0, fx1, k) + vx * 2, lerp(fy0, fy1, k) + vy * 2, rageFull ? '#ffe066' : P.rivet); }
+      // piston rods on top of the forearm, sliding back during wind-ups
+      const po = ghost ? 0 : heroPiston(pl);
+      for (const off of [-2.5, -1]) {
+        const bx = lerp(fx0, fx1, 0.15) + vx * (off - 2) + ux * po, by = lerp(fy0, fy1, 0.15) + vy * (off - 2) + uy * po;
+        Px.line(bx, by, bx + ux * 8, by + uy * 8, 1, P.rod);
+      }
+      // fist block with a knuckle line
+      const cx = Hn.x + ux * 3, cy = Hn.y + uy * 3;
+      Px.poly([cx - ux * 4 - vx * 4, cy - uy * 4 - vy * 4, cx + ux * 4 - vx * 4, cy + uy * 4 - vy * 4,
+        cx + ux * 4 + vx * 4, cy + uy * 4 + vy * 4, cx - ux * 4 + vx * 4, cy - uy * 4 + vy * 4], P.fist);
+      Px.line(cx + ux * 2 - vx * 3, cy + uy * 2 - vy * 3, cx + ux * 2 + vx * 3, cy + uy * 2 + vy * 3, 1, P.knuckle);
+      if (pl.weapon && !ghost) drawHeldWeapon(pl.weapon.kind, cx, cy, ang);
     },
     after(R, s) {
-      // knee pad on front leg
+      // knee pad, thigh pocket
       Px.rect(R.fl.K.x - 2, R.fl.K.y - 1, 4, 3, P.kneepad);
-      // scarf: two rects at the neck plus a trailing tail
-      const nx = lerp(R.S.x, R.Hd.x, 0.35), ny = lerp(R.S.y, R.Hd.y, 0.35);
+      Px.rect(lerp(R.H.x, R.fl.K.x, 0.45) - 1, lerp(R.H.y, R.fl.K.y, 0.45) - 1, 3, 3, P.pocket);
+      // scarf: 3 tapered segments from the neck streaming backward
+      const nx = lerp(R.S.x, R.Hd.x, 0.3), ny = lerp(R.S.y, R.Hd.y, 0.3);
       Px.rect(nx - 3, ny - 1, 6, 3, P.scarf);
-      if (!ghost) {
-        const wx = pl.x + pl.facing * (nx - 2), wy = pl.y - pl.z + ny;
-        const wind = pl.state === 'run' || pl.state === 'overdrive' ? 0 : -0.3 * pl.facing;
-        pl.scarf = updateChain(pl.scarf, wx, wy, 3, 4, pl.facing, pl.airborne ? -0.6 : 1.0, wind);
-      }
-      if (pl.scarf) {
-        let px = nx - 2, py = ny;
-        pl.scarf.forEach((p, i) => {
-          const lx = (p.x - pl.x) * pl.facing, ly = p.y - (pl.y - pl.z);
-          Px.limb(px, py, lx, ly, 3 - i * 0.7, 2.5 - i * 0.7, i % 2 ? P.scarfDk : P.scarf);
-          px = lx; py = ly;
-        });
+      const lvx = pl.vx * pl.facing;
+      const knocked = pl.state === 'fall' || pl.state === 'down';
+      const stream = Math.abs(pl.vx) > 2 || pl.airborne || pl.state === 'overdrive';
+      let px = nx - 2, py = ny;
+      const lens = [6, 5, 4], th = [3, 2, 1];
+      for (let i = 0; i < 3; i++) {
+        let a = Math.PI - 0.55 + i * 0.12 + Math.sin(Game.frame * 0.1 + i * 0.8) * 0.25 - clamp(lvx * 0.15, -0.6, 0.6) * 0.8;
+        if (stream) a = Math.PI + Math.sin(Game.frame * 0.4 + i) * 0.08;
+        if (knocked) a = -Math.PI / 2 + Math.sin(Game.frame * 0.3 + i) * 0.3;
+        const qx = px + Math.cos(a) * lens[i], qy = py + Math.sin(a) * lens[i] + (stream || knocked ? 0 : i * 0.6);
+        Px.limb(px, py, qx, qy, th[i] + 0.5, th[i], i % 2 ? P.scarfDk : P.scarf);
+        px = qx; py = qy;
       }
     },
   };
@@ -931,14 +930,15 @@ function drawHeldWeapon(kind, x, y, ang) {
   }
 }
 
-function drawPortrait(ctx, x, y) {
+function drawPortrait(ctx, x, y, grimace = false) {
   Px.use(ctx);
   const P = HERO_PAL;
-  Px.disc(x, y - 6, 6, P.skin);
-  Px.poly([x - 7, y - 6, x - 5, y - 13, x + 4, y - 13, x + 7, y - 9, x - 1, y - 9], P.hair);
-  Px.rect(x - 6, y - 9, 13, 1, P.strap);
-  Px.disc(x + 3, y - 9, 2, P.goggle);
-  Px.rect(x + 2, y - 6, 1, 2, '#1a1a1a');
-  Px.rect(x - 1, y - 2, 5, 2, P.jaw);
-  Px.rect(x - 5, y, 11, 3, P.scarf);
+  Px.rect(x - 6, y - 13, 12, 13, P.skin);
+  Px.poly([x - 8, y - 2, x - 8, y - 12, x - 4, y - 16, x + 5, y - 15, x + 7, y - 11, x - 2, y - 11, x - 4, y], P.hair);
+  Px.rect(x - 6, y - 12, 13, 2, P.bandana);
+  Px.disc(x, y - 14, 2, P.goggleRim); Px.disc(x + 4, y - 14, 2, P.goggleRim);
+  Px.dot(x, y - 14, P.goggle); Px.dot(x + 4, y - 14, P.goggle);
+  if (grimace) { Px.rect(x + 1, y - 8, 3, 1, P.eye); Px.rect(x, y - 3, 5, 1, '#e8e0d0'); }
+  else { Px.rect(x + 2, y - 9, 1, 2, P.eye); Px.rect(x, y - 3, 4, 1, P.jaw); }
+  Px.rect(x - 6, y, 13, 3, P.scarf);
 }

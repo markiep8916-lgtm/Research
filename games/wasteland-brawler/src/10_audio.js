@@ -430,6 +430,7 @@ const SFX = {
   whine(a, p) { a.tone(400, 1200, 0.35, 'sine', 0.08, 0, a.out(p)); },
   inflate(a, p) { a.tone(200, 600, 0.4, 'sine', 0.12, 0, a.out(p)); },
   flame(a, p) { const d = a.out(p); a.noise(0.18, 0.25, 1200, 0.6, 'lowpass', 0, d); a.noise(0.02, 0.15, 3000, 2, 'bandpass', 0.05, d); },
+  death(a, p) { const d = a.out(p); const o = a.tone(400, 80, 0.6, 'square', 0.25, 0, d); void o; },
   tick(a) { a.tone(1200, 0, 0.01, 'square', 0.05); },
   beep(a, p) { a.tone(800, 0, 0.05, 'square', 0.12, 0, a.out(p)); },
   zap(a, p) { const d = a.out(p); a.tone(1200, 300, 0.2, 'sawtooth', 0.15, 0, d); a.noise(0.2, 0.2, 5000, 4, 'bandpass', 0, d); },
