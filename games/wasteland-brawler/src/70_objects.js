@@ -101,8 +101,10 @@ class Breakable extends Ent {
         Px.rect(-7, -20, 14, 20, blink ? '#ffffff' : c[0]);
         Px.rect(-7, -20, 3, 20, blink ? '#ffffff' : '#d24a3a');
         Px.rect(-7, -15, 14, 2, c[1]); Px.rect(-7, -6, 14, 2, c[1]);
-        Px.rect(-4, -12, 8, 5, c[2]);
-        Px.poly([0, -12, 2, -9, 0, -7, -2, -9], '#e2591e');
+        // flammable label: a leaning flame with a yellow core (a symmetric plus read as first aid)
+        Px.rect(-4, -13, 8, 7, c[2]);
+        Px.poly([1, -13, 3, -9, 2, -7, -2, -7, -3, -9, -1, -11, 0, -10], '#e2591e');
+        Px.rect(-1, -9, 2, 2, '#ffe066');
         Px.rect(-7, -21, 14, 2, '#d24a3a');
         break;
       case 'fridge':

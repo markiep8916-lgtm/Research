@@ -127,7 +127,7 @@ const Game = {
     this.card = { num: 'STAGE ' + (i + 1), title: st.title, sub: st.sub };
     this.time = 99; this.timeTick = 0;
     this.stageDmg0 = this.player.damageTaken;
-    this.finaleDone = false; this.bossDone = false; this.resumeSong = null; this.respawnDrop = false;
+    this.finaleDone = false; this.bossDone = false; this.resumeSong = null; this.respawnDrop = false; this.hudTopBusy = false;
     this.setState('stageintro');
     this.player.vx = 0;
     Sound.playSong(st.music);
@@ -298,7 +298,7 @@ const Game = {
     if (this.fadeDir) return;
     if (this.howto) { if (++this.howtoT > 10 && Input.anyPressed) { this.howto = false; Sound.sfx('menu'); } return; }
     if (Input.anyPressed) this.titleIdle = 0;
-    else if (++this.titleIdle > 60 * 20) { this.showTop = 360; this.titleIdle = 0; }
+    else if (++this.titleIdle > 60 * 20 && !this.titleReady) { this.showTop = 360; this.titleIdle = 0; }
     if (this.showTop > 0) { this.showTop--; if (Input.anyPressed) this.showTop = 0; return; }
     if (this.t < 26) return;
     if (!this.titleReady) { if (Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump')) { this.titleReady = true; Sound.unlock(); Sound.sfx('select'); } return; }
@@ -329,8 +329,12 @@ const Game = {
     const before = Math.floor(this.storyChar);
     this.storyChar = Math.min(full, this.storyChar + 0.5);
     if (Math.floor(this.storyChar) !== before && before % 2 === 0 && this.storyChar < full) Sound.sfx('tick');
-    const adv = Input.pressed('attack') || Input.pressed('jump');
-    if (Input.pressed('start')) { this.transition(this.storyNext); return; }
+    // Enter pages like J (the title teaches Enter); holding it for 40 f skips the story
+    if (Input.down('start') && this.storyHeld) { if (++this.skipHold >= 40) { this.skipHold = 0; this.transition(this.storyNext); return; } }
+    else this.skipHold = 0;
+    if (Input.pressed('start')) this.storyHeld = true;
+    if (!Input.down('start')) this.storyHeld = false;
+    const adv = this.t >= 8 && (Input.pressed('attack') || Input.pressed('jump') || Input.pressed('start'));
     if (adv) {
       if (this.storyChar < full) { this.storyChar = full; return; }
       this.storyIdx++; this.storyChar = 0; this.t = 0;
@@ -365,14 +369,16 @@ const Game = {
   resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(Sound.baseHz, 0.15); Sound.setMusicLevel(1); },
   upd_pause() {
     if (this.fadeDir) return;
+    if (this.howto) { if (++this.howtoT > 10 && Input.anyPressed) { this.howto = false; Sound.sfx('menu'); } return; }
     if (Input.pressed('start')) { this.resume(); return; }
-    const n = 4;
+    const n = 5;
     if (Input.pressed('up')) { this.menuSel = (this.menuSel + n - 1) % n; Sound.sfx('menu'); }
     if (Input.pressed('down')) { this.menuSel = (this.menuSel + 1) % n; Sound.sfx('menu'); }
     if (Input.pressed('attack') || Input.pressed('jump')) {
       if (this.menuSel === 0) this.resume();
       else if (this.menuSel === 1) { Sound.unlock(); Sound.toggleMute(); syncSoundButton(); }
       else if (this.menuSel === 2) { FX.reducedShake = !FX.reducedShake; Store.set('reducedShake', FX.reducedShake); Sound.sfx('menu'); }
+      else if (this.menuSel === 3) { this.howto = true; this.howtoT = 0; Sound.sfx('select'); }
       else { Sound.sfx('select'); Sound.fadeOut(0.6); this.transition(() => this.toTitle()); }
     }
   },
@@ -651,8 +657,9 @@ const Game = {
     this.drawWorld(ctx); drawHUD(ctx, this);
     ctx.globalAlpha = 0.6; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
     drawText(ctx, 'PAUSED', W / 2, 56, '#ffe066', 3, 'center');
-    const opts = ['RESUME', 'SOUND: ' + (Sound.muted ? 'OFF' : 'ON'), 'SCREEN SHAKE: ' + (FX.reducedShake ? 'LOW' : 'FULL'), 'QUIT TO TITLE'];
-    opts.forEach((o, i) => drawText(ctx, (this.menuSel === i ? '> ' : '  ') + o, W / 2 - 64, 100 + i * 14, this.menuSel === i ? '#ffffff' : '#9c8670'));
+    const opts = ['RESUME', 'SOUND: ' + (Sound.muted ? 'OFF' : 'ON'), 'SCREEN SHAKE: ' + (FX.reducedShake ? 'LOW' : 'FULL'), 'MOVES', 'QUIT TO TITLE'];
+    opts.forEach((o, i) => drawText(ctx, (this.menuSel === i ? '> ' : '  ') + o, W / 2 - 64, 94 + i * 14, this.menuSel === i ? '#ffffff' : '#9c8670'));
+    if (this.howto) drawHowTo(ctx, this);
   },
   draw_continue(ctx) {
     this.drawWorld(ctx); drawHUD(ctx, this);
@@ -663,7 +670,7 @@ const Game = {
       drawText(ctx, 'CONTINUE?', W / 2, 52, '#ffe066', 3, 'center');
       drawText(ctx, String(count), W / 2, 92 - (k < 1 ? (1 - k) * 6 : 0), '#ffffff', k < 1 ? 7 : 6, 'center');
       drawVultures(ctx, this);
-      drawText(ctx, Input.lastDevice === 'touch' ? 'TAP THE SCREEN' : 'PRESS ATTACK', W / 2, 150, (this.t >> 4) % 2 ? '#e9d9bf' : '#9c8670', 1, 'center');
+      drawText(ctx, Input.lastDevice === 'touch' ? 'TAP THE SCREEN' : 'PRESS ' + devKeys().a + ' TO CONTINUE', W / 2, 150, (this.t >> 4) % 2 ? '#e9d9bf' : '#9c8670', 1, 'center');
       drawText(ctx, this.credits >= 99 ? 'FREE PLAY' : 'CREDITS ' + this.credits, W / 2, 164, '#9c8670', 1, 'center');
     } else {
       drawText(ctx, 'NO CREDITS', W / 2, 90, '#e83b3b', 2, 'center');

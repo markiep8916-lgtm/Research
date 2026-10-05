@@ -1156,6 +1156,7 @@
     },
     update(g) {
       if (S.tutT > 0 && g.state === 'play') S.tutT--;
+      g.hudTopBusy = S.tutT > 0;            // the HUD moves the combo counter below the tutorial strip
       const B = S.beat;
       if (B) {
         if (B.heyT > 0) B.heyT--;

@@ -118,7 +118,12 @@ class Player extends Fighter {
         }
         return true;
       case 'jump':
-        if (this.buffered('special') && this.canPay(12)) { this.consume('special'); this.startMeteor(); return true; }
+        if (this.buffered('special')) {
+          // a refused special is used up here, so it never fires later as a ground burst
+          this.consume('special');
+          if (this.canPay(12)) { this.startMeteor(); return true; }
+          this.lowHp();
+        }
         if (this.buffered('attack') && !this.airUsed) {
           this.consume('attack');
           this.airUsed = true;
@@ -180,10 +185,10 @@ class Player extends Fighter {
     void n;
     // cancels
     const afterActive = this.t >= a.start + a.active;
-    if (this.buffered('special') && this.t >= a.start + 1 && !a.radial && this.canPay(8)) {
+    if (this.buffered('special') && this.t >= a.start + 1 && !a.radial) {
       this.consume('special');
-      this.doBurst();
-      return true;
+      if (this.canPay(8)) { this.doBurst(); return true; }
+      this.lowHp();
     }
     if (a.jumpCancel && this.connected && this.t >= a.start + a.active + a.jumpCancel && this.buffered('jump')) {
       this.consume('jump');
@@ -263,7 +268,8 @@ class Player extends Fighter {
     Game.addScore((dmg != null ? dmg : a.dmg || 0) * 10);
     if (Input.lastDevice === 'touch' && tier >= 2 && navigator.vibrate) { try { navigator.vibrate(tier >= 4 ? 30 : tier >= 3 ? 15 : 8); } catch (e) { /* unsupported */ } }
     if (this.state !== 'overdrive' && this.state !== 'barrage') Game.addRage((dmg != null ? dmg : a.dmg || 0) / 2);
-    if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
+    // landed hits win back grey HP, 2 at a time (the burst's own hit refunds nothing)
+    if (this.grey > 0 && a !== P_ATK.burst) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
     if (a.weapon && this.weapon) {
       const wd = WEAPONS[this.weapon.kind];
       const armored = target.armorTier >= 2 || target.poiseMax > 0 || (target.def && target.def.noWeaponKD) || target.boss;
@@ -304,7 +310,7 @@ class Player extends Fighter {
       if (this.weapon && this.weapon.kind !== 'molotov') { this.throwWeapon(); return; }
       if (this.weapon && this.weapon.kind === 'molotov') { this.throwBottle(); return; }
       if (this.canPay(8)) { this.doBurst(); return; }
-      FX.text(this.x, this.y, 50, 'LOW HP', '#ff6a4a', 30); Sound.sfx('menu', this.x);   // not enough HP to burst
+      this.lowHp();
     }
     if (this.buffered('attack')) {
       this.consume('attack');
@@ -377,6 +383,7 @@ class Player extends Fighter {
   // A special needs more HP than it costs (no spamming Scrap Burst at 1 HP); breaking a hold keeps the
   // desperation rule and works down to 2 HP (floor = 1).
   canPay(c, floor) { return this.hp > (floor != null ? floor : c); }
+  lowHp() { FX.text(this.x, this.y, 50, 'LOW HP', '#ff6a4a', 30); Sound.sfx('menu', this.x); }   // a special refused for HP
   pay(c) {
     const paid = Math.min(c, this.hp - 1);
     this.hp -= paid;
@@ -524,7 +531,11 @@ class Player extends Fighter {
     f.x = this.x + this.facing * (12 + f.w * 0.3);
     f.y = this.y + 0.5;
     if (this.sub === 'knee') { if (this.t < 13) return true; this.sub = 'hold'; }
-    if (this.buffered('special') && this.canPay(8)) { this.consume('special'); this.releaseHold(); this.doBurst(); return true; }
+    if (this.buffered('special')) {
+      this.consume('special');
+      if (this.canPay(8)) { this.releaseHold(); this.doBurst(); return true; }
+      this.lowHp();
+    }
     if (this.buffered('attack')) {
       this.consume('attack');
       const dx = Input.dirX();

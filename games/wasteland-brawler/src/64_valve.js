@@ -88,7 +88,7 @@
     return clamp(ty, Game.bounds.yMin, Game.bounds.yMax);
   }
 
-  const tele = n => Math.max(10, n + (Game.diff.tele || 0));
+  const tele = n => Math.max(10, n + Math.max(0, Game.diff.tele || 0));      // hard never shortens his telegraphs
 
   // ---------- sounds ----------
   Object.assign(SFX, {
@@ -131,7 +131,8 @@
     punch(ph, t, a, e) {
       const wind = pose({ hx: -2, hy: -19, rot: -0.14, head: 0.05, fThigh: 0.42, fKnee: -0.3, bThigh: -0.45, bKnee: -0.2, fUpper: -0.35, fElbow: 2.0, bUpper: 0.55, bElbow: 1.2 });
       const hit = pose({ hx: 4, hy: -19, rot: 0.24, head: 0.1, fThigh: 0.6, fKnee: -0.55, bThigh: -0.6, bKnee: 0, fUpper: 1.57, fElbow: 0, bUpper: -0.3, bElbow: 0.9 });
-      if (ph === 'start') return lerpPose(P.idle(e), wind, easeOut(clamp(t / 6, 0, 1)));
+      // the wind-up keeps drawing back over the whole windup (it was 16 f, now 24)
+      if (ph === 'start') return lerpPose(P.idle(e), wind, easeOut(clamp(t / Math.max(6, a.start - 4), 0, 1)));
       if (ph === 'active') return lerpPose(wind, hit, clamp((t - a.start + 1) / 3, 0, 1));
       const k = clamp((t - a.start - a.active - 8) / (a.rec - 8), 0, 1);
       return lerpPose(hit, P.idle(e), k);
@@ -401,7 +402,7 @@
   function rodLen(e) {
     if (e.state === 'attack' && e.atk && e.atk.key === 'punch') {
       const a = e.atk, ph = e.atkPhase();
-      if (ph === 'start') return lerp(4, 0, clamp(e.t / 6, 0, 1));
+      if (ph === 'start') return lerp(4, 0, clamp(e.t / Math.max(6, a.start - 4), 0, 1));
       if (ph === 'active') return lerp(0, 25, clamp((e.t - a.start + 1) / 4, 0, 1));
       const r = e.t - a.start - a.active;
       return r < 10 ? 25 : lerp(25, 4, clamp((r - 10) / 14, 0, 1));
@@ -626,7 +627,7 @@
   }
   function startAttack(e, key) {
     const a = Object.assign({ key }, e.def.attacks[key]);
-    a.start = Math.max(a.tell === 'heavy' ? 10 : 6, a.start + (Game.diff.tele || 0));
+    a.start = Math.max(a.tell === 'heavy' ? 10 : 6, a.start + Math.max(0, Game.diff.tele || 0));
     e.vx = e.vy = 0;
     e.startAttack(a);
     e.kvAtkN++;
@@ -648,7 +649,8 @@
   function choosePlan(e, adx) {
     const ph = e.kvPhase;
     if (ph === 2 && e.kvAtkN % 3 === 2) return 'leap';
-    if (ph === 3) return adx <= 50 ? (chance(0.6) ? 'punch' : 'rush') : (chance(0.65) ? 'rush' : 'punch');
+    // the Meltdown Rush needs a run-up: from melee range it cannot be stepped out of, so he punches there
+    if (ph === 3) return adx <= 70 ? 'punch' : (chance(0.65) ? 'rush' : 'punch');
     if (ph === 1 && adx > 80 && !e.kvWheelOut && chance(0.75)) return 'wheel';
     if (adx <= 50) return chance(0.55) ? 'punch' : 'steam';
     return ph === 2 && chance(0.35) ? 'punch' : 'steam';
@@ -991,7 +993,9 @@
     if (src && src.team === 'player') e.kvHits.push(Game.frame);
     e.kvHits = e.kvHits.filter(f => Game.frame - f < 60);
     const scripted = st === 'kvcrank' || st === 'kvphase' || st === 'kvintro' || st === 'kvshrug' || (st === 'kvleap' && e.kvSub !== 'recover');
-    if (tier >= 3 && !scripted) {
+    // a Scrap Burst damages him mid-attack but never cancels or floors it (no burst-spam lock)
+    const burstInAttack = a.radial && (st === 'attack' || ARMOR_STATES.includes(st));
+    if (tier >= 3 && !scripted && !burstInAttack) {
       if (e.kvMeter >= 50) {
         e.kvMeter = 0;
         e.atk = null; e.kvSub = null; e.kvHits = [];
@@ -1638,11 +1642,14 @@
           if (e.t % 2 === 0) FX.steam(e.x + e.facing * rr(30, 80), e.y, rr(20, 36), 1);
           if (p && e.overlaps(a, p) && p.state !== 'down') {
             p.x += e.facing * 1.5;
-            if ((e.t - a.start) % 8 === 0 && p.vulnerable) p.takeHit(e, { dmg: 5, tier: 1, kb: 1.4, stun: 14, zr: [10, 36], sfx: 'hiss' }, e.facing);
+            // ticks start 4 f in, once the drawn steam has reached its full reach
+            if ((e.t - a.start) % 8 === 4 && p.vulnerable) p.takeHit(e, { dmg: 5, tier: 1, kb: 1.4, stun: 14, zr: [10, 36], sfx: 'hiss' }, e.facing);
           }
         }
       } else if (a.key === 'punch') {
-        if (e.t === 0) { Sound.sfx('kvCharge', e.x); Sound.sfx('hiss', e.x); }
+        if (e.t === 0) Sound.sfx('hiss', e.x);
+        if (e.t === Math.max(0, a.start - 16)) Sound.sfx('kvCharge', e.x);     // the 16 f charge-up ends on the punch
+        if (e.t === a.start - 6) Sound.sfx('tink', e.x);
         if (ph === 'start' && e.t % 4 === 0) FX.steam(e.x - e.facing * 6, e.y, 40, 1);
         if (ph === 'active') {
           if (e.t === a.start) { Sound.sfx('kvPiston', e.x); FX.steam(e.x + e.facing * 20, e.y, 40, 3); FX.shake(1, 4); }

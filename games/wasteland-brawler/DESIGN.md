@@ -267,7 +267,8 @@ angle_i = π + sin(t·0.1 + i·0.8)·0.25 − clamp(vx·0.15, −0.6, 0.6)
 - **Frames:** 4/10/14 (28 f). Invulnerable on frames 1–24.
 - **Hitbox:** both sides, |dx| ≤ 42, depth 14, z 0..32. 14 dmg, T3, KD radially (vx 3.5 outward, vz 3.2).
 - **Cost:** 8 HP, which becomes **grey recoverable HP**.
-  - Each hit Juno lands restores 2 grey HP to real HP.
+  - Each hit Juno lands restores 2 grey HP to real HP (the burst's own hit restores none).
+  - Against a boss that is mid-attack it deals damage but does not cancel the attack.
   - Any damage Juno takes erases all grey HP.
   - It needs more than 8 HP (Meteor Fist: more than 12), so it cannot be chained at 1 HP to stun-lock a boss.
   - Breaking a hold is the exception: it works down to 2 HP and then costs HP−1, never dropping HP below 1.
@@ -373,8 +374,8 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - Result: it bounces back at vx = −0.5·vx, vz = max(vz, 2.0), and takes +5 dmg at T3 (8 f hitstop, 3 px shake).
   - Draw 3 crack lines (#1A1410, 6–10 px) on the wall at the impact height for 60 f, a dust burst, and a "SPLAT!" text pop (8 px #FFE08A, 30 f).
 - **BOWLING:**
-  - A thrown or blasted body with |vx| > 3 hits each other enemy within |dx| ≤ 12 and depth 10 once: 10 dmg, T3, KD.
-  - Each such hit costs the body 30% of its vx.
+  - A thrown or blasted body with |vx| ≥ 2.4 hits each other enemy within |dx| ≤ 12 and depth 10 once: 10 dmg, T3, KD.
+  - Each such hit costs the body 15% of its vx, so a toss plows 2-3 bodies. These remote hits give Juno no hitstop.
   - These hits count toward Juno's combo and score.
 
 ### 4.5 Particles (pool of 200, plus 40 floor decals)
@@ -509,7 +510,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - Cooldown 100 f. Only one bottle of his in flight at a time.
 - **Panic Shove:** when cornered at a wall with Juno within 28 px. WINDUP 8, 4 dmg, push 6.
 
-**Tank Pop:** killed by a T3 hit, his tank hisses for 24 f (sparks, a red ring growing to r32 on the ground under the body), then bursts where the body lies: explosion radius 32, 16 dmg to enemies and 12 to Juno.
+**Tank Pop:** killed by a T3 hit, his tank hisses (sparks, a red ring on the ground under the body). The 40 f fuse starts once the killing move ends (at most 30 f later), the ring growing to r32; then it bursts where the body lies: explosion radius 32, 16 dmg to enemies and 12 to Juno.
 
 **Drops:** a Molotov 40% of the time.
 
@@ -773,8 +774,8 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - A dust shockwave crawls ±36 px along the floor: z 0..8, 6 dmg, jumpable.
   - Recovery 30 f with the hammer stuck.
 - **Wrecking Spin:**
-  - WINDUP 20 f: crouches with the hammer wound back; rising whistle.
-  - Spins for 60 f, drifting toward Juno at 1.2 px/f and hitting every 15 f: radius 36, depth 12, 8 dmg, KD.
+  - WINDUP 24 f: crouches with the hammer wound back; rising whistle.
+  - Spins for 60 f, drifting toward Juno at 1.2 px/f and hitting every 15 f from 8 f into the spin (so a hero in melee can step out): radius 36, depth 12, 8 dmg, KD.
   - Ends DIZZY for 50 f.
 - **Diesel Rush:**
   - WINDUP 18 f: engine rev; red dashed line.
@@ -813,7 +814,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
   - WINDUP 28 f (reactable: leaving the lane takes about 15 f), one claw raised and open; red rim.
   - Sweeps the lane out to 72 px, depth 14. 12 dmg, KD.
 - **Tail Hammer** (signature; any range):
-  - WINDUP 36 f: a red reticle (circle stroked #FF4A2A) shrinks from r20 to r8 under Juno. It tracks her until frame 24, then **locks**.
+  - WINDUP 36 f: a red reticle (circle stroked #FF4A2A) shrinks from r20 to r14 under Juno. It tracks her until frame 24 (earlier by easy's extra telegraph time), then **locks** and holds r14, the stinger's hit radius.
   - Frame 36: the stinger slams down. 20 dmg, KD, radius 14.
   - The stinger stays lodged for 70 f (tail glowing #FFE14A, pulsing dust rings) and takes **2x damage**.
 - **Brood Call:** while any sac survives, every 600 f the sacs pulse for 30 f and each live sac drops 2 Scorplings (maximum 6 on screen). Destroying a sac scores 1000 and drops a Cactus Fruit.
@@ -856,7 +857,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
 - **Steam Jet** (dx 10–80):
   - WINDUP 24 f: needle to red, nozzle drips, rising hiss.
   - A cone from +10 to +80 px: a wedge of circles in #E8ECEF at alpha 0.6, depth 12, for 30 f.
-  - 5 dmg per 8 f, and it pushes Juno 1.5 px/f.
+  - 5 dmg per 8 f (the first tick 4 f in, once the cone is fully drawn), and it pushes Juno 1.5 px/f.
 - **Piston Punch** (dx ≤ 50):
   - WINDUP 24 f: piston retracts 8 px, rod glows #FFB04A; red rim.
   - The fist shoots to +50 px in 4 f. 16 dmg, KD.
@@ -879,7 +880,7 @@ Hitting a non-armoured enemy during its WINDUP cancels the attack (it goes to HI
 
 **PHASE 3, "OVERPRESSURE" (≤ 120 HP).**
 - The boiler lerps to #FF4A2A with constant steam. Speed ×1.3, cooldowns ×0.7.
-- **Meltdown Rush:** two dashes back to back across the screen at 4 px/f, each with a 14 f telegraph (needle pinned at 3 o'clock, red dashed line). 14 dmg, KD each.
+- **Meltdown Rush:** two dashes back to back across the screen at 4 px/f, each with a 14 f telegraph (needle pinned at 3 o'clock, red dashed line). 14 dmg, KD each. He only rushes from more than 70 px away; closer in he uses the Piston Punch.
 - **Overpressure Burst** (every 720 f):
   - WINDUP 45 f: the needle spins; a whistle sweeps 1 → 3 kHz; the screen pulses #B8322A at alpha 0.15.
   - A 360° blast: radius 70, 22 dmg, KD.

@@ -641,12 +641,14 @@
     else { this.vx = this.vy = 0; if (this.state !== 'idle') this.setState('idle'); }
   }
 
-  // Torcher's Tank Pop fuse: follows the body for 24 f, then explodes (r32, 16 to enemies, 12 to Juno).
-  const TANK_FUSE = 24, TANK_R = 32;
+  // Torcher's Tank Pop fuse: follows the body; once the killer can act again (at most 30 f) it burns
+  // for 40 f with a growing red ring, then explodes (r32, 16 to enemies, 12 to Juno). 40 f leaves time
+  // to react (~13 f) and walk clear even when the body is wall-splatted back onto her.
+  const TANK_FUSE = 40, TANK_ARM_MAX = 30, TANK_R = 32;
   class TankFuse extends Ent {
     constructor(body, src) {
       super(body.x, body.y);
-      Object.assign(this, { body, src, team: 'fx', shadowR: 0 });
+      Object.assign(this, { body, src, team: 'fx', shadowR: 0, armed: false, waitT: 0 });
       FX.text(body.x, body.y, body.h + 24, 'TANK POP!', '#ff8a2a', 50);
       Sound.sfx('gangTankHiss', body.x);
     }
@@ -654,6 +656,12 @@
     update() {
       const b = this.body;
       if (b && !b.remove) { this.x = b.x; this.y = b.y; }
+      if (!this.armed) {
+        // wait while the hero is still in the move (or hitstop) that killed him
+        const p = Game.player, busy = p && this.src === p && (p.state === 'attack' || p.hs > 0);
+        if (busy && ++this.waitT < TANK_ARM_MAX) return;
+        this.armed = true;
+      }
       if (++this.t % 3 === 0) FX.add({ kind: 'spark', x: this.x + rr(-3, 3), y: this.y, z: 22 + rr(-3, 3), vx: rr(-1, 1), vz: rr(0.5, 2), life: 10, g: 0.1, drag: 0.9 });
       if (this.t >= TANK_FUSE) {
         this.remove = true;
@@ -755,7 +763,9 @@
         if (this.gang_hits.length >= 5) shrug = true;
       }
       if (this.boss && (st === 'dizzy' || st === 'whistle')) this.gang_meter += est;
-      if (tier >= 3) {
+      // a Scrap Burst damages a boss mid-attack but never cancels it (no burst-spam stun-lock)
+      if (this.boss && st === 'attack' && a.radial) armor = 9;
+      else if (tier >= 3) {
         if (this.boss && this.gang_meter < 40) { aa = Object.assign({}, a, { knock: false, stun: 20, kb: 0.8 }); noKD = true; armor = 0; }
         else { if (this.boss) { aa = Object.assign({}, a, { knock: true }); this.gang_meter = 0; } armor = 0; }
       } else if (st === 'dizzy' || st === 'whistle') armor = 9;             // free hits while seeing stars
@@ -1059,7 +1069,7 @@
   const DIESEL_ADDS = [{ type: 'punk', side: 'R' }, { type: 'punk', side: 'R' }, { type: 'knifer', side: 'L' }];
   ENEMY_TYPES.slab = {
     name: 'SLAB', family: 'gang', hp: 90, speed: 0.8, depthK: 0.65, w: 13, h: 53, score: 3000, weight: 0.7, downTime: 34,
-    boss: true, barLayer: 90, heavy: true, noGrab: true, gear: C.chain, shadowR: 14, fastest: 'axe',
+    boss: true, barLayer: 90, heavy: true, noGrab: true, gear: C.chain, shadowR: 14, fastest: 'axe', attackArmor: true,
     coolMin: 60, coolMax: 110,
     sprite: [140, 112, 70, 104],
     attacks: BRUISER_ATTACKS,
@@ -1317,7 +1327,7 @@
     sprite: [192, 140, 96, 124],
     attacks: {
       smash: { start: 26, active: 5, rec: 30, dmg: 18, tier: 3, knock: true, kx: 2.8, kz: 3.8, reach: [20, 48], zr: [0, 44], depth: 10, tell: 'heavy', whiff: 'whooshBig', rim: true },
-      spin: { start: 20, active: 60, rec: 0, dmg: 8, tier: 3, knock: true, kx: 3.0, kz: 3.2, reach: [-36, 36], zr: [0, 44], depth: 12, tell: 'heavy', custom: true, rim: true, sfxStart: 'gangSpinUp' },
+      spin: { start: 24, active: 60, rec: 0, dmg: 8, tier: 3, knock: true, kx: 3.0, kz: 3.2, reach: [-36, 36], zr: [0, 44], depth: 12, tell: 'heavy', custom: true, rim: true, sfxStart: 'gangSpinUp' },
       rush: { start: 18, active: 120, rec: 22, dmg: 14, tier: 3, knock: true, kx: 3.4, kz: 3.4, reach: [0, 24], zr: [0, 50], depth: 10, tell: 'heavy',
         danger: 'line', dangerLen: 200, selfVx: 3.6, custom: true, rim: true, sfxStart: 'gangRev' },
     },
@@ -1382,7 +1392,8 @@
           if (p) { this.vx = sign(p.x - this.x) * Math.min(1.2, Math.abs(p.x - this.x)); this.vy = sign(p.y - this.y) * Math.min(0.8, Math.abs(p.y - this.y)); }
           else { this.vx *= 0.8; this.vy = 0; }
           if (k % 3 === 0) FX.dust(this.x + rr(-20, 20), this.y, 1, 1.2);
-          if (k % 15 === 0) {
+          // first sweep 8 f into the spin (then every 15 f), so a hero in melee can still step out
+          if ((k + 7) % 15 === 0) {
             this.atkHit = new Set();
             Sound.sfx('whooshBig', this.x);
             FX.add({ kind: 'ring', x: this.x, y: this.y, z: 20, life: 10, size: 40, color: '#e8e0d0', g: 0 });

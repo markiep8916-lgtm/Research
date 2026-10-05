@@ -795,7 +795,8 @@ function scor_mVulnerable() {
 function scor_mTakeHit(src, a, dir, nth) {
   if (this.state === 'emerge' || this.state === 'burrowed' || this.state === 'ko' || this.dying) return;
   const st = this.state, atk = this.atk, t = this.t, sub = this.sub, facing = this.facing, x = this.x;
-  const busy = (st === 'attack' && this.atkPhase() !== 'start') || st === 'erupt' || st === 'shrug';
+  // a Scrap Burst damages her mid-attack but never cancels the windup (no burst-spam stun-lock)
+  const busy = (st === 'attack' && (this.atkPhase() !== 'start' || (a && a.radial))) || st === 'erupt' || st === 'shrug';
   Enemy.prototype.takeHit.call(this, src, a, dir, nth);
   this.facing = facing; this.x = x;
   if (this.dying) { scor_mKO(this); return; }

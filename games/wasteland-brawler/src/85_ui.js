@@ -1,7 +1,8 @@
 // UI: HUD, title, how-to-play, story cards, stage cards, tallies, continue, results, initials entry.
 
 const UI = { ink: '#e8e0d0', dim: '#a08060', gold: '#ffe08a', orange: '#e2591e', red: '#e83b3b', green: '#7be04a', outline: '#140c0a' };
-const FAMILY_BAR = { gang: '#e8c547', mutant: '#7cff6a', scorpion: '#ff8a3d', hero: '#e83b3b' };
+// enemy HP bar colours: never Juno's yellow (#f2c14e) or her venom green (#9be15d)
+const FAMILY_BAR = { gang: '#e2591e', mutant: '#3fa82a', scorpion: '#ff8a3d', hero: '#e83b3b' };
 const GAME_TITLE = { name: 'RUSTFIST', sub: 'BRAWL FOR THE LAST WELL' };
 
 // Text with a 1px outline (HUD style).
@@ -94,21 +95,22 @@ function drawHUD(ctx, g) {
     const idx = Math.max(0, Math.ceil(hp / layer) - 1);
     const within = hp - idx * layer;
     const cols = b.def.barColors || ['#e83b3b', '#e8c547', '#59e04a'];
-    drawTextO(ctx, b.name, 72, 194, UI.gold);
-    Px.rect(71, 205, 242, 9, UI.outline);
-    Px.rect(72, 206, 240, 7, idx > 0 ? cols[(idx - 1) % cols.length] : '#4a1010');
-    Px.rect(72, 206, Math.round(240 * within / layer), 7, cols[idx % cols.length]);
-    Px.rect(72, 206, Math.round(240 * within / layer), 1, '#ffffff');
+    // the whole boss strip stays below the play band (y >= 202): name left, bar right
+    drawTextO(ctx, b.name, 4, 206, UI.gold);
+    Px.rect(87, 205, 226, 9, UI.outline);
+    Px.rect(88, 206, 224, 7, idx > 0 ? cols[(idx - 1) % cols.length] : '#4a1010');
+    Px.rect(88, 206, Math.round(224 * within / layer), 7, cols[idx % cols.length]);
+    Px.rect(88, 206, Math.round(224 * within / layer), 1, '#ffffff');
     if (idx > 0) drawTextO(ctx, 'x' + (idx + 1), 316, 206, UI.ink);
   }
   // combo
   if (p.comboHits >= 2 && p.comboT > 0) {
     const c = p.comboHits;
     const col = c >= 30 ? ((g.frame >> 2) % 2 ? '#ff3b30' : '#ffffff') : c >= 20 ? '#ff8a2a' : c >= 10 ? '#ffe08a' : '#ffffff';
-    const s = p.comboPop > 3 ? 3 : 2;
-    drawTextO(ctx, String(c), 352, 30 - (s - 2) * 3, col, s, 'right');
-    drawTextO(ctx, 'HITS', 356, 37, col);
-    Px.rect(334, 48, Math.round(40 * p.comboT / 75), 2, col);
+    const s = p.comboPop > 3 ? 3 : 2, oy = g.hudTopBusy ? 16 : 0;   // below a stage's tutorial strip
+    drawTextO(ctx, String(c), 352, 30 + oy - (s - 2) * 3, col, s, 'right');
+    drawTextO(ctx, 'HITS', 356, 37 + oy, col);
+    Px.rect(334, 48 + oy, Math.round(40 * p.comboT / 75), 2, col);
   }
   // GO arrow
   if (g.goT > 0 && Math.floor(g.frame / 20) % 2 === 0) {
@@ -333,7 +335,9 @@ function drawStoryScreen(ctx, page, chars, g) {
   const lines = wrapText(text, 54);
   lines.forEach((ln, i) => drawText(ctx, ln, 28, 130 + i * 12, UI.ink));
   if (chars >= page.text.length && (g.frame >> 4) % 2) Px.poly([350, 190, 358, 190, 354, 195], UI.gold);
-  drawText(ctx, devKeys().st + ': SKIP', W - 6, H - 10, '#5a4a3a', 1, 'right');
+  const hold = g.skipHold || 0;
+  drawText(ctx, 'HOLD ' + devKeys().st + ': SKIP', W - 6, H - 10, UI.dim, 1, 'right');
+  if (hold > 0) Px.rect(W - 6 - Math.round(textWidth('HOLD ' + devKeys().st + ': SKIP') * hold / 40), H - 2, Math.round(textWidth('HOLD ' + devKeys().st + ': SKIP') * hold / 40), 1, UI.gold);
 }
 function wrapText(str, n) {
   const out = [];
@@ -352,13 +356,15 @@ function wrapText(str, n) {
 function drawVultures(ctx, g) {
   Px.use(ctx);
   const p = g.player;
-  const cx = p ? p.x - g.cam.x : W / 2, cy = 128;
+  // circling over Juno (kept on screen), light silhouettes so they read over the dimmed scene
+  const cx = clamp(p ? p.x - g.cam.x : W / 2, 60, W - 60), cy = 124;
   for (let i = 0; i < 2; i++) {
     const a = g.t * 0.025 + i * Math.PI;
     const x = cx + Math.cos(a) * 46, y = cy + Math.sin(a) * 12;
-    const flap = Math.sin(g.t * 0.2 + i) * 2;
-    Px.line(x - 7, y - flap, x, y + 2, 1, '#1a1012');
-    Px.line(x, y + 2, x + 7, y - flap, 1, '#1a1012');
+    const flap = Math.sin(g.t * 0.2 + i) * 3;
+    Px.line(x - 9, y - flap, x, y + 2, 2, '#8a6a5a');
+    Px.line(x, y + 2, x + 9, y - flap, 2, '#8a6a5a');
+    Px.rect(Math.round(x) - 1, Math.round(y) + 1, 3, 2, '#c8b098');
   }
 }
 function drawGameOver(ctx, g) {
@@ -404,7 +410,7 @@ function drawResults(ctx, g) {
     drawTextO(ctx, rank, 330, 62 - (1 - k) * 10, rank === 'S' ? UI.gold : UI.ink, Math.round(lerp(9, 5, k)), 'center');
   }
   if (g.t > 200) drawTextO(ctx, 'THANKS FOR PLAYING', W / 2, 176, UI.ink, 1, 'center');
-  if (g.t > 220 && (g.frame >> 4) % 2) drawTextO(ctx, devKeys().dev === 'touch' ? 'TAP THE SCREEN' : 'PRESS ' + (devKeys().dev === 'gamepad' ? 'X' : 'ATTACK'), W / 2, 192, UI.dim, 1, 'center');
+  if (g.t > 220 && (g.frame >> 4) % 2) drawTextO(ctx, devKeys().dev === 'touch' ? 'TAP THE SCREEN' : 'PRESS ' + devKeys().a, W / 2, 192, UI.dim, 1, 'center');
 }
 function drawEntry(ctx, g) {
   ctx.fillStyle = '#0e0a08'; ctx.fillRect(0, 0, W, H);
@@ -419,5 +425,5 @@ function drawEntry(ctx, g) {
     drawTextO(ctx, ch === ' ' ? '_' : ch, x, 112, sel ? '#ffffff' : UI.gold, 3, 'center');
     if (sel && (g.frame >> 3) % 2) { Px.use(ctx); Px.rect(x - 8, 136, 16, 2, UI.gold); }
   }
-  drawTextO(ctx, devKeys().dev === 'touch' ? 'D-PAD UP/DOWN CHANGE   HIT OR TAP CONFIRM' : 'UP/DOWN CHANGE   ' + (devKeys().dev === 'gamepad' ? 'X' : 'ATTACK') + ' CONFIRM', W / 2, 160, UI.dim, 1, 'center');
+  drawTextO(ctx, devKeys().dev === 'touch' ? 'D-PAD UP/DOWN CHANGE   HIT OR TAP CONFIRM' : 'UP/DOWN CHANGE   ' + devKeys().a + ' CONFIRM', W / 2, 160, UI.dim, 1, 'center');
 }

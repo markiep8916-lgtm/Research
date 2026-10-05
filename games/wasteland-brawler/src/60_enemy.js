@@ -174,7 +174,9 @@ class Enemy extends Fighter {
     const base = this.def.attacks[key];
     if (!base) return;
     const a = Object.assign({ key }, base);
-    a.start = Math.max(a.tell === 'heavy' ? 10 : 4, a.start + (Game.diff.tele || 0) - (this.teleCut || 0));
+    // hard's shorter telegraphs never apply to bosses: their lane-wide attacks need the full windup to react
+    const tl = Game.diff.tele || 0;
+    a.start = Math.max(a.tell === 'heavy' ? 10 : 4, a.start + (this.boss && tl < 0 ? 0 : tl) - (this.teleCut || 0));
     this.startAttack(a);
     if (a.tell === 'heavy' || a.tell === 'grab') Sound.sfx(this.family === 'mutant' ? 'groan' : this.family === 'scorpion' ? 'rattle' : 'shout', this.x);
   }

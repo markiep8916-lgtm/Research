@@ -88,13 +88,18 @@ const TEST_ARENA = {
     try {
       hot.snapshot(() => {
         const G = Game, p = G.player, base = { diff: G.diffKey };
+        // a finished run (results, game over, initials): keep the score so the entry still happens
+        if (['results', 'gameover', 'entry'].includes(G.state)) {
+          return Object.assign(base, { final: { score: G.score, stats: G.stats, results: G.state === 'results' ? G.results : null,
+            bestCombo: p ? p.bestCombo : 0 } });
+        }
         if (!p) return base;
         const run = { stage: G.stageIndex, score: G.score, lives: Math.max(1, G.lives), credits: G.credits, rage: G.rage, hp: Math.max(30, Math.round(p.hp)), stats: G.stats };
         if (['play', 'pause', 'stageintro'].includes(G.state)) return Object.assign(base, { run });
         if (G.state === 'continue') {
           // resume as if the continue was taken (a credit spent), never as a free life
           if (G.credits <= 0) return base;
-          return Object.assign(base, { run: Object.assign(run, { lives: 3, rage: 50, credits: G.credits < 99 ? G.credits - 1 : G.credits,
+          return Object.assign(base, { run: Object.assign(run, { lives: 3, rage: 50, hp: p.maxHp, credits: G.credits < 99 ? G.credits - 1 : G.credits,
             stats: Object.assign({}, G.stats, { continues: G.stats.continues + 1 }) }) });
         }
         if (G.state === 'clear' || (G.state === 'story' && G.storyPages !== STORY.intro)) {
@@ -112,6 +117,16 @@ const TEST_ARENA = {
   const resume = data => {
     if (!data) return;
     if (data.diff && DIFFS[data.diff]) Game.diffKey = data.diff;
+    if (data.final) {
+      // the score already holds every bonus: show the saved results card, or go on to the initials
+      const f = data.final;
+      Game.newGame();
+      Object.assign(Game, { score: f.score, shownScore: f.score, stats: f.stats || Game.stats });
+      Game.player.bestCombo = f.bestCombo || 0;
+      if (f.results) { Game.results = f.results; Game.setState('results'); Sound.playSong('ending'); }
+      else Game.afterRun();
+      return;
+    }
     if (data.results) {
       const r = data.results;
       Game.newGame();
