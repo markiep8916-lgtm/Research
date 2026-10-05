@@ -128,7 +128,9 @@ class Fighter extends Ent {
     if (a.dmgMul) dmg = Math.round(dmg * a.dmgMul);
     if (a.hammer && this.family === 'scorpion') dmg = Math.max(dmg, 13);
     const wasAir = this.airborne && this.state === 'fall';
+    const hpBefore = this.hp;
     this.hp = Math.max(0, this.hp - dmg);
+    const dealt = Math.max(0, hpBefore - this.hp);   // score and rage count real damage, not overkill
     this.lastHitBy = src;
     this.flash = 2; this.tintT = 6;
     if (this.grabbedBy && this.grabbedBy !== src) this.releaseGrab();
@@ -156,7 +158,7 @@ class Fighter extends Ent {
     Sound.sfx(a.sfx || T.sfx, this.x, Game.comboPitch());
     const fam = FAMILY[this.family];
     if (fam && fam.mat) Sound.sfx(fam.mat, this.x);
-    if (src && src.onLanded) src.onLanded(this, a, dmg, tier);
+    if (src && src.onLanded) src.onLanded(this, a, dealt, tier);
 
     if (dead) { this.onDeath(src, a, dir); }
     // reaction

@@ -21,6 +21,13 @@ const stageArg = o.stage == null ? 'all' : String(o.stage);
 await g.ev(({ stage, wave }) => {
   const w = window.__wb;
   w.play(stage === 'all' ? 0 : +stage, wave ? +wave : 0);
+  w.dmgLog = {};
+  const ol = Player.prototype.onLanded;
+  Player.prototype.onLanded = function (t, a, dmg, tier) { const k = (t.type || t.kind || t.constructor.name) + (t.state ? ':' + t.state : ''); const e = w.dmgLog[k] || (w.dmgLog[k] = [0, 0]); e[0]++; e[1] += dmg || a.dmg || 0; return ol.call(this, t, a, dmg, tier); };
+  // score attribution: group addScore calls by caller
+  w.scoreLog = {};
+  const add = w.Game.addScore.bind(w.Game);
+  w.Game.addScore = n => { const st = (new Error().stack || '').split('\n')[2] || '?'; const k = st.replace(/.*\/wasteland-brawler\.html:/, 'L').replace(/:\d+\)?$/, '').trim(); w.scoreLog[k] = (w.scoreLog[k] || 0) + Math.round(n); return add(n); };
   // The bot lives in the page so it can decide every frame.
   w.bot = {
     t: 0, lastCam: 0, stillFor: 0, log: [], deaths: 0, lastLives: w.Game.lives, stuckReports: 0,
@@ -33,7 +40,7 @@ await g.ev(({ stage, wave }) => {
       if (G.state !== 'play' || !p) return;
       const foes = G.foes().filter(e => !e.dying && e.state !== 'down' && e.x > G.cam.x - 10 && e.x < G.cam.x + W + 10 && !e.ignoreForWave);
       // low HP: go for food
-      const food = G.ents.find(e => e.team === 'item' && ITEM_DEFS[e.kind].heal && p.hp < 70);
+      const food = G.ents.find(e => e.team === 'item' && ITEM_DEFS[e.kind].heal && p.hp < 50 && Math.abs(e.x - p.x) < 200);
       const weapon = !p.weapon && G.ents.find(e => e.team === 'item' && ITEM_DEFS[e.kind].weapon && Math.abs(e.x - p.x) < 80);
       const goal = food || weapon;
       let tx = null, ty = null;
@@ -58,8 +65,21 @@ await g.ev(({ stage, wave }) => {
         tx = p.x + 60; ty = (G.bounds.yMin + G.bounds.yMax) / 2;
       }
       if (tx != null) {
+        // steer around solids and hazards that sit between us and the target: pick the nearest free lane
+        const dir = Math.sign(tx - p.x);
+        if (dir) {
+          const blockers = G.solids.filter(r => !r.off && r.x0 - 14 < p.x + dir * 34 && r.x1 + 14 > p.x + dir * 2 && (dir > 0 ? r.x1 > p.x : r.x0 < p.x)).map(r => [r.y0 - 9, r.y1 + 9])
+            .concat(G.ents.filter(e => (e.constructor.name === 'BurningBarrel' || e.toxic) && Math.sign(e.x - p.x) === dir && Math.abs(e.x - p.x) < 40).map(e => [e.y - 12, e.y + 12]));
+          const free = y => blockers.every(([a, b]) => y <= a || y >= b);
+          if (!free(p.y)) {
+            let best = null;
+            for (let y = G.bounds.yMin + 2; y <= G.bounds.yMax - 2; y += 2) if (free(y - 3) && free(y + 3) && free(y) && (best == null || Math.abs(y - p.y) < Math.abs(best - p.y))) best = y;
+            if (best != null) { ty = best; tx = p.x; }
+          }
+        }
         if (Math.abs(tx - p.x) > 3) I.key[tx > p.x ? 'right' : 'left'] = true;
-        if (Math.abs(ty - p.y) > 2) I.key[ty > p.y ? 'down' : 'up'] = true;
+        if (Math.abs(ty - p.y) > 1) I.key[ty > p.y ? 'down' : 'up'] = true;
+        else if (Math.abs(tx - p.x) <= 3 && foes.length === 0 && !goal) I.key.right = true;
       }
     },
   };
@@ -71,7 +91,7 @@ for (; f < maxFrames; f += 60) {
   const s = await g.ev(({ god }) => {
     const w = window.__wb, G = w.Game, b = w.bot;
     for (let i = 0; i < 60; i++) {
-      if (god && G.player) { G.player.hp = Math.max(G.player.hp, 60); G.time = 99; }
+      if (god && G.player) { G.player.hp = Math.max(G.player.hp, 80); G.time = 99; }
       b.think();
       w.step(1);
       if (G.lives < b.lastLives) { b.deaths++; }
@@ -84,8 +104,8 @@ for (; f < maxFrames; f += 60) {
     }
     const p = G.player;
     return { state: G.state, stage: G.stageIndex, wave: G.waveIdx, waves: G.stage ? G.stage.waves.length : 0, cam: Math.round(G.cam.x), lock: G.cam.lock,
-      hp: p ? Math.round(p.hp) : null, lives: G.lives, credits: G.credits, score: G.score, foes: G.livingFoes().map(e => e.type + ':' + Math.round(e.hp) + ':' + e.state),
-      stuck: b.stillFor, deaths: b.deaths, ents: G.ents.length, parts: w.FX.parts.length, time: G.time };
+      hp: p ? Math.round(p.hp) : null, pst: p ? [p.state, p.t, Math.round(p.x), Math.round(p.y), Math.round(p.z), p.sub || '', p.atk ? p.atk.pose : '', !!p.heldBy, !!p.grabbing, G.playerGone].join('/') : null, lives: G.lives, credits: G.credits, score: G.score, foes: G.livingFoes().map(e => e.type + ':' + Math.round(e.hp) + ':' + e.state),
+      stuck: b.stillFor, deaths: b.deaths, dbg: [G.hitstop, G.slow, G.slowScale, G.superFreeze, p && p.hs, p && p.deathFx, p && p.inv, G.bossCardInfo ? 1 : 0, G.state].join('/'), ents: G.ents.length, parts: w.FX.parts.length, time: G.time };
   }, { god: !!o.god });
   if (f % every === 0) await g.shot(join(out, `bot-${String(shot++).padStart(3, '0')}.png`));
   if (f % 600 === 0) console.log(`f${f}`, JSON.stringify(s));
@@ -93,6 +113,9 @@ for (; f < maxFrames; f += 60) {
   if (stageArg !== 'all' && (s.stage !== startStage || s.state === 'story' || s.state === 'results')) { console.log('STAGE DONE', JSON.stringify(s)); break; }
   if (['results', 'entry', 'gameover', 'title'].includes(s.state)) { console.log('RUN OVER', JSON.stringify(s)); break; }
 }
+const scores = await g.ev(() => Object.entries(window.__wb.scoreLog).sort((a, b) => b[1] - a[1]).slice(0, 12));
+console.log('score sources', JSON.stringify(scores));
+console.log('damage by target', JSON.stringify(await g.ev(() => Object.entries(window.__wb.dmgLog).sort((a, b) => b[1][1] - a[1][1]).slice(0, 15))));
 const fin = await g.ev(() => window.__wb.snapshot());
 console.log('final', JSON.stringify({ state: fin.state, stage: fin.stage, wave: fin.wave, hp: fin.hp, lives: fin.lives, score: fin.score, frames: f }));
 console.log(g.errors.length ? 'ERRORS:\n' + g.errors.slice(0, 20).join('\n') : 'no page errors');

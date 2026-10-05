@@ -232,9 +232,9 @@ class Player extends Fighter {
     this.comboT = 75;
     this.comboPop = 6;
     this.bestCombo = Math.max(this.bestCombo, this.comboHits);
-    Game.addScore((dmg || a.dmg || 0) * 10);
+    Game.addScore((dmg != null ? dmg : a.dmg || 0) * 10);
     if (Input.lastDevice === 'touch' && tier >= 2 && navigator.vibrate) { try { navigator.vibrate(tier >= 4 ? 30 : tier >= 3 ? 15 : 8); } catch (e) { /* unsupported */ } }
-    Game.addRage((dmg || a.dmg || 0) / 2);
+    Game.addRage((dmg != null ? dmg : a.dmg || 0) / 2);
     if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
     if (a.weapon && this.weapon) {
       const wd = WEAPONS[this.weapon.kind];
