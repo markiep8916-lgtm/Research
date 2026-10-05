@@ -225,6 +225,20 @@ const FX = {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'smear': { // white crescent along a strike path, fading over 3f
+          ctx.globalAlpha = 0.6 * (1 - k);
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          const r = p.size, a0 = p.a0, a1 = p.a1, f = p.facing;
+          const cx = Math.round(sx), cy = Math.round(sy);
+          const pt = (rad, a) => [cx + f * Math.cos(a) * rad, cy + Math.sin(a) * rad * 0.8];
+          let q = pt(r, a0); ctx.moveTo(q[0], q[1]);
+          for (let i = 1; i <= 8; i++) { q = pt(r, lerp(a0, a1, i / 8)); ctx.lineTo(q[0], q[1]); }
+          for (let i = 8; i >= 0; i--) { q = pt(r - 3 - 2 * Math.sin(i / 8 * Math.PI), lerp(a0, a1, i / 8)); ctx.lineTo(q[0], q[1]); }
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'line': // speed line
           ctx.globalAlpha = 1 - k;
           Px.line(sx, sy, sx + p.dx, sy + p.dy, 1, p.color);

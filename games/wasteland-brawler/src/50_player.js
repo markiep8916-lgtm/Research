@@ -156,6 +156,7 @@ class Player extends Fighter {
     else this.vx *= 0.7;
     if (a.ram && ph === 'active' && this.t % 3 === 0) FX.steam(this.x - this.facing * 6, this.y, 22, 1);
     if (this.t === a.start && a.steam) FX.steam(this.x + this.facing * 10, this.y, 26, 4);
+    if (this.t === a.start && !a.radial) this.smear(a);
     if (a.radial && this.t === a.start) this.burstFx();
     const n = a.radial ? this.resolveRadial(foes, a) : this.resolveAttack(foes);
     void n;
@@ -200,6 +201,16 @@ class Player extends Fighter {
     return n;
   }
   chain(a) { this.connected = false; this.startAttack(a); }
+  // Strike smear: an arc swept by the fist/foot/weapon on the first active frame.
+  smear(a) {
+    const arcs = {
+      jab: [-0.5, 0.15, 20, 28], cross: [-0.45, 0.2, 20, 28], hook: [-1.2, 0.3, 22, 26], upper: [0.6, -1.4, 18, 30],
+      straight: [-0.3, 0.3, 22, 26], backfist: [-0.9, 0.4, 20, 28], swing: [-1.6, 0.6, 26, 26], bigswing: [-2.2, 0.8, 30, 26], thrust: [-0.2, 0.2, 30, 24],
+    };
+    const d = arcs[a.pose];
+    if (!d) return;
+    FX.add({ kind: 'smear', x: this.x, y: this.y, z: this.z + d[3], a0: d[0], a1: d[1], size: d[2], facing: this.facing, life: 3, g: 0 });
+  }
   // Hammer Drop landing: dust, and any enemy type with def.onHammerLand reacts (burrow mounds pop).
   hammerLand() {
     FX.dust(this.x, this.y, 6, 1.2);
