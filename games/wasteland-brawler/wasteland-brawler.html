@@ -611,6 +611,7 @@ const Sound = {
     const stepDur = 60 / s.bpm / 4;
     while (this.nextStepTime < this.ctx.currentTime + 0.12) {
       const totalSteps = s.length * 16;
+      if (s.once && this.step >= totalSteps) { this.stopSong(true); return; }
       const st = this.step % totalSteps;
       const bar = Math.floor(st / 16), pos = st % 16;
       for (const tr of s.tracks) {
@@ -2123,6 +2124,10 @@ class Player extends Fighter {
       case 'meteor': return this.meteorUpdate(foes);
       case 'overdrive': return this.overdriveUpdate(foes);
       case 'barrage': return this.barrageUpdate();
+      case 'victory':
+        this.vx = this.vy = 0;
+        if (this.t % 30 === 0) FX.steam(this.x + this.facing * 4, this.y, 46, 2);
+        return true;
     }
     return false;
   }
@@ -2654,6 +2659,7 @@ class Player extends Fighter {
         return PlayerPoses.hold(t);
       case 'throwing': return PlayerPoses.toss(t + 6);
       case 'meteor': return this.sub === 'impact' ? PlayerPoses.slam() : PlayerPoses.meteor(this.sub);
+      case 'victory': return pose({ rot: 0, fThigh: 0.1, fKnee: 0, bThigh: -0.1, bKnee: 0, fUpper: 3.05, fElbow: 0.1, bUpper: 0.3, bElbow: 1.6, head: -0.15 });
       case 'overdrive': return PlayerPoses.ram('active');
       case 'barrage': return t < 30 ? PlayerPoses.barrage(t) : PlayerPoses.upper('active');
       case 'attack': {

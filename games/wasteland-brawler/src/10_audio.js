@@ -150,6 +150,7 @@ const Sound = {
     const stepDur = 60 / s.bpm / 4;
     while (this.nextStepTime < this.ctx.currentTime + 0.12) {
       const totalSteps = s.length * 16;
+      if (s.once && this.step >= totalSteps) { this.stopSong(true); return; }
       const st = this.step % totalSteps;
       const bar = Math.floor(st / 16), pos = st % 16;
       for (const tr of s.tracks) {

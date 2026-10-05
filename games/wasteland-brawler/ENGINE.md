@@ -139,3 +139,17 @@ elevator, boss, fanfare, gameover, ending.
 - `node tests/hero.mjs`, `node tests/smoke.mjs`.
 - In the page: `window.__wb` has `manual`, `step(n)`, `input(actions, n)`, `tap(action)`, `play(stage, wave)`,
   `sandbox(types, stage)`, `snapshot()`.
+
+## More contracts
+
+- `SONGS[key].once = true` plays a song a single time (jingles: fanfare, gameover).
+- `Game.player.setState('victory')` holds the gauntlet-raised victory pose (venting steam) until another state is set.
+- Final boss finale: the King Valve module sets `Game.finaleDone = true` when the flood sequence ends; stage 3's
+  boss wave uses `until: g => g.finaleDone`. The floodgate wheel stands at world x 3264, screen y 118.
+- Road Raider spawn contract: `{ type: 'raider', side: 'L'|'R', y: laneY, opts: { uturn: true|false } }`; the raider
+  runs its own 45f lane telegraph before crossing.
+- Matriarch spawn contract: `{ type: 'matriarch', side: 'in', x: 260 }`; her module plays the eruption entrance.
+- `ScorpionClaw` (scorpions module, a top-level class): `Game.add(new ScorpionClaw(x, y, victim))` plays the
+  stage 1 foreshadow (a giant pincer drags the victim under the sand; drops a pipe).
+- Toxic puddles (stage 3 module) are entities with `toxic = true`, `x`, `y`, `rx`, `ry`; Ghouls regenerate in them.
+- Enemies with `ignoreForWave = true` (e.g. egg sacs) don't hold a wave open.
