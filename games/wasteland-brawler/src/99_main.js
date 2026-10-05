@@ -99,6 +99,7 @@ const TEST_ARENA = {
     // Jump straight into a stage (optionally at a wave index) for testing.
     play(stage = 0, wave = 0) {
       Sound.unlock();
+      if (!STAGES[stage]) STAGES[stage] = TEST_ARENA;
       Game.newGame();
       if (stage) Game.startStage(stage);
       Game.setState('play');
