@@ -659,6 +659,8 @@
     e.speed = 0.9 * (e.kvPhase === 3 ? 1.3 : 1);
     e.kvBackStep = false;
     if (e.kvPhase === 1 && e.hp <= PH2) { startCrank(e); return; }
+    // the floodgate crank was interrupted (overdrive, knockdown): walk back and finish it
+    if (e.kvPhase === 2 && !e.kvCrankDone && e.state !== 'kvcrank') { startCrank(e); return; }
     if (e.kvPhase === 2 && e.hp <= PH3 && e.kvCrankDone) { startPhase3(e); return; }
     if (!p || p.state === 'down' || p.state === 'getup' || p.state === 'victory') {
       // never hit a downed hero: loom at a distance and vent steam
@@ -1393,7 +1395,8 @@
         const x0 = pts[i * 2] + ox, y0 = pts[i * 2 + 1], x1 = lerp(x0, pts[i * 2 + 2] + ox, u), y1 = lerp(y0, pts[i * 2 + 3], u);
         const wide = f.f > 40 ? 3 : 2;
         Px.line(x0, y0, x1, y1, wide, '#0a0c10');
-        if (f.f > 20) Px.line(x0 + 1, y0, x1 + 1, y1, 1, f.f > 40 && (Game.frame >> 2) % 2 ? '#e8f4ff' : C.spray);
+        // water glints in the fissure while it spurts, then settles
+        if (f.f > 20) Px.line(x0 + 1, y0, x1 + 1, y1, 1, f.f > 40 && f.f < 120 && (Game.frame >> 2) % 2 ? '#e8f4ff' : C.spray);
       }
       for (const b of f.branches) {
         if (b.at > k) continue;
@@ -1405,14 +1408,16 @@
     constructor(king) {
       super(Game.cam.x + W / 2, 0);
       Object.assign(this, { king, team: 'fx', shadowR: 0, kvFin: true, f: 0, camX0: Game.cam.x, washed: new Set(), rain: 0, teo: null });
-      // crack polyline up the dam wall (screen coords at creation)
+      // the dam crown splits: a fissure runs across the deck from the back railing to the front edge
+      // (screen x at creation, ground rows), so it stays on the structure instead of the sky
       const pts = []; const br = [];
-      let x = 316, y = Game.bounds.yMin - 1;
+      const yMax = Game.bounds.yMax - 2;
+      let x = 316, y = Game.bounds.yMin + 2;
       pts.push(x, y);
       for (let i = 0; i < 11; i++) {
-        x += rr(-6, 9); y -= rr(8, 12);
-        pts.push(x, Math.max(24, y));
-        if (i % 3 === 1) br.push({ x, y, dx: rr(-12, 12), dy: rr(-8, 4), at: i + 1 });
+        x += rr(-8, 3); y = Math.min(yMax, y + rr(5, 7));
+        pts.push(x, y);
+        if (i % 3 === 1) br.push({ x, y, dx: rr(-14, 14), dy: rr(-3, 3), at: i + 1 });
       }
       this.crack = pts; this.branches = br;
       this.back = Game.add(new FinaleBack(this));
@@ -1430,7 +1435,7 @@
       if (f > 8 && f < 70 && f % 2 === 0) {
         const n = this.crack.length / 2, i = Math.min(n - 1, Math.floor(clamp(f / 40, 0, 1) * (n - 1)));
         const sx = this.crack[i * 2] + this.camX0 - camX, sy = this.crack[i * 2 + 1];
-        FX.add({ kind: 'drop', x: camX + sx, y: Game.bounds.yMin, z: Game.bounds.yMin - sy, vx: rr(-2.5, -0.5), vz: rr(0.5, 2), life: 40, color: C.spray, g: 0.2 });
+        FX.add({ kind: 'drop', x: camX + sx + rr(-2, 2), y: sy, z: 1, vx: rr(-1.5, 1.5), vz: rr(2, 4), life: 40, color: C.spray, g: 0.2 });
       }
       if (f === 36) {
         Sound.playSong('ending');
@@ -1618,6 +1623,8 @@
       }
     },
     think, stateUpdate, onHurt, onDeath, drawBody, drawExtra,
+    // scripted beats the Piston King overdrive must not pin (it would cancel them)
+    noPin(e) { return ['kvcrank', 'kvphase', 'kvburst', 'kvshrug'].includes(e.state); },
     attackTick(a, ph) {
       const e = this, p = hero();
       if (a.key === 'steam') {

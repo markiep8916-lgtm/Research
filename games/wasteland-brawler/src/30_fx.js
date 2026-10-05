@@ -116,6 +116,12 @@ const FX = {
     this.flash(pal[0], 3, 0.35);
   },
   text(x, y, z, str, color = '#fff', life = 45, scale = 1) {
+    // stack above recent popups near the same spot instead of drawing on top of them
+    for (let n = 0; n < 4; n++) {
+      const hit = this.texts.some(t => t.t < 30 && Math.abs(t.x - x) < 40 && Math.abs((t.y - t.z) - (y - z)) < 8);
+      if (!hit) break;
+      z += 9;
+    }
     this.texts.push({ x, y, z, str, color, t: 0, life, scale });
   },
   showBanner(str, color = '#ffe066', life = 56) { this.banner = { str, color, t: 0, life }; },
@@ -248,7 +254,8 @@ const FX = {
     }
     for (const t of this.texts) {
       const k = t.t / t.life;
-      const sx = t.x - camX, sy = t.y - t.z - easeOut(Math.min(1, k * 2)) * 14;
+      const hw = textWidth(t.str, t.scale) / 2;
+      const sx = clamp(t.x - camX, hw + 2, W - hw - 2), sy = Math.max(24, t.y - t.z - easeOut(Math.min(1, k * 2)) * 14);
       if (k > 0.75 && (t.t >> 1) % 2) continue;
       drawText(ctx, t.str, sx, sy, t.color, t.scale, 'center');
     }

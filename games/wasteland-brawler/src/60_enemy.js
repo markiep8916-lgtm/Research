@@ -11,7 +11,8 @@
 //                     selfVx, keepVx, projectile } },
 //   pattern(dist, dy) -> attack key | null   (this = enemy)
 //   think(), stateUpdate() -> bool, attackTick(a, phase), drawBody(g), init(opts), onHurt(), onDeath(),
-//   onRemoved(), onDowned(), enterStyles: { side(spec) }, drawExtra(ctx, camX)
+//   onRemoved(), onDowned(), enterStyles: { side(spec) }, drawExtra(ctx, camX),
+//   noPin(e) -> true while a scripted beat must not be interrupted by the Piston King overdrive
 // }
 
 const ENEMY_TYPES = {};

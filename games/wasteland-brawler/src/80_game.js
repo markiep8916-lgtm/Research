@@ -127,7 +127,7 @@ const Game = {
     this.card = { num: 'STAGE ' + (i + 1), title: st.title, sub: st.sub };
     this.time = 99; this.timeTick = 0;
     this.stageDmg0 = this.player.damageTaken;
-    this.finaleDone = false; this.bossDone = false;
+    this.finaleDone = false; this.bossDone = false; this.resumeSong = null; this.respawnDrop = false;
     this.setState('stageintro');
     this.player.vx = 0;
     Sound.playSong(st.music);
@@ -137,7 +137,11 @@ const Game = {
     this.playerGone = true;
     this.lives--;
     if (this.lives > 0) setTimeoutFrames(30, () => this.respawn());
-    else { this.setState('continue'); Sound.fadeOut(1.2); }
+    else {
+      // remember the boss or wave song so a continue resumes it (not during a boss's own death fade)
+      if (!this.bossDone && Sound.songName && !(SONGS[Sound.songName] || {}).once) this.resumeSong = Sound.songName;
+      this.setState('continue'); Sound.fadeOut(1.2);
+    }
   },
   respawn() {
     const p = this.player;
@@ -147,8 +151,11 @@ const Game = {
     p.z = 110; p.vz = 0; p.vx = 0; p.jumpDir = 0; p.airUsed = true;
     p.inv = 120; p.blink = true;
     p.weapon = null;
+    p.deathFx = false;
+    p.chainT = 0; p.chainNext = null;
     this.playerGone = false;
     this.respawnDrop = true;
+    this.time = 99; this.timeTick = 0;              // a new life refills TIME (else DEHYDRATED again at once)
     FX.flash('#ffffff', 4, 0.4);
   },
   respawnLanded() {
@@ -172,7 +179,7 @@ const Game = {
     p.dying = false;
     this.setState('play');
     this.respawn();
-    Sound.playSong(this.stage.music, true);
+    Sound.playSong(this.resumeSong || (this.wave && this.wave.music) || this.stage.music, true);
   },
 
   // ---------- waves ----------
@@ -240,9 +247,11 @@ const Game = {
   },
   stageClear() {
     if (this.state !== 'play') return;
+    // a hero dying in the boss's clear delay resolves her death and respawn first
+    if (this.playerGone || this.respawnDrop || !this.player || this.player.hp <= 0) { setTimeoutFrames(30, () => this.stageClear()); return; }
     this.bossDone = false;
     this.setState('clear');
-    Sound.playSong('fanfare');
+    if (!(this.finaleDone && Sound.songName === 'ending')) Sound.playSong('fanfare');
     const p = this.player;
     if (p.state !== 'down' && p.state !== 'fall') { p.setState('victory'); p.vx = p.vy = 0; }
     this.clearBonus = { rows: [
@@ -267,6 +276,7 @@ const Game = {
     this.frame++;
     this.t++;
     Input.update();
+    if (this.state === 'play' && this.player) this.player.recordInput();
     if (this.portraitHit > 0) this.portraitHit--;
     if (this.shownScore < this.score) this.shownScore = Math.min(this.score, this.shownScore + Math.max(1, Math.ceil((this.score - this.shownScore) / 8)));
     else this.shownScore = this.score;
@@ -281,12 +291,12 @@ const Game = {
   },
   transition(cb) { if (this.fadeDir) return; this.fadeDir = 1; this.fadeCb = () => { cb(); this.fadeDir = -1; }; },
 
-  upd_boot() {},
+  upd_boot() { if (Input.anyPressed) this.toTitle(); },
   upd_title() {
     FX.update();
     if (this.t === 20) { this.hitstop = 0; FX.shake(3, 10); Sound.sfx('hitFinisher'); for (let i = 0; i < 12; i++) FX.add({ kind: 'spark', x: W / 2, y: 54, z: 0, vx: rr(-4, 4), vz: rr(-1, 4), life: 14, g: 0.1, drag: 0.9 }); }
     if (this.fadeDir) return;
-    if (this.howto) { if (Input.anyPressed && this.t > 10) { this.howto = false; Sound.sfx('menu'); } return; }
+    if (this.howto) { if (++this.howtoT > 10 && Input.anyPressed) { this.howto = false; Sound.sfx('menu'); } return; }
     if (Input.anyPressed) this.titleIdle = 0;
     else if (++this.titleIdle > 60 * 20) { this.showTop = 360; this.titleIdle = 0; }
     if (this.showTop > 0) { this.showTop--; if (Input.anyPressed) this.showTop = 0; return; }
@@ -297,7 +307,7 @@ const Game = {
     if (Input.pressed('down')) { this.menuSel = (this.menuSel + 1) % items; Sound.sfx('menu'); }
     const lr = Input.pressed('left') ? -1 : Input.pressed('right') ? 1 : 0;
     const go = Input.pressed('start') || Input.pressed('attack') || Input.pressed('jump');
-    if (this.menuSel === 1 && go) { this.howto = true; this.t = 0; Sound.sfx('select'); return; }
+    if (this.menuSel === 1 && go) { this.howto = true; this.howtoT = 0; Sound.sfx('select'); return; }
     if (this.menuSel === 2 && (lr || go)) {
       const keys = Object.keys(DIFFS);
       const i = (keys.indexOf(this.diffKey) + (lr || 1) + keys.length) % keys.length;
@@ -336,7 +346,7 @@ const Game = {
     if (this.t > 130 || (this.t > 50 && Input.anyPressed)) { this.setState('play'); p.setState('idle'); p.vx = 0; }
   },
   upd_play() {
-    if (Input.pressed('start')) { this.setState('pause'); Sound.sfx('pause'); this.menuSel = 0; Sound.musicFilter(600, 0.15); return; }
+    if (Input.pressed('start')) { this.pause(); return; }
     // slow motion: run the simulation on a fraction of frames
     if (this.slow > 0) {
       this.slow--;
@@ -347,8 +357,10 @@ const Game = {
     }
     this.simulate(true);
   },
-  resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(this.silhouetteDist ? 900 : 20000, 0.15); },
+  pause(quiet) { this.setState('pause'); if (!quiet) Sound.sfx('pause'); this.menuSel = 0; Sound.musicFilter(600, 0.15); Sound.setMusicLevel(0.4); },
+  resume() { this.setState('play'); Sound.sfx('pause'); Sound.musicFilter(this.silhouetteDist ? 900 : 20000, 0.15); Sound.setMusicLevel(1); },
   upd_pause() {
+    if (this.fadeDir) return;
     if (Input.pressed('start')) { this.resume(); return; }
     const n = 4;
     if (Input.pressed('up')) { this.menuSel = (this.menuSel + n - 1) % n; Sound.sfx('menu'); }
@@ -362,8 +374,8 @@ const Game = {
   },
   toTitle() {
     this.player = null; this.ents = []; this.solids = []; this.letterboxTarget = 0; this.letterbox = 0; this.menuSel = 0;
-    this.silhouetteDist = 0; this.titleReady = false; this.howto = false; this.titleIdle = 0; this.showTop = 0;
-    FX.reset(); Sound.musicFilter(20000, 0.1);
+    this.silhouetteDist = 0; this.titleReady = false; this.howto = false; this.titleIdle = 0; this.showTop = 0; this.respawnDrop = false;
+    FX.reset(); Sound.musicFilter(20000, 0.1); Sound.setMusicLevel(1, 0.05);
     this.setState('title'); Sound.playSong('title');
   },
   upd_continue() {
@@ -389,6 +401,7 @@ const Game = {
   },
   upd_entry() {
     const e = this.entry, CH = HiScores.CHARS;
+    if (this.fadeDir || e.pos >= 3) return;      // the score is saved exactly once
     if (Input.pressed('up')) { e.letters[e.pos] = (e.letters[e.pos] + 1) % CH.length; Sound.sfx('menu'); }
     if (Input.pressed('down')) { e.letters[e.pos] = (e.letters[e.pos] + CH.length - 1) % CH.length; Sound.sfx('menu'); }
     if (Input.pressed('left') && e.pos > 0) { e.pos--; Sound.sfx('menu'); }
@@ -580,7 +593,11 @@ const Game = {
     const order = this.ents.slice().sort((a, b) => a.sortY() - b.sortY() || (a.team === 'player' ? 1 : b.team === 'player' ? -1 : 0));
     for (const e of order) e.draw(ctx, camX);
     FX.draw(ctx, camX);
-    if (st.drawFg) st.drawFg(ctx, camX, this.frame, this);
+    if (st.drawFg) {
+      ctx.save(); ctx.beginPath(); ctx.rect(-32, 23, W + 64, H); ctx.clip();
+      st.drawFg(ctx, camX, this.frame, this);
+      ctx.restore();
+    }
     ctx.restore();
     if (this.superFreeze > 0) {
       ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
@@ -617,7 +634,7 @@ const Game = {
   },
   draw_boot(ctx) {
     ctx.fillStyle = '#0e0a08'; ctx.fillRect(0, 0, W, H);
-    drawText(ctx, (Input.lastDevice === 'touch' ? 'TAP' : 'CLICK OR PRESS ANY KEY'), W / 2, H / 2 - 3, '#e9d9bf', 1, 'center');
+    drawText(ctx, (Input.lastDevice === 'touch' ? 'TAP TO START' : 'CLICK OR PRESS ANY KEY'), W / 2, H / 2 - 3, '#e9d9bf', 1, 'center');
   },
   draw_title(ctx) { drawTitleScreen(ctx, this); },
   draw_story(ctx) { drawStoryScreen(ctx, this.storyPages[this.storyIdx], this.storyChar, this); },
@@ -641,7 +658,7 @@ const Game = {
       drawText(ctx, 'CONTINUE?', W / 2, 52, '#ffe066', 3, 'center');
       drawText(ctx, String(count), W / 2, 92 - (k < 1 ? (1 - k) * 6 : 0), '#ffffff', k < 1 ? 7 : 6, 'center');
       drawVultures(ctx, this);
-      drawText(ctx, Input.lastDevice === 'touch' ? 'TAP HIT' : 'PRESS ATTACK', W / 2, 150, (this.t >> 4) % 2 ? '#e9d9bf' : '#9c8670', 1, 'center');
+      drawText(ctx, Input.lastDevice === 'touch' ? 'TAP THE SCREEN' : 'PRESS ATTACK', W / 2, 150, (this.t >> 4) % 2 ? '#e9d9bf' : '#9c8670', 1, 'center');
       drawText(ctx, this.credits >= 99 ? 'FREE PLAY' : 'CREDITS ' + this.credits, W / 2, 164, '#9c8670', 1, 'center');
     } else {
       drawText(ctx, 'NO CREDITS', W / 2, 90, '#e83b3b', 2, 'center');

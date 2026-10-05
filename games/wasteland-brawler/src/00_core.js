@@ -56,11 +56,14 @@ const Input = {
   tapPrev: { left: -99, right: -99 },
   frame: 0,
   anyPressed: false,
+  tap: false,          // a tap on the game screen outside play: one frame of 'attack'
   lastDevice: 'keyboard',
   init(target) {
     window.addEventListener('keydown', e => {
       const a = KEYMAP[e.code];
       if (!a) return;
+      // let Enter/Space activate a focused page button (Sound, Fullscreen) instead of the game
+      if (e.target && e.target.closest && e.target.closest('button')) return;
       e.preventDefault();
       this.key[a] = true;
       this.lastDevice = 'keyboard';
@@ -103,6 +106,12 @@ const Input = {
         const p = pointers.get(e.pointerId);
         if (!p) return;
         e.preventDefault();
+        // a thumb sliding between action buttons presses the new one; d-pad and PAUSE fingers stay put
+        if (p.el.dataset.dpad == null && p.el.dataset.act !== 'start') {
+          const hit = document.elementFromPoint(e.clientX, e.clientY);
+          const nel = hit && hit.closest('[data-act]:not([data-act="start"])');
+          if (nel && root.contains(nel)) p.el = nel;
+        }
         p.acts = actsAt(p.el, e.clientX, e.clientY);
       } else {
         pointers.delete(e.pointerId);
@@ -147,6 +156,7 @@ const Input = {
     let any = false;
     for (const a of ACTIONS) {
       c[a] = !!(this.key[a] || this.touch[a] || this.pad[a]);
+      if (a === 'attack' && this.tap) { c[a] = c[a] || !this.prev[a]; this.tap = false; }
       if (c[a] && !this.prev[a]) any = true;
     }
     this.cur = c;
@@ -162,7 +172,7 @@ const Input = {
   doubleTap(d, win = 14) { return this.pressed(d) && this.tapTime[d] - this.tapPrev[d] <= win; },
   dirX() { return (this.down('right') ? 1 : 0) - (this.down('left') ? 1 : 0); },
   dirY() { return (this.down('down') ? 1 : 0) - (this.down('up') ? 1 : 0); },
-  clear() { this.key = {}; this.touch = {}; this.cur = {}; this.prev = {}; },
+  clear() { this.key = {}; this.touch = {}; this.cur = {}; this.prev = {}; this.tap = false; },
 };
 
 // ---------- 5x7 bitmap font ----------
@@ -247,8 +257,9 @@ const Screen = {
   fit() {
     const box = this.view.parentElement.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    let cw = box.width, ch = cw * H / W;
-    if (box.height > 0 && ch > box.height) { ch = box.height; cw = ch * W / H; }
+    const bw = 6;                    // the canvas carries a 3 px bezel border on each side
+    let cw = box.width - bw, ch = cw * H / W;
+    if (box.height > 0 && ch > box.height - bw) { ch = box.height - bw; cw = ch * W / H; }
     cw = Math.max(1, Math.floor(cw)); ch = Math.max(1, Math.floor(ch));
     this.view.style.width = cw + 'px';
     this.view.style.height = ch + 'px';

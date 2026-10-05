@@ -51,7 +51,7 @@ await g.ev(({ stage, wave }) => {
         const t = foes.sort((a, b) => (Math.abs(a.x - p.x) + Math.abs(a.y - p.y) * 2) - (Math.abs(b.x - p.x) + Math.abs(b.y - p.y) * 2))[0];
         const near = foes.filter(e => Math.abs(e.x - p.x) < 40 && Math.abs(e.y - p.y) < 14).length;
         if (near >= 3 && p.hp > 25 && this.t % 30 === 0) { I.key.special = true; return; }
-        if (G.rage >= 100 && near >= 2) { I.key.special = true; return; }
+        if (G.rage >= 100 && near >= 2 && this.t % 2 === 0) { I.key.special = true; return; }   // tap, never hold (a held key never re-presses)
         const side = t.x > p.x ? -1 : 1;
         tx = t.x + side * (18 + (t.w || 8)); ty = t.y;
         const dx = Math.abs(t.x - p.x), dy = Math.abs(t.y - p.y);

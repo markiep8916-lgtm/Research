@@ -84,6 +84,8 @@ Hit tiers: T1 light, T2 medium, T3 heavy, T4 finisher, T5 crit. Hitstop/shake/so
   and `a.noise(dur, vol, freq, q, filterType, delay, a.out(pan), freqEnd)`).
 - **Hammer Drop:** the hero's neutral-jump attack carries `a.hammer = true` (13 dmg minimum vs the scorpion
   family). When it lands, every enemy whose type has `def.onHammerLand(x, y)` gets that call (burrow mounds pop).
+- **Piston King overdrive** pins every vulnerable enemy it passes, except types whose `def.noPin(e)` returns true
+  (scripted beats such as King Valve's floodgate crank). The barrage does not refill the Rage meter.
 - **Cross-module spawn styles (contracts between modules):** `side: 'mound'` (scorpions module: erupts from a sand
   mound at screen `x`), `side: 'vat'` (mutants module: climbs out of a vat at the back wall, z 30). Stage modules
   just use these sides; the enemy modules implement them in `enterStyles`.

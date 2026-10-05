@@ -107,12 +107,21 @@ const Sound = {
     f.cancelScheduledValues(t); f.setValueAtTime(f.value, t); f.exponentialRampToValueAtTime(Math.max(60, freq), t + sec);
   },
   // Duck the music bus briefly (heavy hits).
+  // Never during a fade-out: re-raising the gain would bring a dying song back.
   duck(level = 0.5, sec = 0.15) {
-    if (!this.ok() || !this.song) return;
-    const g = this.musicBus.gain, t = this.ctx.currentTime;
+    if (!this.ok() || !this.song || this.fading) return;
+    const g = this.musicBus.gain, t = this.ctx.currentTime, full = 0.32 * this.level;
     g.cancelScheduledValues(t);
-    g.setValueAtTime(0.32 * level, t);
-    g.linearRampToValueAtTime(0.32, t + sec + 0.35);
+    g.setValueAtTime(full * level, t);
+    g.linearRampToValueAtTime(full, t + sec + 0.35);
+  },
+  // Overall music level (1 in play, 0.4 while paused).
+  level: 1,
+  setMusicLevel(k, sec = 0.15) {
+    this.level = k;
+    if (!this.ctx || this.fading) return;
+    const g = this.musicBus.gain, t = this.ctx.currentTime;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.32 * k, t + Math.max(0.01, sec));
   },
 
   // ---- music sequencer ----
@@ -125,9 +134,10 @@ const Sound = {
     this.song = SONGS[name];
     if (!this.song) return;
     this.step = 0;
+    this.fading = false;
     this.nextStepTime = this.ctx.currentTime + 0.08;
     this.musicBus.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicBus.gain.setValueAtTime(0.32, this.ctx.currentTime);
+    this.musicBus.gain.setValueAtTime(0.32 * this.level, this.ctx.currentTime);
     this.timer = setInterval(() => this.schedule(), 25);
   },
   stopSong(keepName) {
@@ -142,7 +152,9 @@ const Sound = {
     this.musicBus.gain.cancelScheduledValues(t);
     this.musicBus.gain.setValueAtTime(this.musicBus.gain.value, t);
     this.musicBus.gain.linearRampToValueAtTime(0, t + sec);
-    setTimeout(() => { if (this.musicBus.gain.value < 0.01) this.stopSong(); }, sec * 1000 + 50);
+    this.fading = true;
+    const tok = this.fadeTok = (this.fadeTok || 0) + 1;
+    setTimeout(() => { if (this.fading && this.fadeTok === tok) { this.fading = false; this.stopSong(); } }, sec * 1000 + 50);
   },
   schedule() {
     const s = this.song;

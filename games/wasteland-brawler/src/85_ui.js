@@ -39,7 +39,7 @@ function drawHUD(ctx, g) {
   const p = g.player;
   if (!p) return;
   Px.use(ctx);
-  ctx.globalAlpha = 0.45; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, 23); ctx.globalAlpha = 1;
+  ctx.globalAlpha = 0.72; ctx.fillStyle = '#0a0706'; ctx.fillRect(0, 0, W, 23); ctx.globalAlpha = 1;
   // portrait 18x18 at (4,2)
   const hit = g.portraitHit > 0;
   const px = 4 + (hit ? (g.frame % 2 ? 1 : -1) : 0);
@@ -58,8 +58,9 @@ function drawHUD(ctx, g) {
   const fill = p.venom > 0 ? '#9be15d' : lowHp && (g.frame >> 3) % 2 ? UI.orange : '#f2c14e';
   hpBar(ctx, 26, 12, 96, 6, frac, fill, { trail: trailOf(p, frac, 96), grey: p.grey / p.maxHp });
   const full = g.rage >= 100;
-  Px.rect(26, 20, 96, 1, '#2a1d15');
-  Px.rect(26, 20, Math.round(96 * g.rage / 100), 1, full ? ((g.frame >> 2) % 2 ? '#ffffff' : '#ff9a2e') : '#b8572a');
+  Px.rect(25, 19, 98, 4, UI.outline);
+  Px.rect(26, 20, 96, 2, '#3a2418');
+  Px.rect(26, 20, Math.round(96 * g.rage / 100), 2, full ? ((g.frame >> 2) % 2 ? '#ffffff' : '#ffe14a') : '#ff9a2e');
   // weapon slot 14x14 at (126,3) + durability pips
   Px.rect(125, 2, 16, 16, UI.outline);
   Px.rect(126, 3, 14, 14, '#2a1d15');
@@ -77,7 +78,7 @@ function drawHUD(ctx, g) {
   // enemy info / boss
   const b = g.bossRef && !g.bossRef.remove ? g.bossRef : null;
   const f = g.foe;
-  if (f && !f.remove && !b) {
+  if (f && !f.remove && f !== b) {
     const ff = Math.max(0, f.hp / f.maxHp);
     drawTextO(ctx, f.name, 212, 3, '#ff8a6a');
     hpBar(ctx, 212, 12, 80, 6, ff, FAMILY_BAR[f.family] || UI.orange, { trail: trailOf(f, ff, 80) });
@@ -230,8 +231,8 @@ function drawTitleScreen(ctx, g) {
   }
   if (t > 26) {
     if (!g.titleReady) {
-      if (f % 60 < 30) drawTextO(ctx, Input.lastDevice === 'touch' ? 'TAP TO START' : 'PRESS ENTER', W / 2, 170, UI.gold, 1, 'center');
-    } else {
+      if (f % 60 < 30) drawTextO(ctx, { touch: 'TAP TO START', gamepad: 'PRESS START' }[Input.lastDevice] || 'PRESS ENTER', W / 2, 170, UI.gold, 1, 'center');
+    } else if (!g.howto) {
       const items = ['START GAME', 'HOW TO PLAY', 'DIFFICULTY  < ' + g.diff.name + ' >', 'SOUND: ' + (Sound.muted ? 'OFF' : 'ON')];
       items.forEach((s, i) => {
         const sel = g.menuSel === i;
@@ -249,6 +250,13 @@ function drawTitleScreen(ctx, g) {
   if (g.howto) drawHowTo(ctx, g);
   if (g.showTop > 0) drawTopScores(ctx, g);
 }
+// Button names for the device the player is using right now.
+function devKeys() {
+  const d = Input.lastDevice;
+  if (d === 'touch') return { dev: d, a: 'HIT', j: 'JUMP', s: 'SPEC', st: 'PAUSE' };
+  if (d === 'gamepad') return { dev: d, a: 'X', j: 'A', s: 'B', st: 'START' };
+  return { dev: 'keyboard', a: 'J', j: 'K', s: 'L', st: 'ENTER' };
+}
 function drawMiniFist(ctx, x, y) {
   Px.use(ctx);
   Px.rect(x - 4, y - 2, 4, 4, HERO_PAL.iron);
@@ -256,16 +264,24 @@ function drawMiniFist(ctx, x, y) {
   Px.rect(x + 4, y - 3, 1, 6, HERO_PAL.knuckle);
 }
 function drawHowTo(ctx, g) {
-  ctx.globalAlpha = 0.88; ctx.fillStyle = '#0e0a08'; ctx.fillRect(16, 14, W - 32, H - 28); ctx.globalAlpha = 1;
+  // opaque card: the logo and menu must not show through
+  ctx.fillStyle = '#0e0a08'; ctx.fillRect(16, 14, W - 32, H - 28);
   Px.use(ctx);
   Px.rect(16, 14, W - 32, 1, '#ffb030'); Px.rect(16, H - 15, W - 32, 1, '#ffb030');
   drawTextO(ctx, 'HOW TO PLAY', W / 2, 22, UI.gold, 2, 'center');
-  const touch = Input.lastDevice === 'touch';
-  const lines = touch ? [
+  const K = devKeys();
+  const lines = K.dev === 'touch' ? [
     ['D-PAD', 'MOVE (DOUBLE-TAP SIDEWAYS TO RUN)'],
     ['HIT', 'ATTACK / PICK UP'],
-    ['JUMP', 'JUMP (+HIT IN THE AIR)'],
+    ['JUMP', 'JUMP (HIT IN THE AIR TO KICK)'],
     ['SPEC', 'SCRAP BURST / THROW WEAPON'],
+    ['PAUSE', 'PAUSE (TOP CORNER)'],
+  ] : K.dev === 'gamepad' ? [
+    ['D-PAD/STICK', 'MOVE    DOUBLE-TAP TO RUN'],
+    ['X', 'ATTACK / PICK UP'],
+    ['A', 'JUMP    (X IN THE AIR TO KICK)'],
+    ['B', 'SCRAP BURST / THROW WEAPON'],
+    ['START', 'PAUSE'],
   ] : [
     ['ARROWS/WASD', 'MOVE    DOUBLE-TAP TO RUN'],
     ['J', 'ATTACK / PICK UP'],
@@ -275,11 +291,11 @@ function drawHowTo(ctx, g) {
   ];
   lines.forEach((l, i) => { drawTextO(ctx, l[0], 34, 44 + i * 11, UI.gold); drawTextO(ctx, l[1], 120, 44 + i * 11, UI.ink); });
   const tips = [
-    'WALK INTO FOES TO GRAB. J KNEES, J+DIRECTION THROWS.',
-    'L = SCRAP BURST: COSTS HP, WIN IT BACK BY HITTING.',
-    'FORWARD+J ON THE 4TH HIT = PISTON STRAIGHT.',
-    'NEUTRAL JUMP+J = HAMMER DROP: POPS SAND MOUNDS.',
-    'FULL RAGE BAR: L FOR THE PISTON KING.',
+    `WALK INTO FOES TO GRAB. ${K.a} KNEES, ${K.a}+DIRECTION THROWS.`,
+    `${K.s} = SCRAP BURST: COSTS HP, WIN IT BACK BY HITTING.`,
+    `FORWARD+${K.a} ON THE 4TH HIT = PISTON STRAIGHT.`,
+    `NEUTRAL JUMP+${K.a} = HAMMER DROP: POPS SAND MOUNDS.`,
+    `FULL RAGE BAR: ${K.s} FOR THE PISTON KING.`,
     'WATCH THE RED !: BIG HITS ARE TELEGRAPHED.',
   ];
   tips.forEach((tp, i) => drawTextO(ctx, tp, W / 2, 106 + i * 12, UI.dim, 1, 'center'));
@@ -317,7 +333,7 @@ function drawStoryScreen(ctx, page, chars, g) {
   const lines = wrapText(text, 54);
   lines.forEach((ln, i) => drawText(ctx, ln, 28, 130 + i * 12, UI.ink));
   if (chars >= page.text.length && (g.frame >> 4) % 2) Px.poly([350, 190, 358, 190, 354, 195], UI.gold);
-  drawText(ctx, 'ENTER: SKIP', W - 6, H - 10, '#5a4a3a', 1, 'right');
+  drawText(ctx, devKeys().st + ': SKIP', W - 6, H - 10, '#5a4a3a', 1, 'right');
 }
 function wrapText(str, n) {
   const out = [];

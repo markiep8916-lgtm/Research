@@ -161,8 +161,9 @@ class Fighter extends Ent {
     if (src && src.onLanded) src.onLanded(this, a, dealt, tier);
 
     if (dead) { this.onDeath(src, a, dir); }
-    // reaction
-    let flinch = true, launch = a.knock || dead || wasAir;
+    // reaction (forceKD: the attacker's onLanded asked for a knockdown, e.g. a pipe's 3rd hit)
+    const fkd = this.forceKD; this.forceKD = null;
+    let flinch = true, launch = a.knock || dead || wasAir || !!fkd;
     if (this.poiseMax > 0 && !dead) {
       this.poise -= a.poise != null ? a.poise : [0, 4, 8, 14, 24, 30][tier];
       if (this.poise <= 0) { this.poise = this.poiseMax; this.onPoiseBreak && this.onPoiseBreak(); }
@@ -179,6 +180,7 @@ class Fighter extends Ent {
       const juggling = wasAir;
       if (juggling) this.juggle++;
       let kx = a.kx != null ? a.kx : 2.2, kz = a.kz != null ? a.kz : 3.0;
+      if (fkd && !a.knock) { kx = fkd.kx; kz = fkd.kz; }
       if (dead && !a.knock) { kx = 3.5; kz = 3.5; }
       if (juggling && !dead) { kx = Math.min(kx, 2.0); kz = 2.6; }
       const j = this.juggle;
@@ -231,7 +233,7 @@ class Fighter extends Ent {
     }
     if (this.venom > 0) {
       this.venom--;
-      if (this.venom % 20 === 0 && this.hp > 1 && this.state !== 'down') { this.hp -= 1; FX.add({ kind: 'bubble', x: this.x + rr(-4, 4), y: this.y, z: this.z + this.h, vz: 0.5, g: 0, life: 24, color: '#7cff4f' }); }
+      if (this.venom % 40 === 0 && this.hp > 1 && this.state !== 'down') { this.hp -= 1; FX.add({ kind: 'bubble', x: this.x + rr(-4, 4), y: this.y, z: this.z + this.h, vz: 0.5, g: 0, life: 24, color: '#7cff4f' }); }
     }
     if (this.z > 0 || this.vz !== 0) {
       this.z += this.vz;

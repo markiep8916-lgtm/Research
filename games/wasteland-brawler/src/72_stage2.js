@@ -922,6 +922,8 @@
     if (!p || S.col === 0 || S.col === 5) return;
     S.colT++;
     if (S.col === 1) {
+      // never start the cave-in on a dying or respawning hero: let her death and respawn resolve first
+      if (p.hp <= 0 || g.playerGone || g.respawnDrop) { S.colT = 0; return; }
       const ready = p.z <= 0 && ['idle', 'walk', 'run', 'skid', 'land'].includes(p.state);
       if (ready || S.colT > 90) {
         S.col = 2; S.colT = 0;

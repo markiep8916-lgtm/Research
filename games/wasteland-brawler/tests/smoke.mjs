@@ -1,12 +1,14 @@
 // Smoke playtest: boots the game in headless Chromium, plays a little, captures screenshots and
-// any page errors. Usage: node tests/smoke.mjs [outDir]
+// any page errors. Usage: node tests/smoke.mjs [--out dir] [--html path]
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { argv } from './lib.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const out = resolve(process.argv[2] || join(root, 'tests', 'out'));
+const o = argv();
+const out = resolve(o.out || join(root, 'tests', 'out'));
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
@@ -16,7 +18,7 @@ await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message + '\n' + (e.stack || '')));
 page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !/Failed to load resource/.test(m.text())) errors.push(m.type() + ': ' + m.text()); });
-await page.goto('file://' + join(root, 'wasteland-brawler.html'));
+await page.goto('file://' + resolve(o.html || join(root, 'wasteland-brawler.html')));
 await page.waitForTimeout(400);
 const shot = async name => page.screenshot({ path: join(out, name + '.png') });
 const state = () => page.evaluate(() => {

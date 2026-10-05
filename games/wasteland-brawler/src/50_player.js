@@ -41,7 +41,11 @@ class Player extends Fighter {
     this.shadowR = 9;
     this.grabbing = null; this.grabT = 0; this.knees = 0; this.grabPush = 0;
     this.connected = false;
+    // Button buffers are stamped by Game.update (so presses during hitstop count) in player frames
+    // (pf only advances when the hero updates, so a freeze never expires a buffered press).
     this.buf = { attack: -99, jump: -99, special: -99 };
+    this.pf = 0;
+    this.chainNext = null; this.chainT = 0;      // chain step still open for 16 f after recovery
     this.comboHits = 0; this.comboT = 0; this.bestCombo = 0; this.comboPop = 0;
     this.weapon = null;
     this.pipeStreak = 0;
@@ -55,12 +59,15 @@ class Player extends Fighter {
   get vulnerable() {
     if (this.inv > 0 || ['down', 'getup', 'dead', 'overdrive', 'meteor', 'barrage'].includes(this.state)) return false;
     if (this.state === 'attack' && this.atk === P_ATK.burst && this.t <= 24) return false;
-    if (this.state === 'grab' && this.sub === 'toss') return false;
+    if (this.state === 'grab' && (this.sub === 'toss' || this.sub === 'suplex')) return false;
+    // a knocked-down hero is intangible until she lands: no juggling her to death
+    if (this.state === 'fall') return false;
     return true;
   }
 
   update(bounds, foes) {
-    for (const k of ['attack', 'jump', 'special']) if (Input.pressed(k)) this.buf[k] = Input.frame;
+    this.pf++;
+    if (this.chainT > 0 && --this.chainT === 0) this.chainNext = null;
     if (this.comboT > 0 && --this.comboT === 0) this.endCombo();
     if (this.comboPop > 0) this.comboPop--;
     this.physics(bounds);
@@ -84,7 +91,9 @@ class Player extends Fighter {
     for (const g of this.ghosts) g.t++;
     this.ghosts = this.ghosts.filter(g => g.t < 12);
   }
-  buffered(k, win = 8) { return Input.frame - this.buf[k] <= win; }
+  buffered(k, win = 8) { return this.pf - this.buf[k] <= win; }
+  // Called by Game.update right after Input.update while in play.
+  recordInput() { for (const k of ['attack', 'jump', 'special']) if (Input.pressed(k)) this.buf[k] = this.pf + 1; }
   consume(k) { this.buf[k] = -99; }
 
   // ---------- states ----------
@@ -125,7 +134,7 @@ class Player extends Fighter {
       case 'grab': return this.grabUpdate();
       case 'pickup':
         this.vx = 0;
-        if (this.t >= 8) this.setState('idle');
+        if (this.t >= 10) this.setState('idle');
         return true;
       case 'throwing':
         if (this.t >= 14) this.setState('idle');
@@ -174,6 +183,13 @@ class Player extends Fighter {
       this.setState('jumpsquat');
       return true;
     }
+    if (afterActive && this.connected && (a === P_ATK.jab || a === P_ATK.cross) && this.buffered('attack', 10) && Input.dirX() === -this.facing) {
+      // J with away held mid-chain: turn and back fist (the chain then restarts at step 1)
+      this.consume('attack');
+      this.facing = -this.facing;
+      this.chain(P_ATK.backfist);
+      return true;
+    }
     if (afterActive && this.connected && a.next && this.buffered('attack', 10)) {
       this.consume('attack');
       let next = P_ATK[a.next] || null;
@@ -182,6 +198,9 @@ class Player extends Fighter {
       return true;
     }
     if (ph === 'done') {
+      // a connecting chain step stays open for 16 f after recovery
+      this.chainNext = this.connected && a.next ? a.next : null;
+      this.chainT = this.chainNext ? 16 : 0;
       this.atk = null;
       this.setState('idle');
       return false;
@@ -234,13 +253,13 @@ class Player extends Fighter {
     this.bestCombo = Math.max(this.bestCombo, this.comboHits);
     Game.addScore((dmg != null ? dmg : a.dmg || 0) * 10);
     if (Input.lastDevice === 'touch' && tier >= 2 && navigator.vibrate) { try { navigator.vibrate(tier >= 4 ? 30 : tier >= 3 ? 15 : 8); } catch (e) { /* unsupported */ } }
-    Game.addRage((dmg != null ? dmg : a.dmg || 0) / 2);
+    if (this.state !== 'overdrive' && this.state !== 'barrage') Game.addRage((dmg != null ? dmg : a.dmg || 0) / 2);
     if (this.grey > 0) { const r = Math.min(2, this.grey); this.grey -= r; this.hp = Math.min(this.maxHp, this.hp + r); }
     if (a.weapon && this.weapon) {
       const wd = WEAPONS[this.weapon.kind];
       const armored = target.armorTier >= 2 || target.poiseMax > 0 || (target.def && target.def.noWeaponKD) || target.boss;
       if (wd.kdEvery && ++this.pipeStreak % wd.kdEvery === 0 && target.launchable && !armored && !target.dying) {
-        target.knockDown(this.facing, 2.8 * target.weight, 3.0);
+        target.forceKD = { kx: 2.8, kz: 3.0 };      // Fighter.takeHit turns this hit into a knockdown
       }
       if (--this.weapon.uses <= 0) this.breakWeapon();
     }
@@ -263,6 +282,7 @@ class Player extends Fighter {
     const dx = Input.dirX(), dy = Input.dirY();
     if (this.buffered('jump', 6)) {
       this.consume('jump');
+      this.chainT = 0;
       this.wasRunning = this.state === 'run';
       this.setState('jumpsquat');
       this.vx *= 0.5;
@@ -270,6 +290,7 @@ class Player extends Fighter {
     }
     if (this.buffered('special')) {
       this.consume('special');
+      this.chainT = 0;
       if (Game.rage >= 100) { this.startOverdrive(); return; }
       if (this.weapon && this.weapon.kind !== 'molotov') { this.throwWeapon(); return; }
       if (this.weapon && this.weapon.kind === 'molotov') { this.throwBottle(); return; }
@@ -278,7 +299,7 @@ class Player extends Fighter {
     if (this.buffered('attack')) {
       this.consume('attack');
       const item = Game.itemUnder(this);
-      if (item && !this.enemyAhead(foes, 30)) { this.pickup(item); return; }
+      if (item && !this.enemyAhead(foes, 20)) { this.pickup(item); return; }
       this.connected = false;
       if (this.weapon) {
         if (this.weapon.kind === 'molotov') { this.throwBottle(); return; }
@@ -287,7 +308,15 @@ class Player extends Fighter {
         return;
       }
       if (this.state === 'run') { this.startAttack(P_ATK.ram); return; }
-      if (dx && dx === -this.facing) { this.facing = dx; this.startAttack(P_ATK.backfist); return; }
+      if (dx && dx === -this.facing) { this.chainT = 0; this.facing = dx; this.startAttack(P_ATK.backfist); return; }
+      if (this.chainT > 0 && this.chainNext) {
+        // late press inside the 16 f window: carry on with the chain
+        let next = P_ATK[this.chainNext];
+        if (this.chainNext === 'fin') next = dx === this.facing ? P_ATK.straight : P_ATK.upper;
+        this.chainT = 0; this.chainNext = null;
+        this.startAttack(next);
+        return;
+      }
       if (dx) this.facing = dx;
       this.startAttack(P_ATK.jab);
       return;
@@ -301,6 +330,7 @@ class Player extends Fighter {
     }
     if (dx && (Input.doubleTap('left') || Input.doubleTap('right'))) {
       this.facing = dx;
+      this.chainT = 0;
       this.setState('run');
       return;
     }
@@ -320,7 +350,7 @@ class Player extends Fighter {
     } else this.grabPush = 0;
   }
   enemyAhead(foes, d) {
-    return foes.some(e => e.team === 'enemy' && e.alive && Math.abs(e.y - this.y) < 10 && (e.x - this.x) * this.facing > 0 && Math.abs(e.x - this.x) < d);
+    return foes.some(e => e.team === 'enemy' && e.alive && Math.abs(e.y - this.y) <= 6 && (e.x - this.x) * this.facing > 0 && Math.abs(e.x - this.x) < d);
   }
   physics(bounds) {
     super.physics(bounds);
@@ -411,6 +441,7 @@ class Player extends Fighter {
     if (this.t % 2 === 0) this.ghosts.push({ x: this.x, y: this.y, z: 0, f: this.facing, t: 0, pose: PlayerPoses.ram('active') });
     for (const e of foes) {
       if (e.team !== 'enemy' || e.dying || e.state === 'down' || this.pinned.includes(e)) continue;
+      if (!e.vulnerable || (e.def && e.def.noPin && e.def.noPin(e))) continue;
       if (Math.abs(e.y - this.y) <= 12 && Math.abs(e.x - this.x) < 16 + e.w && e.z < 30) {
         e.atk = null;
         if (e.grabbedBy) e.releaseGrab();
@@ -533,14 +564,14 @@ class Player extends Fighter {
     }
     // backward toss: lift, arc over the head to z 30, then fling the body backwards (a bowling projectile)
     if (f) {
-      if (this.t <= 10) { f.x = this.x + this.facing * 12; f.z = this.t * 2.2; }
-      else if (this.t <= 24) {
-        const k = (this.t - 10) / 14;
+      if (this.t <= 8) { f.x = this.x + this.facing * 12; f.z = this.t * 2.75; }
+      else if (this.t <= 20) {
+        const k = (this.t - 8) / 12;
         f.x = this.x + this.facing * lerp(12, -16, k);
         f.z = 22 + Math.sin(k * Math.PI) * 10;
         f.facing = k > 0.5 ? this.facing : -this.facing;
       }
-      if (this.t === 24) {
+      if (this.t === 20) {
         this.releaseHold();
         f.x = this.x - this.facing * 14; f.z = 26;
         f.setState('thrown'); f.atk = null;
@@ -553,13 +584,17 @@ class Player extends Fighter {
         this.addCombo();
       }
     }
-    if (this.t >= 30) this.setState('idle');
+    if (this.t >= 26) this.setState('idle');
     return true;
   }
   addCombo() { this.comboHits++; this.comboT = 75; this.comboPop = 6; this.bestCombo = Math.max(this.bestCombo, this.comboHits); }
   releaseHold() {
     const f = this.grabbing;
-    if (f) { f.grabbedBy = null; if (f.state === 'grabbed' || f.state === 'held') f.setState('idle'); }
+    if (f) {
+      f.grabbedBy = null;
+      // a body let go in mid-air drops as a fall instead of attacking on the way down
+      if (f.state === 'grabbed' || f.state === 'held') { if (f.z > 0.5) { f.setState('fall'); f.vx = 0; f.vz = 0; } else f.setState('idle'); }
+    }
     this.grabbing = null;
   }
 
@@ -642,6 +677,7 @@ class Player extends Fighter {
     if (this.grabbing) this.releaseHold();
     if (this.heldBy) { const h = this.heldBy; this.heldBy = null; h.holding = false; h.releaseClutch && h.releaseClutch(); }
     if (this.state === 'jumpsquat') this.setState('idle');
+    this.chainT = 0; this.chainNext = null;
     this.grey = 0;
     const heavy = a.knock;
     // anti-stunlock: the 3rd light hit within 90f knocks down
@@ -689,7 +725,7 @@ class Player extends Fighter {
         return PlayerPoses.hold(t);
       case 'throwing': return PlayerPoses.toss(t + 6);
       case 'meteor': return this.sub === 'impact' ? PlayerPoses.slam() : PlayerPoses.meteor(this.sub);
-      case 'victory': return pose({ rot: 0, fThigh: 0.1, fKnee: 0, bThigh: -0.1, bKnee: 0, fUpper: 3.05, fElbow: 0.1, bUpper: 0.3, bElbow: 1.6, head: -0.15 });
+      case 'victory': return pose({ rot: 0, fThigh: 0.1, fKnee: 0, bThigh: -0.1, bKnee: 0, fUpper: 3.6, fElbow: -0.1, bUpper: 0.3, bElbow: 1.6, head: -0.1 });
       case 'overdrive': return PlayerPoses.ram('active');
       case 'barrage': return t < 30 ? PlayerPoses.barrage(t) : PlayerPoses.upper('active');
       case 'attack': {
@@ -793,7 +829,7 @@ const PlayerPoses = {
     return pose({ rot: lerp(0.35, -0.2, k), fThigh: 0.6, fKnee: -0.6, bThigh: -0.4, bKnee: -0.2, fUpper: lerp(1.1, 1.8, k), fElbow: lerp(0.8, 0, k), bUpper: lerp(1.0, 1.6, k), bElbow: 0.4 });
   },
   suplex(t) {
-    const k = clamp((t - 6) / 18, 0, 1);
+    const k = clamp((t - 5) / 15, 0, 1);
     return pose({ hy: -19, rot: lerp(0.1, -0.9, k), fThigh: 0.3, fKnee: -0.5, bThigh: -0.3, bKnee: -0.4, fUpper: lerp(1.6, 3.4, k), fElbow: 0.5, bUpper: lerp(1.5, 3.2, k), bElbow: 0.5, head: -0.3 * k });
   },
   swing(ph) {

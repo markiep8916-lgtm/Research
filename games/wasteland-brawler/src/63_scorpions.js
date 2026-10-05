@@ -48,9 +48,13 @@ const scor_TP = {
   droop:  { c1: [-29, -14], c2: [-40, -18], tip: [-43, -10], ang: 2.0 },
   coil:   { c1: [-33, -12], c2: [-38, -36], tip: [-19, -31], ang: 0.4 },
   thrust: { c1: [-26, -31], c2: [2, -44], tip: [30, -22], ang: 0.55 },
+  // small scorpions' Tail Strike at full extension: the drawn stinger reaches the 46 px stab
+  stab:   { c1: [-24, -32], c2: [8, -44], tip: [38, -19], ang: 0.6 },
   stuck:  { c1: [-24, -28], c2: [12, -38], tip: [33, -12], ang: 1.45 },
   spit:   { c1: [-28, -27], c2: [-9, -51], tip: [9, -43], ang: 0.1 },
   raise:  { c1: [-33, -24], c2: [-31, -53], tip: [-13, -47], ang: 1.25 },
+  // Matriarch's raise: at k = 3.2 the full raise would tower ~150 px; the spec caps her tail at ~96.
+  mraise: { c1: [-33, -20], c2: [-31, -33], tip: [-13, -29], ang: 1.25 },
   limp:   { c1: [-30, -5], c2: [-39, -3], tip: [-45, -6], ang: 2.5 },
   back:   { c1: [-27, -12], c2: [-38, -22], tip: [-33, -30], ang: -0.7 },
 };
@@ -602,11 +606,12 @@ function scor_smallPose(e) {
           o.sting = (t / 3 | 0) % 2 ? '#ffffff' : d.sting;
           o.bodyDip = 1.2 * k; o.clawRaise = 0.4 * k; o.clawOpen = 0.5 * k; o.ox = -1.5 * k;
         } else if (ph === 'active') {
-          o.pose = scor_pl(scor_TP.coil, scor_TP.thrust, clamp((t - a.start + 1) / 2, 0, 1));
+          // fully out from the first active frame: that is the frame the hit lands and hitstop freezes
+          o.pose = scor_TP.stab;
           o.clawOpen = 0.3; o.ox = 2; o.bodyDip = 0.5;
         } else {
           const rt = t - a.start - a.active, left = a.rec - rt;
-          o.pose = left < 7 ? scor_pl(scor_TP.rest, scor_TP.stuck, left / 7) : scor_pl(scor_TP.thrust, scor_TP.stuck, clamp(rt / 2, 0, 1));
+          o.pose = left < 7 ? scor_pl(scor_TP.rest, scor_TP.stuck, left / 7) : scor_pl(scor_TP.stab, scor_TP.stuck, clamp(rt / 2, 0, 1));
           if (left >= 7 && rt > 2) o.quiver = t * 1.7;
           o.clawOpen = 0.2; o.ox = left < 7 ? 2 * left / 7 : 2; o.bodyDip = 1;
         }
@@ -1010,7 +1015,7 @@ function scor_mThink() {
     scor_mStartBurrow(e);
     return;
   }
-  if (fdx <= 68 && fdx >= -40 && ady <= 12) { e.attack('claw'); return; }
+  if (fdx <= 72 && fdx >= -8 && ady <= 12) { e.attack('claw'); return; }
   e.attack('hammer');
 }
 // Where her stinger tip is (entity-local) for a unit pose.
@@ -1186,7 +1191,7 @@ function scor_mDraw() {
     case 'emerge': {
       const k = easeOut(clamp((e.t - 60) / 16, 0, 1));
       o.oy = (1 - k) * 74; clip = 0;
-      o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.raise; o.quiver = e.t;
+      o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.mraise; o.quiver = e.t;
       if (e.t > 80 && e.t < 112) { o.bodyDip = -1; o.ox = Math.sin(e.t * 1.3) * 1; }
       break;
     }
@@ -1201,7 +1206,7 @@ function scor_mDraw() {
       break;
     }
     case 'shrug':
-      o.bodyDip = -1.5; o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.raise; o.quiver = e.t * 3;
+      o.bodyDip = -1.5; o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.mraise; o.quiver = e.t * 3;
       break;
     case 'burrowed': {   // sinking
       const k = clamp(e.t / 30, 0, 1);
@@ -1215,7 +1220,7 @@ function scor_mDraw() {
         o.clawOpen = 0.7; o.clawRaise = 0; o.bodyDip = 2;
         o.pose = scor_pshift(scor_pl(scor_TP.rest, scor_TP.limp, 0.45), Math.sin(e.t * 0.15) * 3, 0, 0);
         o.ox = Math.sin(e.t * 0.2) * 1.5;
-      } else { o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.raise; }
+      } else { o.clawOpen = 1; o.clawRaise = 1; o.pose = scor_TP.mraise; }
       break;
     }
     case 'ko': {
@@ -1252,7 +1257,7 @@ function scor_mDraw() {
         const tgt = e.tgt || e.lodge || { x: e.x + e.facing * 90, y: e.y };
         if (ph === 'start') {
           const k = easeOut(clamp(t / 18, 0, 1));
-          o.pose = scor_pl(scor_TP.rest, scor_TP.raise, k);
+          o.pose = scor_pl(scor_TP.rest, scor_TP.mraise, k);
           o.quiver = t * (t >= a.start - 12 ? 2.5 : 1.2);
           o.bodyDip = 1.5 * k; o.clawRaise = 0.6 * k; o.clawOpen = 0.6;
           o.sting = (t / 3 | 0) % 2 ? '#ffffff' : c.sting;
@@ -1274,12 +1279,12 @@ function scor_mDraw() {
       } else if (a.key === 'rain') {
         if (ph === 'start') {
           const k = clamp(t / a.start, 0, 1);
-          o.pose = scor_pshift(scor_pl(scor_TP.rest, scor_TP.raise, k), 0, Math.sin(t * 0.6) * 3 * k, 0);
+          o.pose = scor_pshift(scor_pl(scor_TP.rest, scor_TP.mraise, k), 0, Math.sin(t * 0.6) * 3 * k, 0);
           o.bodyDip = -1 * k; o.clawRaise = 0.8 * k; o.clawOpen = 0.8 * k;
           o.glowCol = '#c04cff'; o.glowA = 0.5 * k;
         } else if (ph === 'active') {
           const pump = Math.abs(Math.sin((t - a.start) * Math.PI / 4));
-          o.pose = scor_pl(scor_TP.raise, scor_TP.spit, pump); o.bodyDip = -1; o.clawRaise = 0.8; o.clawOpen = 0.8;
+          o.pose = scor_pl(scor_TP.mraise, scor_TP.spit, pump); o.bodyDip = -1; o.clawRaise = 0.8; o.clawOpen = 0.8;
           o.glowCol = '#c04cff'; o.glowA = 0.5;
         } else {
           o.pose = scor_pl(scor_TP.spit, scor_TP.rest, clamp((t - a.start - a.active) / a.rec, 0, 1));
@@ -1314,7 +1319,7 @@ function scor_mDraw() {
 // Tail chain from her tail root to the ground point `tg` (world coords), k = 0..1 blend from the raised pose.
 function scor_mSlamPose(e, tg, k) {
   const s = scor_M_S, base = { x: -18 * s, y: -9 * s };
-  const raised = scor_pscale(scor_TP.raise, s, 0.9, base);
+  const raised = scor_pscale(scor_TP.mraise, s, 0.9, base);
   const L = 18, ang = 1.4;
   const gx = (tg.x - scor_mRig(e)) * e.facing, gy = tg.y - e.y;
   const tip = { x: gx - Math.cos(ang) * (L + 4) - 4, y: gy - Math.sin(ang) * (L + 4) - 2 };
@@ -1365,9 +1370,9 @@ ENEMY_TYPES.matriarch = {
   coolMin: 70, coolMax: 70,
   deathSfx: 'scorShriek',
   attacks: {
-    claw: { start: 18, active: 6, rec: 24, dmg: 12, tier: 3, knock: true, kx: 3.0, kz: 3.4, reach: [-40, 68], zr: [0, 34], depth: 14,
+    claw: { start: 18, active: 6, rec: 24, dmg: 12, tier: 3, knock: true, kx: 3.0, kz: 3.4, reach: [-8, 72], zr: [0, 34], depth: 14,
       tell: 'glint', glint: [56, -40], rim: true, whiff: 'whooshBig' },
-    hammer: { start: 36, active: 1, rec: 80, dmg: 20, tier: 3, custom: true, tell: 'glint', glint: [-90, -142], rim: true },
+    hammer: { start: 36, active: 1, rec: 80, dmg: 20, tier: 3, custom: true, tell: 'glint', glint: [-84, -94], rim: true },
     rain: { start: 24, active: 20, rec: 30, dmg: 8, tier: 2, custom: true, tell: 'glint', glint: [-70, -130] },
   },
   init() {

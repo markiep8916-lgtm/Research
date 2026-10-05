@@ -14,6 +14,14 @@ const TEST_ARENA = {
 };
 
 (function boot() {
+  // Web fonts for the page chrome only (the game draws its own bitmap font). Inserted from
+  // script so a slow or blocked font host never holds up the game.
+  try {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Share+Tech+Mono&display=swap';
+    document.head.appendChild(l);
+  } catch (e) { /* fallback font stacks are fine */ }
   const view = document.getElementById('screen');
   Screen.init(view);
   Input.init(view);
@@ -21,21 +29,31 @@ const TEST_ARENA = {
   if (pad) Input.bindTouch(pad);
 
   const markTouch = () => {
+    Input.lastDevice = 'touch';
     if (!document.body.classList.contains('touch')) { document.body.classList.add('touch'); Screen.fit(); }
   };
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) markTouch();
-  window.addEventListener('touchstart', markTouch, { passive: true, once: true });
+  window.addEventListener('touchstart', markTouch, { passive: true });
 
-  // first interaction unlocks audio
-  const unlock = () => { Sound.unlock(); if (Game.state === 'boot') Game.toTitle(); if (Sound.ok() && !Sound.timer && Sound.songName) Sound.playSong(Sound.songName, true); };
+  // first interaction unlocks audio (Sound.unlock starts the pending song when it creates the context)
+  const unlock = () => { Sound.unlock(); if (Game.state === 'boot') Game.toTitle(); };
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
-  view.addEventListener('pointerdown', () => view.focus({ preventScroll: true }));
+  // A tap or click on the screen in the menus acts as one press of attack (confirm / next page).
+  // Boot is left to the unlock listener above, which runs after this one.
+  view.addEventListener('pointerdown', () => {
+    view.focus({ preventScroll: true, focusVisible: false });
+    if (['title', 'story', 'continue', 'gameover', 'results'].includes(Game.state)) Input.tap = true;
+  });
+  // Leaving the page mid-fight pauses instead of letting enemies beat on a hero with dead controls.
+  const autoPause = () => { if (Game.state === 'play' && !(window.__wb && window.__wb.manual)) Game.pause(true); };
+  window.addEventListener('blur', autoPause);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
 
   const soundBtn = document.getElementById('btn-sound');
   const syncSound = () => { if (soundBtn) { soundBtn.textContent = Sound.muted ? 'Sound off' : 'Sound on'; soundBtn.setAttribute('aria-pressed', String(!Sound.muted)); } };
   syncSound();
-  if (soundBtn) soundBtn.addEventListener('click', () => { Sound.unlock(); Sound.toggleMute(); syncSound(); view.focus({ preventScroll: true }); });
-  window.addEventListener('keydown', e => { if (e.code === 'KeyM') { Sound.unlock(); Sound.toggleMute(); syncSound(); } });
+  if (soundBtn) soundBtn.addEventListener('click', () => { Sound.unlock(); Sound.toggleMute(); syncSound(); view.focus({ preventScroll: true, focusVisible: false }); });
+  window.addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) { Sound.unlock(); Sound.toggleMute(); syncSound(); } });
 
   const fullBtn = document.getElementById('btn-full');
   if (fullBtn) {
@@ -48,7 +66,7 @@ const TEST_ARENA = {
         else if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
       } catch (err) { /* fullscreen not allowed here */ }
-      view.focus({ preventScroll: true });
+      view.focus({ preventScroll: true, focusVisible: false });
     });
   }
 

@@ -1,7 +1,6 @@
 <title>Rustfist</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Dirt&family=Share+Tech+Mono&display=swap">
 <style>
 /* Layout: one-screen arcade cabinet. Header strip, the game screen centred in a rusted bezel,
    then either a keyboard legend (desktop) or a thumb pad (touch). Single dark world by design. */
@@ -59,7 +58,9 @@ h1 span { color: var(--ink); }
   padding: 6px 10px; cursor: pointer;
 }
 .tools button:hover { border-color: var(--hazard); }
-.tools button:focus-visible, .stage:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
+.tools button:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
+canvas#screen:focus { outline: none; }
+canvas#screen:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
 .stage {
   flex: 1 1 auto; min-height: 0;
   display: flex; align-items: center; justify-content: center;
@@ -142,15 +143,32 @@ body.touch .pad {
   .tools button { padding: 5px 8px; font-size: 11px; }
 }
 @media (orientation: landscape) {
-  /* phones held sideways: float the pad over the bottom corners of the screen */
+  /* phones held sideways: the pad sits in the bottom corners and the screen is sized to fit
+     between the two clusters, so no control ever covers the play band */
+  body.touch {
+    --dpad-w: min(28vh, 150px);
+    --btn-w: min(13vh, 60px);
+    --atk-w: min(16vh, 74px);
+  }
   body.touch .pad {
     position: absolute; left: 16px; right: 16px; bottom: 8px;
-    pointer-events: none; opacity: 0.72;
+    pointer-events: none; opacity: 0.85;
   }
   body.touch .pad > * { pointer-events: auto; }
-  body.touch .dpad { width: min(28vh, 150px); }
-  body.touch .btn { width: min(13vh, 60px); }
-  body.touch .btn.atk { width: min(16vh, 74px); }
+  body.touch .dpad { width: var(--dpad-w); }
+  body.touch .btn { width: var(--btn-w); }
+  body.touch .btn.atk { width: var(--atk-w); }
+  body.touch .btns { column-gap: 12px; }
+  body.touch .screen-wrap {
+    width: auto; flex: 1 1 auto; min-width: 0;
+    margin-left: calc(var(--dpad-w) + 12px);
+    margin-right: calc(var(--btn-w) + var(--atk-w) + 24px);
+  }
+  /* PAUSE moves to the top-right corner, clear of the floor */
+  body.touch .btn.start {
+    position: fixed; top: 8px; right: 16px;
+    width: auto; min-width: 44px; height: 28px; padding: 0 10px;
+  }
   body.touch header { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
