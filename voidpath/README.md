@@ -8,7 +8,7 @@ Four travelers wake aboard the derelict colony ship **ISV Halcyon**, drifting on
 a ringed gas giant. Walk the Cryo Deck, the Spine Corridor and the Engineering Bay, find the Bridge
 Keycard, and face the **SENTINEL** on the Observation Bridge.
 
-Play online: (link added on publish)
+Play online: https://claude.ai/artifact/GRbvHKgQTW4CVvfCCp3g6R (private Artifact; the owner can share it from the page menu)
 
 | | |
 |---|---|
