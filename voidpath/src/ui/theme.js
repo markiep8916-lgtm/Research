@@ -9,6 +9,10 @@ export const BASE_CSS = `
 .vp-layer { position: absolute; inset: 0; pointer-events: none; }
 #ui-root > .vp-layer { pointer-events: none; }          /* beats the template's #ui-root > * rule */
 #ui-root > .vp-layer.is-live { pointer-events: auto; }
+/* big screens: scale the whole UI like a console does, keeping a ~1280x720 effective layout */
+@media (min-width: 1560px) and (min-height: 880px) { #ui-root > .vp-layer { zoom: 1.25; } }
+@media (min-width: 1880px) and (min-height: 1060px) { #ui-root > .vp-layer { zoom: 1.5; } }
+@media (min-width: 2520px) and (min-height: 1420px) { #ui-root > .vp-layer { zoom: 2; } }
 /* closed layers keep no animation ticking (no wasted frames under the 3D view) */
 .vp-menu:not(.is-open) *, .vp-title:not(.is-open) *, .vp-dlg:not(.is-open) *, .vp-hud.is-hidden * { animation-play-state: paused !important; }
 

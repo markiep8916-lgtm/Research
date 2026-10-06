@@ -392,7 +392,9 @@ export class Input {
       if (e.pointerId !== this._stickId) return;
       let dx = e.clientX - this._stickCx, dy = e.clientY - this._stickCy;
       const m = Math.hypot(dx, dy);
-      if (m > TOUCH_RADIUS) { dx *= TOUCH_RADIUS / m; dy *= TOUCH_RADIUS / m; }
+      const k = Math.min(1, TOUCH_RADIUS / (m || 1));   // keep the knob inside the ring
+      dx *= k;
+      dy *= k;
       this._stickKnob.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
       const n = Math.min(1, m / TOUCH_RADIUS);
       if (n < TOUCH_DEADZONE) { this._touchAxis.x = 0; this._touchAxis.y = 0; }
