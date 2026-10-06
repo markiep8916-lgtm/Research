@@ -462,14 +462,14 @@ function paintFloorBridge(t) {
     t.px(16 - i, 22 - i, B[3], 0.48).px(16 + i, 22 - i, B[3], 0.48);
   }
   t.px(16, 16, B[5]);
-  // cyan inlay running in the seams, with a glowing node where four plates meet
-  for (let d = -5; d <= 5; d++) {
+  // cyan inlay running in the seams, with a small soft node where four plates meet
+  for (let d = -3; d <= 3; d++) {
     if (d === 0) continue;
-    const c = Math.abs(d) <= 2 ? CY[4] : Math.abs(d) <= 4 ? CY[3] : CY[2];
+    const c = Math.abs(d) === 1 ? CY[3] : CY[2];
     t.glow(d, 0, c).glow(0, d, c);
     t.ht(d, 0, 0.3).ht(0, d, 0.3);
   }
-  t.glow(0, 0, CY[5]).ht(0, 0, 0.35);
+  t.glow(0, 0, CY[4]).ht(0, 0, 0.35);
   // dim inlay continues along the rest of the seam
   for (let d = 6; d <= 26; d++) {
     if (d % 3 === 0) { t.glow(d, 0, CY[1], CY[1]); t.glow(0, d, CY[1], CY[1]); }

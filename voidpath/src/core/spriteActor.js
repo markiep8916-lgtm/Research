@@ -10,9 +10,16 @@ import { makeBlobShadow, makeHologramMaterial, BAYER_GLSL, NOISE_GLSL } from './
 
 const sheetCache = new WeakMap();
 
-/** Alpha channel of a canvas as one byte per pixel (read back once per sheet). */
+/**
+ * Alpha channel of a canvas as one byte per pixel (read back once per sheet). It reads through a
+ * scratch copy so the shared sheet canvas (already read by the normal-map builder) is never read
+ * back twice, which would trip Chrome's willReadFrequently warning.
+ */
 function readAlpha(canvas) {
-  const rgba = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  const scratch = makeCanvas(canvas.width, canvas.height);
+  const g = scratch.getContext('2d', { willReadFrequently: true });
+  g.drawImage(canvas, 0, 0);
+  const rgba = g.getImageData(0, 0, canvas.width, canvas.height).data;
   const a = new Uint8Array(canvas.width * canvas.height);
   for (let i = 0; i < a.length; i++) a[i] = rgba[i * 4 + 3];
   return a;
@@ -289,6 +296,8 @@ export class SpriteActor {
       this.blob.position.x = this._blobX;
       this.object3d.add(this.blob);
     }
+    // frame-0 opaque bounds in frame pixels (y down), for callers that place effects on the art
+    this.bounds = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 };
     // visual top of the art in the group's space (for damage numbers, cursors, name tags)
     const artTop = (fh - b.y0) / pxPerUnit - h * anchor[1];
     this.top = artTop * Math.cos(tilt);
