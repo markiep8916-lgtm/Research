@@ -1,11 +1,13 @@
 // Party + NPC pixel art for VOIDPATH (owner: art-party).
 //
 // Sprites are drawn into an indexed Frame (material + tone per pixel) and resolved to colour at the end.
-// Bodies are assembled from a 2D skeleton: limbs are tapered capsules, torsos and garments are polygons,
-// all shaded by one fixed upper-left light quantized into each material's hand-picked, hue-shifted ramp
-// (cool shadows, warm highlights). Faces, hair and small identity details are hand-authored string
-// templates. Layer order (far arm, far leg, torso, near leg, garment, near arm, head, weapon) plus 1px
-// contact lines between overlapping parts keep silhouettes readable; a dark outline closes every frame.
+// Bodies are assembled from a 2D skeleton (two-bone IK for battle limbs): limbs are tapered capsules,
+// torsos and garments are polygons, all shaded by one fixed upper-left light quantized into each
+// material's hand-picked, hue-shifted ramp (cool shadows, warm highlights). Hair is built from tapered
+// capsule locks (or hand-shaded templates for the smooth field styles); faces, visors, lenses and other
+// identity details are hand-authored string templates. Layer order (far arm + weapon, legs, torso,
+// garment, head, near arm) plus 1px contact lines between overlapping parts keep silhouettes readable,
+// and a dark outline closes every frame.
 
 import { Painter, packSheet, makeNormalMap, makeEmissiveMap } from './painter.js';
 import { OUTLINE, OUTLINE_SOFT } from './palette.js';
@@ -22,8 +24,8 @@ const LIGHT = (() => {
 })();
 
 // Quantize lambert into ramp tones 0 (deep) .. 3 (light); tone 4 (specular glint) only when spec is set.
-function toneOf(nx, ny, nz, count, bias = 0, spec = false) {
-  const v = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2] + bias;
+function toneOf(nx, ny, nz, count, spec = false) {
+  const v = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2];
   const t = v > 0.95 && spec ? 4 : v > 0.78 ? 3 : v > 0.41 ? 2 : v > -0.25 ? 1 : 0;
   return t < count ? t : count - 1;
 }
@@ -89,7 +91,11 @@ class Frame {
 
   count(mi) { return this.pal.colors[mi].length; }
 
-  has(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h && this.m[y * this.w + x] >= 0; }
+  has(x, y) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    return x >= 0 && y >= 0 && x < this.w && y < this.h && this.m[y * this.w + x] >= 0;
+  }
 
   begin(group) {
     this.sid++;
@@ -142,12 +148,11 @@ class Frame {
     const x0 = Math.floor(Math.min(ax, bx) - R), x1 = Math.ceil(Math.max(ax, bx) + R);
     const y0 = Math.floor(Math.min(ay, by) - R), y1 = Math.ceil(Math.max(ay, by) + R);
     const fixed = typeof mat === 'string' ? this.mat(mat) : -1;
-    const dim = o.dim || 0, bias = o.bias || 0;
+    const dim = o.dim || 0;
     this.begin(o.group);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const px = x + 0.5, py = y + 0.5;
       let t = ((px - ax) * dx + (py - ay) * dy) / l2;
-      if ((t < 0 && o.capA === false) || (t > 1 && o.capB === false)) continue;
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const r = ra + (rb - ra) * t;
       const ex = px - (ax + dx * t), ey = py - (ay + dy * t);
@@ -155,23 +160,23 @@ class Frame {
       if (d2 >= r * r) continue;
       const nx = ex / r, ny = ey / r, nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
       const mi = fixed >= 0 ? fixed : this.mat(mat(t, (dx * ey - dy * ex) / (len * r)));
-      const tone = Math.max(0, toneOf(nx, ny, nz, this.count(mi), bias, o.spec) - dim);
+      const tone = Math.max(0, toneOf(nx, ny, nz, this.count(mi), o.spec) - dim);
       this.put(x, y, mi, tone, 1);
     }
     this.end(o.sep !== false);
   }
 
-  /** Ellipsoid blob. mat: name or (nx, ny) => name. */
+  /** Ellipsoid blob. mat: name or (nx, ny) => name; o.clip(px, py) excludes pixels. */
   ball(cx, cy, rx, ry, mat, o = {}) {
     const fixed = typeof mat === 'string' ? this.mat(mat) : -1;
-    const dim = o.dim || 0, bias = o.bias || 0;
+    const dim = o.dim || 0;
     this.begin(o.group);
     for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
       for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
         const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry, d2 = nx * nx + ny * ny;
         if (d2 >= 1 || (o.clip && o.clip(x + 0.5, y + 0.5))) continue;
         const mi = fixed >= 0 ? fixed : this.mat(mat(nx, ny));
-        const tone = Math.max(0, toneOf(nx, ny, Math.sqrt(1 - d2), this.count(mi), bias, o.spec) - dim);
+        const tone = Math.max(0, toneOf(nx, ny, Math.sqrt(1 - d2), this.count(mi), o.spec) - dim);
         this.put(x, y, mi, tone, 1);
       }
     }
@@ -180,12 +185,12 @@ class Frame {
 
   /**
    * Polygon shaded as a cylinder across each row (torsos, coats, robes).
-   * mat: name or (x, y) => name; o.ny(y) tilts the normal vertically (chest up, hem down).
+   * mat: name or (x, y) => name (null skips the pixel); o.ny(y) tilts the normal vertically (chest up, hem down).
    */
   shape(pts, mat, o = {}) {
     const rows = scanPoly(pts);
     const fixed = typeof mat === 'string' ? this.mat(mat) : -1;
-    const dim = o.dim || 0, bias = o.bias || 0, round = o.round ?? 0.92;
+    const dim = o.dim || 0, round = 0.92;
     this.begin(o.group);
     for (const [y, xl, xr] of rows) {
       const mid = (xl + xr + 1) / 2, hw = Math.max(1, (xr - xl + 1) / 2);
@@ -196,7 +201,7 @@ class Frame {
         const mname = fixed >= 0 ? null : mat(x, y);
         if (mname === null && fixed < 0) continue;
         const mi = fixed >= 0 ? fixed : this.mat(mname);
-        const tone = Math.max(0, toneOf(nx, ny, nz, this.count(mi), bias, o.spec) - dim);
+        const tone = Math.max(0, toneOf(nx, ny, nz, this.count(mi), o.spec) - dim);
         this.put(x, y, mi, tone, 1);
       }
     }
@@ -356,7 +361,6 @@ const BLINK = { i: 'e', o: 'i' };
 
 const CHARS = {
   kade: {
-    name: 'KADE',
     mats: {
       skin: ['#9c5a47', '#d4906f', '#f0b896', '#fcd9c0'],
       hair: ['#5b6279', '#8d95ac', '#c4ccdc', '#e9eef7', '#ffffff'],
@@ -384,14 +388,13 @@ const CHARS = {
   },
 
   nyx: {
-    name: 'NYX',
     mats: {
       skin: ['#8e5550', '#cf9686', '#efc5b3', '#fde3d6'],
       hair: ['#0a2f36', '#12555c', '#1e8b8c', '#41c3b8', '#a3f2e4'],
-      main: ['#0f131d', '#1c2333', '#2c364b', '#43526e', '#6c7e9e'],
-      sec: ['#0e1219', '#192029', '#27323f', '#3b4c5e'],
+      main: ['#121827', '#212a3e', '#334059', '#4c5d7f', '#7b8fb4'],
+      sec: ['#121822', '#1f2835', '#2f3c4d', '#46596e'],
       acc: ['#0b4350', '#0f6a78', '#17a2a9', '#45dad3'],
-      lea: ['#150f13', '#261b22', '#3a2a33', '#553e49'],
+      lea: ['#1a1218', '#2e2029', '#45313d', '#634856'],
       metal: ['#151b25', '#2b3447', '#48546c', '#73819c', '#b3c0d4'],
       glow: ['#29b6e8', '#7ff4ff', '#e8fdff'],
       eye: ['#10263a', '#2a8f9c', '#ffffff'],
@@ -462,7 +465,6 @@ const CHARS = {
   },
 
   orion: {
-    name: 'ORION',
     mats: {
       skin: ['#6e3d2b', '#a8694a', '#cf9470', '#ecbf98'],
       hair: ['#521c0c', '#8c3615', '#c4582a', '#ea8a4c', '#ffbf86'],
@@ -490,7 +492,6 @@ const CHARS = {
   },
 
   sera: {
-    name: 'SERA',
     mats: {
       skin: ['#9e5a4c', '#de9c82', '#f7c8ac', '#ffe6d4'],
       hair: ['#5a1740', '#932a69', '#cf4f98', '#f283c2', '#ffc8e5'],
@@ -639,7 +640,6 @@ function drawLeg(f, ch, L, view, dim = 0, B = ch.build) {
   const fr = B.footR || 1.6;
   if (view === 'side' || view === 'battle') f.limb(L.ankle[0] - 0.4, L.ankle[1] + 1, L.toe[0], L.toe[1], fr, fr - 0.35, S.boot, { group: g, dim });
   else f.ball(L.ankle[0], L.ankle[1] + 1.4, 2.4, 1.6, S.boot, { group: g, dim });
-  return g;
 }
 
 function drawArm(f, ch, A, dim = 0, o = {}) {
@@ -694,8 +694,8 @@ const FIELD_LOCKS = {
       [2.6, 4.6, -0.6, 4.4, 2.0, 0.4],
       [11.4, 4.6, 14.6, 3.8, 2.0, 0.4],
       [4.2, 3.2, 2.4, -0.6, 2.2, 0.4],
-      [7.2, 2.6, 7.6, -1.6, 2.3, 0.4],
-      [10, 3.2, 12, -0.4, 2.2, 0.4],
+      [7.2, 2.6, 7.6, -0.7, 2.3, 0.4],
+      [10, 3.2, 12, -0.2, 2.2, 0.4],
       [4.4, 4.2, 3.4, 7.4, 1.7, 0.3],
       [7.6, 4.2, 7.2, 7.2, 1.6, 0.3],
       [10.2, 4.2, 11, 7.4, 1.6, 0.3],
@@ -705,8 +705,8 @@ const FIELD_LOCKS = {
       [2.6, 5, -0.6, 4.8, 2.0, 0.4],
       [11.4, 5, 14.6, 4.4, 2.0, 0.4],
       [4.2, 3.2, 2.4, -0.6, 2.2, 0.4],
-      [7.2, 2.6, 7.6, -1.6, 2.3, 0.4],
-      [10, 3.2, 12, -0.4, 2.2, 0.4],
+      [7.2, 2.6, 7.6, -0.7, 2.3, 0.4],
+      [10, 3.2, 12, -0.2, 2.2, 0.4],
       [4.4, 8.4, 4, 11.4, 1.8, 0.4],
       [7, 8.8, 7, 12, 1.9, 0.4],
       [9.6, 8.4, 10, 11.4, 1.8, 0.4],
@@ -717,8 +717,8 @@ const FIELD_LOCKS = {
       [3.4, 9.2, 0.8, 11.6, 1.8, 0.4],
       [3, 6.6, -0.8, 7, 2.0, 0.4],
       [4, 4, 0.4, 1.6, 2.2, 0.4],
-      [6.4, 3, 4.6, -1.0, 2.2, 0.4],
-      [9, 3, 9.8, -1.2, 2.2, 0.4],
+      [6.4, 3, 4.6, -0.6, 2.2, 0.4],
+      [9, 3, 9.8, -0.7, 2.2, 0.4],
       [10, 4.2, 13.6, 5.4, 1.8, 0.3],
       [9.4, 5, 11, 8, 1.4, 0.3],
     ] },
@@ -774,14 +774,13 @@ function haloRing(f, cx, cy, rx, ry, mat = 'glow') {
 }
 
 /** Long rifle as procedural parts between muzzle (mx, my) and stock end (sx, sy). */
-function rifleParts(f, mx, my, sx, sy, o = {}) {
-  const g = o.group ?? f.group(), dim = o.dim || 0;
+function rifleParts(f, mx, my, sx, sy) {
+  const g = f.group();
   const at = (t) => [mx + (sx - mx) * t, my + (sy - my) * t];
   const [ax, ay] = at(0.36), [bx, by] = at(0.72);
-  f.limb(mx, my, ax, ay, 0.75, 0.85, 'metal', { group: g, dim });
-  f.limb(ax, ay, bx, by, 1.45, 1.35, 'metal', { group: g, dim });
-  f.limb(bx, by, sx, sy, 1.2, 1.6, 'lea', { group: g, dim });
-  return g;
+  f.limb(mx, my, ax, ay, 0.75, 0.85, 'metal', { group: g });
+  f.limb(ax, ay, bx, by, 1.45, 1.35, 'metal', { group: g });
+  f.limb(bx, by, sx, sy, 1.2, 1.6, 'lea', { group: g });
 }
 
 /** A vertical-ish cloth fold: shadow line plus a lit line beside it, only over the given material. */
@@ -808,7 +807,7 @@ CHARS.kade.hooks = {
     }
   },
   torso(f, sk) {
-    const { cx, sh, view } = sk, top = Math.floor(sk.sh - 0.5);
+    const { cx, view } = sk, top = Math.floor(sk.sh - 0.5);
     if (view === 'side') {
       f.line(cx + 2, top + 1, cx + 2, top + 4, 'main', 3, { on: 'main' });
       return;
@@ -817,7 +816,6 @@ CHARS.kade.hooks = {
     f.line(cx - 1, top + 2, cx - 1, top + 5, 'main', 3, { on: 'main' });
     f.line(cx, top + 2, cx, top + 5, 'main', 1, { on: 'main' });
     if (view === 'down') f.tpl(['MN', 'nM'], cx - 1, top + 9, { only: true });
-    void sh;
   },
   skirt(f, sk) {
     const { cx, hip } = sk;
@@ -886,7 +884,7 @@ CHARS.nyx.hooks = {
     else f.shape([[cx - 3.8, sh - 3], [cx + 3.8, sh - 3], [cx + 4.2, sh + 1.2], [cx - 4.2, sh + 1.2]], (x, y) => (y < sh - 2 ? 'acc' : view === 'down' && Math.abs(x + 0.5 - cx) < 1 ? 'sec' : 'main'), { ny: () => -0.3 });
   },
   front(f, sk) {
-    const { cx, headY, sh, hip, view } = sk;
+    const { cx, headY, view } = sk;
     if (view !== 'up') return;
     const w = sk.walk ? [0, 1, 0, -1][sk.i] : 0;
     f.tpl(PONY.up.slice(0, 7), cx - 3, headY + 1, { sep: true });
@@ -1265,9 +1263,8 @@ function drawBTorso(f, ch, P) {
   const mat = ch.bstyle.torso;
   const g = f.group();
   const t0 = 2.4 / L;
-  f.limb(top[0], top[1], waist[0], waist[1], B.chestR, B.waistR, (t, s) => mat(t0 + t * (tw - t0), s), { group: g, capA: true });
+  f.limb(top[0], top[1], waist[0], waist[1], B.chestR, B.waistR, (t, s) => mat(t0 + t * (tw - t0), s), { group: g });
   f.limb(waist[0], waist[1], hx, hy, B.waistR, B.hipR, (t, s) => mat(tw + t * (1 - tw), s), { group: g });
-  return g;
 }
 
 function drawBHead(f, id, P) {
@@ -1286,7 +1283,6 @@ function drawBHead(f, id, P) {
     rows.forEach((r, j) => { full[oy + j] = '.'.repeat(ox) + r + '.'.repeat(16 - ox - r.length); });
     f.tpl(rotCW(full), x, y, { group: g });
   }
-  return g;
 }
 
 // Battle hair built from tapered capsules (root -> tip) in 16x16 head-box coordinates, back to front.
@@ -1369,7 +1365,7 @@ function ponytail(f, P) {
 }
 
 /** Radial burst of glow pixels (cast poses, muzzle flash). */
-function glowBurst(f, x, y, r, mat = 'glow2', rays = true) {
+function glowBurst(f, x, y, r, mat = 'glow2') {
   const mi = f.mat(mat);
   f.begin();
   for (let j = Math.floor(y - r - 3); j <= Math.ceil(y + r + 3); j++) {
@@ -1377,7 +1373,7 @@ function glowBurst(f, x, y, r, mat = 'glow2', rays = true) {
       const dx = i + 0.5 - x, dy = j + 0.5 - y, d = Math.hypot(dx, dy);
       if (d < r * 0.55) f.put(i, j, mi, 2);
       else if (d < r) f.put(i, j, mi, 1);
-      else if (rays && r >= 1.5 && (Math.abs(dx) < 0.6 || Math.abs(dy) < 0.6) && d < r + 2.5) f.put(i, j, mi, d < r + 1.2 ? 1 : 0);
+      else if (r >= 1.5 && (Math.abs(dx) < 0.6 || Math.abs(dy) < 0.6) && d < r + 2.5) f.put(i, j, mi, d < r + 1.2 ? 1 : 0);
     }
   }
   f.end(false);
@@ -1395,9 +1391,8 @@ function swordB(f, grip, deg, len = 15, o = {}) {
   f.ball(gx - dx * 3.1, gy - dy * 3.1, 1.15, 1.15, 'metal', { group: g });
   f.limb(gx + dx * 2.2, gy + dy * 2.2, gx + dx * len, gy + dy * len, 1.65, 0.55, 'metal', { group: g, spec: true });
   const cx = gx + dx * 1.9, cy = gy + dy * 1.9;
-  f.limb(cx - px * 2.9, cy - py * 2.9, cx + px * 2.9, cy + py * 2.9, 1.0, 1.0, o.guard || 'main', { group: g, spec: true });
+  f.limb(cx - px * 2.9, cy - py * 2.9, cx + px * 2.9, cy + py * 2.9, 1.0, 1.0, 'main', { group: g, spec: true });
   if (o.glint) f.dot(Math.floor(gx + dx * (len - 2)), Math.floor(gy + dy * (len - 2)), 'metal', 4);
-  return g;
 }
 
 function lanceB(f, butt, tip, o = {}) {
@@ -1408,7 +1403,6 @@ function lanceB(f, butt, tip, o = {}) {
   f.limb(h0[0], h0[1], tip[0], tip[1], o.headR || 1.9, 0.2, 'metal', { group: g, spec: true, dim: o.dim || 0 });
   f.ball(h0[0], h0[1], 1.4, 1.4, o.collar || 'acc', { group: g, dim: o.dim || 0 });
   f.line(h0[0] + ux * 1.5, h0[1] + uy * 1.5, tip[0] - ux * 1.2, tip[1] - uy * 1.2, o.glowMat || 'glow2', o.glowTone ?? 1, { on: 'metal' });
-  return g;
 }
 
 /** NYX's long rifle from the stock end to the muzzle. */
@@ -1432,7 +1426,6 @@ function rifleB(f, stock, muzzle, o = {}) {
   f.limb(mag[0], mag[1], mag[0] - px * 2.2 + ux * 0.6, mag[1] - py * 2.2 + uy * 0.6, 0.9, 0.8, 'metal', { group: g });
   f.line(at(0.56, 0.2)[0], at(0.56, 0.2)[1], at(0.9, 0.2)[0], at(0.9, 0.2)[1], 'acc', 2, { on: 'metal' });
   if (o.flash) glowBurst(f, b1[0] + ux * 1.5, b1[1] + uy * 1.5, 1.8, 'glow2');
-  return g;
 }
 
 function knifeB(f, grip, deg) {
@@ -1442,7 +1435,6 @@ function knifeB(f, grip, deg) {
   f.limb(gx - dy * 1.7, gy + dx * 1.7, gx + dy * 1.7, gy - dx * 1.7, 0.8, 0.8, 'metal', { group: g });
   f.limb(grip[0] + dx * 1.5, grip[1] + dy * 1.5, grip[0] + dx * 10, grip[1] + dy * 10, 1.3, 0.35, 'metal', { group: g, spec: true });
   f.line(grip[0] + dx * 2.5, grip[1] + dy * 2.5, grip[0] + dx * 8.5, grip[1] + dy * 8.5, 'acc', 3, { on: 'metal' });
-  return g;
 }
 
 // -- shared battle assembly
@@ -1494,7 +1486,7 @@ function koRig(id, spec) {
 // -- per-character battle styling and hooks
 
 CHARS.kade.bstyle = {
-  torso: (t, s) => (t < 0.42 ? 'main' : t < 0.5 ? 'metal' : t < 0.7 ? 'sec' : t < 0.8 ? 'lea' : 'sec'),
+  torso: (t) => (t < 0.42 ? 'main' : t < 0.5 ? 'metal' : t < 0.7 ? 'sec' : t < 0.8 ? 'lea' : 'sec'),
 };
 CHARS.kade.bhooks = {
   back(f, P) {
@@ -1524,7 +1516,7 @@ CHARS.kade.bhooks = {
     const [hx, hy] = P.hip;
     const tm = (x, y) => (y >= hy + 2.4 ? 'metal' : 'main');
     f.shape([[hx - 5.2, hy - 1.5], [hx - 0.5, hy - 1.5], [hx - 1.2, hy + 3.6], [hx - 6.2, hy + 2.8]], tm);
-    f.shape([[hx + 0.5, hy - 1.5], [hx + 5.2, hy - 1.5], [hx + 5.6, hy + 3.2], [hx + 0.8, hy + 3.8]], tm, { dim: 0 });
+    f.shape([[hx + 0.5, hy - 1.5], [hx + 5.2, hy - 1.5], [hx + 5.6, hy + 3.2], [hx + 0.8, hy + 3.8]], tm);
   },
   neck(f, P) {
     const [nx, ny] = P.neck;
@@ -1535,7 +1527,7 @@ CHARS.kade.bhooks = {
   front(f, P) {
     if (P.ko) return;
     const [sx, sy] = P.shN;
-    f.ball(sx + 0.4, sy + 0.6, 3.2, 2.8, (nx, ny) => (ny > 0.5 ? 'metal' : 'main'), { spec: true });
+    f.ball(sx + 0.4, sy + 0.4, 3.6, 3.1, (nx, ny) => (ny > 0.5 ? 'metal' : 'main'), { spec: true });
   },
 };
 
@@ -1544,7 +1536,7 @@ CHARS.nyx.bstyle = {
 };
 CHARS.nyx.bhooks = {
   back(f, P) {
-    if (P.ko) { rifleB(f, [2, 61], [30, 61.5]); return; }
+    if (P.ko) { rifleB(f, [6, 61], [33, 61.5]); return; }
     ponytail(f, P);
     if (P.rifleBack) rifleB(f, ...P.rifleBack);
   },
@@ -1670,8 +1662,8 @@ const POSES = {
     ready: [0, 1].map((k) => ({ k, by: k, crouch: 1.5, lean: 3, hF: [-5.5, 1.5], hN: [0.5, 8], sw: -118 })),
     attack: [
       { k: 0, bx: 2.5, lean: 0, crouch: 2, hF: [6, 7], bF: -1, hN: [-2, 7], sw: 12, fF: 28, fN: 44.5 },
-      { k: 1, bx: -8, lean: 6.5, crouch: 3, hy: 1, fF: 16, fN: 42, hF: [-10, 3], hN: [4, 5], sw: 172 },
-      { k: 2, bx: -7, lean: 5.5, crouch: 3.5, hy: 1, fF: 16, fN: 42, hF: [-6.5, 9], hN: [4, 6], sw: 118 },
+      { k: 1, bx: -3, lean: 6.5, crouch: 3, hy: 1, fF: 19, fN: 42.5, hF: [-8, 2.5], hN: [4, 5], sw: 140 },
+      { k: 2, bx: -4, lean: 5.5, crouch: 3.5, hy: 1, fF: 18, fN: 42.5, hF: [-6.5, 9], hN: [4, 6], sw: 112 },
       { k: 3, bx: -3, lean: 3.5, crouch: 1.5, fF: 22, fN: 43, hF: [-6.5, 6], hN: [2, 8], sw: -168 },
     ],
     cast: [
@@ -1775,9 +1767,9 @@ POSES.sera = {
   idle: IDLE_BOB.map((by, k) => ({ k, by, lean: 2, hF: [-5, 6], hN: [2, 8], lance: [null, -95], halo: [0, 0, -1, -1][k] })),
   ready: [0, 1].map((k) => ({ k, by: k, crouch: 1.5, lean: 3, hF: [-5, 3], hN: [-9, 7], bN: -1, lance: [null, -148], halo: -k })),
   attack: [
-    { k: 0, bx: 2, lean: 0.5, crouch: 1, hF: [1.5, 5], hN: [5, 7], lance: [null, 180], lanceBack: 10, lanceFwd: 28, fF: 28 },
-    { k: 1, bx: -7, lean: 5.5, crouch: 2.5, fF: 17, fN: 42, hF: [-9.5, 3], hN: [-3, 5], lance: [null, 180], lanceBack: 10, lanceFwd: 28, bright: 1.2 },
-    { k: 0, bx: -7, lean: 5.5, crouch: 3, fF: 17, fN: 42, hF: [-9, 4], hN: [-2.5, 6], lance: [null, 178], lanceBack: 10, lanceFwd: 28 },
+    { k: 0, bx: 2, lean: 0.5, crouch: 1, hF: [1.5, 5], hN: [6, 6], lance: [null, 180], lanceBack: 24, lanceFwd: 16, fF: 28 },
+    { k: 1, bx: -5, lean: 5.5, crouch: 2.5, fF: 18, fN: 42.5, hF: [-9.5, 3], hN: [-2, 4.5], lance: [null, 180], lanceBack: 27, lanceFwd: 11, bright: 1.2 },
+    { k: 0, bx: -5, lean: 5.5, crouch: 3, fF: 18, fN: 42.5, hF: [-9, 4], hN: [-2, 5.5], lance: [null, 178], lanceBack: 27, lanceFwd: 11 },
     { k: 1, bx: -3, lean: 3, crouch: 1.5, fF: 22, fN: 43, hF: [-6, 5], hN: [1, 7], lance: [null, -120] },
   ],
   cast: [
@@ -1792,7 +1784,7 @@ POSES.sera = {
   hurt: [{ k: 1, bx: 3, lean: -1.5, crouch: 1.5, hy: -1, face: 'hurt', fF: 25, fN: 44, hF: [-4, 8], hN: [5, 5], lance: [null, -60], halo: 1 }],
   defend: [{ k: 0, crouch: 3.5, lean: 3.5, fF: 25, fN: 44, hF: [-5, 2], hN: [-11, 4], lance: [null, -160], lanceBack: 14, lanceFwd: 20, farFront: true }],
   ko: [{ ko: true }],
-  victory: [0, 1].map((k) => ({ k, by: k, lean: 1, hF: [-3, -10.5], bF: 1, hN: [2, 7], lance: [null, -70], lanceBack: 14, lanceFwd: 24, bright: 1 + k * 0.6, halo: -1 - k })),
+  victory: [0, 1].map((k) => ({ k, by: k, lean: 1, hF: [-3, -9.5], bF: 1, hN: [2, 7], lance: [null, -62], lanceBack: 20, lanceFwd: 17, bright: 1 + k * 0.6, halo: -1 - k })),
 };
 // SERA's lance grip follows the far hand.
 for (const a of Object.keys(POSES.sera)) {
@@ -1941,21 +1933,69 @@ const PORTRAIT = {
   },
 };
 
+function partyPortrait(id) {
+  const ch = charDef(id), D = PORTRAIT[id];
+  const f = new Frame(40, 40, ch.pal);
+  D.behind?.(f);
+  D.bust(f);
+  f.limb(21.5, 26, 21, 33, 3.4, 3.6, 'skin', { sep: false });
+  D.collar(f);
+  f.tpl(FACE_P, FACE_PX, FACE_PY, { sep: true });
+  const line = HAIRLINE[id];
+  lockHair(f, HAIR_LOCKS[id], pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > line; }, PS);
+  for (const [x, y, rows] of D.over) f.tpl(rows, x, y, {});
+  D.after?.(f);
+  return f;
+}
+
+// BOLT's dialog portrait: the round shell fills the frame, big eye glancing right.
+function boltPortrait() {
+  const f = new Frame(40, 40, NPC_PAL.bolt);
+  f.line(25, 10, 28, 3, 'metal', 3);
+  f.dot(28, 2, 'glow2', 2);
+  f.dot(29, 2, 'glow2', 1);
+  f.ball(19.5, 26, 15.5, 14.5, (nx, ny) => (ny > 0.15 && ny < 0.45 ? 'acc' : 'main'), { spec: true });
+  f.line(5, 31, 34, 31, 'acc', 0, { on: 'acc' });
+  f.ball(23, 22, 8.4, 8.2, 'metal', { spec: true });
+  f.ball(23.6, 22, 6.2, 6.2, 'glow');
+  f.ball(24.6, 22, 2.8, 2.8, 'metal');
+  f.dot(25, 22, 'glow', 2);
+  f.tpl(['uu', 'u.'], 20, 18, {});
+  f.ball(4, 36, 2.6, 2.4, 'acc', { spec: true });
+  return f;
+}
+
+// HALCYON's dialog portrait in the hologram's single cyan ramp.
+const HOLO_LOCKS = [
+  ['ball', 11.6, 9, 4.6, 5.4],
+  ['ball', 8.5, 6, 7.4, 5.2],
+  [12.6, 8, 14.6, 20, 3.0, 1.6],
+  [2.0, 6, 1.0, 17, 1.8, 1.2],
+  [7.6, 3, 4.0, 6.4, 2.0, 1.0],
+  [9.4, 3.2, 11.6, 6.4, 2.0, 1.0],
+];
+function holoPortrait() {
+  const f = new Frame(40, 40, NPC_PAL.holo);
+  f.ball(21, 44, 14.5, 10, 'main');
+  f.limb(21.5, 26, 21, 33, 3.2, 3.4, 'skin', { sep: false });
+  f.ball(21.5, 31.5, 6.4, 2.4, 'acc', { spec: true });
+  f.tpl(['.yu.', 'uyyu', '.uy.'], 19, 36, { only: true });
+  f.tpl(FACE_P, FACE_PX, FACE_PY, { sep: true });
+  lockHair(f, HOLO_LOCKS, pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > 6.4; }, PS);
+  f.line(12, 10, 31, 10, 'glow', 1, { on: 'hair' });
+  return f;
+}
+
+const portraitPainter = (id) => cached(`portrait:${id}`, () => (id === 'bolt' ? boltPortrait() : id === 'holo' ? holoPortrait() : partyPortrait(id)).render());
+
+/** 40x40 bust facing right (party ids, plus 'bolt' and 'holo' for NPC dialog). Shared cached canvas: do not draw on it. */
 export function buildPortrait(id) {
-  return cached(`portrait:${id}`, () => {
-    const ch = charDef(id), D = PORTRAIT[id];
-    const f = new Frame(40, 40, ch.pal);
-    D.behind?.(f);
-    D.bust(f);
-    f.limb(21.5, 26, 21, 33, 3.4, 3.6, 'skin', { sep: false });
-    D.collar(f);
-    f.tpl(FACE_P, FACE_PX, FACE_PY, { sep: true });
-    const line = HAIRLINE[id];
-    lockHair(f, HAIR_LOCKS[id], pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > line; }, PS);
-    for (const [x, y, rows] of D.over) f.tpl(rows, x, y, {});
-    D.after?.(f);
-    return f.render().canvas;
-  });
+  return portraitPainter(id).canvas;
+}
+
+/** Cached PNG data URL of a portrait upscaled with nearest-neighbour, for <img> / CSS / dialog boxes. */
+export function portraitURL(id, scale = 2) {
+  return cached(`portraitURL:${id}:${scale}`, () => portraitPainter(id).toDataURL(scale));
 }
 
 // ---------------------------------------------------------------- NPCs (field layout, 32x48)
@@ -2041,7 +2081,7 @@ function drawBoltFrame(view, kind, i, blink) {
 }
 
 // HALCYON hologram: long-haired figure in a floor-length gown, hands folded, a glowing core on the chest.
-const HOLO_BUILD = { headY: 3, shY: 18.5, hipY: 30, shW: 4.4, waistW: 3.0, hipW: 3.6, armX: 5.5, armR: 1.35, chest: 3.2, back: 2.8 };
+const HOLO_BUILD = { headY: 3, shY: 18.5, hipY: 30, armX: 5.5 };
 
 function drawHoloFrame(view, kind, i, blink) {
   const f = new Frame(FW, FH, NPC_PAL.holo);

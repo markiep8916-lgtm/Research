@@ -148,7 +148,9 @@ if (SHOW.has('portraits')) {
   const ps = Number(params.get('pscale') || 6);
   section(`Portraits (${ps}x)`);
   const row = el('div', { class: 'pc-row' });
-  for (const id of IDS) row.append(staticCell(C.buildPortrait(id), ps, id));
+  for (const id of [...IDS, 'bolt', 'holo']) row.append(staticCell(C.buildPortrait(id), ps, id));
+  const img = el('img', { src: C.portraitURL(IDS[0], 3), alt: 'portraitURL', style: { imageRendering: 'pixelated', alignSelf: 'flex-end' } });
+  row.append(el('div', { class: 'pc-cell' }, [img, el('span', { class: 'pc-lab', text: 'portraitURL 3x' })]));
   root.append(row);
 }
 
