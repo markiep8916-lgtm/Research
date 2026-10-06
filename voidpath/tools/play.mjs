@@ -88,7 +88,7 @@ const killer = setTimeout(() => {
 }, timeoutMs);
 
 const browser = await chromium.launch({
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-rasterization', '--autoplay-policy=no-user-gesture-required'],
 });
 const context = await browser.newContext(mobile
   ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: Number(opt('--dpr', 2)), isMobile: true, hasTouch: true }

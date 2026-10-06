@@ -54,15 +54,15 @@ function scriptTag(js) {
 
 function fullDocument(js, { title }) {
   return template
-    .replace('<!--BUNDLE-->', scriptTag(js))
-    .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
+    .replace('<!--BUNDLE-->', () => scriptTag(js)) // function replacer: minified JS may contain `$&`
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${title}</title>`);
 }
 
 function artifactFragment(js) {
   // The Artifact host wraps the page in its own doctype/html/head/body skeleton,
   // so publish only the head contents (title first) followed by the body contents.
   const head = between(template, '<!--HEAD-START-->', '<!--HEAD-END-->');
-  const body = between(template, '<!--BODY-START-->', '<!--BODY-END-->').replace('<!--BUNDLE-->', scriptTag(js));
+  const body = between(template, '<!--BODY-START-->', '<!--BODY-END-->').replace('<!--BUNDLE-->', () => scriptTag(js));
   return `${head.trim()}\n${body.trim()}\n`;
 }
 
