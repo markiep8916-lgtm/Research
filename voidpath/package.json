@@ -1,0 +1,17 @@
+{
+  "name": "voidpath",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VOIDPATH: a 2D-HD sci-fi RPG proof of concept (pixel-art sprites in a lit 3D diorama, Octopath-style Break/Boost battles).",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:dev": "node build.mjs --dev",
+    "test": "node --test tests/",
+    "play": "node tools/play.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "three": "0.170.0"
+  }
+}

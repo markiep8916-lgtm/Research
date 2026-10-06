@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<!--HEAD-START-->
+<title>Voidpath</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Oxanium:wght@400;600;700;800&family=Silkscreen&display=swap">
+<style>
+/* VOIDPATH base layer. Single deliberate dark look (a game screen), so no light theme.
+   Layout: one full-bleed WebGL canvas with stacked DOM UI layers above it.
+   Every UI module injects its own CSS (core/util.js injectCSS) and must use these tokens. */
+:root {
+  color-scheme: dark;
+  /* surfaces */
+  --vp-void: #05070d;                       /* page / letterbox background */
+  --vp-panel: rgba(8, 13, 26, 0.84);        /* translucent window fill */
+  --vp-panel-solid: #0a1020;
+  --vp-panel-hi: rgba(28, 44, 78, 0.72);    /* highlighted row */
+  --vp-line: rgba(140, 214, 255, 0.55);     /* hairline window border */
+  --vp-line-dim: rgba(140, 214, 255, 0.22);
+  /* text */
+  --vp-ink: #e9f2ff;
+  --vp-ink-dim: #9fb2cc;
+  --vp-ink-faint: #61718c;
+  /* accents (amber is the "Octopath gold" of this world) */
+  --vp-amber: #ffc560;
+  --vp-amber-deep: #d9892a;
+  --vp-cyan: #7fe3ff;
+  --vp-break: #ff4fa3;                      /* BREAK / shield shatter */
+  --vp-weak: #ffe066;                       /* weakness hit flash */
+  --vp-hp: #6ff0a6;
+  --vp-ep: #69b9ff;
+  --vp-bp: #ffb347;
+  --vp-danger: #ff5a6a;
+  /* type */
+  --vp-font-display: "Oxanium", "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --vp-font-ui: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --vp-font-pixel: "Silkscreen", "Courier New", ui-monospace, monospace;
+  /* motion */
+  --vp-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --vp-safe-top: env(safe-area-inset-top, 0px);
+  --vp-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --vp-safe-left: env(safe-area-inset-left, 0px);
+  --vp-safe-right: env(safe-area-inset-right, 0px);
+}
+html, body { height: 100%; margin: 0; background: var(--vp-void); color: var(--vp-ink); overflow: hidden; overscroll-behavior: none; }
+body { font-family: var(--vp-font-ui); font-size: 16px; -webkit-font-smoothing: antialiased; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#app { position: fixed; inset: 0; overflow: hidden; background: var(--vp-void); }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+#ui-root { position: absolute; inset: 0; pointer-events: none; font-family: var(--vp-font-ui); }
+#ui-root > * { pointer-events: auto; }
+#ui-root .vp-passthrough { pointer-events: none; }
+#touch-layer { position: absolute; inset: 0; pointer-events: none; }
+#vp-boot { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--vp-font-display); letter-spacing: .4em; color: var(--vp-ink-dim); font-size: 13px; text-transform: uppercase; background: var(--vp-void); z-index: 50; transition: opacity .6s; }
+#vp-boot.vp-hide { opacity: 0; pointer-events: none; }
+#vp-fatal { position: absolute; left: 16px; right: 16px; bottom: calc(16px + var(--vp-safe-bottom)); padding: 12px 14px; background: #2a0b14; border: 1px solid var(--vp-danger); color: #ffd9de; font: 13px/1.4 ui-monospace, monospace; white-space: pre-wrap; z-index: 99; display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+</style>
+<!--HEAD-END-->
+</head>
+<body>
+<!--BODY-START-->
+<div id="app">
+  <canvas id="view" tabindex="0" aria-label="Voidpath game view"></canvas>
+  <div id="ui-root"></div>
+  <div id="touch-layer"></div>
+  <div id="vp-boot">Loading</div>
+  <div id="vp-fatal" role="alert"></div>
+</div>
+<script>
+  // Surface fatal script errors on screen instead of a silent black page.
+  window.addEventListener('error', function (e) {
+    var el = document.getElementById('vp-fatal');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent = 'Voidpath hit an error: ' + (e.message || e.error) + (e.filename ? '\n' + e.filename + ':' + e.lineno : '');
+  });
+</script>
+<!--BUNDLE-->
+<!--BODY-END-->
+</body>
+</html>
