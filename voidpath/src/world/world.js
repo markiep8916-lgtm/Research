@@ -60,7 +60,7 @@ const KIND_DEFAULTS = {
   inspect: { label: 'Inspect', icon: 'inspect' },
   med: { label: 'Med-Station', icon: 'save' },
   shop: { label: 'Shop', icon: 'shop' },
-  starchart: { label: 'Starchart', icon: 'travel' },
+  starchart: { label: 'Starchart', icon: 'travel', r: 1.05 },   // the 2x2 holo table's half size: reachable from its edge
   switch: { label: 'Use', icon: 'inspect' },
   shard: { label: 'Take', icon: 'shard' },
   exit: { label: 'Go', icon: 'travel' },

@@ -2845,6 +2845,10 @@ full API; read it before calling into that file.
   registered prop with `cs.prop(id)` / `W.living(id)`, put it in `map.props` with an `id`. Builders
   never call `W.addInteractable` for these entries (the World registers every interactable). A
   LivingProp's `update(dt, t)` is called by the World automatically (`buildProp` registers it).
+- Interactables are picked within `reach` (default 1.3) of their `box` when given, else of a circle
+  of radius `r` (default 0) around `x, z`, and only while the leader roughly faces them. Give an
+  interactable on a large or solid prop a `box` or `r` that reaches past its collider (the
+  `starchart` kind defaults to `r: 1.05` for its 2x2 table; Med-Stations use a `box`).
 - Props with `when` are built into their own group with their own colliders and emitters and are
   shown or hidden by `syncFlags`. A texture a builder shares between Worlds must set
   `texture.userData.shared = true`, or `World.dispose` disposes it and it re-uploads on the next map.

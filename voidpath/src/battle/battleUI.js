@@ -329,6 +329,7 @@ const CSS = `
 .vb-say.is-on { opacity: 1; transform: none; pointer-events: auto; }
 .vb-root.is-ending .vb-say { bottom: calc(24px + var(--vp-safe-bottom)); }
 .vb-say.no-pt { grid-template-columns: minmax(0, 1fr); padding-left: 22px; }
+.vb-say.no-pt .pt { display: none; }
 /* wide screens: bottom left, beside the status panel, so it never covers the party's sprites */
 @media (min-width: 1000px) {
   .vb-root:not(.is-compact):not(.is-short) .vb-say { right: auto; left: calc(14px + var(--vp-safe-left)); bottom: calc(12px + var(--vp-safe-bottom)); width: min(720px, calc(100% - 486px)); }

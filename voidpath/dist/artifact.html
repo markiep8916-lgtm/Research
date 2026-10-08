@@ -4221,7 +4221,7 @@ var SFX = {
     tone(r, o, t + 0.05, { type: "triangle", f: 1500 * p, f1: 1700 * p, glide: 0.04, a: 1e-3, d: 0.08, vol: 0.16 });
     noise(r, o, t, { type: "highpass", f: 5e3, d: 6e-3, vol: 0.12 });
   } },
-  splash: { gain: 0.7, wet: 0.3, vary: 0.05, play(r, o, t, p) {
+  splash: { gain: 0.6, wet: 0.3, vary: 0.05, play(r, o, t, p) {
     noise(r, o, t, { f: 2400 * p, f1: 700 * p, glide: 0.25, q: 0.9, a: 4e-3, d: 0.35, vol: 0.55 });
     noise(r, o, t, { type: "highpass", f: 3500, a: 2e-3, d: 0.18, vol: 0.25 });
     tone(r, o, t, { f: 110 * p, f1: 55, glide: 0.08, a: 2e-3, d: 0.16, vol: 0.4 });
@@ -4237,7 +4237,7 @@ var SFX = {
     bell(r, o, t + 0.2, { f: 410 * p, ratio: 1.41, index: 2.2, idxDecay: 0.04, d: 0.35, vol: 0.08 });
     noise(r, o, t + 0.24, { f: 3800, f1: 2200, glide: 0.6, q: 0.8, a: 0.06, hold: 0.15, d: 0.5, vol: 0.18 });
   } },
-  laser_on: { gain: 0.55, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+  laser_on: { gain: 0.95, wet: 0.2, vary: 0.02, play(r, o, t, p) {
     for (const [f, v] of [[118, 0.26], [119.5, 0.22]]) {
       tone(r, o, t, { type: "sawtooth", f: f * 0.6 * p, f1: f * p, glide: 0.25, bp: 1100, bpQ: 1.2, a: 0.18, hold: 0.25, d: 0.25, vol: v, trem: 32, tremDepth: 0.5 });
     }
@@ -4257,7 +4257,7 @@ var SFX = {
     noise(r, o, t, { f: 3e3, f1: 9e3, glide: 0.5, q: 3, a: 0.3, d: 0.4, vol: 0.1 });
     for (let i = 0; i < 5; i++) tone(r, o, t + 0.45 + i * 0.05, { type: "square", f: rand(2400, 4800) * p, lp: 6e3, a: 1e-3, d: 0.03, vol: 0.03 });
   } },
-  transform: { gain: 0.5, wet: 0.5, echo: 0.15, vary: 0, play(r, o, t) {
+  transform: { gain: 0.28, wet: 0.5, echo: 0.15, vary: 0, play(r, o, t) {
     for (const [f, v] of [[41, 0.22], [41.6, 0.2]]) {
       tone(r, o, t, { type: "sawtooth", f, f1: f * 4, glide: 1, lp: 300, lp1: 2400, lpGlide: 1, a: 0.9, d: 0.08, vol: v });
     }
@@ -4276,14 +4276,14 @@ var SFX = {
     noise(r, o, s, { type: "lowpass", f: 1200, d: 0.12, vol: 0.35 });
     for (let i = 0; i < 6; i++) bell(r, o, s + 0.05 + i * 0.06, { f: rand(1800, 3600) * p, ratio: 3.5, index: 0.6, d: 0.35, vol: 0.06 });
   } },
-  submerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t, p) {
+  submerge: { gain: 0.5, wet: 0.4, vary: 0.03, play(r, o, t, p) {
     noise(r, o, t, { type: "highpass", f: 3e3, d: 0.03, vol: 0.4 });
     [3400, 4800].forEach((f, i) => tone(r, o, t + i * 0.012, { f: f * p, a: 1e-3, d: 0.06, vol: 0.12 }));
     noise(r, o, t + 0.02, { type: "lowpass", f: 2200, f1: 260, glide: 0.7, q: 1.2, a: 0.03, d: 0.75, vol: 0.55 });
     tone(r, o, t + 0.02, { f: 150 * p, f1: 38, glide: 0.7, a: 0.02, d: 0.85, vol: 0.5 });
     tone(r, o, t + 0.6, { f: 70, f1: 34, glide: 0.2, a: 4e-3, d: 0.5, vol: 0.45 });
   } },
-  emerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t) {
+  emerge: { gain: 0.42, wet: 0.4, vary: 0.03, play(r, o, t) {
     noise(r, o, t, { type: "lowpass", f: 250, f1: 2500, glide: 0.45, q: 1.2, a: 0.4, d: 0.08, vol: 0.5 });
     tone(r, o, t, { f: 40, f1: 110, glide: 0.45, a: 0.4, d: 0.06, vol: 0.4 });
     const s = t + 0.45;
@@ -4291,12 +4291,12 @@ var SFX = {
     noise(r, o, s, { type: "highpass", f: 2e3, d: 0.05, vol: 0.5 });
     for (let i = 0; i < 6; i++) noise(r, o, s + i * 0.03 + rand(0, 0.02), { f: rand(2500, 7500), q: rand(4, 9), d: rand(0.05, 0.15), vol: 0.3 });
   } },
-  sleep: { gain: 0.6, wet: 0.45, echo: 0.2, vary: 0.01, play(r, o, t, p) {
+  sleep: { gain: 0.75, wet: 0.45, echo: 0.2, vary: 0.01, play(r, o, t, p) {
     [[1396.9, 0], [1318.5, 0.16], [1174.7, 0.32]].forEach(([f, dt]) => bell(r, o, t + dt, { f: f * p, ratio: 2, index: 0.5, a: 0.01, d: 0.8, vol: 0.18 }));
     noise(r, o, t, { f: 1800, f1: 900, glide: 0.6, q: 2, a: 0.2, d: 0.5, vol: 0.06 });
     tone(r, o, t, { type: "triangle", f: 349.2 * p, a: 0.2, d: 0.9, vol: 0.08 });
   } },
-  wake: { gain: 0.6, wet: 0.3, vary: 0.02, play(r, o, t, p) {
+  wake: { gain: 0.75, wet: 0.3, vary: 0.02, play(r, o, t, p) {
     noise(r, o, t, { type: "highpass", f: 5e3, d: 0.01, vol: 0.2 });
     tone(r, o, t, { type: "triangle", f: 880 * p, f1: 1320 * p, glide: 0.05, a: 2e-3, d: 0.12, vol: 0.28 });
     bell(r, o, t + 0.06, { f: 1760 * p, ratio: 2, index: 0.9, d: 0.45, vol: 0.2 });
@@ -4308,7 +4308,7 @@ var SFX = {
     bell(r, o, t + 0.14, { f: 3520 * p, ratio: 2.76, index: 1, d: 0.6, vol: 0.22 });
     noise(r, o, t + 0.06, { type: "highpass", f: 7e3, d: 0.02, vol: 0.1 });
   } },
-  sell: { gain: 0.6, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+  sell: { gain: 1.05, wet: 0.2, vary: 0.02, play(r, o, t, p) {
     [0, 0.07, 0.12, 0.2].forEach((dt, i) => bell(r, o, t + dt, { f: (3100 - i * 260) * rand(0.97, 1.03) * p, ratio: 2.76, index: 1.1, idxDecay: 0.05, d: 0.25, vol: 0.14 }));
     noise(r, o, t + 0.22, { type: "lowpass", f: 900, d: 0.04, vol: 0.25 });
   } },
@@ -4325,17 +4325,17 @@ var SFX = {
     noise(r, o, t, { f: 300, f1: 2500, glide: 1.2, q: 0.7, a: 0.7, hold: 0.3, d: 0.6, vol: 0.4 });
     noise(r, o, t + 0.9, { f: 3e3, f1: 800, glide: 0.8, q: 1, a: 0.1, d: 0.6, vol: 0.2 });
   } },
-  rumble: { gain: 0.8, wet: 0.25, vary: 0.04, play(r, o, t, p) {
+  rumble: { gain: 0.34, wet: 0.25, vary: 0.04, play(r, o, t, p) {
     noise(r, o, t, { type: "lowpass", f: 160 * p, q: 1.5, a: 0.25, hold: 0.9, d: 0.9, vol: 0.9, drive: true });
     tone(r, o, t, { f: 38 * p, a: 0.3, hold: 0.8, d: 0.9, vol: 0.5, trem: 7, tremDepth: 0.7 });
     noise(r, o, t + 0.15, { f: 600, q: 3, a: 0.05, d: 0.3, vol: 0.08 });
     noise(r, o, t + 0.7, { f: 900, q: 4, a: 0.02, d: 0.2, vol: 0.07 });
   } },
-  choir: { gain: 0.5, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
+  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
     const chord = CHOIR_SFX[Math.floor(Math.random() * CHOIR_SFX.length)].map(noteMidi);
     choirVoice(r, o, t, chord, 0.45, 1, { attack: 0.25, release: 1.6, level: 0.5, oct: 12 * Math.log2(p) });
   } },
-  glitch: { gain: 0.5, wet: 0.15, vary: 0.05, play(r, o, t, p) {
+  glitch: { gain: 0.62, wet: 0.15, vary: 0.05, play(r, o, t, p) {
     for (let i = 0; i < 7; i++) {
       const dt = i * 0.045 + rand(0, 0.015);
       tone(r, o, t + dt, { type: "square", f: rand(180, 2400) * p, lp: 6e3, a: 1e-3, hold: 0.02, d: 0.02, vol: rand(0.12, 0.22) });
@@ -4358,7 +4358,7 @@ var SFX = {
     noise(r, o, t, { type: "highpass", f: 6e3, a: 2e-3, d: 0.5, vol: 0.06 });
     for (const [f, dt] of [[1174.7, 0], [1760, 0.03], [2637, 0.06]]) bell(r, o, t + dt, { f, ratio: 3.5, index: 0.6, d: 1.8, vol: 0.1 });
   } },
-  alarm: { gain: 0.45, wet: 0.35, echo: 0.1, vary: 0, play(r, o, t, p) {
+  alarm: { gain: 0.9, wet: 0.35, echo: 0.1, vary: 0, play(r, o, t, p) {
     for (const dt of [0, 0.7]) {
       for (const [type, det, v] of [["square", 0, 0.2], ["sawtooth", 8, 0.14]]) {
         tone(r, o, t + dt, { type, detune: det, f: 740 * p, f1: 520 * p, glide: 0.5, bp: 1200, bpQ: 1.5, a: 0.02, hold: 0.42, d: 0.12, vol: v });
@@ -4377,7 +4377,7 @@ var SFX = {
     tone(r, o, t + 0.02, { type: "triangle", f: 990 * p, f1: 1320 * p, glide: 0.06, a: 2e-3, d: 0.12, vol: 0.18 });
     noise(r, o, t + 0.02, { type: "highpass", f: 4e3, a: 0.02, d: 0.15, vol: 0.05 });
   } },
-  awaken: { gain: 0.38, wet: 0.45, echo: 0.2, vary: 0, play(r, o, t, p) {
+  awaken: { gain: 0.3, wet: 0.45, echo: 0.2, vary: 0, play(r, o, t, p) {
     noise(r, o, t, { f: 400, f1: 7e3, glide: 0.4, q: 1.4, a: 0.38, d: 0.05, vol: 0.4 });
     tone(r, o, t, { type: "sawtooth", f: 147 * p, f1: 587 * p, glide: 0.4, lp: 800, lp1: 4e3, lpGlide: 0.4, a: 0.36, d: 0.06, vol: 0.12 });
     const s = t + 0.42;
@@ -4577,7 +4577,7 @@ function choirVoice(r, out, t, notes, dur, vel, o) {
   v.connect(out);
   const src = gainNode(ctx4, 1);
   for (const [f, g] of VOWELS[o.vowel] || VOWELS.oo) {
-    src.connect(filterNode(ctx4, "bandpass", f, o.formantQ ?? 5)).connect(gainNode(ctx4, g * 3.2)).connect(v);
+    src.connect(filterNode(ctx4, "bandpass", f, o.formantQ ?? 5)).connect(gainNode(ctx4, g * 1.6)).connect(v);
   }
   const lfos = [4.6, 5.3].map((rate) => {
     const lfo = oscNode(r, "sine", rate * (0.95 + Math.random() * 0.1));
@@ -4851,6 +4851,7 @@ function playStep(rt, t) {
   const evs = rt.c.parts[partAt(rt)].steps[rt.step];
   for (let k = 0; k < evs.length; k++) {
     const e = evs[k];
+    if (rt.only && !rt.only.has(e.i)) continue;
     const name = e.i === "ohat" ? "hat" : e.i;
     const out = rt.strips[name] || (rt.strips[name] = makeStrip(rt, name, e.b === "ohat" ? "hat" : e.b));
     const vo = rt.track.voices?.[e.i] || rt.track.voices?.[e.b] || {};
@@ -4880,7 +4881,7 @@ function playStep(rt, t) {
     }
   }
 }
-function startTrack(r, name, when, { fade = 0, part = null } = {}) {
+function startTrack(r, name, when, { fade = 0, part = null, only = null } = {}) {
   const c = compiledTrack(name);
   if (!c) throw new Error(`track "${name}" is unknown or malformed`);
   const tr = TRACKS[name];
@@ -4894,7 +4895,7 @@ function startTrack(r, name, when, { fade = 0, part = null } = {}) {
     p.setValueAtTime(fade > 0 ? 1e-4 : level, when);
     if (fade > 0) p.linearRampToValueAtTime(level, when + fade);
   }
-  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity };
+  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity, only: only && new Set(only) };
   if (c.once) rt.stopAt = when + c.introSeconds + c.loopSeconds;
   else {
     const i = part ? c.loop.indexOf(part) : -1;
@@ -4954,7 +4955,7 @@ var WARDEN_A = {
 var WARDEN_B = {
   chords: [
     "Db2: F3 Ab3 C4",
-    "Bb1: F3 Ab3 Db4",
+    "Bb1: F3 Bb3 Db4",
     "Ab1: Eb3 Ab3 C4",
     "C2: E3 G3 C4",
     "F2: F3 Ab3 C4",
@@ -4991,11 +4992,11 @@ var SHOALS_A = {
   chords: [
     "C#2: E3 G#3 B3 D#4",
     "A1: E3 G#3 C#4 E4",
-    "F#1: E3 A3 C#4 G#4",
+    "F#1: E3 A3 C#4",
     ["G#1: D#3 G#3 C#4", "G#1: D#3 G#3 B#3"],
-    "C#2: E3 G#3 B3 D#4",
+    "C#2: E3 G#3 B3",
     "A1: E3 A3 C#4 D#4",
-    "E2: D#3 G#3 B3 E4",
+    "E2: E3 G#3 B3",
     "B1: D#3 F#3 B3 C#4"
   ],
   tune: [
@@ -5291,7 +5292,7 @@ var TRACKS = {
   boss: {
     key: "D minor",
     bpm: 160,
-    gain: 0.6,
+    gain: 0.49,
     delay: 0.75,
     voices: {
       lead: { cutoff: 2600, level: 0.2, vib: 22, q: 2.2 },
@@ -5417,7 +5418,7 @@ var TRACKS = {
   victory: {
     key: "C major",
     bpm: 116,
-    gain: 0.82,
+    gain: 1.01,
     delay: 0.75,
     voices: {
       lead: { cutoff: 3800, level: 0.2, vib: 14 },
@@ -5512,11 +5513,11 @@ var TRACKS = {
     key: "G Mixolydian",
     bpm: 92,
     meter: "6/8",
-    gain: 0.86,
+    gain: 0.93,
     delay: 0.5,
     motifs: ["ringborn"],
     voices: {
-      lead: { synth: "harp", decay: 1.1, level: 0.26, cutoff: 4200 },
+      lead: { synth: "harp", decay: 1.1, level: 0.3, cutoff: 4200 },
       bell: { decay: 1.8, level: 0.16, ratio: 3, index: 1.1 },
       harp: { decay: 0.8, level: 0.09 },
       pad: { cutoff: 900, attack: 0.6, release: 1.2, level: 0.06 },
@@ -5573,17 +5574,18 @@ var TRACKS = {
   shoals: {
     key: "C# minor",
     bpm: 70,
-    gain: 0.95,
+    gain: 1.3,
     delay: 0.75,
     voices: {
       bell: { ratio: 3.5, index: 1.6, decay: 3.2, level: 0.17 },
-      bell2: { ratio: 5, index: 0.8, decay: 1.4, level: 0.06 },
+      bell2: { ratio: 5, index: 0.8, decay: 1.4, level: 0.09 },
       lead: { layers: [["sine", 0, 1], ["triangle", 5, 0.25]], cutoff: 2400, level: 0.13, vib: 22, vibRate: 4.2, attack: 0.25, release: 0.6, glide: 0.35 },
-      bass: { synth: "sub", level: 0.42, gate: 0.25, decay: 0.7, harm: 0.35 },
+      lead2: { layers: [["sine", 0, 1], ["triangle", 5, 0.25]], cutoff: 2e3, level: 0.065, vib: 18, vibRate: 4.2, attack: 0.6, release: 1, glide: 0.35 },
+      bass: { synth: "sub", level: 0.5, gate: 0.5, decay: 1.2, harm: 0.35 },
       pad: { cutoff: 1500, attack: 2.2, release: 3, level: 0.1, air: 0.06, drift: 0.6 },
-      arp: { wave: "sine", decay: 0.3, level: 0.05, oct: 24 }
+      arp: { wave: "sine", decay: 0.3, level: 0.08, oct: 24 }
     },
-    sends: { bell: { wet: 0.7, echo: 0.4 }, bell2: { wet: 0.6, echo: 0.5, pan: 0.35 }, lead: { wet: 0.55, echo: 0.3 }, arp: { wet: 0.5, echo: 0.6 } },
+    sends: { bell: { wet: 0.7, echo: 0.4 }, bell2: { wet: 0.6, echo: 0.5, pan: 0.35 }, lead: { wet: 0.55, echo: 0.3 }, lead2: { wet: 0.6, echo: 0.2, pan: -0.2 }, arp: { wet: 0.5, echo: 0.6 } },
     loop: ["A", "B", "C", "A2"],
     parts: {
       A: {
@@ -5610,7 +5612,7 @@ var TRACKS = {
         bars: 8,
         chords: SHOALS_A.chords,
         bell: SHOALS_A.tune,
-        lead: ["E5 - - - - - - -", "E5 - - - - - - -", "C#5 - - - - - - -", "C#5 - - - ~B#4 - - -", "E5 - - - - - - -", "C#5 - - - - - - -", "B4 - - - - - - -", "D#5 - - - - - - -"],
+        lead2: ["B4 - - - - - - -", "E5 - - - - - - -", "C#5 - - - - - - -", "C#5 - - - ~B#4 - - -", "E5 - - - - - - -", "C#5 - - - - - - -", "B4 - - - - - - -", "D#5 - - - - - - -"],
         arp: "3 1 2 0 3 2 1 2",
         bass: "R! . R? . R . R? ."
       }
@@ -5622,15 +5624,15 @@ var TRACKS = {
   meridian: {
     key: "F# Phrygian",
     bpm: 60,
-    gain: 1,
+    gain: 0.85,
     delay: 1.5,
     motifs: ["ringborn"],
     voices: {
       pad: { cutoff: 520, attack: 3, release: 4, level: 0.16, drift: 0.5, air: 0.035 },
       bass: { soft: true, level: 0.3 },
-      bell: { ratio: 2.76, index: 1.8, decay: 4.5, level: 0.17 },
+      bell: { ratio: 2.76, index: 1.8, decay: 4.5, level: 0.26 },
       bell2: { ratio: 1.41, index: 3.4, decay: 6, level: 0.09 },
-      arp: { wave: "sine", decay: 0.5, level: 0.05 }
+      arp: { wave: "sine", decay: 0.5, level: 0.08 }
     },
     sends: { pad: { wet: 0.5 }, bell: { wet: 0.7, echo: 0.35 }, bell2: { wet: 0.9, echo: 0.2, pan: -0.4 }, arp: { wet: 0.6, echo: 0.6, pan: 0.35 } },
     loop: ["A", "B", "C", "D"],
@@ -5639,7 +5641,7 @@ var TRACKS = {
         bars: 8,
         chords: [FSM, FSM, FSM, FSM, FSM, G_FS, FSM, FSM],
         bell: ["", "", "", "", "E5 - - - . . A5 -", ". . . . G5 - - -", "", ""],
-        bell2: ["", "", ". . F#2 - - - - -", "", "", "", "C3 - - - - - - -", ""],
+        bell2: ["", "", ". . F#2 - - - - -", "", "", "", "B2 - - - - - - -", ""],
         arp: ["C#6 . C#6 .", ""],
         bass: "O - - -"
       },
@@ -5647,14 +5649,14 @@ var TRACKS = {
         bars: 8,
         chords: [FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, FSM, FSM],
         bell: ["E5 - - - . . A5 -", ". . . . G5 - - -", "E5 - - - - - . .", ". . D5 - - - . .", "B4 - - - - - - -", ". . . . . . A4 -", "", ""],
-        bell2: ["", "", "", "G2 - - - - - - -", "", "", ". . . . F#2 - - -", ""],
+        bell2: ["", "", "", "D3 - - - - - - -", "", "", ". . . . F#2 - - -", ""],
         bass: "O - - -"
       },
       C: {
         bars: 8,
         chords: [D_FS, D_FS, EM_FS, EM_FS, G_FS, G_FS, FSM, FSM],
-        bell: ["", ". . . . F#5 - - -", "", "B4 - - - . . . .", "", ". . . . D5 - - -", "", ""],
-        bell2: ["A2 - - - - - - -", "", ". . . . . . E3 -", "", "G2 - - - - - - -", ". . . . B2 - - -", "", "C#3 - - - - - - -"],
+        bell: ["", ". . . . F#5 - - -", "", "B4 - - - . . . .", "", ". . . . B4 - - -", "", ""],
+        bell2: ["A2 - - - - - - -", "", ". . . . . . E3 -", "", "B2 - - - - - - -", ". . . . D3 - - -", "", "C#3 - - - - - - -"],
         arp: "C#6 . C#6 .",
         bass: "O - - -"
       },
@@ -5662,7 +5664,7 @@ var TRACKS = {
         bars: 8,
         chords: [FSM, FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, G_FS],
         bell: [". . . . E4 - - -", "A4 - - - . . . .", "G4 - - - . . E4 -", "", "D4 - - - - - . .", "B3 - - - - - - -", ". . A3 - - - - -", ""],
-        bell2: ["", "", "", ". . . . . . A2 -", "", "", "", "G2 - - - - - - -"],
+        bell2: ["", "", "", ". . . . . . A2 -", "", "", "", "D3 - - - - - - -"],
         arp: ["C#6 . . .", ""],
         bass: "O - - -"
       }
@@ -5674,11 +5676,11 @@ var TRACKS = {
     key: "F major",
     bpm: 76,
     meter: "3/4",
-    gain: 1,
+    gain: 1.12,
     delay: 1,
     motifs: ["lullaby"],
     voices: {
-      bell: { synth: "box", oct: 12, level: 0.22, decay: 2.2 },
+      bell: { synth: "box", oct: 12, level: 0.26, decay: 2.2 },
       harp: { synth: "box", oct: 12, level: 0.085, decay: 1.3 },
       harp2: { decay: 1.8, level: 0.11 },
       bell2: { decay: 2.4, level: 0.09, ratio: 3, index: 0.7 },
@@ -5707,8 +5709,8 @@ var TRACKS = {
     delay: 1,
     motifs: ["warden"],
     voices: {
-      pad: { synth: "choir", vowel: "oo", attack: 1.6, release: 2.6, level: 0.42 },
-      bell: { synth: "box", oct: 12, level: 0.2, decay: 2.6, droop: 12, beat: 5 },
+      pad: { synth: "choir", vowel: "oo", attack: 1.6, release: 2.6, level: 0.24 },
+      bell: { synth: "box", oct: 12, level: 0.24, decay: 2.6, droop: 12, beat: 5 },
       harp: { synth: "box", oct: 12, level: 0.075, decay: 1.6, droop: 12, beat: 5 },
       choir: { vowel: "oo", attack: 0.35, release: 1.4, level: 0.34 },
       bass: { synth: "sub", level: 0.3, gate: 0.85, decay: 1.8, attack: 0.08 },
@@ -5720,9 +5722,9 @@ var TRACKS = {
     parts: {
       I: { bars: 2, chords: ["F2: F3 Ab3 C4"], bell2: ["F3 - -", ""], bass: "R - -", harp: ["", ". . . . 2 1"] },
       A: { bars: 8, chords: WARDEN_A.chords, bell: WARDEN_A.tune, harp: ". . 1 . 2 .", bass: "R - -" },
-      B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: ". . 1 . 2 .", bass: "R - -", bell2: ["Db3 - -", "", "", "C3 - -", "", "", "", ""] },
+      B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: ". . 1 . 2 .", bass: "R - -", bell2: ["Ab2 - -", "", "", "C3 - -", "", "", "", ""] },
       A2: { bars: 8, chords: WARDEN_A.chords, choir: WARDEN_A.tune, harp: "0 1 2 3 2 1", bass: "R - -", bell2: firstOnly(8, "F3 - -") },
-      B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: "0 1 2 3 2 1", bass: "R - -", bell2: ["Db3 - -", "", "", "C3 - -", "", "", "", ""] }
+      B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: "0 1 2 3 2 1", bass: "R - -", bell2: ["Ab2 - -", "", "", "C3 - -", "", "", "", ""] }
     }
   },
   // Chapter card sting (once): a riser and tom roll swell on A sus into a strike on D add9 as the title lands
@@ -5730,7 +5732,7 @@ var TRACKS = {
   sting_chapter: {
     key: "D major",
     bpm: 104,
-    gain: 0.8,
+    gain: 0.92,
     delay: 0.75,
     once: true,
     voices: {
@@ -5934,6 +5936,12 @@ var audio = {
   get track() {
     return S.want;
   },
+  /** Debug: the sting playing right now (or null). */
+  get sting() {
+    const now = S.ctx ? S.ctx.currentTime : 0;
+    const rt = S.stings.find((x) => x.stopAt > now);
+    return rt ? rt.name : null;
+  },
   get context() {
     return S.ctx;
   },
@@ -5943,7 +5951,7 @@ var audio = {
   /** Debug: current music position { track, part, bar } or null. */
   position() {
     const rt = S.cur;
-    return rt ? { track: rt.name, part: partAt(rt), bar: Math.floor(rt.step / 16) + 1, time: S.ctx.currentTime } : null;
+    return rt ? { track: rt.name, part: partAt(rt), bar: Math.floor(rt.step / rt.c.barSteps) + 1, time: S.ctx.currentTime } : null;
   }
 };
 
@@ -29170,6 +29178,7 @@ var CSS18 = `
 .vb-say.is-on { opacity: 1; transform: none; pointer-events: auto; }
 .vb-root.is-ending .vb-say { bottom: calc(24px + var(--vp-safe-bottom)); }
 .vb-say.no-pt { grid-template-columns: minmax(0, 1fr); padding-left: 22px; }
+.vb-say.no-pt .pt { display: none; }
 /* wide screens: bottom left, beside the status panel, so it never covers the party's sprites */
 @media (min-width: 1000px) {
   .vb-root:not(.is-compact):not(.is-short) .vb-say { right: auto; left: calc(14px + var(--vp-safe-left)); bottom: calc(12px + var(--vp-safe-bottom)); width: min(720px, calc(100% - 486px)); }
@@ -35572,7 +35581,8 @@ var KIND_DEFAULTS = {
   inspect: { label: "Inspect", icon: "inspect" },
   med: { label: "Med-Station", icon: "save" },
   shop: { label: "Shop", icon: "shop" },
-  starchart: { label: "Starchart", icon: "travel" },
+  starchart: { label: "Starchart", icon: "travel", r: 1.05 },
+  // the 2x2 holo table's half size: reachable from its edge
   switch: { label: "Use", icon: "inspect" },
   shard: { label: "Take", icon: "shard" },
   exit: { label: "Go", icon: "travel" },
@@ -39225,8 +39235,7 @@ function drawMk1(r, P) {
   mk1Leg(r, hipFar, lf.knee, lf.ankle, lf.heel, lf.toe, true);
   r.save();
   torso();
-  const ant = (P.ant || 0) * DEG2;
-  const tip = polar2(30, 17, -78 + ant / DEG2, 13);
+  const tip = polar2(30, 17, -78 + (P.ant || 0), 13);
   r.line(30, 17, Math.round(tip[0]), Math.round(tip[1]), STEEL3[5]);
   r.line(31, 17, Math.round(tip[0]) + 1, Math.round(tip[1]), STEEL3[2]);
   r.dot(Math.round(tip[0]), Math.round(tip[1]) - 1, P.led ? GLOW_C2.red : CRIMSON2[1], P.led ? 1 : 0);
@@ -39366,8 +39375,9 @@ var MK1_KNEEL = {
   far: { knee: [62, 78], ankle: [50, 81], heel: [44, 85], toe: [60, 85] }
 };
 var SENTINEL_MK1 = {
-  w: 96,
+  w: 104,
   h: 88,
+  // room on the right for the muzzle flash and the charge sparks
   bevel: 3,
   draw: drawMk1,
   anims: {
@@ -39514,7 +39524,8 @@ var G_VIOLET_DIM = rp2("#1a0a2e", "#2a1248", "#3a1a62", "#4b2378", "#5c2e8a");
 var G_SODIUM = rp2("#5a2208", "#a8460f", "#ff7a1a", "#ffb05a", "#ffe6c0");
 var G_SODIUM_DIM = rp2("#200c04", "#3a1607", "#56200a", "#6e2a0e", "#843614");
 var G_WELD = rp2("#1479b0", "#5cc8ff", "#b8f0ff", "#eafcff", "#ffffff");
-function crystal(r, x, y, ang, len, w, { k = 1, ramp: ramp2 = ICE, dim = false } = {}) {
+function crystal(r, x, y, ang, len, w, { k = 1, dim = false } = {}) {
+  const ramp2 = ICE;
   const b = [x, y], tip = polar2(x, y, ang, len);
   const lB = along2(b, tip, 0, w), rB = along2(b, tip, 0, -w);
   const lM = along2(b, tip, 0.62, w * 1.05), rM = along2(b, tip, 0.62, -w * 1.05);
@@ -39522,13 +39533,13 @@ function crystal(r, x, y, ang, len, w, { k = 1, ramp: ramp2 = ICE, dim = false }
   const a = ang * DEG2, px = Math.sin(a), py = -Math.cos(a);
   r.begin();
   r.poly([lB, lM, tip, mid], ramp2, { n: [px * 0.75, py * 0.75, 0.66], bevel: 1, max: dim ? 4 : ramp2.length - 1 });
-  r.poly([mid, tip, rM, rB], ramp2, { n: [-px * 0.75, -py * 0.75, 0.66], bevel: 1, max: dim ? 3 : ramp2.length - 2, bias: -0.05 });
+  r.poly([mid, tip, rM, rB], ramp2, { n: [-px * 0.75, -py * 0.75, 0.66], bevel: 1, max: dim ? 3 : ramp2.length - 2, bias: -0.05, glow: dim ? 0 : clamp5(k, 0, 1.2) * 0.22 });
   r.end(0.5);
   const ridge0 = along2(b, tip, 0.15, 0), ridge1 = along2(b, tip, 0.92, 0);
   r.line(Math.round(ridge0[0]), Math.round(ridge0[1]), Math.round(ridge1[0]), Math.round(ridge1[1]), ramp2[dim ? 4 : 6]);
   if (k > 0) {
     const g0 = along2(b, tip, 0.1, -w * 0.35), g1 = along2(b, tip, 0.55, -w * 0.3);
-    r.line(Math.round(g0[0]), Math.round(g0[1]), Math.round(g1[0]), Math.round(g1[1]), (k > 0.6 ? G_ICE : G_ICE_DIM)[3], clamp5(k, 0.2, 1.2) * 0.7);
+    r.line(Math.round(g0[0]), Math.round(g0[1]), Math.round(g1[0]), Math.round(g1[1]), (k > 0.6 ? G_ICE : G_ICE_DIM)[3], clamp5(k, 0.2, 1.2) * 0.85);
   }
 }
 function miteLeg(r, hip, knee, foot, ramp2, near) {
@@ -39561,9 +39572,9 @@ function drawMite(r, P) {
   for (let i = 0; i < 3; i++) miteLeg(r, legsF[i][0], legsF[i][1], foot(P.feetFar?.[i] || feetF[i], i + 3), CHITIN_FAR2, false);
   r.save();
   body();
-  const tw = (P.twitch || 0) * DEG2;
+  const tw = P.twitch || 0;
   for (const [x0, a0, len, c] of [[37, -62, 11, CHITIN2[3]], [39, -48, 12, CHITIN2[5]]]) {
-    const m = polar2(x0, 24, a0 + tw / DEG2 * 0.6, len * 0.55), t = polar2(...m, a0 + 25 + tw / DEG2, len * 0.5);
+    const m = polar2(x0, 24, a0 + tw * 0.6, len * 0.55), t = polar2(...m, a0 + 25 + tw, len * 0.5);
     r.line(x0, 24, Math.round(m[0]), Math.round(m[1]), c);
     r.line(Math.round(m[0]), Math.round(m[1]), Math.round(t[0]), Math.round(t[1]), c);
     r.dot(Math.round(t[0]), Math.round(t[1]), eyes > 0.5 ? G_ICE[3] : G_ICE_DIM[3], eyes > 0.5 ? 0.6 : 0.2);
@@ -39649,7 +39660,7 @@ function eelSpine(P) {
   const N4 = 96, out = [];
   const ph = P.phase || 0, amp = P.amp ?? 6.5, bob = P.bob || 0;
   const [hx, hy] = P.head || [0, 0];
-  const x0 = P.tailX ?? 13, x1 = 62, base = 30 + bob;
+  const x0 = 13, x1 = 62, base = 30 + bob;
   for (let i = 0; i <= N4; i++) {
     const t = i / N4;
     const w = Math.sin(ph + t * 6.6) * amp * (0.25 + 0.75 * (1 - t)) * (1 - t * t * 0.5);
@@ -39800,8 +39811,9 @@ function drawEel(r, P) {
   }
 }
 var VOID_EEL = {
-  w: 96,
+  w: 108,
   h: 64,
+  // room on the right for the lunge and the void spit
   bevel: 3,
   draw: drawEel,
   anims: {
@@ -39839,7 +39851,7 @@ function iceBlock(r, cx, cy, w, h, far, o = {}) {
   r.poly([[cx + w * 0.2, cy - h * 0.2], [cx + w, cy - h * 0.25], [cx + w * 0.85, cy + h * 0.8], [cx + w * 0.25, cy + h * 0.85]], ICE, { n: [0.75, 0.1, 0.65], max: mx - 2, bias: b - 0.05 });
   r.end(0.6);
 }
-function golemArm(r, sh, el2, fist, far, burst) {
+function golemArm(r, sh, el2, fist, far, frost) {
   const o = far ? { max: 4, bias: -0.12 } : { max: 6 };
   r.begin();
   r.seg(...sh, ...el2, 6.4, 5.4, FRAME, { caps: "flat", ...o });
@@ -39857,7 +39869,7 @@ function golemArm(r, sh, el2, fist, far, burst) {
     for (let k = 0; k < 3; k++) r.dot(fist[0] + 4 - k, fist[1] - 3 + k * 3, ICE[7]);
     r.line(fist[0] - 6, fist[1] + 1, fist[0] - 2, fist[1] + 5, ICE[2]);
   }
-  if (burst) crystal(r, fist[0] - 2, fist[1] - 6, -100, 6, 1.8, { k: 1 });
+  if (frost) crystal(r, fist[0] - 2, fist[1] - 6, -100, 6, 1.8, { k: 1 });
 }
 function golemLeg(r, hip, knee, foot, far) {
   const o = far ? { max: 4, bias: -0.12 } : { max: 6 };
