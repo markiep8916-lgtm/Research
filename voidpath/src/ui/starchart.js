@@ -247,7 +247,7 @@ export class Starchart {
   }
 
   /** Put each label where it fits best (right of its node, else left, above, below): inside the
-   *  chart, off Tethys, clear of the other nodes and of the labels already placed. */
+   *  chart, off Tethys (or least over it), clear of the other nodes and of the labels already placed. */
   _fitLabels() {
     const box = this.box.getBoundingClientRect();
     const area = this.box.parentNode.getBoundingClientRect();
@@ -255,7 +255,7 @@ export class Starchart {
     const k = box.width / VW, rr = T.r * k + 2;
     const cx = box.left + T.x * k, cy = box.top + T.y * k;
     const overlap = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
-    const onPlanet = (r) => Math.hypot(Math.max(r.left, Math.min(cx, r.right)) - cx, Math.max(r.top, Math.min(cy, r.bottom)) - cy) < rr;
+    const planetDepth = (r) => Math.max(0, rr - Math.hypot(Math.max(r.left, Math.min(cx, r.right)) - cx, Math.max(r.top, Math.min(cy, r.bottom)) - cy));
     const dots = this._nodes.map((n) => n.querySelector('.vp-star-dot').getBoundingClientRect());
     const placed = [];
     const sides = ['', 'is-left', 'is-above', 'is-below'];
@@ -266,7 +266,7 @@ export class Starchart {
         if (side) n.classList.add(side);
         return lbl.getBoundingClientRect();
       };
-      const cost = (r) => (r.left < area.left + 4 || r.right > area.right - 4 ? 1000 : 0) + (onPlanet(r) ? 100 : 0)
+      const cost = (r) => (r.left < area.left + 4 || r.right > area.right - 4 ? 1000 : 0) + (planetDepth(r) ? 100 + planetDepth(r) : 0)
         + 10 * (dots.filter((d, j) => j !== i && overlap(r, d)).length + placed.filter((p) => overlap(r, p)).length);
       let best = '', min = Infinity;
       for (const side of sides) {

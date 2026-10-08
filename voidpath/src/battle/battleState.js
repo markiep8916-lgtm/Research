@@ -114,7 +114,9 @@ export class BattleState {
     input?.setContext('battle');
     input?.consumeAll?.();
     ui?.hud?.setVisible(false);
-    audio?.music(encounter.music);
+    // the battle track starts on the second frame, after the compile under the cover: a long
+    // main-thread stall would otherwise swallow its first beats (R8)
+    this._musicIn = 2;
     this.active = true;
     this._run().catch((err) => {
       if (this.active) setTimeout(() => { throw err; });
@@ -136,6 +138,7 @@ export class BattleState {
 
   update(dt, t) {
     if (!this.stage) return;
+    if (this._musicIn > 0 && --this._musicIn === 0) this.ctx.audio?.music(this.encounter.music);
     const fast = this._enemyTurn && this.ctx.input?.down('confirm') ? FAST : 1;
     const sdt = dt * fast * this.timeScale * this.director.speed;
     updateVfx(sdt, t);

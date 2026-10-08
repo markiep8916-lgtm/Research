@@ -1370,6 +1370,7 @@ export function registerEnemyArt(art, def) {
   const frames = Object.values(def.anims).reduce((n, a) => n + (a.poses?.length || 0), 0);
   if (frames > MAX_FRAMES) console.error(`registerEnemyArt: "${art}" has ${frames} frames (max ${MAX_FRAMES})`);
   for (const a of REQUIRED_ANIMS) if (!def.anims[a]) console.warn(`registerEnemyArt: "${art}" has no "${a}" animation`);
+  if (def.anims.idle.poses.length < 4) console.warn(`registerEnemyArt: "${art}" idle has ${def.anims.idle.poses.length} frames (4+ with secondary motion)`);
   DEFS[art] = def;
   artCache.delete(sheetKey(art));
   artCache.delete(iconKey(art));

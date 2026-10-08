@@ -7,8 +7,8 @@
   {"waitFor": "S().state === 'explore' && S().map === 'dev_box' && !S().transitioning", "timeout": 240000},
   {"eval": "__VP.debug.encounters(false)"},
   {"note": "an exit autosaves: the write falls back to memory and the notice appears"},
-  {"eval": "__VP.debug.teleport(4.95, 20.4, 'down')"},
-  {"until": "S().transitioning || S().map === 'halcyon'", "max": 12, "do": [{"hold": "ArrowDown", "ms": 2500}]},
+  {"eval": "__VP.debug.teleport(4.95, 20.9, 'down')"},
+  {"until": "S().transitioning || S().map === 'halcyon'", "max": 20, "do": [{"hold": "ArrowDown", "ms": 2500}]},
   {"waitFor": "S().map === 'halcyon' && !S().transitioning", "timeout": 240000},
   {"waitFor": "S().autosaves === 1 && S().ui.toasts.some((t) => t.includes('Saving is unavailable'))", "timeout": 30000},
   {"wait": 600},
@@ -28,6 +28,6 @@
   {"waitFor": "S().state === 'explore' && !S().transitioning && S().map === 'dev_box'", "timeout": 400000},
   {"wait": 1000},
   {"shot": "03-continued"},
-  {"hold": "ArrowUp", "ms": 1200},
-  {"waitFor": "S().explore.z < 17.3"}
+  {"note": "still playable: walk north"},
+  {"until": "S().explore.z < 17.3", "max": 20, "do": [{"hold": "ArrowUp", "ms": 2500}]}
 ]

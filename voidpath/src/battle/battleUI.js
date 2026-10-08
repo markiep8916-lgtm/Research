@@ -360,11 +360,12 @@ const CSS = `
 /* ---------------------------------------------------------------- ultimate cut-in */
 .vb-cut { --acc: var(--vp-amber); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .vb-cut .band { position: absolute; left: -10%; right: -10%; top: 50%; height: 210px; margin-top: -105px; transform: skewY(-7deg); overflow: hidden;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 22%, #05070d), color-mix(in srgb, var(--acc) 55%, #05070d) 46%, color-mix(in srgb, var(--acc) 20%, #05070d));
+  background: radial-gradient(42% 150% at 26% 50%, color-mix(in srgb, var(--acc) 62%, transparent), transparent 72%),
+    linear-gradient(90deg, rgba(6,9,18,.94), rgba(12,16,30,.92) 50%, rgba(6,9,18,.94));
   border-top: 2px solid var(--acc); border-bottom: 2px solid var(--acc); box-shadow: 0 0 40px color-mix(in srgb, var(--acc) 60%, transparent);
   animation: vb-cut-band var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards; }
 .vb-cut .band::before { content: ''; position: absolute; inset: 0; opacity: .35;
-  background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.5) 46px 48px, transparent 48px 90px); animation: vb-cut-lines .5s linear infinite; }
+  background: repeating-linear-gradient(90deg, transparent 0 46px, color-mix(in srgb, var(--acc) 70%, #fff) 46px 48px, transparent 48px 90px); animation: vb-cut-lines .5s linear infinite; }
 .vb-cut .pt { position: absolute; left: 14%; top: 50%; width: 160px; height: 160px; margin-top: -92px; animation: vb-cut-pt var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards;
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--acc) 80%, transparent)); }
 .vb-cut .pt img { width: 160px; height: 160px; }
@@ -677,7 +678,6 @@ export class BattleUI {
     const n = Math.min(4, Math.max(1, combatants.filter((c) => c.side === 'party').length));
     this.party.classList.add(`n${n}`);
     this.party.style.setProperty('--n', String(n));
-    this.partyCount = n;
   }
 
   /** View state, hit box and row / plate for one combatant. */

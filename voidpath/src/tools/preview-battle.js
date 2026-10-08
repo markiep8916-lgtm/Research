@@ -11,15 +11,15 @@
 //
 // window.__PREVIEW = { ready, battle, model, stage, ui, director, current, fixture, fixtureDone, marker,
 //   autoplay(on), seen, log, results, pauseOn(pred, delay, uiMs), paused, resume(), menuOpen(), restart(query),
-//   forceVictory(), dismiss(), setHp(id, hp), wound(hp), nearLevel(), links(), lights(), FIXTURES }
-// links() counts gl.linkProgram calls since the page started (shader compiles); lights() counts the
-// stage's lights by type.
+//   forceVictory(), dismiss(), setHp(id, hp), wound(hp), nearLevel(), links(), renderInfo(), lights(), FIXTURES }
+// links() counts shader program links since the page started (engine.renderInfo().compiles); lights()
+// counts the stage's lights by type. Like game.startBattle, every battle is compiled with
+// engine.compileScene right after it is built.
 
 import { Engine } from '../core/engine.js';
 import { Input } from '../core/input.js';
 import { audio } from '../core/audio.js';
 import { UI } from '../ui/ui.js';
-import { setRenderer } from '../core/programs.js';
 import { gameState, resetGame, healParty, useItemOutOfBattle } from '../core/state.js';
 import { ITEMS, PARTY_DEFS, ENCOUNTERS, ENEMIES, SKILLS } from '../battle/data.js';
 import { buildPortrait, buildBattleSprite, PARTY_IDS } from '../art/characters.js';
@@ -79,7 +79,6 @@ for (const [name, def] of Object.entries(devArenas)) if (!ARENAS[name]) register
 for (const [id, fn] of Object.entries(devFx)) if (!getActionFx(id)) registerActionFx(id, fn);
 const OPTS = parseOpts();
 const engine = new Engine(document.getElementById('view'), { quality: OPTS.quality });
-setRenderer(engine.renderer);
 const input = new Input({ touchLayer: document.getElementById('touch-layer') });
 const ui = new UI({
   root: document.getElementById('ui-root'), input, audio, state: gameState, engine,
@@ -88,14 +87,6 @@ const ui = new UI({
 ui.setPortraitProvider(buildPortrait);
 ui.setIconProvider((n) => iconURL(n, 2));
 input.onAny(() => audio.init());
-
-// shader compiles: count every program link
-let linkCount = 0;
-{
-  const gl = engine.renderer.getContext();
-  const link = gl.linkProgram.bind(gl);
-  gl.linkProgram = (p) => { linkCount++; return link(p); };
-}
 
 const SPEAKERS = {
   KADE: { portrait: 'kade', accent: '#ffb54a' }, NYX: { portrait: 'nyx', accent: '#3fd6d2' },
@@ -159,7 +150,7 @@ if (!hasEnemyArt('dev_colossus')) {
     },
     points: { center: [128, 96], muzzle: [128, 96], top: [128, 12], core: [128, 96] },
     icon: { x: 128, y: 40, scale: 0.42 },
-    fitBox: [80, 12, 96, 172],
+    fitBox: [92, 56, 72, 92],   // the torso and core: head, arms and thrusters may bleed off-frame
   });
 }
 
@@ -207,6 +198,7 @@ class Fixture {
     const f = this.stage.fx;
     engine.setFx({ tiltShift: { enabled: true, focusY: f.focusY, band: f.band, falloff: f.falloff, maxBlur: 1.15 } });
     this.stage.warm();
+    engine.compileScene(this.stage.scene, this.stage.camera);
     input.setContext('battle');
     ui.hud?.setVisible(false);
     audio.music(encounter.music);
@@ -450,16 +442,16 @@ const P = {
   dismiss() { P.ui?._dismissResults?.(); },
   /**
    * Freeze the battle `delay` seconds (battle time) after an event matching pred (type string or fn);
-   * DOM animations keep running for `uiMs` more real milliseconds so popups are mid-animation.
+   * DOM animations keep running for `uiMs` more milliseconds of UI time so popups are mid-animation.
    */
   pauseOn(pred, delay = 0, uiMs = 700) {
     P._pause = { test: typeof pred === 'function' ? pred : (e) => e.type === pred, delay, uiMs, armed: true };
     P.paused = false;
   },
-  /** Freeze presentation now (after uiMs more real milliseconds for DOM animations). */
+  /** Freeze presentation now (after uiMs more milliseconds of UI time for DOM animations). */
   freeze(uiMs = 0) {
     P.current.timeScale = 0;
-    setTimeout(() => { P.ui?.freeze(true); P.paused = true; }, uiMs);
+    P._pause = { armed: false, freezeAt: (P.ui?.clock || 0) + uiMs / 1000 };
   },
   resume() {
     P._pause = null;
@@ -480,8 +472,9 @@ const P = {
   wound(hp = 1) {
     for (const c of battle.model.party) if (c.alive) P.setHp(c.id, hp);
   },
-  /** Shader programs linked since the page started. */
-  links() { return linkCount; },
+  /** Shader programs linked since the page started (engine counter). */
+  links() { return engine.renderInfo().compiles; },
+  renderInfo() { return engine.renderInfo(); },
   /** Lights in the current stage by type. */
   lights() {
     const n = { point: 0, spot: 0, dir: 0, hemi: 0 };
@@ -512,11 +505,7 @@ function onEvent(e) {
     cur.stage.wait(pz.delay).then(() => {
       if (P._pause !== pz) return;
       cur.timeScale = 0;
-      setTimeout(() => {
-        if (P._pause !== pz) return;
-        cur.ui.freeze(true);
-        P.paused = true;
-      }, pz.uiMs);
+      pz.freezeAt = cur.ui.clock + pz.uiMs / 1000;
     });
   }
 }
@@ -571,12 +560,19 @@ function begin() {
       start();
     },
   });
+  engine.compileScene(battle.stage.scene, battle.stage.camera);
 }
 
 engine.onUpdate((dt, t) => {
   input.update();
   ui.update(dt);
   P.current.update(dt, t);
+  const pz = P._pause;
+  if (pz && pz.freezeAt != null && P.ui && P.ui.clock >= pz.freezeAt) {
+    pz.freezeAt = null;
+    P.ui.freeze(true);
+    P.paused = true;
+  }
 });
 engine.start();
 

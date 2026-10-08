@@ -8,7 +8,7 @@
   {"eval": "__VP.debug.give('ether', 2), __VP.debug.flags({ 'dev:saved_flag': true }), __VP.debug.credits(321), true"},
 
   {"note": "Med-Station > Save > File 1"},
-  {"eval": "__VP.debug.teleport(12.6, 9.7, 'up')"},
+  {"eval": "__VP.debug.teleport(12.6, 9.4, 'up')"},
   {"until": "S().ui.prompt", "max": 20, "do": [{"hold": "ArrowUp", "ms": 1200}]},
   {"key": "Enter"},
   {"waitFor": "S().ui.choice", "timeout": 60000},

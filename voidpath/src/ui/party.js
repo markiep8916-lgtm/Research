@@ -39,7 +39,6 @@ const CSS = `
 .vp-next .vp-num { font-size: 13px; color: var(--vp-ink-dim); }
 .vp-card.is-ko { --acc: #ff5a6a; }
 .vp-card.is-ko .vp-card-name { color: #9fb2cc; }
-.vp-party-note { margin: 14px 4px 0; font: 400 14px/1.5 var(--vp-font-ui); color: var(--vp-ink-faint); }
 @media (max-width: 760px) {
   .vp-card { padding: 14px 14px 12px; }
   .vp-card-top .vp-portrait { width: 64px; height: 64px; --ps: 64px; }
@@ -109,7 +108,6 @@ export class PartyPage {
     });
     if (!party.length) grid.appendChild(el('div', { class: 'vp-empty', text: 'No travelers aboard.' }));
     body.appendChild(grid);
-    if (party.length > 1) body.appendChild(el('p', { class: 'vp-party-note', text: 'The leader walks the field. Formation order is the order of the battle line.' }));
   }
 
   paint() {
@@ -147,7 +145,7 @@ export class PartyPage {
     const lead = m.id === this.leader;
     const k = await this.menu.popup.open({
       title: m.name,
-      text: lead ? 'Leads the party in the field.' : `Lv ${m.level ?? 1} ${m.cls || ''}`.trim(),
+      text: `${lead ? 'Leads the party in the field' : `Lv ${m.level ?? 1} ${m.cls || ''}`.trim()}. Position ${i + 1} in the battle line.`,
       portrait: m.id, accent: this.menu.accent(m),
       options: [{ label: lead ? 'Leading' : 'Make leader', disabled: lead }, { label: 'Move up', disabled: i === 0 },
         { label: 'Move down', disabled: i === party.length - 1 }, 'Back'],

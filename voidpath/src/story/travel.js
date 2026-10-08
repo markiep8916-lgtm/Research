@@ -128,6 +128,8 @@ export const travel = {
         if (same) ex.teleport(at.x, at.z, at.facing);
         else if (inField) await ex.loadMap(map, spawn);
         else await game.change('explore', { map, spawn, respawn: kind === 'respawn' });
+        // a load, a jump or a Retry may have changed who leads
+        ex.setLeader(gameState.leader);
       };
       if (transition === 'none') await cover();
       else {

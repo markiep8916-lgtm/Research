@@ -11,8 +11,8 @@
   {"log": "JSON.stringify({ autosaves: S().autosaves, checkpoint: S().checkpoint })"},
 
   {"note": "walk out of the south door (an auto exit) to halcyon:start"},
-  {"eval": "__VP.debug.teleport(4.95, 20.4, 'down')"},
-  {"until": "S().transitioning || S().map === 'halcyon'", "max": 12, "do": [{"hold": "ArrowDown", "ms": 2500}]},
+  {"eval": "__VP.debug.teleport(4.95, 20.9, 'down')"},
+  {"until": "S().transitioning || S().map === 'halcyon'", "max": 20, "do": [{"hold": "ArrowDown", "ms": 2500}]},
   {"wait": 200},
   {"shot": "02-exit-fade"},
   {"waitFor": "S().map === 'halcyon' && !S().transitioning", "timeout": 240000},
@@ -30,8 +30,8 @@
   {"shot": "04-dev-box-banner"},
 
   {"note": "the hall's north door leads to the Sky Deck on the same map: a fade without a rebuild"},
-  {"eval": "__VP.debug.teleport(10.0, 8.6, 'up')"},
-  {"until": "S().transitioning || S().explore.area === 'deck'", "max": 12, "do": [{"hold": "ArrowUp", "ms": 2500}]},
+  {"eval": "__VP.debug.teleport(10.0, 8.2, 'up')"},
+  {"until": "S().transitioning || S().explore.area === 'deck'", "max": 20, "do": [{"hold": "ArrowUp", "ms": 2500}]},
   {"waitFor": "!S().transitioning && S().explore.area === 'deck'", "timeout": 240000},
   {"waitFor": "S().map === 'dev_box' && Math.abs(S().explore.x - 30) < 1"},
   {"wait": 1200},

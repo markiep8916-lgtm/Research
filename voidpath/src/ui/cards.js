@@ -65,7 +65,7 @@ const CSS = `
   background: radial-gradient(50% 50% at 50% 50%, rgba(5,7,13,.6), rgba(5,7,13,0)); }
 .vp-cap-card i { width: clamp(24px, 8vw, 110px); height: 1px; background: linear-gradient(90deg, rgba(190,236,255,0), rgba(190,236,255,.8)); }
 .vp-cap-card i:last-child { transform: scaleX(-1); }
-.vp-cap-card span { padding-left: .34em; max-width: 80vw; font: 600 clamp(15px, 1.7vw, 20px)/1.4 var(--vp-font-display); letter-spacing: .34em; text-transform: uppercase; color: #eaf6ff;
+.vp-cap-card span { padding-left: .34em; max-width: 80vw; text-align: center; font: 600 clamp(15px, 1.7vw, 20px)/1.4 var(--vp-font-display); letter-spacing: .34em; text-transform: uppercase; color: #eaf6ff;
   text-shadow: 0 0 12px rgba(127,227,255,.4), 0 1px 0 rgba(0,0,0,.6); }
 
 /* credits */
@@ -108,6 +108,8 @@ const CSS = `
   .vp-cred-role { grid-template-columns: 1fr; gap: 4px; text-align: center; margin: 10px 0; }
   .vp-cred-role span, .vp-cred-role b { text-align: center; }
   .vp-end-t { letter-spacing: .3em; padding-left: .3em; }
+  .vp-cap-card { gap: 10px; }
+  .vp-cap-card span { letter-spacing: .2em; padding-left: .2em; }
 }
 `;
 
@@ -268,11 +270,12 @@ export class Cards {
     this._holdHint.firstChild.replaceChildren(dev === 'touch' ? '' : glyph('confirm', dev));
   }
 
-  /** Show a blocking card; it ends after `ms` (or when `wait` cards are confirmed). */
+  /** Show a blocking card; it ends after `ms`, or stays until clear() when `wait` (previews). */
   _open(view, kind, { k = 1, ms = 0, fadeOut = 600, wait = false, onSkip = null } = {}) {
     if (this._cur) this._finish(true);
     view.style.setProperty('--k', k);
     this.root.appendChild(view);
+    this.root.classList.add('is-live');           // taps reach the card (THE END, a finger hold on credits)
     this.isBlocking = true;
     this.ui._ctxPush('cards', 'card');
     void view.offsetWidth;
@@ -288,6 +291,7 @@ export class Cards {
     if (!c) return;
     this._cur = null;
     clearTimeout(c.timer);
+    this.root.classList.remove('is-live');
     this.isBlocking = false;
     this.ui._ctxPop('cards');
     c.view.classList.add('is-out');
