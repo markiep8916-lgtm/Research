@@ -7,7 +7,9 @@
 //     registered prop types' textures/sprites, NPCs, field bosses, zones), the `extends` other
 //     locations add to those maps, companions, every encounter's enemies through `art`,
 //     `phases[].transform`, `onDefeat.transform` and `actions[].summon.kind`, arena textures,
-//     portrait expressions and spawned sprites its scripts use, and `story.preload`. Additions from
+//     portrait expressions and spawned sprites its scripts use, and `story.preload`. NPC and spawned
+//     sprites named 'enemy:<art>' are enemy sheets; each expression is painted only for the speaker
+//     it belongs to and only when that portrait draws it (characters.hasExpression). Additions from
 //     other locations (extends, preload) count only once their chapter is current or past
 //     (`chapter` defaults to gameState.story.chapter), so boot paints no epilogue art.
 // export function prewarmLocation(locId, { idle = false, chapter } = {}) -> Promise<{ jobs, painted, ms }>
@@ -116,7 +118,8 @@ function addMapPart(add, m) {
   for (const list of [m.chests, m.interactables, m.gates]) {
     for (const e of list || []) if (e?.prop) addRegisteredProp(add, e.prop);
   }
-  for (const n of m.npcs || []) if (n?.sprite) add('npc', n.sprite);
+  // 'enemy:<art>' NPC sprites are enemy sheets (actors.js), not characters
+  for (const n of m.npcs || []) if (n?.sprite) addSheet(add, n.sprite);
   for (const b of m.bosses || []) {
     if (b?.art) add('enemy', b.art);
     if (b?.encounter) addEncounter(add, b.encounter);
@@ -124,26 +127,41 @@ function addMapPart(add, m) {
   for (const a of m.areas || []) addZone(add, a?.zone);
 }
 
-// Speakers, expressions and spawned sprites named in a script's source.
+// Speakers, expressions and spawned sprites named in a script's source. Each `expr` pairs with the
+// speaker named last before it (`cs.say('KADE', text, { expr })`, `{ speaker: 'ORION', ..., expr }`),
+// or with every speaker of the script when none precedes it; only expressions that portrait draws
+// itself are painted (hasExpression), so prewarm records no missingArt such as kade:worried.
+const SCRIPT_TOKENS = /['"`]([A-Z][A-Z0-9_-]{1,23})['"`]|\bexpr\s*:\s*['"`]([a-z_]+)['"`]|\bportrait\s*:\s*['"`]([a-z0-9_]+)(?::([a-z_]+))?['"`]/g;
+
 function addScript(add, fn) {
   if (typeof fn !== 'function') return;
   const src = fn.toString();
-  const exprs = new Set();
-  for (const mm of src.matchAll(/expr\s*:\s*['"`]([a-z_]+)['"`]/g)) exprs.add(mm[1]);
   const portraits = new Set();
-  for (const mm of src.matchAll(/['"`]([A-Z][A-Z0-9_-]{1,23})['"`]/g)) {
-    const p = REG.speakers[mm[1]]?.portrait || PARTY_SPEAKERS[mm[1]];
-    if (p) portraits.add(p.split(':')[0]);
-  }
-  for (const mm of src.matchAll(/portrait\s*:\s*['"`]([a-z0-9_]+)(?::([a-z_]+))?['"`]/g)) {
-    portraits.add(mm[1]);
-    if (mm[2]) add('portrait', `${mm[1]}:${mm[2]}`);
+  const loose = new Set();     // expressions with no speaker before them
+  const pairs = [];
+  let last;                    // undefined: no speaker yet; null: a speaker without a portrait (WARDEN's sigil)
+  for (const mm of src.matchAll(SCRIPT_TOKENS)) {
+    if (mm[1]) {
+      const sp = REG.speakers[mm[1]];
+      const p = sp?.portrait || PARTY_SPEAKERS[mm[1]];
+      if (p) {
+        last = p.split(':')[0];
+        portraits.add(last);
+      } else if (sp) last = null;
+    } else if (mm[2]) {
+      if (last) pairs.push([last, mm[2]]);
+      else if (last === undefined) loose.add(mm[2]);
+    } else if (mm[3]) {
+      portraits.add(mm[3]);
+      if (mm[4]) pairs.push([mm[3], mm[4]]);
+    }
   }
   for (const p of portraits) {
     add('portrait', p);
-    for (const e of exprs) add('portrait', `${p}:${e}`);
+    for (const e of loose) pairs.push([p, e]);
   }
-  for (const mm of src.matchAll(/sprite\s*:\s*['"`]([a-z0-9_]+)['"`]/g)) add('npc', mm[1]);
+  for (const [p, e] of pairs) if (characters.hasExpression(p, e)) add('portrait', `${p}:${e}`);
+  for (const mm of src.matchAll(/sprite\s*:\s*['"`]((?:[a-z]+:)?[a-z0-9_]+)['"`]/g)) addSheet(add, mm[1]);
 }
 
 function visibleTo(chapter) {
@@ -171,7 +189,7 @@ export function collectArt(locId, { chapter = gameState.story?.chapter || 'prolo
       }
     }
   }
-  for (const c of Object.values(REG.companions)) if (c?.sprite) add('npc', c.sprite);
+  for (const c of Object.values(REG.companions)) if (c?.sprite) addSheet(add, c.sprite);
   for (const id of Object.keys(loc.data?.encounters || {})) addEncounter(add, id);
   for (const [id, fn] of Object.entries(REG.scripts)) if (ownerOf('scripts', id) === locId) addScript(add, fn);
   return jobs.sort((a, b) => (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9));

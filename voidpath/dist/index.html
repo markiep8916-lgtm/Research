@@ -24666,12 +24666,25 @@ function sfxVoice(r, { vol = 1, pan = 0, wet = 0.15, echo = 0 }) {
   if (echo > 0) node.connect(gainNode(ctx4, echo)).connect(r.sfx.echo);
   return inp;
 }
+var crushCurves = /* @__PURE__ */ new Map();
+function getCrushCurve(levels) {
+  if (crushCurves.has(levels)) return crushCurves.get(levels);
+  const c = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) c[i] = Math.round((i / 1023 * 2 - 1) * levels) / levels;
+  crushCurves.set(levels, c);
+  return c;
+}
 function tone(r, out, t, o) {
   const ctx4 = r.ctx;
   const osc = oscNode(r, o.type || "sine", o.f);
   if (o.detune) osc.detune.value = o.detune;
   sweep(osc.frequency, t, o.f, o.f1, o.glide ?? 0.1, o.f2, o.glide2 ?? 0.1);
   let node = osc;
+  if (o.crush) {
+    const ws = ctx4.createWaveShaper();
+    ws.curve = getCrushCurve(o.crush);
+    node = node.connect(ws);
+  }
   if (o.lp) {
     const f = filterNode(ctx4, "lowpass", o.lp, o.lpQ ?? 0.9);
     sweep(f.frequency, t, o.lp, o.lp1, o.lpGlide ?? o.glide ?? 0.1);
@@ -25154,8 +25167,9 @@ var SFX = {
     noise(r, o, t + 0.15, { f: 600, q: 3, a: 0.05, d: 0.3, vol: 0.08 });
     noise(r, o, t + 0.7, { f: 900, q: 4, a: 0.02, d: 0.2, vol: 0.07 });
   } },
-  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
-    const chord = CHOIR_SFX[Math.floor(Math.random() * CHOIR_SFX.length)].map(noteMidi);
+  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p, opts) {
+    const set = opts.chords || CHOIR_SFX;
+    const chord = set[Math.floor(Math.random() * set.length)].map(noteMidi);
     choirVoice(r, o, t, chord, 0.45, 1, { attack: 0.25, release: 1.6, level: 0.5, oct: 12 * Math.log2(p) });
   } },
   glitch: { gain: 0.62, wet: 0.15, vary: 0.05, play(r, o, t, p) {
@@ -25281,7 +25295,15 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
   lp.frequency.linearRampToValueAtTime(bright * (0.55 + 0.45 * vel), t + 0.05);
   lp.frequency.setTargetAtTime(bright * 0.5, t + 0.06, 0.18);
   const v = gainNode(ctx4, 0);
-  lp.connect(v).connect(out);
+  (o.hp ? lp.connect(filterNode(ctx4, "highpass", o.hp, 0.7)) : lp).connect(v).connect(out);
+  let into = lp;
+  if (o.drive) {
+    const ws = ctx4.createWaveShaper();
+    ws.curve = getDriveCurve();
+    ws.oversample = "2x";
+    into = gainNode(ctx4, o.drive);
+    into.connect(ws).connect(lp);
+  }
   const lvl = vel * (o.level ?? 0.2);
   const atk = o.attack ?? 0.018;
   v.gain.setValueAtTime(0, t);
@@ -25302,7 +25324,7 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
       osc.frequency.exponentialRampToValueAtTime(f, t + (o.glide ?? 0.07));
     }
     depth.connect(osc.detune);
-    osc.connect(gainNode(ctx4, gain)).connect(lp);
+    osc.connect(gainNode(ctx4, gain)).connect(into);
     osc.start(t);
     osc.stop(stop);
   }
@@ -25310,6 +25332,69 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
   vib.stop(stop);
 }
 var LEAD_LAYERS = [["sawtooth", 0, 1], ["sawtooth", 9, 0.75], ["sawtooth", -1197, 0.55]];
+var FLUTE_LAYERS = [["sine", 0, 1], ["triangle", 4, 0.32], ["sine", 1202, 0.07]];
+function fluteVoice(r, out, t, m, dur, vel, o, from) {
+  const lvl = o.level ?? 0.16;
+  leadVoice(r, out, t, m, dur, vel, {
+    layers: FLUTE_LAYERS,
+    cutoff: o.cutoff ?? 2600,
+    base: 1500,
+    q: 0.7,
+    level: lvl,
+    attack: o.attack ?? 0.07,
+    release: o.release ?? 0.28,
+    vib: o.vib ?? 13,
+    vibRate: o.vibRate ?? 4.8,
+    glide: o.glide ?? 0.12,
+    oct: o.oct
+  }, from);
+  const f = mtof(m + (o.oct ?? 0));
+  noise(r, out, t, { f: hz(f * 2.2), q: 2.2, a: 0.012, d: 0.11, vol: vel * lvl * 0.45 });
+  noise(r, out, t, { f: hz(f * 1.5), q: 1.2, a: 0.08, hold: Math.max(0, dur - 0.1), d: 0.25, vol: vel * lvl * (o.breath ?? 0.14) });
+}
+function stringsVoice(r, out, t, m, dur, vel, o) {
+  const ctx4 = r.ctx;
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.16);
+  const a = Math.min(o.attack ?? 0.04, dur * 0.6);
+  const rel = o.release ?? 0.18;
+  const end = t + Math.max(a + 0.02, dur * (o.gate ?? 0.95));
+  const stop = end + rel * 1.4 + 0.02;
+  const cut = o.cutoff ?? 1600;
+  const lp = filterNode(ctx4, "lowpass", cut, o.q ?? 0.8);
+  lp.frequency.setValueAtTime(cut * 1.7, t);
+  lp.frequency.setTargetAtTime(cut, t + a, 0.12);
+  const v = gainNode(ctx4, 0);
+  lp.connect(v).connect(out);
+  v.gain.setValueAtTime(0, t);
+  v.gain.linearRampToValueAtTime(lvl, t + a);
+  v.gain.setValueAtTime(lvl, end);
+  v.gain.setTargetAtTime(0, end, rel / 5);
+  const vib = oscNode(r, "sine", o.vibRate ?? 5.2);
+  const depth = gainNode(ctx4, 0);
+  depth.gain.setValueAtTime(0, t + 0.15);
+  depth.gain.linearRampToValueAtTime(o.vib ?? 10, t + 0.5);
+  vib.connect(depth);
+  for (const det of [-11, 0, 9]) {
+    const osc = oscNode(r, "sawtooth", f);
+    osc.detune.value = det + (Math.random() - 0.5) * 3;
+    depth.connect(osc.detune);
+    osc.connect(lp);
+    osc.start(t);
+    osc.stop(stop);
+  }
+  vib.start(t);
+  vib.stop(stop);
+  if (o.bow) noise(r, out, t, { f: hz(Math.min(5e3, f * 7)), q: 1.4, a: 4e-3, d: 0.07, vol: lvl * o.bow });
+}
+function dripVoice(r, out, t, m, dur, vel, o) {
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.18);
+  const d = o.decay ?? 0.45;
+  tone(r, out, t, { f: f * (o.rise ?? 0.6), f1: f, glide: o.chirp ?? 0.03, a: 1e-3, d, vol: lvl });
+  tone(r, out, t, { type: "triangle", f: f * 2, a: 1e-3, d: d * 0.22, vol: lvl * 0.16 });
+  noise(r, out, t, { type: "highpass", f: 6e3, d: 4e-3, vol: lvl * 0.25 });
+}
 function bassVoice(r, out, t, m, dur, vel, o) {
   const ctx4 = r.ctx;
   const f = mtof(m);
@@ -25341,7 +25426,11 @@ function bassVoice(r, out, t, m, dur, vel, o) {
 function pluckVoice(r, out, t, m, dur, vel, o) {
   const d = o.decay ?? 0.25;
   const cut = o.cutoff ?? 3600;
-  tone(r, out, t, { type: o.wave ?? "square", f: mtof(m + (o.oct ?? 0)), lp: cut, lp1: cut * 0.2, lpGlide: d * 0.6, lpQ: 2, a: 2e-3, d, vol: vel * (o.level ?? 0.15) });
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.15);
+  for (const det of o.spread ? [-o.spread, o.spread] : [0]) {
+    tone(r, out, t, { type: o.wave ?? "square", f, detune: det, crush: o.crush, lp: cut, lp1: cut * 0.2, lpGlide: d * 0.6, lpQ: 2, a: 2e-3, d, vol: o.spread ? lvl * 0.7 : lvl });
+  }
 }
 function harpVoice(r, out, t, m, dur, vel, o) {
   const f = mtof(m + (o.oct ?? 0));
@@ -25383,7 +25472,9 @@ var VOWELS = {
   oo: [[320, 1], [800, 0.3], [2500, 0.06]],
   oh: [[460, 1], [820, 0.45], [2700, 0.08]],
   ah: [[760, 1], [1150, 0.55], [2800, 0.14]],
-  ee: [[300, 1], [2200, 0.35], [3e3, 0.14]]
+  ee: [[300, 1], [2200, 0.35], [3e3, 0.14]],
+  mm: [[250, 1], [1050, 0.1], [2500, 0.03]]
+  // a closed-mouth hum
 };
 function choirVoice(r, out, t, notes, dur, vel, o) {
   const ctx4 = r.ctx;
@@ -25470,14 +25561,17 @@ var SYNTHS = {
   box: boxVoice,
   choir: choirVoice,
   sub: subVoice,
-  swell: swellVoice
+  swell: swellVoice,
+  flute: fluteVoice,
+  strings: stringsVoice,
+  drip: dripVoice
 };
 var CHORD_SYNTHS = /* @__PURE__ */ new Set(["pad", "stab", "choir", "swell"]);
-function playNote(r, out, t, e, dur, vo) {
+function playNote(r, out, t, e, dur, v, vo) {
   const kind = vo.synth || e.b;
   const fn = SYNTHS[kind];
-  if (CHORD_SYNTHS.has(kind)) fn(r, out, t, [].concat(e.m), dur, e.v, vo);
-  else for (const m of [].concat(e.m)) fn(r, out, t, m, dur, e.v, vo, e.from);
+  if (CHORD_SYNTHS.has(kind)) fn(r, out, t, [].concat(e.m), dur, v, vo);
+  else for (const m of [].concat(e.m)) fn(r, out, t, m, dur, v, vo, e.from);
 }
 var TOM_PITCH = { h: 165, m: 125, l: 92, x: 125, X: 125, o: 125 };
 var STRIPS = {
@@ -25527,6 +25621,8 @@ function parseChord(s, where) {
   return c;
 }
 function makeEvent(inst, base, tok, chord, len, prev, where) {
+  const rat = /^(.+)\*([2-9])$/.exec(tok);
+  if (rat) return { ...makeEvent(inst, base, rat[1], chord, len, prev, where), rat: Number(rat[2]), span: len };
   if (DRUMS.has(base)) {
     const v2 = { X: 1, x: 0.72, o: 0.38, h: 0.85, m: 0.85, l: 0.85 }[tok];
     if (!v2) throw new Error(`bad drum token "${tok}" ${where}`);
@@ -25670,6 +25766,30 @@ function advance(rt) {
   }
   rt.next += rt.stepDur;
 }
+function playEvent(r, out, t, e, dur, v, vo) {
+  switch (e.b) {
+    case "kick":
+      kick(r, out, t, v, vo);
+      break;
+    case "snare":
+      snare(r, out, t, v, vo);
+      break;
+    case "hat":
+      hat(r, out, t, v, false, vo);
+      break;
+    case "ohat":
+      hat(r, out, t, v, true, vo);
+      break;
+    case "crash":
+      crash(r, out, t, v);
+      break;
+    case "tom":
+      tom(r, out, t, v, TOM_PITCH[e.tok] * (vo.pitch ?? 1));
+      break;
+    default:
+      playNote(r, out, t, e, dur, v, vo);
+  }
+}
 function playStep(rt, t) {
   const evs = rt.c.parts[partAt(rt)].steps[rt.step];
   for (let k = 0; k < evs.length; k++) {
@@ -25679,28 +25799,14 @@ function playStep(rt, t) {
     const out = rt.strips[name] || (rt.strips[name] = makeStrip(rt, name, e.b === "ohat" ? "hat" : e.b));
     const vo = rt.track.voices?.[e.i] || rt.track.voices?.[e.b] || {};
     const dur = e.len * rt.stepDur;
-    const r = rt.r;
-    switch (e.b) {
-      case "kick":
-        kick(r, out, t, e.v, vo);
-        break;
-      case "snare":
-        snare(r, out, t, e.v, vo);
-        break;
-      case "hat":
-        hat(r, out, t, e.v, false, vo);
-        break;
-      case "ohat":
-        hat(r, out, t, e.v, true, vo);
-        break;
-      case "crash":
-        crash(r, out, t, e.v);
-        break;
-      case "tom":
-        tom(r, out, t, e.v, TOM_PITCH[e.tok] * (vo.pitch ?? 1));
-        break;
-      default:
-        playNote(r, out, t, e, dur, vo);
+    if (!e.rat) {
+      playEvent(rt.r, out, t, e, dur, e.v, vo);
+      continue;
+    }
+    const sub = e.span * rt.stepDur / e.rat;
+    for (let h = 0; h < e.rat; h++) {
+      const last = h === e.rat - 1;
+      playEvent(rt.r, out, t + h * sub, e, last ? dur - h * sub : sub * 0.8, last ? e.v : e.v * 0.62, vo);
     }
   }
 }
@@ -25838,6 +25944,68 @@ var G_FS = "F#1: B2 D3 G3";
 var D_FS = "F#1: A2 D3 F#3";
 var EM_FS = "F#1: B2 E3 G3";
 var BM_FS = "F#1: B2 D3 F#3";
+var ARB_A = {
+  chords: [
+    "D2: D3 F3 A3 C4",
+    "F2: F3 A3 C4 E4",
+    "G1: D3 G3 B3 D4",
+    "C2: E3 G3 C4 D4",
+    "A1: E3 A3 C4 E4",
+    "G1: D3 G3 B3 D4",
+    "E2: D3 G3 B3 E4",
+    ["A1: D3 E3 A3 D4", "A1: C3 E3 A3 C4"]
+  ],
+  tune: ["A4 - C5", "F5 - E5", "D5 E5 D5", "C5 - -", "E5 - - - C5 D5", "B4 - - - G4 A4", "G4 - - - A4 B4", "A4 - - - - -"]
+};
+var DRIPS = ["0 . . 2 . . . 4 . 1 . .", ". . 3 . . 5 . . . . 2 .", "1 . . . 4 . 2 . . . . 5", ". 3 . . . . 0 . . 4 . ."];
+var DRIPS_HI = ["", ". . . . . . . . 6 . . .", "", ". . . . 7 . . . . . . ."];
+var RAIN = ["o . . o . o . . o . . o", ". o . . o . . o . o . .", "o . o . . . o . . o . .", ". . o . o . . o . . o o"];
+var CHOIR_CHORD = "A1: A2 E3 B3 D4 F#4";
+var CHOIR_GOLD = "A1: A2 E3 C#4 E4 B4";
+var CHOIR_D = "A1: A2 D3 F#3 B3 E4";
+var CHOIR_G = "A1: G2 D3 B3 E4 F#4";
+var ALARM_C = "C6 . Ab5 . Eb5 . F5 . G5 . F5 . . . . .";
+var ALARM_C4 = "C5 . Ab4 . Eb4 . F4 . G4 . F4 . . . . .";
+var ALARM_G = "G5 . Eb5 . Bb4 . C5 . D5 . C5 . . . . .";
+var MARCH = "R . R R R . O . R . R R R . F .";
+var SNARE_MARCH = "X . . o x . o . X . . o x . o o";
+var SPIRE_A = ["C2: G3 C4 Eb4", "C2: G3 C4 Eb4", "Ab1: Ab3 C4 Eb4", "Ab1: Ab3 C4 Eb4", "F1: Ab3 C4 F4", "F1: Ab3 C4 F4", "G1: G3 B3 D4", "G1: G3 B3 D4"];
+var SPIRE_B = {
+  chords: ["C2: G3 C4 Eb4", "Eb2: G3 Bb3 Eb4", "Ab1: Ab3 C4 Eb4", "G1: G3 B3 D4", "C2: G3 C4 Eb4", "Bb1: F3 Bb3 D4", "Ab1: Ab3 C4 Eb4", "G1: G3 B3 D4"],
+  cello: [
+    "G3 - - - C4 - - -",
+    "Bb3 - - - G3 - Eb3 -",
+    "C4 - - - Ab3 - C4 -",
+    "B3 - - - - - G3 -",
+    "Eb4 - - - D4 - C4 -",
+    "D4 - - - F4 - D4 -",
+    "Eb4 - - - C4 - Ab3 -",
+    "G3 - - - B3 - D4 -"
+  ]
+};
+var OCT16 = "R O R O R O R O R O R O R O R O";
+var VAULT_A = [
+  "B1: F#3 A#3 D#4 F#4",
+  "B1: G#3 C#4 E#4 G#4",
+  "B1: F#3 A#3 D#4 F#4",
+  "B1: G#3 C#4 E#4 G#4",
+  "G#1: G#3 B3 D#4 F#4",
+  "C#2: G#3 C#4 E#4 G#4",
+  "D#2: F#3 A#3 C#4 F#4",
+  "F#1: F#3 A#3 C#4 E#4"
+];
+var VAULT_ARP = ["0 2 1 3 2 4 3 5 4 6 5 3 4 2", "7 5 6 4 5 3 4 2 3 1 2 0 1 3"];
+var VAULT_LEAD = [
+  "D#5 - - - E#5 - F#5",
+  "G#5 - - - E#5 - -",
+  "F#5 - - - D#5 - B4",
+  "C#5 - - - E#5 - G#5",
+  "B5 - - - A#5 - G#5",
+  "E#5 - - - G#5 - C#6",
+  "A#5 - - - F#5 - D#5",
+  "E#5 - - - - - -"
+];
+var GLITCH_HAT = ["x . x . x . x . x . x x*2 x .", "x . x*3 . x . x . x . x . x*2 x*2"];
 var TRACKS = {
   // D minor, i-VI-III-VII colour; celesta bell melody over drifting pads and a slow harp. Melancholy, wistful.
   title: {
@@ -26502,6 +26670,7 @@ var TRACKS = {
     gain: 1.12,
     delay: 1,
     motifs: ["lullaby"],
+    choirSfx: [["F3", "A3", "C4", "F4"], ["Bb2", "F3", "Bb3", "D4"], ["D3", "F3", "A3", "D4"], ["C3", "G3", "C4", "E4"]],
     voices: {
       bell: { synth: "box", oct: 12, level: 0.26, decay: 2.2 },
       harp: { synth: "box", oct: 12, level: 0.085, decay: 1.3 },
@@ -26548,6 +26717,510 @@ var TRACKS = {
       B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: ". . 1 . 2 .", bass: "R - -", bell2: ["Ab2 - -", "", "", "C3 - -", "", "", "", ""] },
       A2: { bars: 8, chords: WARDEN_A.chords, choir: WARDEN_A.tune, harp: "0 1 2 3 2 1", bass: "R - -", bell2: firstOnly(8, "F3 - -") },
       B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: "0 1 2 3 2 1", bass: "R - -", bell2: ["Ab2 - -", "", "", "C3 - -", "", "", "", ""] }
+    }
+  },
+  // The Arboretum, D Dorian 3/4, 84: overgrown, wistful, Sera's chapter. Water drips off the leaves (a rising
+  // 'plink' on the chord tones, echoing), the room hums, and a wooden flute remembers the opening of HALCYON's
+  // lullaby before it wanders off down a sequence. B is the hope (the Dorian B natural, a lift to A major); C is
+  // the grief: only drips, the hum, sprinkler rain and a glass chime falling E D C B A; A2 brings the flute back
+  // over a harp.
+  arboretum: {
+    key: "D Dorian",
+    bpm: 84,
+    meter: "3/4",
+    gain: 0.96,
+    delay: 0.75,
+    motifs: ["lullaby"],
+    choirSfx: [["D3", "F3", "A3", "D4"], ["G2", "D3", "G3", "B3"], ["F3", "A3", "C4", "F4"], ["A2", "E3", "A3", "C4"]],
+    voices: {
+      pad: { synth: "choir", vowel: "mm", attack: 1.8, release: 2.6, level: 0.3, vib: 5 },
+      lead: { synth: "flute", level: 0.15 },
+      arp: { synth: "drip", oct: 24, level: 0.26, decay: 0.5 },
+      arp2: { synth: "drip", oct: 24, level: 0.18, decay: 0.7, rise: 0.5 },
+      harp: { decay: 1.6, level: 0.11 },
+      bell: { ratio: 3.5, index: 0.8, decay: 3.4, level: 0.16 },
+      bass: { soft: true, level: 0.2 },
+      hat: { f: 7500, d: 0.035 }
+    },
+    mix: { hat: 2 },
+    sends: {
+      pad: { wet: 0.5 },
+      lead: { wet: 0.42, echo: 0.16 },
+      arp: { wet: 0.45, echo: 0.55, pan: -0.3 },
+      arp2: { wet: 0.6, echo: 0.6, pan: 0.4 },
+      harp: { pan: -0.2 },
+      bell: { wet: 0.7, echo: 0.3, pan: 0.25 },
+      hat: { wet: 0.5, pan: 0.15 }
+    },
+    loop: ["A", "B", "C", "A2"],
+    parts: {
+      A: { bars: 8, chords: ARB_A.chords, lead: ARB_A.tune, arp: DRIPS, bass: "R - -" },
+      B: {
+        bars: 8,
+        chords: [
+          "G1: D3 G3 B3 D4",
+          "A1: E3 A3 C4 E4",
+          "F2: F3 A3 C4 E4",
+          "C2: E3 G3 C4 D4",
+          "G1: D3 G3 B3 D4",
+          "A1: E3 A3 C4 E4",
+          "D2: D3 F3 A3 C4",
+          ["A1: D3 E3 A3", "A1: C#3 E3 A3"]
+        ],
+        lead: ["B4 - - - D5 -", "E5 - - - A5 -", "F5 - - - E5 C5", "D5 - - - - -", "D5 - - - B4 D5", "C5 - - - E5 A5", "A5 - - - G5 F5", "E5 - - - - -"],
+        harp: "0 . 2 . 1 .",
+        arp: DRIPS,
+        arp2: DRIPS_HI,
+        bass: "R - -",
+        hat: RAIN
+      },
+      C: {
+        bars: 8,
+        chords: [
+          "D2: F3 A3 C4 E4",
+          "C2: E3 G3 C4 D4",
+          "G1: F3 G3 B3 D4",
+          "D2: F3 A3 C4 E4",
+          "F2: F3 A3 C4 E4",
+          "C2: E3 G3 C4 D4",
+          "E2: D3 G3 B3 E4",
+          ["A1: D3 E3 A3 D4", "A1: C3 E3 A3 C4"]
+        ],
+        bell: ["", "E5 - -", "", "D5 - -", "", "C5 - -", "B4 - -", "A4 - -"],
+        arp: [...DRIPS.slice(2), ...DRIPS.slice(0, 2)],
+        arp2: [". . . . 5 . . . . . . .", ". . . . . . . . . . 7 .", "", ". . 6 . . . . . . . . ."],
+        bass: "R - -",
+        hat: RAIN
+      },
+      A2: { bars: 8, chords: ARB_A.chords, lead: ARB_A.tune, harp: "0 1 2 3 2 1", arp: DRIPS, arp2: DRIPS_HI, bass: lastDiff(8, "R - F", "R - -") }
+    }
+  },
+  // The Choir Chamber, A, 56, free: the cathedral of dreaming sleepers singing one chord (MOTIFS.choir). No
+  // pulse: voices swell in on their own breaths over a sub drone. A lets the chord settle and voices enter one by
+  // one; B blooms gold (A add9, the dream of Elysia) with a treble voice above; C thins to an open fifth and one
+  // child-like voice, then the chord is rebuilt note by note; D sings it whole and ebbs.
+  choir: {
+    key: "A sus",
+    bpm: 56,
+    gain: 1,
+    delay: 1.5,
+    motifs: ["choir"],
+    choirSfx: [["A2", "E3", "B3", "D4"], ["D3", "F#3", "B3", "E4"], ["E3", "A3", "B3", "F#4"], ["A2", "D3", "E3", "B3"]],
+    voices: {
+      pad: { synth: "choir", vowel: "oo", attack: 4, release: 5, level: 0.34, vib: 6 },
+      choir: { vowel: "ah", attack: 2.4, release: 3.2, level: 0.15, vib: 8 },
+      choir2: { vowel: "oh", attack: 2.8, release: 3.6, level: 0.17, vib: 7 },
+      choir3: { vowel: "ee", attack: 1.8, release: 2.8, level: 0.08, vib: 10 },
+      bass: { synth: "sub", level: 0.24, gate: 1, attack: 2.5, decay: 4, harm: 0.15 },
+      bell: { ratio: 3.5, index: 0.9, decay: 5, level: 0.06 }
+    },
+    sends: {
+      pad: { wet: 0.7 },
+      choir: { wet: 0.8, echo: 0.15, pan: 0.25 },
+      choir2: { wet: 0.75, echo: 0.1, pan: -0.25 },
+      choir3: { wet: 0.85, echo: 0.25, pan: 0.1 },
+      bell: { wet: 0.9, echo: 0.35, pan: -0.35 }
+    },
+    loop: ["A", "B", "C", "D"],
+    parts: {
+      A: {
+        bars: 8,
+        chords: [CHOIR_CHORD],
+        choir2: ["", ". . E3 -", "- - - -", "- . . .", ". B3 - -", "- - - -", "- - . .", ""],
+        choir: ["", "", "", ". . . F#4", "- - - -", "- - . .", ". . D4 -", "- - - ."],
+        bell: ["", ". . . . . . . . . . . . . . E5 -", "", "", ". . . . . . B5 - . . . . . . . .", "", "", ". . . . . . . . . . F#5 - . . . ."],
+        bass: ["R - - -", "-"]
+      },
+      B: {
+        bars: 8,
+        chords: [CHOIR_CHORD, CHOIR_CHORD, CHOIR_GOLD, CHOIR_GOLD, CHOIR_D, CHOIR_D, CHOIR_CHORD, CHOIR_CHORD],
+        choir: [". . F#4 -", "- - E4 -", "- . A4 -", "- - B4 -", "- - - -", "- . A4 -", "- - F#4 -", "- - - ."],
+        choir2: ["E3 - - -", "-", "-", "- - . .", "D3 - - -", "- - - -", "E3 - - -", "- - . ."],
+        choir3: ["", "", ". . . E5", "- - C#5 -", "- - . .", "", "", ""],
+        bell: ["", "", ". . . . . . . . C#6 - . . . . . .", "", "", ". . . . . . . . . . . . A5 - . .", "", ""],
+        bass: ["R - - -", "-"]
+      },
+      C: {
+        bars: 8,
+        chords: ["A1: A2 E3", "A1: A2 E3", "A1: A2 E3", "A1: A2 E3", "A1: A2 E3 B3", "A1: A2 E3 B3 D4", CHOIR_CHORD, CHOIR_CHORD],
+        choir3: ["", ". . B4 -", "- - A4 -", "- - F#4 -", "- - - -", "- . E4 -", "- - - -", "- - . ."],
+        choir2: ["", "", "", "", "", "", ". . D4 -", "- - - ."],
+        bell: [". . . . . . . . . . B4 - . . . . ", "", "", "", ". . . . E5 - . . . . . . . . . .", "", "", ""],
+        bass: ["R - - -", "-"]
+      },
+      D: {
+        bars: 8,
+        chords: [CHOIR_CHORD, CHOIR_CHORD, CHOIR_CHORD, CHOIR_CHORD, CHOIR_G, CHOIR_G, CHOIR_CHORD, CHOIR_CHORD],
+        choir: [". . . .", "F#4 - - -", "- - - -", ". . E4 -", "- - - -", ". . D4 -", "E4 - - -", "- - . ."],
+        choir2: ["E3 - - -", "-", "-", "- - . .", "D3 - - -", "- - - -", "E3 - - -", "- - . ."],
+        choir3: ["", "", ". . . B4", "- - - -", "- - . .", "", "", ""],
+        bell: [". . . . . . . . . . . . F#5 - . .", "", "", ". . . . . . . . D5 - . . . . . .", "", "", ". . . . . . E5 - . . . . . . . .", ""],
+        bass: ["R - - -", "-"]
+      }
+    }
+  },
+  // The Security Spire, C minor 4/4 march at 112: militarised, tense, cold. Low strings saw a dotted spiccato
+  // ostinato over a field drum; the alarm figure (MOTIFS.warden inverted) pierces it on a nasal square tone. B
+  // gives the cellos a stern march tune; in C the march sinks to a snare whisper and WARDEN's calm theme loops
+  // on a soft choir like the propaganda screens; D is the whole regiment with the alarm in two registers.
+  spire: {
+    key: "C minor",
+    bpm: 112,
+    gain: 1,
+    delay: 0.5,
+    motifs: ["warden:inverted", "warden"],
+    choirSfx: [["C3", "G3", "C4", "Eb4"], ["F3", "Ab3", "C4", "F4"], ["Ab2", "Eb3", "Ab3", "C4"], ["C3", "G3", "C4", "G4"]],
+    voices: {
+      bass: { synth: "strings", level: 0.19, attack: 0.012, release: 0.07, gate: 0.55, cutoff: 1100, bow: 0.5, vib: 0 },
+      bass2: { synth: "strings", level: 0.15, attack: 0.09, release: 0.35, cutoff: 1400, vib: 12, bow: 0.25 },
+      pad: { synth: "strings", oct: 12, attack: 0.9, release: 1.4, level: 0.045, cutoff: 2400, vib: 9 },
+      lead: { layers: [["square", 0, 1], ["square", 7, 0.6]], cutoff: 3600, base: 2600, hp: 700, level: 0.07, attack: 4e-3, release: 0.05, vib: 0 },
+      choir: { vowel: "oo", attack: 0.5, release: 1.6, level: 0.22 },
+      snare: { f: 2900, tone: 250, d: 0.15 },
+      kick: { f0: 105, f1: 42, sweep: 0.14, d: 0.55, vol: 0.85, click: 0.08 },
+      tom: { pitch: 0.55 }
+    },
+    mix: { tom: 1.1, crash: 0.7 },
+    sends: {
+      bass: { wet: 0.12 },
+      bass2: { wet: 0.3, pan: -0.15 },
+      pad: { wet: 0.5 },
+      lead: { wet: 0.35, echo: 0.32, pan: 0.2 },
+      choir: { wet: 0.7, echo: 0.15 },
+      snare: { wet: 0.22 },
+      tom: { wet: 0.3 }
+    },
+    intro: ["I"],
+    loop: ["A", "B", "C", "D"],
+    parts: {
+      // a buzz roll swells over a timpani pulse, the march falls in under the first alarm
+      I: {
+        bars: 2,
+        chords: ["C2: G3 C4 Eb4"],
+        snare: ["o*2 o*2 o*2 o*2 o*2 o*2 o*2 o*2 x*2 x*2 x*2 x*2 x*2 x*2 X*2 X", SNARE_MARCH],
+        tom: ["l . . . . . . . l . . . l . l l", ""],
+        kick: ["X . . . . . . . . . . . . . . .", "X . . . . . . . X . . . . . . ."],
+        bass: ["", MARCH],
+        lead: ["", ALARM_C],
+        crash: ["", "X"]
+      },
+      A: {
+        bars: 8,
+        chords: SPIRE_A,
+        bass: MARCH,
+        lead: [ALARM_C, "", ALARM_C, "", ALARM_C4, "", "G5 - - - - - - - . . . . . . . .", ""],
+        snare: lastDiff(8, SNARE_MARCH, "X . . o x . o . x*2 . x*2 . X x X X"),
+        kick: "X . . . . . . . X . . . . . . .",
+        tom: lastDiff(8, "", ". . . . . . . . . . . . l . l l"),
+        crash: firstOnly(8, "X")
+      },
+      B: {
+        bars: 8,
+        chords: SPIRE_B.chords,
+        bass: MARCH,
+        bass2: SPIRE_B.cello,
+        lead: [ALARM_G, "", "", "", ALARM_G, "", "", ""],
+        snare: lastDiff(8, SNARE_MARCH, "X . . o x . o . X . x*2 . X X X X"),
+        kick: "X . . . . . . . X . . . . . . .",
+        crash: ["X", "", "", "", "X", "", "", ""]
+      },
+      C: {
+        bars: 8,
+        chords: ["C2: G3 C4 Eb4", "C2: G3 C4 Eb4", "F1: F3 Ab3 C4", "G1: G3 B3 D4", "F1: F3 Ab3 C4", "Bb1: F3 Bb3 D4", "Ab1: Ab3 C4 Eb4", "C2: G3 C4 Eb4"],
+        choir: ["Eb4 - - G4", "C5 - - Bb4", "Ab4 Bb4 Ab4 -", "G4 - - -", "F4 - - Ab4", "D5 - - C5", "Bb4 Ab4 Bb4 -", "C5 - - -"],
+        bass2: ["C3 - - -", "- - - -", "F2 - - -", "G2 - - -", "F2 - - -", "Bb2 - - -", "Ab2 - - -", "C3 - - -"],
+        lead: ["", "", "", "", "", "", "", ALARM_G],
+        snare: "o . o o o . o . o . o o o . o .",
+        tom: ["l . . . . . . . . . . . . . . .", "", "", "l . . . . . . . l . . . . . . ."]
+      },
+      D: {
+        bars: 8,
+        chords: SPIRE_B.chords,
+        bass: MARCH,
+        bass2: SPIRE_B.cello,
+        lead: [ALARM_G, "", ALARM_C, "G5 - - - - - - - . . . . . . . .", ALARM_G, ALARM_C4, ALARM_C, "B5 . G5 . B5 . G5 . D6 - - - - - . ."],
+        snare: lastDiff(8, "X . x*2 o x . o . X . . o x x*2 o o", "x*2 . x*2 . x*2 . x*2 . X x X x X X X X"),
+        kick: "X . . . . . . . X . . x . . . .",
+        tom: lastDiff(8, "", ". . . . . . . . l . l . l l l l"),
+        crash: ["X", "", "", "", "X", "", "", ""]
+      }
+    }
+  },
+  // battle_2, E Phrygian 148 (battles from ch3 on): as driving as 'battle' but darker and more mechanical.
+  // Octave bass in sixteenths under a driven, distorted saw lead; four-on-the-floor kick; the flat second (F)
+  // colours every strain. A states the theme, B harmonises an Andalusian descent (Am G F E), C is a half-time
+  // breakdown with rising arpeggio cells and a snare build, D is a run-heavy solo that cadences F -> Em back to A.
+  battle_2: {
+    key: "E Phrygian",
+    bpm: 148,
+    gain: 0.66,
+    delay: 0.75,
+    voices: {
+      lead: { cutoff: 3200, level: 0.12, vib: 16, drive: 1.6, q: 2 },
+      lead2: { cutoff: 2400, level: 0.075, vib: 12, drive: 1 },
+      bass: { cutoff: 1400, level: 0.3, q: 4, gate: 0.7 },
+      stab: { level: 0.22, oct: 12, cutoff: 3400 },
+      pad: { cutoff: 1100, attack: 0.25, release: 0.6, level: 0.08 },
+      arp: { wave: "pulse", decay: 0.09, level: 0.07, oct: 24, cutoff: 3800 },
+      swell: { level: 0.22, tonal: 0.35, from: 300, to: 7e3 },
+      kick: { vol: 1, punch: 0.4, d: 0.3 },
+      snare: { tone: 190, d: 0.22, f: 2e3 }
+    },
+    mix: { hat: 0.6, crash: 0.75 },
+    sends: { lead: { wet: 0.2, echo: 0.14 }, lead2: { pan: 0.3, wet: 0.25 }, arp: { pan: -0.3, echo: 0.25 } },
+    intro: ["I"],
+    loop: ["A", "B", "C", "D"],
+    parts: {
+      // the octave bass starts alone under a riser; stabs and a lead pickup land on the theme
+      I: {
+        bars: 2,
+        chords: ["E2: E3 G3 B3", "F2: F3 A3 C4"],
+        bass: OCT16,
+        swell: ["x - - - - - - - - - - - - - - -", ""],
+        kick: ["X . . . X . . . X . . . X . . .", "X . . . X . . . X . . . X X X X"],
+        hat: [". . x . . . x . . . x . . . x .", ""],
+        stab: ["", "X . . . . . . . X . . . X . . ."],
+        snare: ["", ". . . . . . . . x x x x X X X X"],
+        lead: ["", ". . . . . . . . . . . . B4 C5 D5 F5"]
+      },
+      A: {
+        bars: 8,
+        chords: [
+          "E2: E3 G3 B3 E4",
+          "F2: F3 A3 C4 F4",
+          "G2: G3 B3 D4 G4",
+          "F2: F3 A3 C4 F4",
+          "E2: E3 G3 B3 E4",
+          "F2: F3 A3 C4 F4",
+          "D2: D3 F3 A3 D4",
+          "E2: E3 G#3 B3 E4"
+        ],
+        lead: [
+          "E5 - E5 - F5 - E5 - D5 - E5 - B4 - - -",
+          "C5 - D5 - E5 - F5 - A5 - - - G5 - F5 -",
+          "G5 - - - D5 - G5 - B5 - - - A5 - G5 -",
+          "A5 - - - - - - - F5 - G5 - A5 - C6 -",
+          "B5 - - - G5 - E5 - B5 - - - C6 - B5 -",
+          "A5 - - - F5 - C5 - A5 - - - G5 - F5 -",
+          "F5 - - - E5 - D5 - A4 - D5 - F5 - A5 -",
+          "G#5 - - - - - - - F5 - - - E5 - - -"
+        ],
+        bass: OCT16,
+        stab: "X . . . . . . . . . X . . . . .",
+        kick: "X . . . X . . x X . . . X . . .",
+        snare: lastDiff(8, ". . . . X . . . . . . . X . . .", ". . . . X . . . X . X x X X X X"),
+        ohat: ". . x . . . x . . . x . . . x .",
+        crash: firstOnly(8, "X")
+      },
+      B: {
+        bars: 8,
+        chords: [
+          "A1: E3 A3 C4 E4",
+          "G1: D3 G3 B3 D4",
+          "F1: F3 A3 C4 F4",
+          "E2: E3 G#3 B3 E4",
+          "A1: E3 A3 C4 E4",
+          "G1: D3 G3 B3 D4",
+          "F1: F3 A3 C4 F4",
+          "E2: E3 G#3 B3 E4"
+        ],
+        lead: [
+          "A5 - - - - - - - E5 - - - A5 - C6 -",
+          "B5 - - - - - - - D5 - - - G5 - B5 -",
+          "A5 - - - - - - - C6 - - - A5 - F5 -",
+          "G#5 - - - - - - - - - - - E5 - F5 -",
+          "E6 - - - D6 - C6 - B5 - - - A5 - - -",
+          "D6 - - - C6 - B5 - A5 - - - G5 - - -",
+          "C6 - - - A5 - F5 - C6 - - - D6 - - -",
+          "E6 - - - - - - - - - - - - - - -"
+        ],
+        lead2: [
+          "E5 - - - - - - - C5 - - - E5 - A5 -",
+          "D5 - - - - - - - B4 - - - D5 - G5 -",
+          "F5 - - - - - - - A5 - - - F5 - C5 -",
+          "E5 - - - - - - - - - - - B4 - D5 -",
+          "C6 - - - B5 - A5 - G5 - - - E5 - - -",
+          "B5 - - - A5 - G5 - D5 - - - B4 - - -",
+          "A5 - - - F5 - C5 - A5 - - - - - - -",
+          "B5 - - - - - - - - - - - - - - -"
+        ],
+        bass: "R - O - R - O - R - O - R - O -",
+        stab: "X . . . . . . . . . . . . . . .",
+        kick: "X . . . X . . . X . . . X . . .",
+        snare: lastDiff(8, ". . . . X . . . . . . . X . . .", ". . . . X . . . X x X x X X X X"),
+        hat: "x o x o X o x o x o x o X o x o",
+        crash: ["X", "", "", "", "X", "", "", ""]
+      },
+      // half time: the bass stretches out, arpeggio cells climb, the lead holds long notes and a snare build
+      // and a riser hand over to the solo
+      C: {
+        bars: 8,
+        chords: ["E2: E3 G3 B3", "C2: E3 G3 C4", "A1: E3 A3 C4", "B1: D3 F3 B3", "E2: E3 G3 B3", "C2: E3 G3 C4", "D2: D3 F3 A3", "F2: F3 A3 C4"],
+        arp: "0 1 2 0 1 2 3 1 2 3 4 2 3 4 5 3",
+        lead: [
+          "",
+          "",
+          "",
+          "",
+          "E5 - - - - - - - - - - - - - - -",
+          "E5 - - - - - - - G5 - - - - - - -",
+          "F5 - - - - - - - A5 - - - - - - -",
+          "A5 - - - - - - - C6 - - - - - - -"
+        ],
+        bass: "R - - - - - O - R - - - - - O -",
+        kick: lastDiff(8, "X . . . . . . . . . X . . . . .", "X . . . X . . . X . X . X X X X"),
+        snare: [...rep(6, ". . . . . . . . X . . . . . . ."), "x . x . x . x . x x x x x x x x", "X x X x X X X X X*2 X*2 X*2 X*2 X X X X"],
+        hat: ". . . . . . . . x . . . . . . .",
+        swell: [...rep(7, ""), "x - - - - - - - - - - - - - - -"],
+        tom: lastDiff(8, "", ". . . . . . . . h h m m l l l l"),
+        crash: firstOnly(8, "X")
+      },
+      D: {
+        bars: 8,
+        chords: [
+          "E2: E3 G3 B3 E4",
+          "F2: F3 A3 C4 F4",
+          "E2: E3 G3 B3 E4",
+          "F2: F3 A3 C4 F4",
+          "C2: E3 G3 C4 E4",
+          "D2: D3 F3 A3 D4",
+          "E2: E3 G3 B3 E4",
+          "F2: F3 A3 C4 F4"
+        ],
+        lead: [
+          "E5 F5 G5 B5 E6 - B5 G5 F5 E5 F5 G5 B5 - - -",
+          "C6 - A5 F5 C5 - F5 A5 C6 - D6 - C6 - A5 -",
+          "B5 - G5 E5 B4 - E5 G5 B5 - C6 - B5 - G5 -",
+          "A5 - - - - - - - C6 - - - F6 - - -",
+          "E6 - - - D6 - C6 - G5 - - - C6 - E6 -",
+          "F6 - - - E6 - D6 - A5 - - - D6 - F6 -",
+          "E6 - - - - - B5 - G5 - - - E5 - - -",
+          "F5 - - - - - - - A5 - G5 - F5 - - -"
+        ],
+        lead2: [
+          "",
+          "",
+          "",
+          "",
+          "E5 - - - D5 - C5 - G4 - - - C5 - E5 -",
+          "F5 - - - E5 - D5 - A4 - - - D5 - F5 -",
+          "E5 - - - - - B4 - G4 - - - E4 - - -",
+          "C5 - - - - - - - F5 - E5 - D5 - - -"
+        ],
+        arp: "0 1 2 0 1 2 3 1 2 3 4 2 3 4 5 3",
+        bass: OCT16,
+        stab: ". . . . . . . . . . X . . . . .",
+        kick: "X . . . X . . x X . . . X . x .",
+        snare: lastDiff(8, ". . o . X . . o . . o . X . o .", "X . . . X . . . X x X x X X X X"),
+        hat: "x x X x x x X x x x X x x x X x",
+        crash: ["X", "", "", "", "X", "", "", ""]
+      }
+    }
+  },
+  // The Memory Vault, B Lydian 7/8 (2+2+3) at 120: cyberspace inside HALCYON's mind, crystalline and strange.
+  // Detuned, bit-crushed arpeggios run in sevens over a sub pulse and stuttering hats. B plays the lullaby on its
+  // own music box, but the memory is corrupted: notes stutter (ratchets) and drop out. C is a crystal cave where
+  // the box plays the tune's notes backwards, one per bar; A2 adds a square-wave lead on the raised fourth; D is
+  // the full stream with the lullaby again, glitchier, until the last bar freezes into stutters.
+  vault: {
+    key: "B Lydian",
+    bpm: 120,
+    meter: "7/8",
+    gain: 1.45,
+    delay: 0.75,
+    motifs: ["lullaby"],
+    choirSfx: [["B2", "F#3", "B3", "D#4"], ["C#3", "G#3", "C#4", "E#4"], ["G#2", "D#3", "G#3", "B3"], ["F#3", "A#3", "C#4", "F#4"]],
+    voices: {
+      pad: { cutoff: 1500, attack: 1.2, release: 1.8, level: 0.1, air: 0.05, drift: 0.6 },
+      arp: { wave: "triangle", decay: 0.18, level: 0.18, oct: 12, cutoff: 5200, spread: 14, crush: 5 },
+      arp2: { wave: "sawtooth", decay: 0.07, level: 0.09, oct: 24, cutoff: 7e3, spread: 22, crush: 3 },
+      bell: { synth: "box", oct: 12, level: 0.2, decay: 2, droop: 8, beat: 6 },
+      bell2: { ratio: 3.5, index: 1.4, decay: 2.8, level: 0.08 },
+      lead: { layers: [["square", 0, 1], ["square", -16, 0.7], ["triangle", 1200, 0.25]], cutoff: 2800, level: 0.075, vib: 8, attack: 0.01, release: 0.12 },
+      bass: { synth: "sub", level: 0.42, gate: 0.4, decay: 0.5, harm: 0.4 },
+      swell: { level: 0.2, tonal: 0.3, from: 400, to: 9e3 },
+      kick: { vol: 0.7, punch: 0.25, d: 0.25 },
+      hat: { f: 9e3, d: 0.025 }
+    },
+    mix: { hat: 1.2, kick: 0.8 },
+    sends: {
+      arp: { wet: 0.3, echo: 0.35, pan: -0.3 },
+      arp2: { wet: 0.4, echo: 0.5, pan: 0.4 },
+      bell: { wet: 0.55, echo: 0.3 },
+      bell2: { wet: 0.7, echo: 0.45, pan: -0.2 },
+      lead: { wet: 0.3, echo: 0.25, pan: 0.1 },
+      hat: { pan: 0.2 }
+    },
+    intro: ["I"],
+    loop: ["A", "B", "C", "A2", "D"],
+    parts: {
+      // boot: crushed blips stutter in over a riser
+      I: { bars: 1, chords: [VAULT_A[0]], arp2: "7*4 . . . 5*3 . . . 4*2 . 2*3 . 0 .", swell: "x - - - - - - - - - - - - -", bass: ". . . . . . . . R . . . . ." },
+      A: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: VAULT_ARP,
+        arp2: ["", ". . . . . . . . . . 9*3 . . .", "", ". . . . 8*2 . . . . . . . 6*4 ."],
+        bass: "R! . . . R . . . R . . . . .",
+        kick: "X . x . X . .",
+        hat: GLITCH_HAT
+      },
+      B: {
+        bars: 8,
+        chords: ["B1: F#3 B3 D#4", "B1: F#3 A#3 D#4", "C#2: G#3 C#4 E#4", "F#1: F#3 A#3 C#4", "G#1: G#3 B3 D#4", "C#2: G#3 C#4 E#4", "F#1: F#3 A#3 C#4", "B1: F#3 B3 D#4"],
+        bell: [
+          "D#5*3 - - - F#5 - -",
+          "B5 - - - A#5*2 - -",
+          "G#5 - A#5 - G#5*4 - -",
+          "F#5 - - - - . .",
+          "E#5 - - - G#5 - -",
+          "C#6 - - - B5*3 - -",
+          "A#5 - G#5 - A#5 - -",
+          "B5 - - - . . B5*4"
+        ],
+        arp2: [". . . . . . . . . . 7*2 . . .", "", ". . . . 9*3 . . . . . . . . .", ""],
+        bass: "R . . . R . . . R . . . . .",
+        kick: "X . . . x . .",
+        hat: "x . . . x . . . x . . . x*2 ."
+      },
+      C: {
+        bars: 8,
+        chords: ["B1: F#3 B3 D#4 E#4", "B1: F#3 B3 D#4 E#4", "C#2: G#3 C#4 E#4", "C#2: G#3 C#4 E#4", "G#1: G#3 B3 D#4", "G#1: G#3 B3 D#4", "F#1: F#3 A#3 C#4 E#4", "F#1: F#3 A#3 C#4 E#4"],
+        bell: ["A#5 - - - - - -", "G#5 - - - - - -", "A#5 - - - - - -", "B5 - - - - - -", "F#5 - - - - - -", "D#5 - - - - - -", "", ". . . . E#5*3 - -"],
+        bell2: [
+          ". . . . . . . . . . D#6 . . .",
+          ". . . . E#6 . . . . . . . . .",
+          ". . . . . . . . G#6 . . . . .",
+          ". . C#6 . . . . . . . . . . .",
+          ". . . . . . . . . . B5 . . .",
+          ". . . . D#6 . . . . . . . . .",
+          ". . . . . . . . A#5 . . . . .",
+          ""
+        ],
+        arp2: ["", "", ". . . . . . . . . . 9*2 . . .", "", "", ". . 5*3 . . . . . . . . . . .", "", ""],
+        bass: "R - - . . . .",
+        swell: [...rep(7, ""), "x - - - - - -"]
+      },
+      A2: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: VAULT_ARP,
+        lead: VAULT_LEAD,
+        bass: "R! . . . R . . . R . . . . .",
+        kick: "X . x . X . .",
+        hat: GLITCH_HAT
+      },
+      D: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: lastDiff(8, VAULT_ARP[0], "7*3 . 5*2 . 4*4 . 2*3 . . . 0*4 . . ."),
+        arp2: [". . . . . . . . . . 9*3 . . .", ". . . . 8*2 . . . . . . . 6*4 ."],
+        bell: ["D#5 - - - F#5 - -", "B5*3 - - - A#5 - -", "G#5*2 - A#5 - G#5 . .", "F#5*4 . . . . . .", "", "", "", ""],
+        lead: ["", "", "", "", ...VAULT_LEAD.slice(4)],
+        bass: lastDiff(8, "R! . . . R . . . R . R . . .", "R*4 . . . . . . . . . . . . ."),
+        kick: lastDiff(8, "X . x . X . x", "X*3 . . . . . ."),
+        hat: lastDiff(8, GLITCH_HAT[1], "x*4 x*4 x*3 x*3 x*2 x*2 x . . . . . . .")
+      }
     }
   },
   // Chapter card sting (once): a riser and tom roll swell on A sus into a strike on D add9 as the title lands
@@ -26701,11 +27374,16 @@ var audio = {
       console.warn("[audio] disabled:", e && e.message);
     }
   },
-  /** Play a sound effect. opts: { volume (0-2, default 1), pitch (multiplier; for 'boost' an integer 1-3 = boost level), pan (-1..1) }. */
+  /**
+   * Play a sound effect. opts: { volume (0-2, default 1), pitch (multiplier; for 'boost' an integer 1-3 = boost
+   * level), pan (-1..1), chords ('choir' only: note-name chords to sing; default the wanted track's choirSfx) }.
+   */
   sfx(name, opts = {}) {
     if (!S.rig || S.muted || !SFX[name] || pageHidden() || !clockLive()) return;
+    let o = opts || {};
+    if (name === "choir" && !o.chords && S.want && TRACKS[S.want]?.choirSfx) o = { ...o, chords: TRACKS[S.want].choirSfx };
     try {
-      playSfx(S.rig, name, opts || {});
+      playSfx(S.rig, name, o);
     } catch {
     }
   },
@@ -34284,7 +34962,7 @@ var Cards = class {
     ]);
     view.style.setProperty("--acc", accent);
     setTimeout(() => this.ui.sfx("card"), 1150 * k);
-    return this._open(view, "chapter", { k, ms, fadeOut: 700 * k, wait: hold });
+    return this._open(view, "chapter", { k, ms, fadeOut: 700 * k, wait: hold, settle: 800 * k });
   }
   logo({ text = "VOIDPATH", ms = 4e3, hold = false } = {}) {
     const k = ms / 4e3;
@@ -34293,7 +34971,7 @@ var Cards = class {
       el("h1", { class: "vp-logo" }, [ghost("c"), ghost("m"), el("span", { class: "vp-logo-main", text })]),
       rule()
     ]);
-    return this._open(view, "logo", { k, ms, fadeOut: 800 * k, wait: hold });
+    return this._open(view, "logo", { k, ms, fadeOut: 800 * k, wait: hold, settle: 800 * k });
   }
   /** Centred caption over the scene ("En route"); never blocks input. */
   caption(text, { ms = 2500 } = {}) {
@@ -34416,8 +35094,11 @@ var Cards = class {
     const dev = this.ui.input.lastDevice;
     this._holdHint.firstChild.replaceChildren(dev === "touch" ? "" : glyph("confirm", dev));
   }
-  /** Show a blocking card; it ends after `ms`, or stays until clear() when `wait` (previews). */
-  _open(view, kind, { k = 1, ms = 0, fadeOut = 600, wait = false, onSkip = null } = {}) {
+  /**
+   * Show a blocking card; it ends after `ms`, or stays until clear() when `wait` (previews). With
+   * `settle` (ms) it also waits for its entrance animations to end, then holds `settle` ms.
+   */
+  _open(view, kind, { k = 1, ms = 0, fadeOut = 600, wait = false, onSkip = null, settle = 0 } = {}) {
     if (this._cur) this._finish(true);
     view.style.setProperty("--k", k);
     this.root.appendChild(view);
@@ -34427,8 +35108,29 @@ var Cards = class {
     void view.offsetWidth;
     view.classList.add("is-on");
     return new Promise((resolve2) => {
-      this._cur = { view, kind, resolve: resolve2, fadeOut, onSkip, ready: false, timer: 0 };
-      if (ms && !wait) this._cur.timer = setTimeout(() => this._finish(), Math.max(0, ms - fadeOut));
+      const c = { view, kind, resolve: resolve2, fadeOut, onSkip, ready: false, timer: 0 };
+      this._cur = c;
+      if (ms && !wait) c.timer = setTimeout(() => settle ? this._settle(c, settle, ms) : this._finish(), Math.max(0, ms - fadeOut));
+    });
+  }
+  /**
+   * The card's time is up: close now if its entrance animations have ended; else wait for them (at
+   * most `cap` ms more), hold `hold` ms so the last line can be read, then close.
+   */
+  _settle(c, hold, cap) {
+    if (this._cur !== c) return;
+    const running2 = typeof c.view.getAnimations === "function" ? c.view.getAnimations({ subtree: true }).filter((a) => a.playState !== "finished" && a.effect?.getComputedTiming?.().iterations !== Infinity) : [];
+    if (!running2.length) {
+      this._finish();
+      return;
+    }
+    const capped = new Promise((r) => {
+      c.timer = setTimeout(r, cap);
+    });
+    Promise.race([Promise.all(running2.map((a) => a.finished.catch(() => null))), capped]).then(() => {
+      if (this._cur !== c) return;
+      clearTimeout(c.timer);
+      c.timer = setTimeout(() => this._finish(), hold);
     });
   }
   _finish(instant = false) {
@@ -37366,6 +38068,11 @@ var BattleModel = class {
     if (!c || c.side !== "party") return;
     if (!c.skills.includes(s.id)) c.skills.push(s.id);
     events.push({ type: "learn", memberId, skillId: s.id, name: s.name, ultimate: true });
+    if (c.alive && c.ep < s.cost) {
+      const before = c.ep;
+      c.ep = Math.max(c.ep, Math.min(c.maxEp, s.cost));
+      if (c.ep > before) events.push({ type: "ep", targetId: c.id, amount: c.ep - before, epAfter: c.ep });
+    }
   }
   // ---------------------------------------------------------------- enemy AI
   enemyTurn() {
@@ -45567,6 +46274,14 @@ var EXPR_ALIAS = {
   holo: { smile: "calm", sad: "calm", determined: "neutral", surprised: "flicker" }
 };
 var NPC_EXPRESSIONS = { bolt: ["neutral", "happy", "worried", "determined"], holo: ["neutral", "calm", "flicker"] };
+function hasExpression(id, want) {
+  const pid = NPC_ALIAS[id] || id;
+  const known = NPC_EXPRESSIONS[pid] || EXPRESSIONS;
+  const expr = EXPR_ALIAS[pid] && EXPR_ALIAS[pid][want] || want;
+  if (known.includes(expr)) return true;
+  const custom = resolveChar(pid);
+  return !!(custom && custom.expressions && custom.expressions[expr]);
+}
 function parsePortraitId(spec) {
   const [raw, want = "neutral"] = String(spec).split(":");
   const id = NPC_ALIAS[raw] || raw;
@@ -45639,13 +46354,13 @@ function drawBoltFrame(view, kind, i, blink) {
   const f = fieldFrame(NPC_PAL.bolt);
   const walk = kind === "walk";
   const bob = walk ? [0, -1, -1, 0][i] : i === 1 ? -1 : 0;
-  const flame2 = walk ? [4, 5, 4, 3][i] : i === 1 ? 2 : 3;
+  const flame3 = walk ? [4, 5, 4, 3][i] : i === 1 ? 2 : 3;
   const side = view === "side", back = view === "up";
   const cx = 16, cy = 31 + bob, lean = side && walk ? 1 : 0;
   const fy = cy + 8.5;
-  for (let k = 0; k < flame2; k++) {
-    const w = k < 1 ? 2 : k < flame2 - 1 ? 1 : 0;
-    for (let x = -w; x <= w - (w ? 1 : 0); x++) f.dot(cx + x, fy + 1 + k, "glow", k === 0 ? 2 : k < flame2 - 1 ? 1 : 0);
+  for (let k = 0; k < flame3; k++) {
+    const w = k < 1 ? 2 : k < flame3 - 1 ? 1 : 0;
+    for (let x = -w; x <= w - (w ? 1 : 0); x++) f.dot(cx + x, fy + 1 + k, "glow", k === 0 ? 2 : k < flame3 - 1 ? 1 : 0);
   }
   f.limb(cx - 0.5, cy + 6.2, cx - 0.5, cy + 8, 2.6, 2.1, "metal");
   const ax = side ? cx - 1 - lean : cx + 1, ay = cy - 7;
@@ -53159,13 +53874,15 @@ var BattleState = class {
         await this._showTip();
         if (!this.active) return;
         let events = null;
+        let refused = 0;
         while (!events && !m.isOver()) {
-          const action = this.autoplay ? await this._auto(cur.id) : await this.ui.chooseAction(cur.id);
+          const action = this.autoplay ? refused ? { actorId: cur.id, kind: "defend" } : await this._auto(cur.id) : await this.ui.chooseAction(cur.id);
           if (!this.active) return;
           if (this._forced) break;
           if (!action) continue;
           const ev = m.act(action);
           if (ev.length === 1 && ev[0].type === "message") {
+            refused++;
             this.ctx.audio?.sfx("error");
             await this.ui.banner(ev[0].text, { ms: 1e3 });
             continue;
@@ -53595,32 +54312,43 @@ function addMapPart(add2, m) {
   for (const list of [m.chests, m.interactables, m.gates]) {
     for (const e of list || []) if (e?.prop) addRegisteredProp(add2, e.prop);
   }
-  for (const n of m.npcs || []) if (n?.sprite) add2("npc", n.sprite);
+  for (const n of m.npcs || []) if (n?.sprite) addSheet(add2, n.sprite);
   for (const b of m.bosses || []) {
     if (b?.art) add2("enemy", b.art);
     if (b?.encounter) addEncounter(add2, b.encounter);
   }
   for (const a of m.areas || []) addZone(add2, a?.zone);
 }
+var SCRIPT_TOKENS = /['"`]([A-Z][A-Z0-9_-]{1,23})['"`]|\bexpr\s*:\s*['"`]([a-z_]+)['"`]|\bportrait\s*:\s*['"`]([a-z0-9_]+)(?::([a-z_]+))?['"`]/g;
 function addScript(add2, fn) {
   if (typeof fn !== "function") return;
   const src = fn.toString();
-  const exprs = /* @__PURE__ */ new Set();
-  for (const mm of src.matchAll(/expr\s*:\s*['"`]([a-z_]+)['"`]/g)) exprs.add(mm[1]);
   const portraits = /* @__PURE__ */ new Set();
-  for (const mm of src.matchAll(/['"`]([A-Z][A-Z0-9_-]{1,23})['"`]/g)) {
-    const p = REG.speakers[mm[1]]?.portrait || PARTY_SPEAKERS[mm[1]];
-    if (p) portraits.add(p.split(":")[0]);
-  }
-  for (const mm of src.matchAll(/portrait\s*:\s*['"`]([a-z0-9_]+)(?::([a-z_]+))?['"`]/g)) {
-    portraits.add(mm[1]);
-    if (mm[2]) add2("portrait", `${mm[1]}:${mm[2]}`);
+  const loose = /* @__PURE__ */ new Set();
+  const pairs = [];
+  let last;
+  for (const mm of src.matchAll(SCRIPT_TOKENS)) {
+    if (mm[1]) {
+      const sp = REG.speakers[mm[1]];
+      const p = sp?.portrait || PARTY_SPEAKERS[mm[1]];
+      if (p) {
+        last = p.split(":")[0];
+        portraits.add(last);
+      } else if (sp) last = null;
+    } else if (mm[2]) {
+      if (last) pairs.push([last, mm[2]]);
+      else if (last === void 0) loose.add(mm[2]);
+    } else if (mm[3]) {
+      portraits.add(mm[3]);
+      if (mm[4]) pairs.push([mm[3], mm[4]]);
+    }
   }
   for (const p of portraits) {
     add2("portrait", p);
-    for (const e of exprs) add2("portrait", `${p}:${e}`);
+    for (const e of loose) pairs.push([p, e]);
   }
-  for (const mm of src.matchAll(/sprite\s*:\s*['"`]([a-z0-9_]+)['"`]/g)) add2("npc", mm[1]);
+  for (const [p, e] of pairs) if (hasExpression(p, e)) add2("portrait", `${p}:${e}`);
+  for (const mm of src.matchAll(/sprite\s*:\s*['"`]((?:[a-z]+:)?[a-z0-9_]+)['"`]/g)) addSheet(add2, mm[1]);
 }
 function visibleTo(chapter) {
   const now2 = chapterIndex2(chapter);
@@ -53645,7 +54373,7 @@ function collectArt(locId, { chapter = gameState.story?.chapter || "prologue" } 
       }
     }
   }
-  for (const c of Object.values(REG.companions)) if (c?.sprite) add2("npc", c.sprite);
+  for (const c of Object.values(REG.companions)) if (c?.sprite) addSheet(add2, c.sprite);
   for (const id of Object.keys(loc.data?.encounters || {})) addEncounter(add2, id);
   for (const [id, fn] of Object.entries(REG.scripts)) if (ownerOf("scripts", id) === locId) addScript(add2, fn);
   return jobs.sort((a, b) => (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9));
@@ -54226,8 +54954,8 @@ registerTexture("seat", { w: 32, h: 16, wrapX: true, wrapY: true, image: () => p
 function paintWardenSigil(t, f) {
   const cx = 32, cy = 32;
   for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
-    const scan = y % 2 ? "#07040e" : "#0a0614";
-    t.px(x, y, scan, 0.45);
+    const scan2 = y % 2 ? "#07040e" : "#0a0614";
+    t.px(x, y, scan2, 0.45);
     t.emit(x, y, y % 2 ? "#04020a" : "#080412");
   }
   const gold = [GD2[1], GD2[2], GD2[3], GD2[4], GD2[5], "#fffbe8"];
@@ -56056,6 +56784,10 @@ var NpcActor = class {
       this.walking = true;
     });
   }
+  /** Speed up the walk in flight by k (a cutscene skip that starts mid-walk). */
+  hurry(k) {
+    if (this._walk && k > 0) this._walk.speed *= k;
+  }
   _finishWalk() {
     const w = this._walk;
     if (!w) return;
@@ -56849,12 +57581,12 @@ var World = class {
         B.faceZ(frame, c + 2, c + 2.25, 0, WALL_H2, r + 1.015, 1);
         const mats3 = [spec.tex, spec.lockedTex || "door_locked"].map((t) => M.tile(t, { emissive: 2.4, roughness: 0.55, metalness: 0.35 }));
         const leaves = [0, 1].map((k) => {
-          const leaf = new Mesh(geo, mats3[spec.lock ? 1 : 0]);
-          leaf.position.set(c + 0.5 + k, WALL_H2 / 2, r + 0.62);
-          leaf.castShadow = true;
-          leaf.receiveShadow = true;
-          group.add(leaf);
-          return leaf;
+          const leaf2 = new Mesh(geo, mats3[spec.lock ? 1 : 0]);
+          leaf2.position.set(c + 0.5 + k, WALL_H2 / 2, r + 0.62);
+          leaf2.castShadow = true;
+          leaf2.receiveShadow = true;
+          group.add(leaf2);
+          return leaf2;
         });
         const lock = spec.lock || null;
         const it = lock ? this.addInteractable({
@@ -57635,6 +58367,13 @@ var FieldCamera = class {
     });
     this._startView(ms);
     return done;
+  }
+  /**
+   * Make the tweens already in flight (focus, view, pan, reset) land within `ms` from now, keeping
+   * their targets: debug.skip and the player's skip shorten shots that started at full length.
+   */
+  hurry(ms = 1) {
+    for (const tw of [this._move, this._viewTw]) if (tw) tw.ms = Math.max(1, Math.min(tw.ms, tw.t + ms));
   }
   /** Drop every scripted state at once (script end without reset, aborts, arrivals). */
   release() {
@@ -58541,11 +59280,17 @@ var ExploreState = class {
     if (mapChanged && !scene) this._locationBanner();
     this._arrived({ kind, scene, load: !scene && LOAD_KINDS.has(kind) });
   }
-  /** The arrival rules (3.7): staged maps run no triggers or encounters; `load` triggers when asked. */
+  /**
+   * The arrival rules (3.7): staged maps run no triggers or encounters; `load` triggers when asked.
+   * Arrivals that run `load` triggers (exits, travel, loads, a Retry respawn) also re-seed field boss
+   * arming from the new position: a same-map respawn only teleports, so without this a boss
+   * confronted before the defeat stayed disarmed until the leader walked triggerRadius + 2.5 away.
+   */
   _arrived({ load = false, scene = false }) {
     if (!this.world) return;
     this._staged = !!(scene || this.world.map.scene || this.world.map.transit);
     this._walked = 0;
+    if (load) this._armed.clear();
     this._seedTriggers();
     if (this._staged) return;
     if (load) {
@@ -61205,7 +61950,9 @@ var PROLOGUE_DONE = [
   "tut:learn",
   "tut:pro_items",
   "tut:pro_area",
-  "tut:pro_expose"
+  "tut:pro_expose",
+  // the ch1+ kits wear the Stimulus Chip, so a chapter jump must not replay Orion's equip tip
+  "tut:equip"
 ];
 var POC_FLAGS = [
   "story:kade_awake",
@@ -61759,6 +62506,20 @@ function spot2(r, x, y, size, ramp2, k = 1) {
   r.dot(x + 1, y - 1, low, k);
   r.dot(x - 1, y + 1, low, k);
   r.dot(x + 1, y + 1, low, k);
+}
+function flame2(r, x, y, len, ramp2 = G_CYAN2, dx = 0, dy = 1, width = 2) {
+  if (len <= 0) return;
+  const n = ramp2.length;
+  for (let k = 0; k < len; k++) {
+    const t = k / len, hw = width * (1 - t * 0.85) + 0.2;
+    for (let s = -Math.ceil(hw); s <= Math.ceil(hw); s++) {
+      const a = Math.abs(s) / (hw + 0.5);
+      if (a > 1) continue;
+      const px = x + dx * k - dy * s, py = y + dy * k + dx * s;
+      const heat = (1 - t) * (1 - a * 0.75);
+      r.dot(px, py, ramp2[clamp6(Math.floor(heat * n + dith2(px, py) * 0.5 + 0.35), 0, n - 1)], 1, true);
+    }
+  }
 }
 function muzzleFlash2(r, x, y, size, ramp2 = G_FIRE2, dir2 = 1) {
   r.glow(x + dir2 * size * 0.4, y, size * 0.9, size * 0.62, ramp2, { fx: true, bias: 0.4 });
@@ -66020,10 +66781,11 @@ var story_default4 = {
   // nested in shoals.maw, the coil install comes last)
   scenes: [
     { id: "shoals.enter", chapter: "ch1", order: 30, budget: { boxes: 2, sec: 15 } },
-    { id: "shoals.meridian_arrival", chapter: "ch1", order: 40, key: true, budget: { boxes: 7, sec: 60 } },
+    // jump / at: where the contact sheet stands before it runs a key scene staged in the Meridian
+    { id: "shoals.meridian_arrival", chapter: "ch1", order: 40, key: true, budget: { boxes: 7, sec: 60 }, jump: "ch1.wreck" },
     { id: "shoals.power_restored", chapter: "ch1", order: 50, budget: { boxes: 2, sec: 15 } },
-    { id: "shoals.varo_log", chapter: "ch1", order: 60, key: true, budget: { boxes: 12, sec: 150 } },
-    { id: "shoals.maw", chapter: "ch1", order: 70, key: true, budget: { boxes: 16, sec: 120 } }
+    { id: "shoals.varo_log", chapter: "ch1", order: 60, key: true, budget: { boxes: 12, sec: 150 }, jump: "ch1.maw", at: "meridian:log" },
+    { id: "shoals.maw", chapter: "ch1", order: 70, key: true, budget: { boxes: 16, sec: 120 }, jump: "ch1.maw" }
   ],
   objectives: {
     "ch1.restore_power": {
@@ -70241,7 +71003,868 @@ var pure_default5 = {
 var art_default5 = {};
 
 // src/content/arboretum/enemyart.js
-var enemyart_default5 = {};
+var LEAF = rp2("#071810", "#0d2a16", "#164020", "#20582a", "#2d7234", "#3e8e40", "#5aac50", "#8cd070");
+var LEAF_FAR = rp2("#05100a", "#0a1e10", "#112e18", "#1a4020", "#245428", "#2f6a30");
+var STALK = rp2("#0c1a0e", "#163018", "#224a22", "#30622c", "#437c38", "#5a9646", "#78b25a", "#a2d27a");
+var BLADE = rp2("#0e2418", "#183c26", "#245a34", "#337a44", "#4a9a52", "#6aba64", "#96d880", "#d0f4aa");
+var PETAL = rp2("#2a0718", "#4f0f30", "#7c1a4c", "#ae2c6c", "#da4d8e", "#f37fb2", "#ffb6d5", "#ffe2ef");
+var FUNGUS = rp2("#140a26", "#22123e", "#341c58", "#4a2a76", "#623a94", "#7e50b2", "#9e70ce", "#c8a2ea");
+var GILL = rp2("#0d0814", "#1a0f26", "#2a173c");
+var HYPHA = rp2("#241b38", "#43365e", "#6c5d8c", "#a090c0");
+var MYCEL = rp2("#26222c", "#3e3946", "#5c5664", "#807a86", "#a8a2aa", "#d0cbcd", "#efebe6");
+var BARK = rp2("#160c08", "#2a170e", "#432616", "#5e391f", "#7a4e2c", "#98673c", "#b8864f", "#dcae74");
+var SHELL = rp2("#16150f", "#27251d", "#3d392d", "#585240", "#787058", "#9d9476", "#c4bb9a", "#e8e2c6");
+var SERVICE = rp2("#0a1f17", "#0f3426", "#16503a", "#1f6e4f", "#2d8f66", "#45b083");
+var MOSS = rp2("#0b1a06", "#14290a", "#1f3e0e", "#2c5512", "#3c6e17", "#53891f", "#71a52c");
+var GLASS = rp2("#06141a", "#0b222b", "#12333e", "#1b4753", "#2a5f6b", "#4a8590", "#86bcc2", "#d4f2f2");
+var G_BIO = rp2("#0b4350", "#0f6a78", "#16a0a8", "#4dffe0", "#d9fff6");
+var G_BIO_DIM = rp2("#06262e", "#0a343c", "#0e4651", "#135a63", "#1f6e72");
+var G_POLLEN = rp2("#4a3608", "#8a6a12", "#e8c43a", "#fff07a", "#fffbe0");
+var G_PINK = rp2("#4f0f30", "#a8246a", "#ff4fa0", "#ff9ccb", "#ffe6f2");
+var G_SAP = rp2("#16380a", "#2c6a12", "#5cc22a", "#b0f56a", "#f0ffd8");
+var G_STEEL_GLINT = rp2("#3a6a8a", "#8fc8e8", "#d8f0ff", "#f4fbff", "#ffffff");
+var G_SAP_DIM = rp2("#0c1c06", "#142a0a", "#1d3c0e", "#284f12", "#346218");
+function leaf(r, x, y, ang, len, w, ramp2, o = {}) {
+  const b = [x, y], t = polar2(x, y, ang, len);
+  const n = Math.max(4, Math.round(len / 1.6));
+  const bend = o.bend || 0, shape = o.shape ?? 0.7;
+  const mid = (s) => along2(b, t, s, bend * Math.sin(Math.PI * s));
+  const half = (s) => w * Math.pow(Math.sin(Math.PI * Math.pow(s, shape)), 0.85);
+  const L2 = [], R = [], M = [b];
+  for (let i = 1; i < n; i++) {
+    const s = i / n, c = bend * Math.sin(Math.PI * s), hw = half(s);
+    L2.push(along2(b, t, s, c + hw));
+    R.push(along2(b, t, s, c - hw));
+    M.push(mid(s));
+  }
+  M.push(t);
+  const a = ang * DEG2, px = Math.sin(a), py = -Math.cos(a), f = o.cup ? -0.6 : 0.6;
+  const base = { bevel: o.bevel ?? 0, max: o.max ?? ramp2.length - 1, bias: o.bias || 0 };
+  r.poly([b, ...L2, t, ...[...M].reverse()], ramp2, { ...base, n: [px * f, py * f - 0.1, 0.8] });
+  r.poly([b, ...M.slice(1), ...[...R].reverse()], ramp2, { ...base, n: [-px * f, -py * f - 0.1, 0.8], bias: (o.bias || 0) - 0.04 });
+  if (o.rib != null || o.vein) {
+    const c = o.vein ? o.vein[3] : ramp2[o.rib];
+    for (let i = 0; i < M.length - 2; i++) {
+      r.line(Math.round(M[i][0]), Math.round(M[i][1]), Math.round(M[i + 1][0]), Math.round(M[i + 1][1]), c, o.vein ? o.veinK ?? 0.6 : 0);
+    }
+  }
+}
+function fern(r, x, y, ang, len, curl, ramp2, o = {}) {
+  const step2 = 2, pts = [];
+  let px = x, py = y, a = ang;
+  for (let d = 0; d <= len; d += step2) {
+    pts.push([px, py, a]);
+    px += Math.cos(a * DEG2) * step2;
+    py += Math.sin(a * DEG2) * step2;
+    a += curl * step2 * (1 + d / len);
+  }
+  const size = o.leaflet ?? 4.5;
+  for (let i = 1; i < pts.length; i++) {
+    const [lx, ly, la] = pts[i], s = 1 - i / pts.length;
+    const sz = 1.2 + s * size;
+    for (const side of [-1, 1]) leaf(r, lx, ly, la + side * (62 - s * 10), sz, sz * 0.36, ramp2, { max: o.max, bias: o.bias });
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    r.line(Math.round(pts[i][0]), Math.round(pts[i][1]), Math.round(pts[i + 1][0]), Math.round(pts[i + 1][1]), ramp2[3]);
+  }
+}
+function vine(r, x, y, len, ph, sway, far) {
+  const ramp2 = far ? LEAF_FAR : STALK;
+  let px = x, py = y;
+  for (let k = 1; k <= len; k++) {
+    const nx = x + Math.sin(ph + k * 0.32) * sway * (k / len), ny = y + k;
+    r.line(Math.round(px), Math.round(py), Math.round(nx), Math.round(ny), ramp2[k < 3 ? 4 : 3]);
+    if (k % 4 === 2) leaf(r, nx, ny, k & 4 ? 20 : 160, 3.4, 1.3, far ? LEAF_FAR : LEAF, { max: far ? 4 : 6 });
+    px = nx;
+    py = ny;
+  }
+}
+var noise3 = (x, y, seed = 0) => {
+  const s = Math.sin(Math.floor(x) * 12.9898 + Math.floor(y) * 78.233 + seed * 37.719) * 43758.5453;
+  return s - Math.floor(s);
+};
+function tendril(r, x, y, len, ph, amp, bead, k) {
+  let px = x, py = y;
+  for (let i = 1; i <= len; i++) {
+    const t = i / len;
+    const nx = x + Math.sin(ph + t * 3.4) * amp * t, ny = y + i;
+    r.line(Math.round(px), Math.round(py), Math.round(nx), Math.round(ny), HYPHA[t < 0.3 ? 3 : t < 0.65 ? 2 : 1]);
+    if (t < 0.4) r.line(Math.round(px) + 1, Math.round(py), Math.round(nx) + 1, Math.round(ny), HYPHA[0]);
+    px = nx;
+    py = ny;
+  }
+  r.glow(px + 0.5, py + 1.5, 1.8, 1.8, bead, { k, bias: 0.35 });
+}
+function bioSpot(r, x, y, rad, ramp2, k) {
+  if (rad < 1.5) {
+    r.dot(Math.round(x), Math.round(y), ramp2[3], k);
+    return;
+  }
+  r.glow(x, y, rad, rad * 0.85, ramp2, { k, bias: 0.3 });
+  if (k > 0.5) r.dot(Math.round(x - 0.5), Math.round(y - 0.5), ramp2[4], k);
+}
+function drawSporeDrone(r, P2) {
+  const glowK = P2.glow ?? 1, gk = clamp6(glowK, 0.2, 1.4);
+  const g = glowK > 0.55 ? G_BIO : G_BIO_DIM;
+  const cx = 26, cy = 27, rx = 18 + (P2.capW || 0), ry = 15 + (P2.capH || 0);
+  const ph = P2.phase || 0;
+  r.save();
+  r.translate(P2.dx || 0, P2.bob || 0);
+  r.rotate(P2.tilt || 0, 27, 36);
+  const limp = P2.limp ? 0.4 : 1;
+  for (const [x, len, p, gold] of [[10, 11, 0, 0], [18, 18, 1.4, 1], [35, 15, 2.7, 0], [42, 9, 4.1, 1]]) {
+    tendril(r, x, cy + 3, Math.round(len * (P2.reach ?? 1)), ph + p, 3.6 * limp, gold ? G_POLLEN : g, gk * (gold ? 0.8 : 1));
+  }
+  r.begin();
+  r.seg(20, 41, 9, 37, 1.3, 1, GUN2, { caps: "flat", max: 5 });
+  r.end(0.5);
+  const ra = P2.rotor || 0;
+  r.line(9, 37, Math.round(9 + Math.cos(ra) * 5), Math.round(36 - Math.sin(ra) * 1.5), STEEL4[5]);
+  r.line(9, 37, Math.round(9 - Math.cos(ra) * 4), Math.round(37 + Math.sin(ra) * 1.5), STEEL4[3]);
+  r.dot(9, 37, GUN2[6]);
+  r.begin();
+  r.ball(27, 41, 8.6, 8, SHELL, { max: 6, spec: SHELL[7], specT: 0.975 });
+  r.ball(27, 41, 8.6, 8, SERVICE, { clip: (x, y) => Math.abs(y - 42.5 - (x - 27) * 0.12) < 1.1, max: 4 });
+  r.ball(27, 41, 8.6, 8, GUN2, { clip: (x, y) => y > 45.5 + (x - 27) * 0.12, max: 4 });
+  r.end(0.6);
+  r.begin();
+  r.seg(27, 48, 27, 51, 1.6, 1.1, GUN2, { caps: "flat", max: 5 });
+  r.end(0.5);
+  for (let k = 0; k < 2; k++) {
+    const a = ra * 1.7 + k * Math.PI;
+    r.line(27, 51, Math.round(27 + Math.cos(a) * 8), Math.round(51 + Math.sin(a) * 1.4), STEEL4[4 + k]);
+  }
+  for (let x = -7; x <= 7; x += 2) r.dot(27 + x + (Math.round(ra * 3) & 1), 51, STEEL4[2]);
+  const lk = clamp6(P2.lens ?? 0.8, 0.15, 1.3);
+  r.begin();
+  r.ring(33.5, 41.5, 2, 3.6, GUN2, { spec: GUN2[7], specT: 0.97 });
+  r.end(0.5);
+  r.glow(33.7, 41.5, 2.3, 2.3, lk > 0.5 ? G_AMBER : G_SAP_DIM, { k: lk, bias: 0.2 });
+  if (lk > 0.5) r.dot(33, 40, WHITE3, 1);
+  r.line(31, 42, 35, 40, MYCEL[4]);
+  for (const [x0, x1, len] of [[22, 21, 4], [31, 33, 5]]) {
+    for (let k = 0; k < len; k++) r.dot(Math.round(x0 + (x1 - x0) * k / len), cy + 5 + k, MYCEL[k & 1 ? 4 : 5]);
+  }
+  r.each(cx - rx, cy, cx + rx, cy + 6, (mx, my, X, Y) => {
+    const u = (mx - cx) / (rx * 0.88), v = (my - cy - 1) / 3.6;
+    if (v < 0 || u * u + v * v > 1) return;
+    const fold3 = Math.abs((u * 9 % 1 + 1) % 1 - 0.5) < 0.2;
+    r.put(X, Y, fold3 ? GILL[0] : GILL[2]);
+    if (!fold3 && v < 0.7) r.put(X, Y, g[1], 0.4 * gk);
+  });
+  r.begin();
+  r.ball(cx, cy + 0.5, rx + 0.6, 2.6, FUNGUS, { clip: (x, y) => y > cy - 1, max: 6, bias: 0.06 });
+  r.ball(cx, cy, rx, ry, FUNGUS, { clip: (x, y) => y < cy, max: 6, spec: FUNGUS[7], specT: 0.975, bounce: 0.3 });
+  r.ball(cx - 10 - (P2.capW || 0) * 0.4, cy - ry + 4, 4.4, 4, FUNGUS, { max: 7, spec: FUNGUS[7], specT: 0.96 });
+  r.ball(cx + 8 + (P2.capW || 0) * 0.3, cy - ry + 2.6, 3.4, 3.2, FUNGUS, { max: 7, spec: FUNGUS[7], specT: 0.96 });
+  r.end(0.6);
+  const W5 = rng(5);
+  for (let k = 0; k < 22; k++) {
+    const u = W5() * 2 - 1, v = -W5();
+    if (u * u + v * v > 0.85) continue;
+    const x = Math.round(cx + u * rx), y = Math.round(cy + v * ry);
+    r.dot(x, y, FUNGUS[7]);
+    r.dot(x + 1, y + 1, FUNGUS[2]);
+  }
+  const SPOTS = [[-0.52, -0.45, 2.6], [0.12, -0.7, 2.6], [0.58, -0.38, 2.2], [-0.18, -0.2, 2], [0.34, -0.08, 1.8], [-0.8, -0.12, 1], [0.84, -0.14, 1], [-0.3, -0.78, 1], [0.6, -0.72, 1]];
+  SPOTS.forEach(([u, v, s], i) => {
+    const pulse = 0.65 + 0.35 * Math.sin((P2.pulse || 0) + i * 1.3);
+    bioSpot(r, cx + u * rx, cy + v * ry, s, g, gk * pulse * (P2.spotK ?? 1));
+  });
+  r.restore();
+  if (P2.motes) {
+    const R = rng(P2.motes);
+    for (let k = 0; k < 4; k++) spot2(r, 8 + R() * 38, 2 + R() * 9, R() < 0.3 ? 2 : 1, G_POLLEN, 0.7);
+  }
+  if (P2.puff) {
+    const R = rng(P2.puff * 7);
+    const x0 = cx + rx * 0.9 + (P2.dx || 0), y0 = cy + 2 + (P2.bob || 0);
+    r.glow(x0 + 6, y0, 5 + P2.puff * 0.5, 3.5, G_POLLEN, { fx: true, bias: 0.1, k: 0.75 });
+    for (let k = 0; k < 10; k++) spot2(r, x0 + 2 + R() * (7 + P2.puff * 1.6), y0 - 4 + R() * 8, R() < 0.4 ? 2 : 1, G_POLLEN, 0.9);
+  }
+  if (P2.burst) {
+    const R = rng(11);
+    for (let k = 0; k < 20; k++) {
+      const a = k / 20 * Math.PI * 2 + R() * 0.3, d = P2.burst * (0.75 + R() * 0.4);
+      const x = cx + Math.cos(a) * d * 1.15, y = cy - 6 + Math.sin(a) * d * 0.9 + (P2.bob || 0);
+      if (R() < 0.35) spark2(r, Math.round(x), Math.round(y), 1, G_POLLEN);
+      else spot2(r, x, y, R() < 0.5 ? 2 : 1, G_POLLEN, 0.9);
+    }
+  }
+  if (P2.drips) {
+    for (const [x, y] of P2.drips) spot2(r, x, y, 1, G_POLLEN, 0.6);
+  }
+}
+var SPORE_DRONE = {
+  w: 56,
+  h: 60,
+  bevel: 2,
+  draw: drawSporeDrone,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { bob: 0, phase: 0, pulse: 0, rotor: 0, motes: 3 },
+      { bob: -1, phase: 1.5, pulse: 1.5, capH: 0.5, rotor: 1, motes: 4 },
+      { bob: -2, phase: 3, pulse: 3, capH: 1, capW: 0.5, rotor: 2, motes: 5 },
+      { bob: -1, phase: 4.5, pulse: 4.5, capH: 0.5, rotor: 3, motes: 6 }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { bob: -1, dx: -1, capH: 1.5, capW: -1, phase: 1, pulse: 2, glow: 1.2, rotor: 1 },
+      { bob: 0, dx: 1, capH: -2.5, capW: 1.5, phase: 2.2, pulse: 3, glow: 1.3, puff: 4, rotor: 2 },
+      { bob: 0, capH: -0.5, phase: 3, pulse: 4, puff: 7, rotor: 3 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { bob: -1, dx: -3, tilt: -0.24, capH: -2.5, capW: 1, glow: 0.45, lens: 0.3, phase: 2, reach: 0.85 }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      { bob: 7, tilt: 0.42, capH: -4.5, capW: 1, glow: 0.3, spotK: 0.6, lens: 0.2, limp: 1, reach: 1.1, drips: [[34, 57], [21, 55]] },
+      { bob: 8, tilt: 0.45, capH: -5, capW: 1.5, glow: 0.5, spotK: 0.7, lens: 0.35, limp: 1, reach: 1.15, pulse: 2, drips: [[34, 59], [22, 57]] }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      { bob: -2, capH: 2, capW: 1.5, glow: 1.5, spotK: 1.3, pulse: 1, phase: 1, reach: 0.8 },
+      { bob: 0, capH: -3, capW: 0.5, glow: 1.3, pulse: 3, phase: 3, burst: 19, puff: 3 }
+    ] }
+  },
+  points: { center: [26, 32], muzzle: [46, 30], top: [26, 8] },
+  icon: { x: 27, y: 27, scale: 0.6 }
+};
+function mantisLeg(r, hip, knee, foot, far) {
+  const ramp2 = far ? LEAF_FAR : STALK;
+  r.begin();
+  r.seg(...hip, ...knee, 2.4, 1.9, ramp2, { max: far ? 4 : 6, bounce: 0.3, spec: far ? null : ramp2[7], specT: 0.96 });
+  r.seg(...knee, ...foot, 1.9, 0.8, ramp2, { caps: "flat", max: far ? 4 : 6, bounce: 0.3 });
+  r.ball(...knee, 2.4, 2.4, ramp2, { max: far ? 4 : 7, spec: far ? null : ramp2[7], specT: 0.93 });
+  r.end(0.5);
+  const th = polar2(...knee, -75, 4);
+  r.line(Math.round(knee[0]), Math.round(knee[1]) - 2, Math.round(th[0]), Math.round(th[1]), ramp2[far ? 3 : 6]);
+  r.dot(Math.round(th[0]), Math.round(th[1]), PETAL[far ? 3 : 5]);
+  const dir2 = foot[0] >= hip[0] ? 1 : -1;
+  r.line(Math.round(foot[0]), Math.round(foot[1]), Math.round(foot[0]) + dir2 * 2, Math.round(foot[1]), ramp2[far ? 1 : 2]);
+}
+function scythe(r, sh, el2, tip2, curve, far, gk) {
+  const ramp2 = far ? LEAF_FAR : STALK;
+  r.begin();
+  r.seg(...sh, ...el2, 3.3, 2.7, ramp2, { max: far ? 4 : 6, bounce: 0.3, spec: far ? null : ramp2[7], specT: 0.96 });
+  r.ball(...el2, 2.9, 2.9, ramp2, { max: far ? 4 : 7, spec: far ? null : ramp2[7], specT: 0.93 });
+  r.end(0.5);
+  for (const s of [0.35, 0.6, 0.85]) {
+    const b = along2(sh, el2, s, -2.6), t = along2(sh, el2, s - 0.12, -6);
+    r.line(Math.round(b[0]), Math.round(b[1]), Math.round(t[0]), Math.round(t[1]), ramp2[far ? 3 : 6]);
+  }
+  const n = 10, outer = [], inner = [], ridge2 = [];
+  for (let i = 0; i <= n; i++) {
+    const s = i / n, bow2 = curve * Math.sin(Math.PI * s);
+    const w = 7 * Math.pow(Math.sin(Math.PI * Math.pow(s, 0.5)), 0.8) * (1 - s * 0.25) + 0.4;
+    outer.push(along2(el2, tip2, s, bow2 + w * 0.55));
+    inner.push(along2(el2, tip2, s, bow2 - w * 0.45));
+    ridge2.push(along2(el2, tip2, s, bow2 + w * 0.12));
+  }
+  r.begin();
+  r.poly([...ridge2, ...[...inner].reverse()], far ? LEAF_FAR : BLADE, { n: [0.3, 0.2, 0.93], bevel: 1, max: far ? 3 : 5 });
+  r.poly([...outer, ...[...ridge2].reverse()], far ? LEAF_FAR : BLADE, { n: [-0.35, -0.55, 0.76], bevel: 1, max: far ? 4 : 7 });
+  r.end(0.55);
+  for (let i = 1; i < n; i++) {
+    const q = inner[i];
+    r.dot(Math.round(q[0]), Math.round(q[1]), i & 1 ? BLADE[1] : BLADE[far ? 3 : 7]);
+  }
+  if (gk > 0) {
+    const g = gk > 0.55 ? G_BIO : G_BIO_DIM;
+    for (let i = 1; i < n; i++) {
+      const a = outer[i], b = outer[i + 1];
+      r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), g[far ? 2 : 3], (far ? 0.4 : 0.85) * Math.min(1.2, gk));
+    }
+  }
+}
+function bloom(r, cx, cy, open, gk, wilt, tilt) {
+  const ring2 = (count, a0, len, w, bias, max) => {
+    for (let k = 0; k < count; k++) {
+      const a = (a0 + k * 360 / count + tilt) * DEG2;
+      const dx = Math.cos(a) * 0.8, dy = Math.sin(a) + wilt * 0.95;
+      const ang = Math.atan2(dy, dx) / DEG2;
+      const l = len * open * Math.min(1.1, Math.hypot(dx, dy)) * (1 - wilt * 0.12);
+      leaf(r, cx, cy, ang, l, w, PETAL, { shape: 0.5, bias, max, bevel: 1, rib: max - 2, cup: true });
+    }
+  };
+  r.begin();
+  ring2(6, 15, 17, 6, -0.1, 6);
+  r.end(0.55);
+  r.begin();
+  ring2(5, 52, 12.5, 5, 0.04, 7);
+  r.end(0.55);
+  for (const [a, l] of [[-75, 10], [-45, 11], [-105, 9]]) {
+    const t = polar2(cx + 1, cy - 2, a + tilt * 0.5 + wilt * 70, l * open);
+    r.line(Math.round(cx + 1), Math.round(cy - 2), Math.round(t[0]), Math.round(t[1]), STALK[6]);
+    spot2(r, t[0], t[1], 2, G_POLLEN, clamp6(gk, 0.2, 1.1) * 0.8);
+  }
+  r.begin();
+  r.ball(cx + 0.5, cy, 4.4, 4.8, BARK, { max: 6, bias: 0.05 });
+  r.end(0.5);
+  r.glow(cx + 1.2, cy, 3.2, 3.4, gk > 0.55 ? G_BIO : G_BIO_DIM, { k: clamp6(gk, 0.2, 1.3), bias: gk > 1 ? 0.6 : 0.25 });
+  r.ball(cx + 2, cy + 0.2, 0.9, 1.6, BARK.slice(0, 2), { bounce: 0 });
+  if (gk > 0.55) r.dot(Math.round(cx), Math.round(cy - 2), WHITE3, 1);
+}
+function drawMantis(r, P2) {
+  const gk = P2.glow ?? 1;
+  const tx = P2.tx || 0, ty = P2.ty || 0;
+  const A = P2.arms || {};
+  const near = A.near || { el: [63, 47], tip: [60, 72], curve: 4.5 };
+  const farA = A.far || { el: [61, 43], tip: [64, 64], curve: 4.5 };
+  const upper = () => {
+    r.translate(tx, ty);
+    r.rotate(P2.lean || 0, 40, 62);
+  };
+  const L2 = P2.legs || {};
+  mantisLeg(r, [44 + tx, 61 + ty], ...L2.farF || [[56, 52], [66, 90]], true);
+  mantisLeg(r, [37 + tx, 61 + ty], ...L2.farB || [[27, 52], [20, 90]], true);
+  r.save();
+  r.translate(tx, ty);
+  r.rotate(P2.abd || 0, 40, 62);
+  r.begin();
+  r.seg(40, 61, 13, 71, 8.4, 3.6, STALK, { max: 6, spec: STALK[7], specT: 0.965, bounce: 0.35 });
+  r.end(0.6);
+  r.seg(40, 61, 13, 71, 8.4, 3.6, BLADE, { clip: (x, y) => (x - 40) * 0.347 + (y - 61) * 0.937 > 3.4 - (40 - x) * 0.07, max: 6, bias: 0.04 });
+  for (let k = 1; k <= 5; k++) {
+    const rad = 8.4 - k * 0.8;
+    const a = along2([40, 61], [13, 71], k * 0.16, -rad * 0.95), b = along2([40, 61], [13, 71], k * 0.16 + 0.03, rad * 0.4);
+    r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), STALK[2]);
+  }
+  for (const [s, sz] of [[0.12, 2], [0.3, 2], [0.48, 2], [0.66, 1]]) {
+    const q = along2([40, 61], [13, 71], s, 8.4 * (1 - s * 0.55) * 0.55);
+    spot2(r, q[0], q[1], sz, gk > 0.55 ? G_BIO : G_BIO_DIM, clamp6(gk, 0.2, 1.2) * 0.8);
+  }
+  const vk = (gk > 0.55 ? 0.5 : 0.25) * gk;
+  r.begin();
+  leaf(r, 42, 55, 172 + (P2.wing || 0), 29, 6.4, LEAF, { bend: 3, shape: 0.6, max: 6, bevel: 1, vein: gk > 0.55 ? G_BIO : G_BIO_DIM, veinK: vk });
+  r.end(0.55);
+  r.begin();
+  leaf(r, 43, 52, 164 + (P2.wing || 0) * 1.4, 25, 5.2, BLADE, { bend: 2, shape: 0.6, max: 7, bevel: 1, bias: 0.02, vein: gk > 0.55 ? G_BIO : G_BIO_DIM, veinK: vk });
+  r.end(0.55);
+  r.restore();
+  r.save();
+  upper();
+  scythe(r, [49, 40], farA.el, farA.tip, farA.curve, true, gk);
+  r.begin();
+  r.seg(40, 62, 47, 46, 5.6, 4.6, STALK, { max: 6, spec: STALK[7], specT: 0.96, bounce: 0.3 });
+  r.seg(47, 46, 53, 31, 4.6, 3.4, STALK, { max: 6, spec: STALK[7], specT: 0.96, bounce: 0.3 });
+  r.end(0.6);
+  for (const [x, y, a, l] of [[42, 59, -128, 9], [45, 51, -122, 8], [48, 43, -116, 7], [51, 36, -110, 6]]) {
+    r.begin();
+    leaf(r, x, y, a, l, 3, BLADE, { max: 7, bevel: 1, rib: 5, bias: -0.04 });
+    r.end(0.45);
+  }
+  r.save();
+  const hd = P2.head || [0, 0];
+  r.translate(hd[0], hd[1]);
+  r.begin();
+  r.seg(53, 31, 57, 26, 2.8, 2.3, STALK, { max: 6 });
+  r.end(0.5);
+  bloom(r, 59, 21, P2.open ?? 1, gk, P2.wilt || 0, P2.headTilt || 0);
+  r.restore();
+  r.restore();
+  mantisLeg(r, [45 + tx, 64 + ty], ...L2.nearF || [[60, 55], [73, 93]], false);
+  mantisLeg(r, [37 + tx, 64 + ty], ...L2.nearB || [[23, 55], [11, 93]], false);
+  r.save();
+  upper();
+  scythe(r, [51, 42], near.el, near.tip, near.curve, false, gk);
+  r.restore();
+  if (P2.slash) {
+    const [sx, sy] = P2.slash;
+    for (const [a0, a1, rad, c] of [[-70, 80, 16, 4], [-50, 100, 11, 3]]) {
+      for (let a = a0; a <= a1; a += 3) {
+        const p = polar2(sx, sy, a, rad);
+        r.dot(Math.round(p[0]), Math.round(p[1]), G_BIO[a > a1 - 25 ? c - 2 : c], 1, true);
+        r.dot(Math.round(p[0]) - 1, Math.round(p[1]), G_BIO[c - 2], 0.6, true);
+      }
+    }
+    spark2(r, sx + 12, sy + 9, 2, G_BIO);
+  }
+  if (P2.petals) {
+    for (const [x, y, a] of P2.petals) {
+      r.begin();
+      leaf(r, x, y, a, 5, 2, PETAL, { shape: 0.5, max: 5, bias: -0.06, cup: true });
+      r.end(0.5);
+    }
+  }
+  if (P2.motes) {
+    const R = rng(P2.motes);
+    for (let k = 0; k < 3; k++) spot2(r, 48 + R() * 30, 2 + R() * 10, 1, G_POLLEN, 0.7);
+  }
+}
+var MANTIS_WILT_LEGS = {
+  farF: [[58, 62], [67, 91]],
+  farB: [[26, 62], [19, 91]],
+  nearF: [[62, 66], [75, 93]],
+  nearB: [[22, 66], [10, 93]]
+};
+var BLOOM_MANTIS = {
+  w: 88,
+  h: 96,
+  bevel: 3,
+  draw: drawMantis,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { open: 1, motes: 1 },
+      {
+        lean: -0.015,
+        open: 1.04,
+        ty: -1,
+        wing: -2,
+        head: [0, -1],
+        motes: 2,
+        arms: { near: { el: [63, 46], tip: [60, 71], curve: 4.5 }, far: { el: [61, 42], tip: [64, 63], curve: 4.5 } }
+      },
+      {
+        lean: -0.025,
+        open: 1.07,
+        ty: -1,
+        wing: -3,
+        abd: -0.02,
+        head: [0, -1],
+        headTilt: 5,
+        motes: 3,
+        arms: { near: { el: [63, 45], tip: [61, 70], curve: 5 }, far: { el: [61, 41], tip: [65, 62], curve: 5 } }
+      },
+      { lean: -0.01, open: 1.03, wing: -1, abd: -0.01, headTilt: 2, motes: 4 }
+    ] },
+    attack: { fps: 9, loop: false, poses: [
+      {
+        lean: -0.1,
+        open: 1.1,
+        ty: -1,
+        head: [-1, -2],
+        glow: 1.3,
+        wing: -6,
+        arms: { near: { el: [67, 29], tip: [56, 9], curve: -4 }, far: { el: [64, 27], tip: [53, 8], curve: -4 } }
+      },
+      {
+        lean: 0.12,
+        tx: 4,
+        open: 0.95,
+        head: [2, 2],
+        glow: 1.4,
+        wing: 5,
+        slash: [72, 54],
+        arms: { near: { el: [75, 45], tip: [86, 70], curve: 5 }, far: { el: [72, 41], tip: [84, 62], curve: 5 } }
+      },
+      {
+        lean: 0.05,
+        tx: 2,
+        open: 1,
+        head: [1, 1],
+        glow: 1.1,
+        arms: { near: { el: [69, 49], tip: [69, 71], curve: 4 }, far: { el: [66, 46], tip: [66, 67], curve: 4 } }
+      }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        lean: -0.15,
+        tx: -3,
+        open: 0.7,
+        head: [-2, -1],
+        headTilt: -14,
+        glow: 0.45,
+        wing: 7,
+        arms: { near: { el: [61, 39], tip: [69, 57], curve: 3 }, far: { el: [58, 36], tip: [65, 53], curve: 3 } }
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        lean: 0.38,
+        ty: 9,
+        open: 0.85,
+        wilt: 0.9,
+        head: [1, 3],
+        headTilt: 28,
+        glow: 0.3,
+        abd: -0.08,
+        wing: 6,
+        legs: MANTIS_WILT_LEGS,
+        arms: { near: { el: [60, 58], tip: [56, 78], curve: 2 }, far: { el: [58, 55], tip: [54, 75], curve: 2 } },
+        petals: [[66, 92, 10], [76, 93, 165], [54, 93, 200]]
+      },
+      {
+        lean: 0.4,
+        ty: 9,
+        open: 0.82,
+        wilt: 1,
+        head: [1, 4],
+        headTilt: 32,
+        glow: 0.5,
+        abd: -0.08,
+        wing: 7,
+        legs: MANTIS_WILT_LEGS,
+        arms: { near: { el: [60, 59], tip: [56, 79], curve: 2 }, far: { el: [58, 56], tip: [54, 76], curve: 2 } },
+        petals: [[66, 92, 10], [76, 93, 165], [54, 93, 200], [82, 92, 30]]
+      }
+    ] }
+  },
+  points: { center: [46, 52], muzzle: [74, 34], top: [58, 4] },
+  icon: { x: 59, y: 22, scale: 0.7 }
+};
+function drawRootling(r, P2) {
+  const gk = P2.glow ?? 1, g = gk > 0.55 ? G_BIO : G_BIO_DIM;
+  const sq = P2.squash || 0;
+  const frame = () => {
+    r.translate(4 + (P2.bx || 0), 4 + (P2.by || 0));
+    r.translate(21, 39).scale(1.15).translate(-21, -39);
+    r.rotate(P2.rot || 0, 21, 36);
+  };
+  r.save();
+  frame();
+  const legs = P2.legs || [0, 0, 0];
+  const root = (a, b, w, far) => {
+    r.begin();
+    r.seg(...a, ...b, w, 0.6, far ? BARK.slice(0, 6) : BARK, { max: far ? 3 : 6, bounce: 0.3 });
+    r.end(0.45);
+  };
+  root([20, 32], [19 + legs[2], 38], 1.6, true);
+  root([28, 27], [33 + (P2.arm || 0), 31 - (P2.arm || 0)], 1.2, true);
+  const ry = 9.5 - sq, rx = 9 + sq * 0.6;
+  r.begin();
+  r.ball(21, 27 + sq, rx, ry, BARK, { max: 6, spec: BARK[7], specT: 0.965, bounce: 0.3 });
+  r.seg(14, 31, 9, 36, 2.2, 0.4, BARK, { max: 5 });
+  r.end(0.6);
+  for (const f of [-0.62, -0.18, 0.3]) {
+    for (let t = -1.2; t <= 1.15; t += 0.12) {
+      const x = Math.round(21 + Math.cos(t) * rx * f), y = Math.round(27 + sq + Math.sin(t) * ry * 0.92);
+      r.dot(x, y, BARK[1]);
+      if (t < 0.6) r.dot(x - 1, y, BARK[f < 0 ? 6 : 5]);
+    }
+  }
+  r.ball(21, 27 + sq, rx, ry, MOSS, { clip: (x, y) => y < 22 + sq && noise3(x, y, 3) > 0.45, max: 5 });
+  spot2(r, 14, 26 + sq, 1, g, gk * 0.8);
+  spot2(r, 18, 32 + sq, 1, g, gk * 0.6);
+  const ek = clamp6(gk, 0.2, 1.3);
+  for (const [x, y, s] of [[24.5, 25, 2], [28.5, 25.5, 2]]) {
+    r.ball(x, y + sq, 1.8, 1.6, BARK.slice(0, 3), { bounce: 0 });
+    spot2(r, x, y + sq, s, g, ek);
+  }
+  const m = P2.mouth || 0;
+  r.line(24, 29 + sq, 28, 29 + sq + (m > 0 ? 1 : 0), BARK[0]);
+  if (m > 0) r.line(25, 30 + sq, 27, 30 + sq, BARK[0]);
+  const sw = P2.sway || 0;
+  r.seg(20, 18 + sq, 20 + sw * 0.3, 11 + sq * 0.7, 0.9, 0.7, STALK, { max: 6 });
+  r.begin();
+  leaf(r, 20, 15 + sq, -150 + sw * 3 + (P2.leafA || 0), 10, 3.6, LEAF, { bend: -1.5, max: 7, bevel: 1, rib: 6 });
+  leaf(r, 20.5, 14 + sq, -30 + sw * 3 - (P2.leafA || 0), 11, 4, LEAF, { bend: 1.5, max: 7, bevel: 1, rib: 6 });
+  r.end(0.5);
+  r.begin();
+  r.ball(20 + sw * 0.3, 10 + sq * 0.7, 1.9, 2.1, PETAL, { max: 6 });
+  r.end(0.45);
+  r.glow(20 + sw * 0.3, 10 + sq * 0.7, 1.4, 1.5, G_PINK, { k: clamp6(gk, 0.2, 1) * 0.8, bias: 0.3 });
+  r.restore();
+  r.save();
+  frame();
+  root([16, 33], [11 + legs[0], 38], 1.9, false);
+  root([24, 34], [27 + legs[1], 38], 1.9, false);
+  root([14, 27], [8 - (P2.arm || 0), 30 - (P2.arm || 0)], 1.4, false);
+  r.restore();
+  if (P2.dirt) {
+    const R = rng(P2.dirt);
+    for (let k = 0; k < 5; k++) r.dot(Math.round(10 + R() * 32), Math.round(44 + R() * 3), BARK[2 + (k & 1)]);
+  }
+}
+var ROOTLING = {
+  w: 52,
+  h: 48,
+  bevel: 2,
+  draw: drawRootling,
+  anims: {
+    idle: { fps: 6, loop: true, poses: [
+      { sway: 0, legs: [0, 0, 0] },
+      { sway: 1, by: -1, squash: -0.5, leafA: 4, legs: [0, 1, 0] },
+      { sway: 2, by: -2, squash: -1, leafA: 8, arm: 1, legs: [-1, 1, 0] },
+      { sway: 1, by: 0, squash: 0.6, leafA: 2, legs: [0, 0, 1] }
+    ] },
+    attack: { fps: 9, loop: false, poses: [
+      { by: 1, bx: -2, squash: 2, rot: -0.12, leafA: -10, arm: 2, glow: 1.3, legs: [-1, -1, 0] },
+      { by: -5, bx: 7, squash: -1.5, rot: 0.3, leafA: 14, sway: -3, mouth: 1, glow: 1.4, legs: [3, 3, 2] },
+      { by: 0, bx: 4, squash: 1.2, rot: 0.08, leafA: 6, mouth: 1, dirt: 3, legs: [1, 1, 1] }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { bx: -3, by: -1, rot: -0.28, squash: -1, leafA: 18, sway: -2, glow: 0.4, mouth: 1 }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      { bx: 12, by: 1, rot: -1.05, squash: 0.5, leafA: -18, sway: -2, glow: 0.3, legs: [2, -1, 1], dirt: 4 },
+      { bx: 12, by: 1, rot: -1.02, squash: 0.5, leafA: -15, sway: -1, glow: 0.5, legs: [1, 0, 2], dirt: 4 }
+    ] }
+  },
+  points: { center: [25, 32], muzzle: [37, 32], top: [24, 6] },
+  icon: { x: 27, y: 28, scale: 0.8 }
+};
+function caretakerLeg(r, hip, knee, foot, far) {
+  const metal = far ? { max: 4, bias: -0.1 } : { max: 6 };
+  r.begin();
+  r.seg(...hip, ...knee, 2.6, 2.1, GUN2, { caps: "flat", ...metal, spec: far ? null : GUN2[7], specT: 0.96 });
+  r.seg(...knee, ...foot, 2, 1.5, GUN2, { caps: "flat", ...metal });
+  limbPlate2(r, hip, knee, [[0.05, -3.6], [0.05, 3.6], [0.75, 2.8], [0.75, -2.8]], SHELL, { max: far ? 4 : 6, bias: far ? -0.12 : 0 });
+  r.ball(...knee, 2.8, 2.8, SHELL, { max: far ? 4 : 6, bias: far ? -0.12 : 0, spec: far ? null : SHELL[7], specT: 0.94 });
+  r.end(0.5);
+  r.begin();
+  r.poly([[foot[0] - 4, foot[1] - 1.5], [foot[0] + 4, foot[1] - 1.5], [foot[0] + 5.5, foot[1] + 0.8], [foot[0] - 4.5, foot[1] + 0.8]], SHELL, { n: [0, -0.6, 0.8], bevel: 1, max: far ? 4 : 6, bias: far ? -0.12 : 0 });
+  r.end(0.5);
+  const ramp2 = far ? LEAF_FAR : LEAF;
+  for (let k = 0; k <= 14; k++) {
+    const s = k / 14, p = along2(knee, foot, s * 0.8, Math.sin(s * 14) * 2.4);
+    r.dot(Math.round(p[0]), Math.round(p[1]), ramp2[Math.sin(s * 14) > 0 ? 5 : 2]);
+  }
+  const lp = along2(knee, foot, 0.35, 2.5);
+  leaf(r, lp[0], lp[1], 10, 4, 1.6, ramp2, { max: far ? 4 : 6 });
+}
+function drawCaretaker(r, P2) {
+  const gk = P2.glow ?? 1;
+  const tk = clamp6(P2.tank ?? 1, 0.2, 1.8);
+  const L2 = P2.legs || {};
+  const body = () => {
+    r.translate(P2.tx || 0, P2.ty || 0);
+    r.rotate(P2.lean || 0, 46, 48);
+  };
+  r.save();
+  body();
+  const hips = [r.pt(36, 50), r.pt(56, 50), r.pt(47, 48)];
+  r.restore();
+  caretakerLeg(r, hips[2], L2.far?.[0] || [51, 64], L2.far?.[1] || [47, 82], true);
+  r.save();
+  body();
+  const LA = P2.lance || { el: [66, 22], rose: [75, 25] };
+  r.begin();
+  r.seg(54, 32, ...LA.el, 2, 1.7, GUN2, { caps: "flat", max: 4, bias: -0.08 });
+  r.seg(...LA.el, ...LA.rose, 1.6, 1.3, GUN2, { caps: "flat", max: 4, bias: -0.08 });
+  r.ball(...LA.el, 2.2, 2.2, SHELL, { max: 4, bias: -0.1 });
+  r.end(0.5);
+  r.begin();
+  r.ball(LA.rose[0] + 1.5, LA.rose[1], 1.8, 3.2, SHELL, { max: 5, flat: 0.5 });
+  r.end(0.5);
+  for (let k = -1; k <= 1; k++) r.dot(Math.round(LA.rose[0] + 2.5), Math.round(LA.rose[1] + k * 1.5), GUN2[1]);
+  const tx = 28, ty0 = 14, ty1 = 36;
+  r.begin();
+  r.seg(tx, ty0, tx, ty1, 6.6, 6.6, GLASS, { max: 5, spec: GLASS[7], specT: 0.96 });
+  r.end(0.55);
+  const level = ty0 + 7 - (P2.slosh || 0);
+  r.each(tx - 7, level, tx + 7, ty1 + 2, (mx, my, X, Y) => {
+    if (Math.abs(mx - tx) > 5.6 || my < level + Math.sin(mx * 0.9 + (P2.slosh || 0)) * 0.6) return;
+    const d = Math.abs(mx - tx) / 5.6;
+    const k = clamp6(Math.floor((1 - d) * 3.2 + (my - level) * 0.04 + 0.6), 0, 4);
+    r.put(X, Y, (tk > 0.55 ? G_SAP : G_SAP_DIM)[Math.min(4, k)], 0.55 * tk);
+  });
+  r.ball(tx, 28, 3, 3.2, BARK.slice(0, 4), { max: 3 });
+  leaf(r, tx, 25, -130, 4.5, 1.6, LEAF.slice(0, 5), { max: 4 });
+  leaf(r, tx, 25, -50, 5, 1.8, LEAF.slice(0, 5), { max: 4 });
+  for (const [x, y] of P2.bubbles || [[25, 31], [30, 24], [27, 19]]) r.dot(x, y, G_SAP[4], 0.7 * tk);
+  r.line(tx - 4, ty0 - 2, tx - 4, ty1 - 2, GLASS[7]);
+  r.line(tx - 3, ty0 - 3, tx - 3, ty0 + 3, WHITE3);
+  r.begin();
+  r.seg(tx, ty1 + 2, tx, ty1 + 5, 7.2, 7.2, GUN2, { caps: "flat", max: 5 });
+  r.rect(tx - 2, ty1 + 5, 4, 4, GUN2[3]);
+  r.end(0.55);
+  const lid = P2.lid || 0;
+  r.save();
+  r.rotate(-lid, tx - 7, ty0 - 2);
+  r.begin();
+  r.seg(tx, ty0 - 1, tx, ty0 - 4, 7.2, 7.2, GUN2, { caps: "flat", max: 6, spec: GUN2[7], specT: 0.96 });
+  r.ball(tx, ty0 - 4, 7.2, 2.4, GUN2, { clip: (x, y) => y < ty0 - 4, max: 6 });
+  r.end(0.55);
+  r.restore();
+  for (const y of [ty0 + 3, ty1 - 3]) r.line(tx - 6, y, tx + 6, y, GUN2[2]);
+  r.begin();
+  r.ball(46, 40, 18, 15, SHELL, { clip: (x, y) => y < 44 + (x - 46) * 0.08, max: 6, spec: SHELL[7], specT: 0.98 });
+  r.ball(46, 40, 18, 15, GUN2, { clip: (x, y) => y >= 44 + (x - 46) * 0.08, max: 5 });
+  r.ball(46, 40, 18, 15, SERVICE, { clip: (x, y) => Math.abs(y - 40.5 - (x - 46) * 0.08) < 1.2, max: 5 });
+  r.end(0.6);
+  const MOSS_PATCH = [[42, 27, 9, 3.6], [53, 28, 4.5, 2.2], [32, 34, 3.5, 4], [36, 29, 3, 2]];
+  const mossy = (x, y) => MOSS_PATCH.some(([px, py, mx, my]) => ((x - px) / mx) ** 2 + ((y - py) / my) ** 2 < 0.75 + 0.5 * noise3(x, y, 7));
+  r.ball(46, 40, 18, 15, MOSS, { clip: mossy, max: 6, spec: MOSS[6], specT: 0.98 });
+  r.line(37, 44, 56, 45, GUN2[1]);
+  for (const x of [33, 41, 50, 58]) r.dot(x, Math.round(44.6 + (x - 46) * 0.08) + 2, GUN2[5]);
+  r.ring(41, 36, 2, 3.4, SERVICE, { max: 4 });
+  leaf(r, 40, 37.5, -50, 3.6, 1.3, SERVICE, { max: 5 });
+  const lk = clamp6(P2.lens ?? 1, 0.15, 1.4);
+  r.begin();
+  r.ring(59.5, 36.5, 3.6, 6.4, GUN2, { spec: GUN2[7], specT: 0.97 });
+  r.end(0.5);
+  r.glow(59.8, 36.5, 4, 4, lk > 0.55 ? G_AMBER : G_SAP_DIM, { k: lk, bias: lk > 1 ? 0.7 : 0.2 });
+  r.ball(61, 36.6, 1.2, 2, rp2("#4a2008", "#2a1004"), { bounce: 0 });
+  if (lk > 0.55) {
+    r.dot(57, 34, WHITE3, 1);
+    r.dot(58, 33, G_AMBER[3], 1);
+  }
+  if (P2.glitch) {
+    r.line(54, 35, 66, 35, WHITE3, 1);
+    r.line(55, 38, 65, 38, G_AMBER[2], 0.6);
+  }
+  r.begin();
+  r.poly([[53, 30], [61, 28.5], [67, 31.5], [66, 33], [60, 31], [54, 32.5]], SHELL, { n: [0.1, -0.8, 0.6], bevel: 1, max: 6 });
+  r.end(0.5);
+  const sw = P2.sway || 0;
+  fern(r, 37, 30, -150 + sw - (P2.droop || 0), 13, 3, LEAF, { leaflet: 3.6, max: 6, bias: -0.04 });
+  fern(r, 42, 27, -116 + sw * 2 - (P2.droop || 0), 19, 2.4 + (P2.droop || 0) * 0.05, LEAF, { leaflet: 5, max: 7, bias: 0.04 });
+  fern(r, 49, 26, -80 + sw * 2 + (P2.droop || 0) * 0.6, 15, -2.6, LEAF, { leaflet: 4.4, max: 7, bias: 0.06 });
+  const bl = P2.droop ? 0.6 : 1;
+  r.begin();
+  for (let k = 0; k < 5; k++) leaf(r, 54, 28.5, k * 72 - 20 + sw * 6, 3.4 * bl, 1.6, PETAL, { shape: 0.5, max: 7, bias: 0.05 });
+  r.end(0.45);
+  spot2(r, 54, 28.5, 1, G_POLLEN, clamp6(gk, 0.2, 1));
+  for (const [x, y, len, p] of [[34, 51, 12, 0], [44, 54, 15, 1.7], [55, 52, 9, 3.1]]) vine(r, x, y, Math.round(len * (P2.vines ?? 1)), (P2.phase || 0) + p, 1.6, false);
+  const S6 = P2.shears || { el: [70, 54], wr: [80, 47], ang: -20, open: 0.35 };
+  r.begin();
+  r.seg(58, 47, ...S6.el, 2.8, 2.4, SHELL, { caps: "flat", max: 6, spec: SHELL[7], specT: 0.96 });
+  r.seg(...S6.el, ...S6.wr, 2.4, 2, SHELL, { caps: "flat", max: 6, spec: SHELL[7], specT: 0.96 });
+  r.ball(58, 47, 3.4, 3.4, GUN2, { max: 6, spec: GUN2[7], specT: 0.95 });
+  r.ball(...S6.el, 2.8, 2.8, GUN2, { max: 6, spec: GUN2[7], specT: 0.95 });
+  r.end(0.55);
+  r.begin();
+  for (const side of [-1, 1]) {
+    const a = S6.ang + side * S6.open * 28;
+    const tip2 = polar2(...S6.wr, a, 15);
+    r.poly([along2(S6.wr, tip2, -0.15, side * 2), along2(S6.wr, tip2, 0.2, side * 3.4), tip2, along2(S6.wr, tip2, 0.55, -side * 0.6), along2(S6.wr, tip2, -0.1, -side * 1)], STEEL4, { n: [0, -0.5 * side, 0.86], bevel: 1, max: 7, spec: WHITE3, specT: 0.985 });
+  }
+  r.ball(...S6.wr, 2.2, 2.2, BRONZE2, { max: 6, spec: BRONZE2[7], specT: 0.93 });
+  r.end(0.55);
+  r.restore();
+  caretakerLeg(r, hips[0], L2.back?.[0] || [24, 60], L2.back?.[1] || [19, 85], false);
+  caretakerLeg(r, hips[1], L2.front?.[0] || [70, 61], L2.front?.[1] || [74, 85], false);
+  if (P2.snip) {
+    const [x, y] = P2.snip;
+    spark2(r, x, y, 3, G_STEEL_GLINT);
+    sparks2(r, 17, x, y, 6, 4, G_STEEL_GLINT);
+  }
+  if (P2.seeds) {
+    for (const [x, y] of P2.seeds) {
+      r.glow(x, y, 2.2, 2.2, G_SAP, { k: 1, bias: 0.3, fx: true });
+      r.dot(Math.round(x), Math.round(y), WHITE3, 1, true);
+    }
+  }
+  if (P2.spray) {
+    const R = rng(P2.spray);
+    const [x0, y0] = [LA.rose[0] + 4 + (P2.tx || 0), LA.rose[1] + (P2.ty || 0)];
+    for (let k = 0; k < 16; k++) {
+      const d = 2 + R() * P2.spray, a = -15 + R() * 40;
+      const p = polar2(x0, y0, a, d);
+      spot2(r, p[0], p[1] + d * d * 0.012, R() < 0.3 ? 2 : 1, G_SAP, 0.8);
+    }
+  }
+  if (P2.leak) {
+    for (const [x, y, n] of P2.leak) for (let k = 0; k < n; k++) r.dot(x, y + k, G_SAP[3 - Math.min(2, k >> 1)], 0.7);
+    r.glow(P2.leak[0][0] + 2, 86, 6, 1.4, G_SAP, { k: 0.6, fx: true, bias: 0.1 });
+  }
+  if (P2.fall) {
+    for (const [x, y, a] of P2.fall) leaf(r, x, y, a, 3.5, 1.4, LEAF, { max: 6 });
+  }
+  if (P2.smoke) smoke2(r, P2.smoke, 52, 22, 3.6);
+}
+var CARETAKER_KNEEL = {
+  back: [[22, 76], [17, 86]],
+  front: [[74, 76], [78, 86]],
+  far: [[52, 76], [47, 84]]
+};
+var FERAL_CARETAKER = {
+  w: 96,
+  h: 88,
+  bevel: 3,
+  draw: drawCaretaker,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { sway: 0, phase: 0, bubbles: [[25, 31], [30, 24], [27, 19]] },
+      {
+        sway: 1,
+        phase: 1.5,
+        ty: -1,
+        slosh: 0.5,
+        bubbles: [[25, 29], [30, 34], [27, 22]],
+        shears: { el: [70, 53], wr: [80, 46], ang: -24, open: 0.25 }
+      },
+      {
+        sway: 2,
+        phase: 3,
+        ty: -1,
+        slosh: 1,
+        lens: 1.15,
+        bubbles: [[26, 27], [30, 32], [27, 25]],
+        shears: { el: [70, 53], wr: [80, 46], ang: -26, open: 0.45 }
+      },
+      { sway: 1, phase: 4.5, slosh: 0.5, bubbles: [[25, 33], [29, 29], [27, 23]] }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { lean: -0.06, tx: -1, lens: 1.3, sway: -1, shears: { el: [72, 44], wr: [78, 32], ang: -40, open: 1 } },
+      { lean: 0.07, tx: 4, lens: 1.35, sway: 3, phase: 2, snip: [91, 50], shears: { el: [78, 54], wr: [88, 50], ang: 0, open: 0 } },
+      { lean: 0.03, tx: 2, lens: 1.1, sway: 2, phase: 3, shears: { el: [74, 55], wr: [84, 49], ang: -10, open: 0.3 } }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        lean: -0.12,
+        tx: -3,
+        lens: 0.4,
+        glitch: 1,
+        sway: -3,
+        phase: 1,
+        slosh: 2,
+        tank: 0.7,
+        fall: [[40, 16, 30], [56, 12, 140]],
+        shears: { el: [68, 56], wr: [76, 58], ang: 30, open: 0.6 }
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        ty: 12,
+        lean: 0.16,
+        lens: 0.25,
+        tank: 0.45,
+        droop: 30,
+        vines: 0.6,
+        sway: -2,
+        legs: CARETAKER_KNEEL,
+        smoke: 5,
+        leak: [[33, 52, 6]],
+        lance: { el: [62, 34], rose: [66, 42] },
+        shears: { el: [72, 66], wr: [80, 74], ang: 50, open: 0.7 }
+      },
+      {
+        ty: 12,
+        lean: 0.17,
+        lens: 0.45,
+        tank: 0.6,
+        droop: 32,
+        vines: 0.6,
+        sway: -1,
+        legs: CARETAKER_KNEEL,
+        smoke: 9,
+        leak: [[33, 52, 9]],
+        lance: { el: [62, 34], rose: [66, 42] },
+        shears: { el: [72, 66], wr: [80, 74], ang: 52, open: 0.6 }
+      }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      {
+        ty: -1,
+        lens: 1.3,
+        tank: 1.8,
+        lid: 0.9,
+        slosh: 2,
+        seeds: [[22, 6], [30, 3], [35, 8]],
+        lance: { el: [68, 18], rose: [78, 18] },
+        bubbles: [[25, 26], [30, 30], [27, 20], [29, 34]]
+      },
+      {
+        ty: 0,
+        lens: 1.2,
+        tank: 1.5,
+        lid: 0.6,
+        slosh: 1,
+        seeds: [[50, 2], [63, 6], [76, 12]],
+        spray: 14,
+        lance: { el: [68, 18], rose: [78, 18] },
+        bubbles: [[25, 24], [30, 28], [27, 33]]
+      }
+    ] }
+  },
+  points: { center: [46, 46], muzzle: [86, 48], top: [44, 6], core: [28, 28] },
+  icon: { x: 52, y: 33, scale: 0.6 }
+};
+var enemyart_default5 = {
+  spore_drone: SPORE_DRONE,
+  bloom_mantis: BLOOM_MANTIS,
+  rootling: ROOTLING,
+  feral_caretaker: FERAL_CARETAKER
+};
 
 // src/content/arboretum/props.js
 var props_default5 = {};
@@ -70275,7 +71898,728 @@ var pure_default6 = {
 var art_default6 = {};
 
 // src/content/spire/enemyart.js
-var enemyart_default6 = {};
+var PLATE = rp2("#1c2029", "#2e333f", "#474d5c", "#666d7d", "#8c93a3", "#b4bac8", "#dadfe8", "#f8fafc");
+var BLACK3 = rp2("#06070b", "#0b0d13", "#13161e", "#1c2029", "#272c37", "#363c4a", "#4b5263", "#6a7284");
+var IVORY3 = rp2("#1d2029", "#30343f", "#4a4f60", "#6a7082", "#9097a8", "#b8bfcd", "#dbe0ea", "#f7f9fc");
+var G_RED_DIM2 = rp2("#2c0910", "#4a0f1a", "#6e1424", "#8f2232", "#a8404c");
+var G_HOT = rp2("#b01c33", "#ff5d6c", "#ffb4a8", "#fff0ea", "#ffffff");
+var G_VOLT = rp2("#6a5a10", "#c8a820", "#ffe94d", "#fff6a8", "#ffffff");
+var G_FIRE_W = rp2("#7a2a10", "#ff8a4a", "#ffd0a0", "#fff4e4", "#ffffff");
+var BORE2 = rp2("#050508", "#0c0c12", "#16141c");
+function trooperLeg(r, hip, knee, ankle, heel, toe, far) {
+  const suit = far ? { max: 4, bias: -0.1 } : { max: 5 };
+  const plate2 = far ? { max: 5, bias: -0.1 } : { max: 7, bias: 0.06 };
+  r.begin();
+  r.seg(...hip, ...knee, 3.2, 2.6, BLACK3, { caps: "flat", ...suit });
+  r.seg(...knee, ...ankle, 2.6, 2.1, BLACK3, { caps: "flat", ...suit });
+  r.end(0.5);
+  r.begin();
+  limbPlate2(r, hip, knee, [[0.05, -3.8], [0.05, 3.4], [0.8, 2.8], [0.95, -2.6]], PLATE, plate2);
+  limbPlate2(r, knee, ankle, [[0.08, -3.2], [0.08, 2.6], [0.72, 2], [0.72, -2.8]], PLATE, plate2);
+  r.end(0.55);
+  const s0 = along2(knee, ankle, 0.15, -2.6), s1 = along2(knee, ankle, 0.65, -2.2);
+  r.line(Math.round(s0[0]), Math.round(s0[1]), Math.round(s1[0]), Math.round(s1[1]), CRIMSON2[far ? 2 : 3]);
+  r.begin();
+  r.ball(...knee, 2.8, 2.6, PLATE, { ...plate2, spec: far ? null : PLATE[7], specT: 0.95 });
+  r.poly([[heel[0], heel[1] - 4], [ankle[0] + 2, ankle[1] - 1], [toe[0] - 1, toe[1] - 3], [toe[0], toe[1]], [heel[0], heel[1]]], BLACK3, { n: [0.1, -0.6, 0.8], bevel: 1, ...suit });
+  r.end(0.55);
+  r.line(heel[0] + 1, heel[1] - 1, toe[0] - 1, toe[1] - 1, BLACK3[far ? 3 : 5]);
+}
+function carbine(r, P2) {
+  const rec = P2.recoil || 0;
+  r.save();
+  r.translate(-rec, 0);
+  r.begin();
+  r.poly([[-13, -3], [-6, -4], [-5, 1], [-12, 3]], BLACK3, { n: [0, -0.3, 0.95], bevel: 1, max: 5 });
+  r.poly([[-7, -6], [9, -6.5], [10, -1], [-6, 0.5]], BLACK3, { n: [0, -0.4, 0.9], bevel: 1, max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.poly([[-3, -5.5], [7, -6], [7.5, -3.5], [-3, -3]], PLATE, { n: [0, -0.6, 0.8], bevel: 1, max: 7 });
+  r.poly([[0, 0], [3, 0], [3.5, 6], [0.5, 6]], BLACK3, { n: [0.2, 0, 0.98], bevel: 1, max: 5 });
+  r.end(0.55);
+  r.begin();
+  r.seg(9, -4, 21, -4, 1.4, 1.2, BLACK3, { caps: "flat", max: 6, spec: BLACK3[7], specT: 0.96 });
+  r.rect(20, -6, 2.5, 4, BLACK3[5]);
+  r.dot(20, -6, BLACK3[7]);
+  r.poly([[9, -2], [14, -2], [14, 0.5], [9, 0.5]], BLACK3, { n: [0, 0.2, 1], bevel: 1, max: 5 });
+  r.poly([[0, -8.5], [6, -8.5], [6, -6.5], [0, -6.5]], BLACK3, { n: [0, -0.6, 0.8], bevel: 1, max: 6 });
+  r.end(0.5);
+  r.line(-2, -4.5, 5, -5, CRIMSON2[3]);
+  r.dot(6, -8, P2.sight ? GLOW_C2.red : CRIMSON2[1], P2.sight ? 1 : 0);
+  r.dot(14, -1, P2.sight ? WHITE3 : G_RED2[1], P2.sight ? 1 : 0.4);
+  r.restore();
+  if (P2.flash) muzzleFlash2(r, 23 - rec, -4, P2.flash, G_FIRE_W);
+  if (P2.puff) smoke2(r, P2.puff, 24 - rec, -6, 2.8);
+}
+function drawTrooper(r, P2) {
+  const ty = P2.ty || 0, tx = P2.tx || 0;
+  const vis = P2.visor ?? 1;
+  const G5 = P2.gun || { ang: 9, x: 36, y: 41 };
+  const torso = () => {
+    r.translate(tx, ty);
+    r.rotate(P2.lean || 0, 29, 47);
+  };
+  r.save();
+  torso();
+  r.translate(G5.x, G5.y);
+  r.rotate(G5.ang * DEG2);
+  const grip = r.pt(1.5, 1), fore = r.pt(11, -0.5);
+  r.restore();
+  r.save();
+  torso();
+  const hipN = r.pt(31, 48), hipF = r.pt(27, 47), shF = r.pt(24, 28), shN = r.pt(36, 29);
+  r.restore();
+  const LG = P2.legs || {};
+  const lf = LG.far || { knee: [24, 61], ankle: [21, 73], heel: [16, 77], toe: [27, 77] };
+  trooperLeg(r, hipF, lf.knee, lf.ankle, lf.heel, lf.toe, true);
+  const elF = P2.elF || [Math.min(shF[0], fore[0]) + 3, (shF[1] + fore[1]) / 2 + 4];
+  r.begin();
+  r.seg(...shF, ...elF, 2.4, 2.1, BLACK3, { max: 4, bias: -0.1 });
+  r.seg(...elF, ...fore, 2.1, 1.9, BLACK3, { max: 4, bias: -0.1 });
+  limbPlate2(r, elF, fore, [[0.1, -2.4], [0.1, 2.4], [0.65, 2.2], [0.65, -2.2]], PLATE, { max: 5, bias: -0.14 });
+  r.end(0.5);
+  r.save();
+  torso();
+  r.begin();
+  r.ball(24, 27, 4.4, 4.2, PLATE, { max: 5, bias: -0.14 });
+  r.poly([[17, 25], [23, 23], [25, 38], [19, 40]], BLACK3, { n: [-0.4, 0, 0.9], bevel: 1, max: 5 });
+  r.end(0.55);
+  r.line(21, 27, 19, 20, BLACK3[5]);
+  r.dot(19, 19, P2.led ? GLOW_C2.red : CRIMSON2[1], P2.led ? 1 : 0);
+  r.begin();
+  r.poly([[23, 42], [35, 41.5], [36.5, 48], [30, 51], [23, 49]], BLACK3, { n: [0, 0, 1], bevel: 1, max: 5 });
+  r.poly([[22, 35], [38, 34], [37, 43], [23, 44]], BLACK3, { n: [0.1, 0.2, 0.97], max: 5 });
+  r.end(0.6);
+  for (let k = 0; k < 3; k++) r.line(25, 37 + k * 2, 35, 36.5 + k * 2, BLACK3[k === 0 ? 5 : 1]);
+  r.rect(25, 43, 9, 2, PLATE[5]);
+  r.dot(29, 43, GOLD3[5]);
+  r.begin();
+  r.poly([[21, 27], [30, 22.5], [39, 24.5], [41.5, 31], [39, 37], [24, 38], [21, 33]], PLATE, { nf: dome2(31, 29, 12, 9), bevel: 1, max: 7, bias: 0.1, spec: PLATE[7], specT: 0.985 });
+  r.end(0.6);
+  r.poly([[23, 34], [36, 25], [38.5, 26], [25, 36.5]], CRIMSON2, { nf: dome2(31, 29, 12, 9), max: 4 });
+  r.line(33, 30, 35, 32, GOLD3[5]);
+  r.line(35, 32, 37, 30, GOLD3[5]);
+  r.dot(35, 33, GOLD3[2]);
+  r.line(26, 27, 31, 24.5, PLATE[7]);
+  r.save();
+  r.rotate(P2.head || 0, 32, 22);
+  r.begin();
+  r.seg(31, 23, 33, 19, 2.6, 2.4, BLACK3, { caps: "flat", max: 5 });
+  r.end(0.5);
+  r.begin();
+  r.ball(33, 13.5, 5.8, 5.8, PLATE, { clip: (x, y) => y < 15.5, max: 7, bias: 0.08, spec: PLATE[7], specT: 0.985 });
+  r.poly([[27.5, 12.5], [32, 13.5], [32.5, 19.5], [29, 19.5], [27.5, 16]], PLATE, { n: [-0.5, 0.1, 0.86], bevel: 1, max: 6, bias: 0.04 });
+  r.poly([[33, 10.5], [39.5, 11.5], [40.2, 16], [37.5, 19.8], [32.5, 19.6], [32, 14]], BLACK3, { nf: dome2(36, 15, 6, 6), bevel: 1, max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.end(0.6);
+  r.poly([[29, 8.2], [34, 7.6], [38, 9.6], [33.5, 9.4], [29.5, 10]], CRIMSON2, { n: [0, -0.8, 0.6], max: 5 });
+  r.line(30, 15, 31, 18, PLATE[3]);
+  const vk = clamp6(vis, 0.15, 1.4), vr = vis > 0.55 ? G_RED2 : G_RED_DIM2;
+  r.line(35, 13, 40, 13, vr[vis > 1.05 ? 4 : 3], vk);
+  r.line(35, 14, 40, 14, vr[2], vk * 0.8);
+  if (P2.scan != null && vis > 0.55) r.dot(35 + P2.scan, 13, WHITE3, 1);
+  if (P2.glitch) {
+    r.line(32, 12, 43, 12, WHITE3, 1, true);
+    r.line(34, 15, 44, 15, G_RED2[3], 1, true);
+  }
+  r.line(36, 17, 39, 17, BLACK3[1]);
+  r.restore();
+  r.restore();
+  const ln = LG.near || { knee: [36, 61], ankle: [35, 73], heel: [30, 78], toe: [42, 78] };
+  trooperLeg(r, hipN, ln.knee, ln.ankle, ln.heel, ln.toe, false);
+  r.save();
+  torso();
+  r.translate(G5.x, G5.y);
+  r.rotate(G5.ang * DEG2);
+  carbine(r, P2);
+  r.restore();
+  const elN = P2.elN || [Math.min(shN[0], grip[0]) - 2, (shN[1] + grip[1]) / 2 + 3];
+  r.begin();
+  r.seg(...shN, ...elN, 2.6, 2.3, BLACK3, { max: 5 });
+  r.seg(...elN, ...grip, 2.3, 2.1, BLACK3, { max: 5 });
+  limbPlate2(r, elN, grip, [[0.05, -2.8], [0.05, 2.8], [0.6, 2.5], [0.6, -2.5]], PLATE, { max: 7 });
+  r.ball(...grip, 2.2, 2.2, BLACK3, { max: 6 });
+  r.end(0.55);
+  r.save();
+  torso();
+  r.begin();
+  r.poly([[31, 25], [37, 22.5], [42, 25], [42.5, 31], [37, 32.5], [32, 30]], PLATE, { nf: dome2(37, 26, 7, 6), bevel: 1, max: 7, bias: 0.1, spec: PLATE[7], specT: 0.98 });
+  r.poly([[32, 29.6], [37, 32.1], [42.4, 30.6], [42.5, 31.5], [37, 33.2], [32, 30.8]], CRIMSON2, { nf: dome2(37, 26, 7, 6), max: 4 });
+  r.end(0.6);
+  r.line(34, 25, 38, 23.5, PLATE[7]);
+  r.restore();
+  if (P2.mark) {
+    r.save();
+    torso();
+    r.translate(G5.x, G5.y);
+    r.rotate(G5.ang * DEG2);
+    for (let x = 15; x < 64; x++) if ((x + P2.mark) % 4) r.dot(x, -1, x & 1 ? G_RED2[2] : G_RED2[3], 1, true);
+    r.restore();
+    if (P2.mark > 1) {
+      const [mx, my] = P2.markAt || [56, 34];
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        r.line(mx + sx * 5, my + sy * 5, mx + sx * 3, my + sy * 5, G_RED2[3], 1, true);
+        r.line(mx + sx * 5, my + sy * 5, mx + sx * 5, my + sy * 3, G_RED2[3], 1, true);
+      }
+      r.glow(mx, my, 2, 2, G_RED2, { fx: true, bias: 0.4 });
+    }
+  }
+  if (P2.casing) {
+    r.dot(P2.casing[0], P2.casing[1], GOLD3[5]);
+    r.dot(P2.casing[0] + 1, P2.casing[1], GOLD3[3]);
+  }
+  if (P2.sparks) for (const [seed, x, y, sp, n] of P2.sparks) sparks2(r, seed, x, y, sp, n);
+  if (P2.smoke) smoke2(r, P2.smoke, 30, 14 + ty, 3);
+}
+var TROOPER_KNEEL = {
+  near: { knee: [39, 77], ankle: [28, 76], heel: [21, 78], toe: [30, 78] },
+  far: { knee: [21, 66], ankle: [20, 76], heel: [15, 78], toe: [27, 78] }
+};
+var SEC_TROOPER = {
+  w: 64,
+  h: 80,
+  bevel: 2,
+  draw: drawTrooper,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { scan: 0, led: 1 },
+      { ty: 0, scan: 2, head: -0.03, gun: { ang: 10, x: 36, y: 41 } },
+      { ty: 1, scan: 4, head: -0.05, led: 1, gun: { ang: 11, x: 36, y: 42 } },
+      { ty: 1, scan: 2, head: -0.02, gun: { ang: 10, x: 36, y: 42 } }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { lean: -0.04, visor: 1.3, sight: 1, gun: { ang: 0, x: 37, y: 36 }, head: 0.04, led: 1 },
+      { lean: -0.07, tx: -1, visor: 1.4, sight: 1, recoil: 2, flash: 6, casing: [36, 26], gun: { ang: -2, x: 36, y: 36 }, head: 0.04, led: 1 },
+      { lean: -0.03, visor: 1.1, recoil: 1, puff: 7, casing: [33, 30], gun: { ang: -1, x: 37, y: 36 }, head: 0.03 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { lean: -0.14, tx: -2, ty: -1, visor: 0.4, glitch: 1, head: -0.25, gun: { ang: -22, x: 34, y: 40 } }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        ty: 10,
+        lean: 0.14,
+        visor: 0.25,
+        head: 0.35,
+        legs: TROOPER_KNEEL,
+        gun: { ang: 52, x: 37, y: 42 },
+        smoke: 5,
+        sparks: [[31, 33, 26, 4, 4]]
+      },
+      {
+        ty: 10,
+        lean: 0.15,
+        visor: 0.6,
+        head: 0.33,
+        legs: TROOPER_KNEEL,
+        gun: { ang: 52, x: 37, y: 42 },
+        smoke: 9,
+        led: 1,
+        sparks: [[47, 34, 27, 4, 3]]
+      }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      { lean: -0.03, visor: 1.3, sight: 1, mark: 1, gun: { ang: 0, x: 37, y: 36 }, head: 0.04, led: 1 },
+      { lean: -0.03, visor: 1.4, sight: 1, mark: 2, gun: { ang: 0, x: 37, y: 36 }, head: 0.04, led: 1, scan: 5 }
+    ] }
+  },
+  points: { center: [30, 44], muzzle: [59, 32], top: [33, 5] },
+  icon: { x: 34, y: 18, scale: 1 }
+};
+function riotPod(r, x, y, rx, ry, far, thrust2) {
+  r.begin();
+  r.ball(x, y, rx, ry, BLACK3, { max: far ? 4 : 6, bias: far ? -0.1 : 0, spec: far ? null : BLACK3[7], specT: 0.96 });
+  r.ball(x, y, rx, ry, CRIMSON2, { clip: (mx, my) => Math.abs(my - y + 0.5) < 0.8, max: far ? 2 : 4 });
+  r.seg(x, y + ry - 1, x, y + ry + 1.5, rx * 0.55, rx * 0.45, BLACK3, { caps: "flat", max: 4 });
+  r.end(0.55);
+  flame2(r, Math.round(x - 0.5), Math.round(y + ry + 2), thrust2, G_RED2, 0, 1, rx * 0.4);
+}
+function drawRiot(r, P2) {
+  const dish = P2.dish || 0, st = P2.strobe ?? 0;
+  r.save();
+  r.translate(P2.dx || 0, P2.bob || 0);
+  r.rotate(P2.tilt || 0, 36, 32);
+  riotPod(r, 24, 42, 4.2, 3.2, true, P2.thrust?.[1] ?? 4);
+  r.begin();
+  r.seg(30, 19, 29, 10, 1.3, 1.1, BLACK3, { caps: "flat", max: 5 });
+  r.end(0.5);
+  r.save();
+  r.rotate(dish, 29, 9);
+  r.begin();
+  r.ball(28, 8, 3.2, 6.4, PLATE, { concave: true, max: 6 });
+  r.ball(28, 8, 3.2, 6.4, PLATE, { clip: (x) => x < 26.6, max: 4, bias: -0.1 });
+  r.end(0.55);
+  r.line(29, 8, 34, 8, BLACK3[6]);
+  const jk = clamp6(P2.jam ?? 0.4, 0.2, 1.5);
+  r.glow(34.5, 8, 1.6 + jk, 1.6 + jk, jk > 0.6 ? G_RED2 : G_RED_DIM2, { k: jk, bias: 0.4 });
+  r.restore();
+  r.begin();
+  r.poly([[11, 27], [19, 18], [45, 16], [56, 22], [58, 34], [49, 42], [20, 43], [11, 35]], BLACK3, { nf: dome2(34, 28, 24, 14), bevel: 1, max: 6, spec: BLACK3[7], specT: 0.975 });
+  r.end(0.6);
+  r.begin();
+  r.poly([[16, 21], [42, 17], [53, 22], [45, 27], [18, 28]], PLATE, { n: [-0.1, -0.75, 0.65], bevel: 1, max: 7, bias: 0.06, spec: PLATE[7], specT: 0.985 });
+  r.end(0.5);
+  for (const x of [24, 31]) r.poly([[x, 19.5], [x + 3, 19], [x + 1, 27.5], [x - 2, 27.8]], CRIMSON2, { n: [-0.1, -0.75, 0.65], max: 4 });
+  const bar = P2.bar ?? 1;
+  r.rect(17, 33, 20, 2, BORE2[1]);
+  for (let x = 18; x < 36; x += 2) r.dot(x, 33.5, G_RED2[(x >> 1) % 3 === (P2.strobe || 0) ? 4 : 2], bar);
+  r.each(39, 30, 50, 38, (mx, my, X, Y) => {
+    if (my < 30.5 || my > 37.5 || mx < 39.5 || mx > 49.5) return;
+    r.put(X, Y, Math.floor((mx - my * 0.9) / 2.4) % 2 ? CRIMSON2[3] : PLATE[6]);
+  });
+  r.line(39, 30, 49, 30, BLACK3[1]);
+  r.line(39, 38, 49, 38, BLACK3[1]);
+  for (const x of [14, 21, 53]) r.dot(x, 29, BLACK3[6]);
+  r.line(16, 39, 46, 39, BLACK3[5]);
+  for (const [x, y, on, c] of [[19, 17, st === 1, G_RED2], [40, 15, st === 2, rp2("#5a6378", "#a8b4c8", "#dde6f2", "#f6faff", "#ffffff")]]) {
+    r.begin();
+    r.ball(x, y, 2, 1.8, on ? c : BLACK3, { clip: (mx, my) => my < y + 0.5, max: on ? 4 : 5, glow: on ? 1 : 0, gamma: 1 });
+    r.end(0.45);
+    if (on) r.glow(x, y - 1, 3.6, 2.2, c, { fx: true, k: 0.7, bias: 0.1 });
+  }
+  riotPod(r, 41, 45, 5, 3.8, false, P2.thrust?.[0] ?? 5);
+  r.save();
+  r.rotate(P2.shield || 0, 55, 34);
+  r.begin();
+  r.seg(52, 24, 56, 24, 2, 2, BLACK3, { caps: "flat", max: 5 });
+  r.seg(52, 40, 56, 40, 2, 2, BLACK3, { caps: "flat", max: 5 });
+  r.end(0.5);
+  r.begin();
+  r.poly([[53.5, 5.5], [64, 8.5], [67, 31], [64, 53.5], [53.5, 57], [55.5, 31]], BLACK3, { nf: dome2(64, 31, 8, 27, 0.7), bevel: 1, max: 6 });
+  r.poly([[55, 7], [63, 10], [65.5, 31], [63, 52], [55, 55], [57, 31]], PLATE, { nf: dome2(64, 31, 7, 26, 0.7), bevel: 1, max: 7, bias: 0.08, spec: PLATE[7], specT: 0.985 });
+  r.end(0.6);
+  r.poly([[56.3, 24], [64.6, 24.5], [65, 29], [56.8, 28.8]], CRIMSON2, { nf: dome2(64, 31, 7, 26, 0.7), max: 5 });
+  r.poly([[56.6, 34], [65, 33.6], [64.7, 37], [56.5, 37.6]], CRIMSON2, { nf: dome2(64, 31, 7, 26, 0.7), max: 5 });
+  const vk = clamp6(P2.eye ?? 1, 0.2, 1.4);
+  r.line(58, 17, 63, 17.5, BORE2[0]);
+  r.line(58, 18, 63, 18.5, (vk > 0.55 ? G_RED2 : G_RED_DIM2)[3], vk);
+  for (const y of [12, 31, 49]) {
+    r.line(66, y, 69, y, BLACK3[6]);
+    r.dot(69, y, P2.arc ? WHITE3 : GUN2[6], P2.arc ? 1 : 0);
+  }
+  r.line(57, 9, 58, 50, PLATE[3]);
+  r.restore();
+  const fl = P2.flood ?? 1;
+  r.begin();
+  r.ball(51, 44, 2.6, 2, BLACK3, { max: 5 });
+  r.end(0.45);
+  r.glow(52, 44.5, 1.8, 1.4, rp2("#5a6378", "#a8b4c8", "#dde6f2", "#f6faff", "#ffffff"), { k: fl, bias: 0.3 });
+  r.restore();
+  if (P2.arc) {
+    const R = rng(P2.arc);
+    const ox = P2.dx || 0, oy = P2.bob || 0;
+    for (const [y0, y1] of [[12, 31], [31, 49], [12, 49]]) {
+      let x = 69 + ox, y = y0 + oy;
+      const n = 6, dy = (y1 - y0) / n;
+      for (let k = 0; k < n; k++) {
+        const nx = 70 + ox + (R() * 2 + 1) * (k % 2 ? 1 : 2) * (y1 - y0 > 20 ? 1.6 : 1), ny = y0 + oy + dy * (k + 1);
+        r.line(Math.round(x), Math.round(y), Math.round(nx), Math.round(ny), G_VOLT[k & 1 ? 3 : 4], 1, true);
+        x = nx;
+        y = ny;
+      }
+    }
+    for (const y of [12, 31, 49]) {
+      r.glow(70 + ox, y + oy, 2.2, 2.2, G_VOLT, { fx: true, bias: 0.4 });
+      spark2(r, 72 + ox, y + oy, 2, G_VOLT);
+    }
+  }
+  if (P2.static) {
+    const R = rng(P2.static);
+    const cx = 35 + (P2.dx || 0), cy = 9 + (P2.bob || 0);
+    for (const rad of [8, 15, 22, 30]) {
+      for (let a = -35; a <= 35; a += 4) {
+        if (R() < 0.25) continue;
+        const p = polar2(cx, cy, a + (R() - 0.5) * 6, rad + (R() - 0.5) * 2);
+        r.dot(Math.round(p[0]), Math.round(p[1]), G_RED2[rad < 20 ? 3 : 2], 1, true);
+      }
+    }
+    for (let k = 0; k < 14; k++) r.dot(Math.round(cx + 6 + R() * 40), Math.round(cy - 14 + R() * 34), R() < 0.5 ? WHITE3 : G_RED2[2], 1, true);
+  }
+  if (P2.sparks) sparks2(r, P2.sparks, 34, 28, 12, 6);
+  if (P2.smoke) {
+    smoke2(r, P2.smoke, 30, 12 + (P2.bob || 0), 3.8);
+    smoke2(r, P2.smoke + 5, 26, 7 + (P2.bob || 0), 2.8, 0.55);
+  }
+}
+var RIOT_DRONE = {
+  w: 84,
+  h: 64,
+  bevel: 3,
+  draw: drawRiot,
+  anims: {
+    idle: { fps: 6, loop: true, poses: [
+      { bob: 0, thrust: [7, 5], strobe: 1 },
+      { bob: -1, thrust: [8, 6], dish: -0.06 },
+      { bob: -2, thrust: [7, 5], dish: -0.1, strobe: 2 },
+      { bob: -1, thrust: [6, 4], dish: -0.05 }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { bob: -1, dx: -4, tilt: -0.07, thrust: [9, 6], strobe: 1, eye: 1.3 },
+      { bob: 0, dx: 6, tilt: 0.08, thrust: [10, 8], strobe: 2, eye: 1.4, arc: 5 },
+      { bob: 0, dx: 3, tilt: 0.03, thrust: [7, 5], arc: 9, eye: 1.1 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { bob: -1, dx: -3, tilt: -0.22, thrust: [3, 2], eye: 0.4, flood: 0.3, dish: 0.3, sparks: 7, bar: 0.3 }
+    ] },
+    break: { fps: 5, loop: true, poses: [
+      { bob: 9, tilt: 0.3, thrust: [2, 0], eye: 0.25, flood: 0.2, dish: 0.8, shield: 0.2, sparks: 13, smoke: 5, bar: 0.2 },
+      { bob: 10, tilt: 0.33, thrust: [0, 1], eye: 0.5, flood: 0.4, dish: 0.85, shield: 0.22, sparks: 29, smoke: 9, strobe: 1, bar: 0.5 }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      { bob: -2, dish: 0.45, jam: 1.4, strobe: 1, thrust: [8, 6] },
+      { bob: -1, dish: 0.5, jam: 1.5, strobe: 2, thrust: [8, 6], static: 7 }
+    ] }
+  },
+  points: { center: [36, 30], muzzle: [68, 31], top: [32, 2] },
+  icon: { x: 42, y: 28, scale: 0.42 }
+};
+function drawMk3(r, P2) {
+  const vis = P2.visor ?? 1, ring2 = P2.ring ?? 1;
+  const C = P2.cannon || { el: [59, 51], mz: [77, 49] };
+  const body = () => {
+    r.translate(P2.tx || 0, P2.ty || 0);
+    r.rotate(P2.lean || 0, 40, 60);
+  };
+  r.save();
+  body();
+  const rk = clamp6(ring2, 0.15, 1.5), rg = ring2 > 0.55 ? G_MAG2 : G_MAG_DIM2;
+  flame2(r, 40, 82, Math.round(5 * rk + (P2.pulse || 0)), rg, 0, 1, 3.4);
+  r.begin();
+  r.ring(40, 80, 4.5, 9, BLACK3, { ry: 0.32, max: 6, spec: BLACK3[7], specT: 0.96 });
+  r.end(0.5);
+  r.each(30, 77, 50, 83, (mx, my, X, Y) => {
+    const d = Math.hypot(mx - 40, (my - 80.5) / 0.32);
+    if (d < 5.5 || d > 8) return;
+    r.put(X, Y, rg[my > 80.5 ? 3 : 2], rk);
+  });
+  r.begin();
+  r.seg(29, 36, 25, 49, 3, 2.6, BLACK3, { max: 4, bias: -0.08 });
+  r.seg(25, 49, 28, 58, 2.6, 2.4, BLACK3, { max: 4, bias: -0.08 });
+  limbPlate2(r, [25, 49], [28, 58], [[0, -3], [0, 3], [0.8, 3.2], [0.8, -3]], IVORY3, { max: 5, bias: -0.12 });
+  r.ball(28, 59, 2.8, 2.6, BLACK3, { max: 4 });
+  r.end(0.5);
+  const pod2 = P2.pod || 0;
+  r.begin();
+  r.seg(29, 33, 27, 25, 1.7, 1.4, BLACK3, { caps: "flat", max: 5 });
+  r.ball(26, 21, 5.4, 4.6, BLACK3, { max: 6, spec: BLACK3[7], specT: 0.96 });
+  r.end(0.55);
+  r.begin();
+  r.ball(26, 21, 5.4, 4.6, IVORY3, { clip: (x, y) => y < 20 - pod2 * 1.6 + (x - 26) * 0.35, max: 7, spec: IVORY3[7], specT: 0.98 });
+  r.end(0.5);
+  r.line(22, 18 - Math.round(pod2), 27, 17 - Math.round(pod2), CRIMSON2[3]);
+  r.begin();
+  r.ring(30, 21.5, 1.2, 2.8, BLACK3, { max: 6 });
+  r.end(0.45);
+  const pk = clamp6(0.5 + pod2, 0.3, 1.5);
+  r.glow(30.3, 21.5, 1.5 + pod2 * 0.8, 1.5 + pod2 * 0.8, pk > 0.7 ? G_MAG2 : G_MAG_DIM2, { k: pk, bias: 0.4 });
+  r.begin();
+  r.poly([[29, 52], [51, 52], [47, 70], [40, 77], [33, 70]], BLACK3, { n: [0, 0.1, 1], bevel: 1, max: 5 });
+  r.poly([[32.5, 55], [47.5, 55], [44.5, 68], [40, 73], [35.5, 68]], IVORY3, { nf: dome2(40, 60, 9, 12), bevel: 1, max: 7, spec: IVORY3[7], specT: 0.98 });
+  r.end(0.6);
+  r.poly([[39, 55.5], [41, 55.5], [41, 72], [39, 72]], CRIMSON2, { nf: dome2(40, 60, 9, 12), max: 4 });
+  r.begin();
+  r.ball(40, 52, 10, 3.6, BLACK3, { max: 6 });
+  r.end(0.5);
+  r.begin();
+  r.poly([[26, 35], [35, 28], [50, 27.5], [58, 35], [55, 47], [41, 53], [28, 48]], IVORY3, { nf: dome2(42, 38, 17, 13), bevel: 1, max: 7, bias: 0.06, spec: IVORY3[7], specT: 0.985 });
+  r.end(0.6);
+  r.poly([[27, 44], [41, 49], [55, 43], [54.5, 46], [41, 52.5], [27.6, 47]], CRIMSON2, { nf: dome2(42, 38, 17, 13), max: 4 });
+  r.line(33, 31, 41, 29, IVORY3[7]);
+  r.line(41, 31, 41, 46, IVORY3[3]);
+  r.line(42, 31, 42, 46, IVORY3[6]);
+  const ck = clamp6(P2.core ?? 1, 0.2, 1.6);
+  r.begin();
+  r.ring(48, 40, 2.4, 4, BLACK3, { max: 6 });
+  r.end(0.45);
+  r.glow(48, 40, 2.6, 2.6, ck > 0.55 ? G_MAG2 : G_MAG_DIM2, { k: ck, bias: ck > 1.1 ? 0.7 : 0.3 });
+  for (const [x, y] of [[30, 36], [53, 36], [36, 47]]) {
+    r.dot(x, y, GOLD3[4]);
+    r.dot(x + 1, y + 1, GOLD3[1]);
+  }
+  r.save();
+  r.rotate(P2.head || 0, 43, 27);
+  r.translate(44, 27).scale(1.12).translate(-44, -27);
+  r.begin();
+  for (const [x0, y0, k] of [[40, 16, 0], [45, 14.5, 1]]) {
+    const a = [x0, y0], b = [x0 - 5, y0 - 7], c = [x0 - 11, y0 - 10], d = [x0 - 15, y0 - 9];
+    r.seg(...a, ...b, k ? 2.4 : 2, 1.8, BRONZE2, { max: k ? 7 : 5, spec: k ? BRONZE2[7] : null, specT: 0.94, bounce: 0.3 });
+    r.seg(...b, ...c, 1.8, 1.1, BRONZE2, { max: k ? 7 : 5, spec: k ? BRONZE2[7] : null, specT: 0.95 });
+    r.seg(...c, ...d, 1.1, 0.3, BRONZE2, { max: k ? 6 : 4 });
+  }
+  r.end(0.5);
+  r.begin();
+  r.poly([[37, 17], [44, 13.5], [51, 16], [53, 22], [50, 28], [40, 28], [36, 23]], IVORY3, { nf: dome2(44, 20, 9, 8), bevel: 1, max: 7, spec: IVORY3[7], specT: 0.985 });
+  r.poly([[44, 18.5], [53, 19], [54, 23], [50.5, 27.5], [45, 27]], BLACK3, { nf: dome2(48, 22, 6, 6), bevel: 1, max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.end(0.6);
+  const vk = clamp6(vis, 0.15, 1.4), vr = vis > 0.55 ? G_MAG2 : G_MAG_DIM2;
+  r.line(45, 21, 53, 21, vr[vis > 1.05 ? 4 : 3], vk);
+  r.line(49, 22, 49, 25, vr[2], vk * 0.8);
+  if (vis > 0.55) r.dot(52, 21, WHITE3, 1);
+  if (P2.glitch) {
+    r.line(41, 20, 56, 20, WHITE3, 1, true);
+    r.line(44, 23, 57, 23, G_MAG2[3], 1, true);
+  }
+  r.restore();
+  r.begin();
+  r.seg(55, 39, ...C.el, 3.2, 2.8, BLACK3, { max: 6 });
+  r.ball(...C.el, 3, 3, BLACK3, { max: 6, spec: BLACK3[7], specT: 0.95 });
+  r.end(0.5);
+  const ang = Math.atan2(C.mz[1] - C.el[1], C.mz[0] - C.el[0]);
+  const len = Math.hypot(C.mz[0] - C.el[0], C.mz[1] - C.el[1]);
+  r.save();
+  r.translate(...C.el);
+  r.rotate(ang);
+  r.translate(-(C.recoil || 0), 0);
+  r.begin();
+  r.seg(-2, 0, len - 3, 0, 4, 3.2, BLACK3, { caps: "flat", max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.poly([[0, -4.6], [len - 7, -3.6], [len - 6, -1.6], [0, -1.8]], IVORY3, { n: [0, -0.8, 0.6], bevel: 1, max: 7 });
+  r.end(0.55);
+  const ch = P2.charge || 0;
+  for (let k = 0; k < 3; k++) {
+    const x = 5 + k * 4.5, kk = clamp6(0.45 + ch * 0.3 + k * 0.06, 0.2, 1.6);
+    r.seg(x, 0, x + 1.2, 0, 4.2, 4.2, kk > 0.6 ? G_MAG2 : G_MAG_DIM2, { caps: "flat", glow: Math.min(1, kk * 0.65), gamma: 1, bias: 0.2, min: 1 });
+  }
+  r.begin();
+  r.rect(len - 4, -3.5, 3.5, 7, BLACK3[5]);
+  r.dot(len - 4, -3.5, BLACK3[7]);
+  r.end(0.5);
+  r.restore();
+  r.begin();
+  r.poly([[49, 31], [56, 28], [62, 31], [63, 39], [57, 42], [50, 39]], IVORY3, { nf: dome2(56, 33, 8, 7), bevel: 1, max: 7, spec: IVORY3[7], specT: 0.985 });
+  r.poly([[50, 38.2], [57, 41.2], [62.8, 38.2], [63, 39.6], [57, 42.6], [50, 39.4]], CRIMSON2, { nf: dome2(56, 33, 8, 7), max: 4 });
+  r.end(0.6);
+  r.line(52, 31, 57, 29.5, IVORY3[7]);
+  r.restore();
+  const mzA = Math.atan2(C.mz[1] - C.el[1], C.mz[0] - C.el[0]);
+  const mz = [C.mz[0] + Math.cos(mzA) * 1 + (P2.tx || 0) - (C.recoil || 0), C.mz[1] + Math.sin(mzA) * 1 + (P2.ty || 0)];
+  if (P2.charge) r.glow(mz[0] + 2, mz[1], P2.charge, P2.charge, G_MAG2, { fx: true, bias: 0.5 });
+  if (P2.flash) muzzleFlash2(r, mz[0] + 1, mz[1], P2.flash, G_MAG2);
+  if (P2.puff) smoke2(r, P2.puff, mz[0] + 1, mz[1] - 2, 2.8);
+  if (P2.sweep) {
+    for (let x = 57; x < 84; x++) if ((x + P2.sweep) % 3) r.dot(x, Math.round(20 + (x - 57) * P2.sweepK), G_MAG2[x & 1 ? 2 : 3], 1, true);
+  }
+  if (P2.reticle) {
+    const [qx, qy] = P2.reticle;
+    for (let a = 0; a < 360; a += 12) {
+      if ((a + 45) % 90 < 20) continue;
+      const p = polar2(qx, qy, a, 5.5);
+      r.dot(Math.round(p[0]), Math.round(p[1]), G_MAG2[3], 1, true);
+    }
+    r.line(qx - 8, qy, qx - 3, qy, G_MAG2[3], 1, true);
+    r.line(qx + 3, qy, qx + 8, qy, G_MAG2[3], 1, true);
+    r.line(qx, qy - 8, qx, qy - 3, G_MAG2[3], 1, true);
+    r.line(qx, qy + 3, qx, qy + 8, G_MAG2[3], 1, true);
+    r.dot(qx, qy, WHITE3, 1, true);
+  }
+  if (P2.sparks) for (const [seed, x, y, sp, n] of P2.sparks) sparks2(r, seed, x, y, sp, n);
+  if (P2.smoke) for (const [seed, x, y, rad] of P2.smoke) smoke2(r, seed, x, y, rad);
+  if (P2.motes) {
+    const R = rng(P2.motes);
+    for (let k = 0; k < 3; k++) r.dot(Math.round(34 + R() * 12), Math.round(84 + R() * 6), G_MAG2[2 + (k & 1)], 0.7);
+  }
+}
+var SENTINEL_MK3 = {
+  w: 84,
+  h: 92,
+  bevel: 3,
+  draw: drawMk3,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { ty: 0, pulse: 0, motes: 1 },
+      { ty: -1, pulse: 1, motes: 2, core: 1.15, cannon: { el: [59, 50], mz: [77, 48] } },
+      { ty: -2, pulse: 2, motes: 3, core: 1.3, head: -0.04, cannon: { el: [59, 49], mz: [77, 47] } },
+      { ty: -1, pulse: 1, motes: 4, core: 1.15, head: -0.02, cannon: { el: [59, 50], mz: [77, 48] } }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { ty: -1, lean: -0.04, visor: 1.3, core: 1.5, charge: 2.6, cannon: { el: [60, 47], mz: [78, 43] } },
+      { ty: -1, lean: -0.08, tx: -2, visor: 1.4, core: 0.9, flash: 7, cannon: { el: [59, 47], mz: [77, 43], recoil: 3 }, head: -0.04 },
+      { ty: 0, lean: -0.03, visor: 1.1, core: 0.8, puff: 7, cannon: { el: [59, 48], mz: [77, 45], recoil: 1 } }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        ty: -2,
+        tx: -3,
+        lean: -0.13,
+        visor: 0.4,
+        glitch: 1,
+        ring: 0.5,
+        core: 0.5,
+        head: -0.2,
+        cannon: { el: [58, 50], mz: [72, 58] },
+        sparks: [[11, 46, 34, 7, 5]]
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        ty: 8,
+        lean: 0.22,
+        visor: 0.25,
+        ring: 0.25,
+        core: 0.3,
+        head: 0.3,
+        pod: -0.2,
+        cannon: { el: [57, 55], mz: [68, 69] },
+        sparks: [[21, 44, 40, 6, 5]],
+        smoke: [[23, 32, 14, 4], [24, 28, 8, 3]]
+      },
+      {
+        ty: 9,
+        lean: 0.23,
+        visor: 0.6,
+        ring: 0.45,
+        core: 0.5,
+        head: 0.28,
+        pod: -0.2,
+        cannon: { el: [57, 55], mz: [68, 69] },
+        sparks: [[31, 47, 44, 6, 4]],
+        smoke: [[33, 31, 12, 4], [34, 27, 6, 3]]
+      }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      { ty: -2, visor: 1.35, core: 1.5, pod: 1, sweep: 1, sweepK: 0.02, head: 0.04, cannon: { el: [60, 47], mz: [78, 43] } },
+      { ty: -2, visor: 1.4, core: 1.6, pod: 1.2, sweep: 2, sweepK: 0.02, reticle: [74, 22], head: 0.04, cannon: { el: [60, 47], mz: [78, 43] } }
+    ] }
+  },
+  points: { center: [42, 46], muzzle: [79, 44], top: [44, 4] },
+  icon: { x: 43, y: 22, scale: 0.75 }
+};
+function drawLaser(r, P2) {
+  const ch = P2.charge || 0;
+  const coil2 = ch > 1.2 ? G_HOT : ch > 0.45 ? G_RED2 : G_RED_DIM2;
+  const ck = clamp6(0.45 + ch * 0.5, 0.3, 1.6);
+  r.begin();
+  r.poly([[14, 52], [58, 52], [63, 58], [9, 58]], BLACK3, { n: [0, -0.85, 0.5], bevel: 1, max: 7 });
+  r.poly([[9, 58], [63, 58], [65, 70], [7, 70]], BLACK3, { n: [0.05, 0.1, 1], bevel: 1, max: 5 });
+  r.end(0.6);
+  r.each(10, 60, 62, 67, (mx, my, X, Y) => {
+    if (my < 60.5 || my > 66.5 || mx < 10.5 || mx > 61.5) return;
+    r.put(X, Y, Math.floor((mx + my) / 3) % 2 ? CRIMSON2[3] : PLATE[6]);
+  });
+  r.line(10, 60, 62, 60, BLACK3[1]);
+  r.line(10, 67, 62, 67, BLACK3[1]);
+  for (const x of [12, 60]) {
+    r.dot(x, 69, BLACK3[6]);
+    r.dot(x, 56, BLACK3[6]);
+  }
+  for (let k = 0; k < 4; k++) {
+    const on = ((P2.chase ?? -1) + 4) % 4 === k;
+    r.dot(28 + k * 4, 68, on ? GLOW_C2.red : CRIMSON2[1], on ? 1 : 0);
+  }
+  r.begin();
+  r.ball(36, 52, 15, 3.6, BLACK3, { max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.ball(36, 52, 15, 3.6, PLATE, { clip: (x, y) => y < 50.6, max: 6 });
+  r.end(0.5);
+  r.begin();
+  r.poly([[25, 52], [34, 52], [33, 39], [27, 40]], BLACK3, { n: [-0.2, -0.1, 0.97], bevel: 1, max: 4, bias: -0.06 });
+  r.end(0.5);
+  r.save();
+  r.translate(P2.hx || 0, P2.hy || 0);
+  r.rotate(P2.rot || 0, 36, 40);
+  r.translate(-(P2.recoil || 0), 0);
+  r.begin();
+  r.poly([[9, 33], [16, 32], [16, 48], [9, 47]], BLACK3, { n: [-0.3, -0.1, 0.95], bevel: 1, max: 5 });
+  r.end(0.5);
+  for (let y = 34; y <= 46; y += 3) r.line(9, y, 15, y, BLACK3[y & 1 ? 1 : 6]);
+  r.begin();
+  r.seg(18, 40, 58, 40, 9.5, 8.6, PLATE, { max: 7, bias: 0.12, spec: PLATE[7], specT: 0.985 });
+  r.seg(18, 40, 58, 40, 9.5, 8.6, BLACK3, { clip: (x, y) => y > 43.5, max: 5 });
+  r.end(0.6);
+  r.seg(18, 40, 58, 40, 9.5, 8.6, CRIMSON2, { clip: (x, y) => y > 37.6 && y < 39.6, max: 4 });
+  for (let k = 0; k < 4; k++) {
+    const x = 23 + k * 8;
+    r.rect(x - 1, 41, 6, 2.5, BORE2[1]);
+    r.rect(x, 41.5, 4, 1.5, coil2[3], ck);
+    if (ch > 1.2) r.dot(x + 1, 41, WHITE3, 1);
+  }
+  for (let k = 0; k < 4; k++) r.line(28 + k * 5, 32, 30 + k * 5, 32, BLACK3[1]);
+  r.line(20, 33, 34, 31.5, PLATE[7]);
+  r.begin();
+  r.ball(46, 31.5, 3, 2.2, BLACK3, { clip: (x, y) => y < 32.3, max: 6 });
+  r.end(0.45);
+  r.dot(45 + (P2.scan || 0), 31, P2.eye === 0 ? CRIMSON2[1] : GLOW_C2.red, P2.eye === 0 ? 0 : 1);
+  r.begin();
+  r.seg(58, 40, 84, 40, 3.4, 3, BLACK3, { caps: "flat", max: 6, spec: BLACK3[7], specT: 0.96 });
+  r.end(0.55);
+  for (let k = 0; k < 5; k++) {
+    const x = 62 + k * 4;
+    r.rect(x, 35, 2, 10, BLACK3[k & 1 ? 4 : 5]);
+    r.dot(x, 35, BLACK3[7]);
+    if (ch > 0.45) r.rect(x, 37, 2, 6, coil2[ch > 1.2 ? 4 : 2], clamp6(ch * 0.55 - k * 0.06, 0.15, 1));
+  }
+  r.begin();
+  r.ring(86, 40, 2.8, 5.4, BLACK3, { max: 6, spec: BLACK3[7], specT: 0.97 });
+  r.end(0.5);
+  const lk = clamp6(P2.lens ?? 0.7, 0.15, 1.6);
+  r.glow(86.4, 40, 3, 3, lk > 1.2 ? G_HOT : lk > 0.45 ? G_RED2 : G_RED_DIM2, { k: lk, bias: lk > 1 ? 0.7 : 0.25 });
+  if (P2.glitch) {
+    r.line(80, 39, 92, 39, WHITE3, 1, true);
+    r.line(78, 42, 90, 42, G_RED2[3], 1, true);
+  }
+  r.restore();
+  const th = [37 + (P2.hx || 0), 41 + (P2.hy || 0)];
+  r.begin();
+  r.poly([[33, 53], [45, 53], [th[0] + 4, th[1] + 1], [th[0] - 3, th[1] + 2]], BLACK3, { n: [0.2, -0.1, 0.97], bevel: 1, max: 6, spec: BLACK3[7], specT: 0.98 });
+  r.ring(...th, 1.2, 4, PLATE, { max: 7, bias: 0.06, spec: PLATE[7], specT: 0.96 });
+  r.end(0.55);
+  r.ball(...th, 1.3, 1.3, CRIMSON2, { max: 4 });
+  r.line(36, 52, th[0] - 1, th[1] + 4, BLACK3[6]);
+  const lx = 87 + (P2.hx || 0) - (P2.recoil || 0), ly = 40 + (P2.hy || 0) + (P2.rot || 0) * 50;
+  if (P2.gather) {
+    for (let k = 0; k < 7; k++) {
+      const [sx, sy] = polar2(lx, ly, k * 51 + 20, P2.gather + (k & 1) * 2);
+      spark2(r, Math.round(sx), Math.round(sy), 1, G_HOT);
+    }
+    r.glow(lx, ly, 3 + ch, 3 + ch, G_HOT, { fx: true, bias: 0.5 });
+  }
+  if (P2.beam) {
+    r.beam(lx, ly, 96, ly, P2.beam, P2.beam, G_HOT, { fx: true, bias: 0.2 });
+    r.glow(lx, ly, P2.beam + 3, P2.beam + 3, G_HOT, { fx: true, bias: 0.5 });
+  }
+  if (P2.vent) {
+    steam(r, P2.vent, 12, 30, 3.4, 0.6);
+    steam(r, P2.vent + 3, 9, 25, 2.6, 0.5);
+  }
+  if (P2.sparks) sparks2(r, P2.sparks, 40, 38, 10, 6);
+  if (P2.smoke) {
+    smoke2(r, P2.smoke, 50, 28, 3.6);
+    smoke2(r, P2.smoke + 5, 54, 22, 2.8, 0.55);
+  }
+}
+var LASER_TURRET = {
+  w: 96,
+  h: 72,
+  bevel: 3,
+  draw: drawLaser,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { lens: 0.7, chase: 0, scan: 0 },
+      { lens: 0.85, chase: 1, scan: 1, rot: -0.01 },
+      { lens: 1, chase: 2, scan: 2, rot: -0.015, vent: 3 },
+      { lens: 0.85, chase: 3, scan: 1, rot: -0.01 }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { lens: 1.6, charge: 2, chase: 0, gather: 6 },
+      { lens: 1.6, charge: 1.6, recoil: 3, beam: 3.2, chase: 1 },
+      { lens: 1, charge: 0.8, recoil: 1, vent: 7, chase: 2 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { hx: -2, rot: -0.14, lens: 0.3, glitch: 1, eye: 0, sparks: 7 }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      { hy: 3, rot: 0.3, lens: 0.2, eye: 0, sparks: 13, smoke: 5 },
+      { hy: 3, rot: 0.32, lens: 0.4, eye: 0, sparks: 29, smoke: 9, chase: 1 }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 0, 1, 1], poses: [
+      { lens: 1.1, charge: 0.9, gather: 9, chase: 0, scan: 2 },
+      { lens: 1.6, charge: 2, gather: 5, vent: 11, chase: 2, scan: 2 }
+    ] }
+  },
+  points: { center: [40, 46], muzzle: [88, 40], top: [40, 24], core: [86, 40] },
+  icon: { x: 66, y: 40, scale: 0.5 }
+};
+var enemyart_default6 = {
+  sec_trooper: SEC_TROOPER,
+  riot_drone: RIOT_DRONE,
+  sentinel_mk3: SENTINEL_MK3,
+  laser_turret: LASER_TURRET
+};
 
 // src/content/spire/props.js
 var props_default6 = {};
@@ -70309,7 +72653,985 @@ var pure_default7 = {
 var art_default7 = {};
 
 // src/content/vault/enemyart.js
-var enemyart_default7 = {};
+var CLOTH2 = rp2("#07061a", "#0f0c2d", "#181341", "#221a57", "#2e236f", "#3d2f8b", "#5040ab", "#6c5ad0");
+var MASK = rp2("#16222f", "#24384c", "#3a5670", "#567a96", "#7ba2bc", "#a8cade", "#d6eef8", "#f4fdff");
+var HARD = rp2("#062833", "#0a3f52", "#0f5c74", "#167f98", "#22a6bd", "#45cfe0", "#8eeef5", "#d8fdff");
+var PLATE2 = rp2("#100a24", "#1a1140", "#26195a", "#342376", "#452f92", "#5a3eae", "#7859cc", "#a68cec");
+var BRICK = rp2("#090c15", "#111726", "#1a2238", "#25304d", "#334164", "#46577f", "#6173a0", "#8a9ec6");
+var CRYSTAL = rp2("#03141b", "#06222d", "#0a3240", "#0f4556", "#165d70", "#1f7a8e", "#3aa6b8", "#8ce4ee");
+var ROT2 = rp2("#1c0418", "#34082c", "#540e45", "#7a1662", "#a2217e", "#cc3a9c", "#f06cc0", "#ffb6e4");
+var G_CYAN_DIM = rp2("#06222e", "#0a3446", "#0e4a60", "#145f78", "#1d7590");
+var G_VIOLET2 = rp2("#3a1466", "#6b2bb0", "#a35cff", "#cf9dff", "#f3e6ff");
+var G_VIOLET_DIM2 = rp2("#1a0a2e", "#2a1248", "#3a1a62", "#4b2378", "#5c2e8a");
+var FRINGE_L = G_MAG2[2];
+var FRINGE_R = G_CYAN2[3];
+var OPAQUE2 = 1;
+var FX3 = 2;
+var LIT2 = 8;
+function tear2(r, y0, h, dx) {
+  const { w, rgb, glw, flg } = r;
+  for (let Y = Math.max(0, y0); Y < Math.min(r.h, y0 + h); Y++) {
+    const row = Y * w;
+    const f = flg.slice(row, row + w), c = rgb.slice(row * 3, row * 3 + w * 3), e = glw.slice(row * 3, row * 3 + w * 3);
+    for (let X = 0; X < w; X++) {
+      const s = X - dx, i = row + X;
+      if (s < 0 || s >= w) {
+        flg[i] = 0;
+        continue;
+      }
+      flg[i] = f[s];
+      for (let k = 0; k < 3; k++) {
+        rgb[i * 3 + k] = c[s * 3 + k];
+        glw[i * 3 + k] = e[s * 3 + k];
+      }
+    }
+  }
+}
+function chroma2(r, y0, y1, d, k = 0.6) {
+  const { w, flg } = r;
+  const marks = [];
+  for (let Y = Math.max(0, y0); Y < Math.min(r.h, y1); Y++) {
+    for (let X = 0; X < w; X++) {
+      if ((flg[Y * w + X] & (OPAQUE2 | FX3)) !== OPAQUE2) continue;
+      for (let s = 1; s <= d; s++) {
+        if (X - s >= 0 && !(flg[Y * w + X - s] & OPAQUE2)) marks.push(X - s, Y, FRINGE_L);
+        if (X + s < w && !(flg[Y * w + X + s] & OPAQUE2)) marks.push(X + s, Y, FRINGE_R);
+      }
+    }
+  }
+  for (let m = 0; m < marks.length; m += 3) r.put(marks[m], marks[m + 1], marks[m + 2], k, true);
+}
+function scan(r, y0, y1, period, k = 0.45, offset = 0, mix2 = 0.45) {
+  const { w, rgb, glw, flg } = r;
+  const tint = G_CYAN2[3];
+  for (let Y = Math.max(0, y0); Y < Math.min(r.h, y1); Y++) {
+    const keep = (Y + offset) % period === 0;
+    for (let X = 0; X < w; X++) {
+      const i = Y * w + X;
+      if (!(flg[i] & OPAQUE2)) continue;
+      if (!keep) {
+        flg[i] = 0;
+        continue;
+      }
+      for (let c = 0; c < 3; c++) {
+        rgb[i * 3 + c] += (tint[c] - rgb[i * 3 + c]) * mix2;
+        glw[i * 3 + c] = Math.max(glw[i * 3 + c], rgb[i * 3 + c] * k);
+      }
+      flg[i] |= FX3 | LIT2;
+    }
+  }
+}
+function fragments(r, x, y, n, ramp2, seed, k = 0.8) {
+  const R = rng(seed);
+  let yy = y, size = n > 2 ? 2 : 1;
+  for (let i = 0; i < n; i++) {
+    const lit = R() < 0.55;
+    const xx = Math.round(x + (R() - 0.5) * 3);
+    r.rect(xx, Math.round(yy), size, size, lit ? ramp2[3] : CLOTH2[3], lit ? k : 0);
+    yy += size + 1 + R() * 2.5;
+    if (i >= n / 2) size = 1;
+  }
+}
+function claw(r, el2, hand, spread, curl, k, far = false) {
+  const top = far ? 5 : 7;
+  r.begin();
+  r.seg(...el2, ...hand, 1.5, 1.1, HARD, { glow: 0.25 * k, max: top - 1, spec: far ? null : HARD[7], specT: 0.94 });
+  r.ball(...hand, 2.2, 2, HARD, { glow: 0.3 * k, max: top - 1 });
+  r.end(0.5);
+  const base = Math.atan2(hand[1] - el2[1], hand[0] - el2[0]) / DEG2;
+  for (let f = -1; f <= 1; f++) {
+    const a0 = base + f * spread, len = 10 - Math.abs(f) * 2.5;
+    const m = polar2(...hand, a0, len * 0.5), t = polar2(...m, a0 + curl, len * 0.6);
+    r.seg(...hand, ...m, 0.95, 0.75, HARD, { glow: 0.45 * k, max: top, min: 3 });
+    r.seg(...m, ...t, 0.75, 0.15, HARD, { glow: 0.6 * k, max: top, min: 4 });
+  }
+}
+function sleeve(r, sh, cuff, far) {
+  r.begin();
+  limbPlate2(r, sh, cuff, [[0, -3], [0, 3.2], [0.8, 5.4], [1, 4.4], [0.9, 1.5], [1.08, -1], [0.92, -3.4], [1, -5.2]], CLOTH2, {
+    max: far ? 4 : 7,
+    bias: far ? -0.12 : 0.1,
+    curve: 0.9
+  });
+  r.end(0.55);
+  const a = along2(sh, cuff, 0.95, 4.6), b = along2(sh, cuff, 0.95, -4.6);
+  r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), (far ? G_VIOLET_DIM2 : G_VIOLET2)[2], far ? 0.3 : 0.55);
+}
+function wraithArm(r, body, a, far, k) {
+  r.save();
+  body();
+  const sh = a.sh, cuff = along2(a.sh, a.el, 1, 0);
+  sleeve(r, sh, cuff, far);
+  const el2 = r.pt(...a.el);
+  r.restore();
+  claw(r, el2, a.hand, a.spread ?? 22, a.curl ?? 38, far ? k * 0.6 : k, far);
+}
+function drawWraith(r, P2) {
+  const eye = P2.eye ?? 1, sway = P2.sway || 0;
+  const A = P2.arms || {};
+  const body = () => {
+    r.translate(P2.tx || 0, (P2.ty || 0) + (P2.bob || 0));
+    r.rotate(P2.lean || 0, 40, 52);
+  };
+  const ev = eye > 0.55 ? G_CYAN2 : G_CYAN_DIM, ek = clamp6(eye, 0.2, 1.4);
+  wraithArm(r, body, A.far || { sh: [50, 46], el: [57, 55], hand: [66, 61] }, true, ek);
+  r.save();
+  body();
+  const hem = (P2.hem || [[10, 88], [17, 82], [21, 86], [26, 78], [31, 84], [36, 76], [41, 80], [45, 70], [50, 73], [53, 63]]).map(([x, y], i) => [x + Math.sin(sway + i * 0.7) * (10 - i) * 0.22, y + Math.cos(sway + i * 0.9) * 0.6]);
+  r.begin();
+  r.poly([[30, 40], [22, 47], [17, 58], [15, 70], [12, 80], ...hem, [57, 55], [58, 46], [50, 40]], CLOTH2, {
+    nf: dome2(36, 54, 26, 32),
+    bevel: 1,
+    max: 6,
+    spec: CLOTH2[7],
+    specT: 0.985
+  });
+  r.end(0.6);
+  for (let i = 1; i < hem.length - 1; i += 2) {
+    const [x, y] = hem[i - 1], top = [26 + i * 2.6, 50];
+    r.line(Math.round(top[0]), top[1], Math.round(x + 2), Math.round(y - 5), CLOTH2[1]);
+    const [rx, ry] = hem[i];
+    r.line(Math.round(top[0] + 2), top[1] + 2, Math.round(rx + 1), Math.round(ry - 4), CLOTH2[5]);
+  }
+  for (let i = 0; i < hem.length - 1; i += 2) {
+    const [x, y] = hem[i];
+    fragments(r, x - 1, y + 3, 3 + (i < 4 ? 1 : 0), i % 4 ? G_VIOLET2 : G_CYAN2, 11 + i * 7 + (P2.seed || 0), 0.75);
+  }
+  r.poly([[47, 44], [53, 44], [56, 52], [54, 62], [45, 64], [44, 52]], CLOTH2, { idx: 0 });
+  const tk = clamp6(eye * 0.55, 0.15, 0.8);
+  r.line(46, 45, 43, 52, ev[2], tk);
+  r.line(43, 52, 44, 63, ev[2], tk);
+  r.line(21, 56, 30, 56, ev[1], tk * 0.8);
+  r.line(30, 56, 33, 53, ev[1], tk * 0.8);
+  r.line(33, 53, 40, 53, ev[1], tk * 0.8);
+  for (const [x, y] of [[21, 56], [40, 53], [44, 63]]) r.rect(x - 1, y - 1, 2, 2, ev[3], tk);
+  const hb = 1 + (P2.heart ?? 1) * 1.5;
+  r.poly([[50, 48], [50 + hb, 52.5], [50, 57], [50 - hb, 52.5]], HARD, { n: [-0.3, -0.3, 0.9], glow: 0.6 * ek, max: 7, min: 3 });
+  r.dot(50, 52, WHITE3, 0.8 * ek);
+  r.save();
+  r.translate(0, P2.hy || 0);
+  r.rotate(P2.head || 0, 46, 42);
+  r.begin();
+  r.poly([[28, 34], [24, 22], [18, 11], [29, 10], [40, 7], [50, 9], [58, 15], [62, 24], [61, 34], [56, 41], [46, 45], [34, 44]], CLOTH2, {
+    nf: dome2(42, 24, 22, 20),
+    bevel: 1,
+    max: 6
+  });
+  r.end(0.6);
+  if (!P2.fallen) fragments(r, 15, 8, 3, G_VIOLET2, 5 + (P2.seed || 0), 0.6);
+  r.line(21, 12, 30, 19, CLOTH2[5]);
+  r.line(31, 12, 41, 9, CLOTH2[6]);
+  r.line(29, 24, 34, 39, CLOTH2[1]);
+  r.line(38, 18, 41, 41, CLOTH2[2]);
+  const face = [[48, 18], [56, 17], [61, 22], [62, 31], [58, 39], [51, 40], [47, 30]];
+  r.poly(face, CLOTH2, { idx: 0 });
+  for (let k = 0; k < 4; k++) {
+    const [ax, ay] = face[k], [bx, by] = face[k + 1];
+    r.line(Math.round(ax), Math.round(ay), Math.round(bx), Math.round(by), G_VIOLET2[2], 0.5 * clamp6(eye, 0.4, 1));
+  }
+  r.begin();
+  r.poly([[45, 17], [53, 12], [61, 15], [65, 22], [63, 24], [57, 18], [49, 19]], CLOTH2, { n: [0.1, -0.85, 0.5], bevel: 1, max: 7 });
+  r.end(0.5);
+  r.begin();
+  r.poly([[51, 21], [57, 21], [60, 26], [59, 32], [55, 37], [51, 35], [50, 28]], MASK, { nf: dome2(54, 27, 7, 11), bevel: 1, max: 6, spec: MASK[7], specT: 0.975, bias: -0.06 });
+  r.end(0.5);
+  if (P2.chip) r.poly([[57, 30], [60, 27], [59.5, 33], [56, 36]], CLOTH2, { idx: 0 });
+  r.line(52, 26, 59, 25, ev[eye > 1.05 ? 4 : 3], ek);
+  r.line(53, 27, 58, 27, ev[2], ek * 0.7);
+  if (eye > 0.55) r.dot(57, 25, WHITE3, 1);
+  r.line(55, 30, 55, 35, MASK[2]);
+  r.line(56, 21, 55, 23, G_MAG2[2], 0.6);
+  r.line(55, 23, 56, 25, G_MAG2[2], 0.6);
+  if (P2.chip) r.line(56, 28, 58, 32, G_MAG2[3], 0.8);
+  r.restore();
+  r.restore();
+  wraithArm(r, body, A.near || { sh: [38, 47], el: [46, 58], hand: [57, 64] }, false, ek);
+  if (P2.slash) {
+    const [cx, cy, rad, a0, a1] = P2.slash;
+    for (let a = a0; a <= a1; a += 2) {
+      const t = (a - a0) / (a1 - a0), w = 0.6 + Math.sin(t * Math.PI) * 2.6;
+      for (let s = -w; s <= w; s += 0.5) {
+        const [x, y] = polar2(cx, cy, a, rad + s);
+        const edge = Math.abs(s) > w - 0.9;
+        r.dot(Math.round(x), Math.round(y), edge ? G_MAG2[2] : t > 0.75 ? G_CYAN2[4] : G_CYAN2[3], edge ? 0.6 : 0.9, true);
+      }
+    }
+  }
+  if (P2.floor) for (const [x, y, c] of P2.floor) r.rect(x, y, 2, 2, c ? G_CYAN2[2] : CLOTH2[4], c ? 0.5 : 0);
+  if (P2.sparkle) sparks2(r, P2.sparkle, 54, 30, 10, 6, G_CYAN2);
+  for (const [y, h, dx] of P2.tears || []) tear2(r, y, h, dx);
+  if (P2.chroma) chroma2(r, P2.chroma[0], P2.chroma[1], P2.chroma[2], 0.55);
+  if (P2.scan) scan(r, 0, r.h, P2.scan, 0.5);
+  else scan(r, (P2.fade ?? 80) + (P2.ty || 0) + (P2.bob || 0), r.h, 2, 0.3, 0, 0.3);
+}
+var WRAITH_SLUMP = {
+  near: { sh: [38, 47], el: [43, 60], hand: [46, 74], spread: 16, curl: 60 },
+  far: { sh: [50, 46], el: [55, 58], hand: [60, 71], spread: 16, curl: 60 }
+};
+var WRAITH_FRAYED = [[14, 78], [19, 75], [23, 78], [27, 72], [31, 76], [36, 70], [41, 73], [45, 66], [50, 68], [53, 61]];
+var DATA_WRAITH = {
+  w: 88,
+  h: 96,
+  // room on the right for the claw swipe
+  bevel: 3,
+  draw: drawWraith,
+  anims: {
+    idle: { fps: 6, loop: true, poses: [
+      { bob: 0, sway: 0, heart: 1 },
+      { bob: -1, sway: 1.5, heart: 0.6, eye: 0.85, arms: { near: { sh: [38, 47], el: [46, 57], hand: [58, 62] } } },
+      { bob: -2, sway: 3, heart: 0.2, tears: [[24, 2, 2], [52, 2, -2]], chroma: [22, 28, 1], seed: 3 },
+      { bob: -1, sway: 4.5, heart: 0.6, eye: 0.9, arms: { far: { sh: [50, 46], el: [57, 54], hand: [67, 59] } } }
+    ] },
+    attack: { fps: 9, loop: false, poses: [
+      { lean: -0.12, tx: -2, eye: 1.4, sway: 2, heart: 1, arms: { near: { sh: [38, 46], el: [38, 34], hand: [44, 18], spread: 30, curl: 26 }, far: { sh: [50, 46], el: [55, 56], hand: [52, 66] } } },
+      { lean: 0.14, tx: 5, eye: 1.4, sway: 3.5, heart: 0.6, slash: [44, 46, 31, -70, 50], arms: { near: { sh: [40, 48], el: [54, 52], hand: [73, 56], spread: 22, curl: 16 }, far: { sh: [50, 46], el: [60, 52], hand: [70, 52] } } },
+      { lean: 0.08, tx: 3, eye: 1.1, sway: 4.5, heart: 0.2, arms: { near: { sh: [40, 48], el: [50, 60], hand: [64, 72], spread: 24, curl: 36 } } }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        lean: -0.16,
+        tx: -4,
+        eye: 0.4,
+        sway: 5,
+        chip: 1,
+        sparkle: 7,
+        tears: [[18, 4, -3], [44, 3, 4], [66, 5, -2]],
+        chroma: [10, 90, 2],
+        arms: { near: { sh: [38, 47], el: [41, 59], hand: [45, 70] }, far: { sh: [50, 46], el: [55, 57], hand: [58, 66] } }
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        ty: 14,
+        lean: 0.24,
+        head: 0.3,
+        hy: 2,
+        eye: 0.25,
+        chip: 1,
+        fallen: 1,
+        hem: WRAITH_FRAYED,
+        arms: WRAITH_SLUMP,
+        sway: 1,
+        heart: 0.2,
+        floor: [[14, 93, 1], [22, 93, 0], [62, 93, 1], [70, 92, 0], [77, 93, 1]],
+        tears: [[30, 2, 2]]
+      },
+      {
+        ty: 14,
+        lean: 0.25,
+        head: 0.32,
+        hy: 2,
+        eye: 0.55,
+        chip: 1,
+        fallen: 1,
+        hem: WRAITH_FRAYED,
+        arms: WRAITH_SLUMP,
+        sway: 2,
+        heart: 0.5,
+        floor: [[14, 93, 0], [22, 93, 1], [62, 93, 0], [70, 92, 1], [77, 93, 0]],
+        tears: [[46, 2, -2]],
+        chroma: [36, 44, 1]
+      }
+    ] },
+    special: { fps: 8, loop: false, order: [0, 1, 0, 1], poses: [
+      { eye: 1.5, sway: 3, heart: 1, tears: [[14, 3, 3], [30, 2, -3], [52, 4, 3], [72, 3, -2]], chroma: [0, 96, 3] },
+      { eye: 1.5, sway: 4, heart: 1, tears: [[22, 3, -2], [60, 3, 2]], scan: 2, chroma: [0, 96, 1] }
+    ] }
+  },
+  points: { center: [40, 50], muzzle: [72, 58], top: [40, 6] },
+  icon: { x: 52, y: 28, scale: 0.62 }
+};
+var G_DATAFIRE = rp2("#2c0f58", "#6a26c4", "#2f8cf0", "#4fe2ff", "#c8fbff");
+function inPoly(pts) {
+  return (x, y) => {
+    let c = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if (yi > y !== yj > y && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+    }
+    return c;
+  };
+}
+var hexPts = (cx, cy, R) => [0, 60, 120, 180, 240, 300].map((a) => polar2(cx, cy, a, R));
+var S32 = Math.sqrt(3);
+var hexN = (x, y) => Math.max(Math.abs(y) * 2 / S32, Math.abs(x) + Math.abs(y) / S32);
+function hexCell(x, y, cell) {
+  let best = Infinity, bx = 0, by = 0, id = 0;
+  const c0 = Math.round(x / (1.5 * cell));
+  for (let c = c0 - 1; c <= c0 + 1; c++) {
+    const yo = (c & 1) * 0.5, r0 = Math.round(y / (S32 * cell) - yo);
+    for (let q = r0 - 1; q <= r0 + 1; q++) {
+      const ux = c * 1.5 * cell, uy = (q + yo) * S32 * cell, d = hexN(x - ux, y - uy);
+      if (d < best) {
+        best = d;
+        bx = ux;
+        by = uy;
+        id = c * 31 + q * 7;
+      }
+    }
+  }
+  return [best, bx, by, id];
+}
+function honeycomb(r, cx, cy, R, cell, k, { holes = 0, seed = 1 } = {}) {
+  r.each(cx - R - 1, cy - R - 1, cx + R + 1, cy + R + 1, (mx, my, X, Y) => {
+    const x = mx - cx, y = my - cy;
+    if (hexN(x, y) > R) return;
+    const [best, bx, by, id] = hexCell(x, y, cell);
+    if (holes && rng(seed + id * 13)() < holes) return;
+    if (best > cell - 1.05) r.put(X, Y, (k > 0.5 ? G_CYAN2 : G_CYAN_DIM)[best > cell - 0.55 ? 3 : 2], 0.45 * k);
+    else r.lightPut(X, Y, (x - bx) / cell * 0.7, (y - by) / cell * 0.7, 0.75, PLATE2, { max: 4, bias: -0.05, dither: 0.3 });
+  });
+}
+function hexPanel(r, x0, x1, y0, y1, t) {
+  const top = y1 - (y1 - y0) * t, cx = (x0 + x1) / 2, hw = (x1 - x0) / 2;
+  r.each(x0 - 1, top - 1, x1 + 1, y1 + 1, (mx, my, X, Y) => {
+    const ex = hw - Math.max(0, Math.max(top + hw - my, my - (y1 - hw))) * 0.6;
+    const dx = Math.abs(mx - cx);
+    if (dx > ex || my < top || my > y1) return;
+    if (dx > ex - 1 || my < top + 1) {
+      r.put(X, Y, G_CYAN2[4], 0.8, true);
+      return;
+    }
+    const [best] = hexCell(mx - cx, my - y1, 3);
+    if (best > 2) r.put(X, Y, G_CYAN2[3], 0.55, true);
+    else if (!(X + Y & 1)) r.put(X, Y, G_CYAN_DIM[3], 0.3, true);
+  });
+}
+function dataFlame(r, x, y, h, ph, k = 0.5) {
+  for (let j = 0; j < h; j += 2) {
+    const t = j / h, hw = Math.pow(1 - t, 0.7) * 3.4 + 0.3;
+    const xo = Math.sin(ph + j * 0.5) * t * 2.4 - t * 1.8;
+    const ci = clamp6(Math.floor((1 - t) * 3.6), 0, 3);
+    for (let sx = Math.round(-hw); sx <= Math.round(hw); sx++) {
+      const edge = Math.abs(sx) >= hw - 0.8;
+      const hot = j === 0 && Math.abs(sx) < 1;
+      r.rect(Math.round(x + xo + sx), y - j - 2, 1, 2, G_DATAFIRE[hot ? 4 : clamp6(ci - (edge ? 2 : 0), 0, 3)], k * (edge ? 0.7 : 1), true);
+    }
+  }
+  const R = rng(Math.floor(ph * 10) + x);
+  for (let n = 0; n < 2; n++) if (R() < 0.6) r.rect(x + Math.round((R() - 0.7) * 5), y - h - 3 - Math.floor(R() * 5), 1, 1, G_DATAFIRE[R() < 0.5 ? 2 : 3], k, true);
+}
+function block(r, x, y, w, h, ramp2, o = {}) {
+  r.poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], ramp2, { n: o.n || [0.05, -0.2, 1], bevel: 1, max: o.max ?? 6, bias: o.bias || 0, glow: o.glow || 0 });
+}
+var FW_TORSO = [
+  [17, 62],
+  [15, 30],
+  [17, 29],
+  [17, 19],
+  [28, 19],
+  [28, 29],
+  [32, 29],
+  [32, 17],
+  [43, 17],
+  [43, 29],
+  [47, 29],
+  [47, 18],
+  [58, 18],
+  [58, 29],
+  [64, 28],
+  [72, 30],
+  [76, 42],
+  [74, 58],
+  [68, 70],
+  [48, 75],
+  [27, 73]
+];
+var FW_IN = inPoly(FW_TORSO);
+function fwLeg(r, hip, foot, far) {
+  const o = far ? { max: 4, bias: -0.12 } : { max: 6 };
+  r.begin();
+  r.seg(...hip, ...foot, 4.6, 4.2, BRICK, { caps: "flat", ...o });
+  for (const t of [0.12, 0.52]) {
+    const [x, y] = along2(hip, foot, t, 0);
+    block(r, x - 6, y, 12, 8, BRICK, { ...o, n: [0.1, -0.25, 1] });
+  }
+  r.end(0.55);
+  r.begin();
+  block(r, foot[0] - 8, foot[1] - 5, 17, 5, BRICK, { ...o, n: [0.05, -0.6, 0.8] });
+  r.end(0.55);
+  if (!far) r.line(foot[0] - 7, foot[1] - 3, foot[0] + 7, foot[1] - 3, G_CYAN_DIM[3], 0.5);
+}
+function fwArm(r, sh, el2, hand, far) {
+  const o = far ? { max: 4, bias: -0.14 } : { max: 6 };
+  r.begin();
+  r.seg(...sh, ...el2, 5.2, 4.6, BRICK, { ...o });
+  r.end(0.55);
+  r.begin();
+  limbPlate2(r, el2, hand, [[-0.1, -5.6], [-0.1, 5.4], [0.9, 6.2], [1.05, 0], [0.9, -6.4]], PLATE2, { ...o, max: far ? 4 : 6, curve: 0.85 });
+  r.ball(...el2, 4, 4, PLATE2, { ...o, max: far ? 4 : 6 });
+  r.end(0.55);
+  const a = along2(el2, hand, 0.25, 0), b = along2(el2, hand, 0.8, 0);
+  r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), (far ? G_CYAN_DIM : G_CYAN2)[2], far ? 0.3 : 0.55);
+}
+function fwFist(r, cx, cy, k) {
+  r.begin();
+  r.poly([[cx - 8, cy - 5], [cx - 4, cy - 9], [cx + 9, cy - 9], [cx + 6, cy - 5]], BRICK, { n: [-0.2, -0.85, 0.5], bevel: 1, max: 7 });
+  r.poly([[cx - 8, cy - 5], [cx + 6, cy - 5], [cx + 6, cy + 7], [cx - 8, cy + 7]], BRICK, { n: [-0.1, -0.1, 1], bevel: 1, max: 6 });
+  r.poly([[cx + 6, cy - 5], [cx + 9, cy - 9], [cx + 9, cy + 3], [cx + 6, cy + 7]], BRICK, { n: [0.8, -0.1, 0.6], bevel: 1, max: 4 });
+  r.end(0.6);
+  r.line(cx - 7, cy + 1, cx + 5, cy + 1, BRICK[1]);
+  for (const x of [cx - 4, cx, cx + 4]) r.line(x, cy - 5, x, cy + 1, BRICK[1]);
+  r.line(cx - 7, cy + 3, cx + 5, cy + 3, (k > 0.5 ? G_CYAN2 : G_CYAN_DIM)[3], clamp6(k, 0.2, 1) * 0.8);
+}
+function padlock(r, cx, cy, key, open) {
+  r.save();
+  r.rotate(-open * DEG2, cx + 5, cy - 6);
+  r.translate(0, -open * 0.08);
+  r.begin();
+  r.ring(cx, cy - 6, 3.4, 6.6, STEEL4, { clip: (x, y) => y < cy - 5, max: 7, spec: WHITE3, specT: 0.96 });
+  r.seg(cx - 5, cy - 6, cx - 5, cy - 3, 1.6, 1.6, STEEL4, { caps: "flat", max: 6 });
+  r.seg(cx + 5, cy - 6, cx + 5, cy - 3, 1.6, 1.6, STEEL4, { caps: "flat", max: 5 });
+  r.end(0.5);
+  r.restore();
+  r.begin();
+  r.poly([[cx - 8, cy - 4], [cx + 7, cy - 4], [cx + 9, cy - 2], [cx + 9, cy + 9], [cx + 7, cy + 11], [cx - 7, cy + 11], [cx - 9, cy + 9], [cx - 9, cy - 2]], PLATE2, {
+    nf: dome2(cx - 1, cy + 3, 11, 10),
+    bevel: 1,
+    max: 7,
+    spec: PLATE2[7],
+    specT: 0.98
+  });
+  r.end(0.55);
+  r.line(cx - 7, cy - 2, cx + 6, cy - 2, PLATE2[7]);
+  r.line(cx - 7, cy + 9, cx + 7, cy + 9, PLATE2[1]);
+  for (const [x, y] of [[cx - 6, cy], [cx + 6, cy], [cx - 6, cy + 7], [cx + 6, cy + 7]]) r.dot(x, y, STEEL4[6]);
+  const kc = key > 0.55 ? G_CYAN2 : G_CYAN_DIM, kk = clamp6(key, 0.2, 1.4);
+  r.glow(cx + 1.5, cy + 2, 2.4, 2.4, kc, { k: kk, bias: key > 1.05 ? 0.7 : 0.3 });
+  r.rect(cx + 1, cy + 3, 2, 4, kc[key > 1.05 ? 4 : 3], kk);
+  if (key > 0.55) r.dot(cx + 1, cy + 1, WHITE3, 1);
+}
+function drawGolemFW(r, P2) {
+  const key = P2.key ?? 1, fire = P2.fire ?? 1, ph = P2.ph || 0;
+  const tx = P2.tx || 0, ty = P2.ty || 0;
+  const torso = () => {
+    r.translate(tx, ty);
+    r.rotate(P2.lean || 0, 46, 72);
+  };
+  const A = P2.arms || {};
+  r.save();
+  torso();
+  const shN = r.pt(22, 46), shF = r.pt(66, 36), hipN = r.pt(38, 70), hipF = r.pt(56, 68);
+  r.restore();
+  const L2 = P2.legs || {};
+  const fa = A.far || { el: [74, 50], hand: [82, 58] };
+  fwArm(r, shF, fa.el, fa.hand, true);
+  fwLeg(r, hipF, L2.far || [58, 93], true);
+  r.save();
+  torso();
+  const scanY = P2.scanY ?? -20;
+  const mk = clamp6(key, 0.3, 1.2);
+  r.each(14, 16, 78, 76, (mx, my, X, Y) => {
+    if (!FW_IN(mx, my)) return;
+    const hot = Math.abs(my - scanY) < 3;
+    r.put(X, Y, hot ? G_CYAN2[3] : G_CYAN_DIM[2], (hot ? 0.75 : 0.4) * mk);
+  });
+  const R = rng(P2.seed || 7);
+  const fallen = [];
+  for (let row = 0; row < 9; row++) {
+    const y = 17 + row * 7, off = row % 2 * 6;
+    for (let x = 12 - off; x < 80; x += 12) {
+      const roll = R(), j = (R() - 0.5) * 0.24;
+      if (P2.loose && roll < P2.loose) {
+        fallen.push([x, y]);
+        continue;
+      }
+      const c = dome2(46, 48, 34, 34, 0.55)(x + 6, y + 3.5);
+      const lit = roll > 0.9;
+      r.poly([[x + 0.5, y + 0.5], [x + 11.5, y + 0.5], [x + 11.5, y + 6.5], [x + 0.5, y + 6.5]], lit ? PLATE2 : BRICK, {
+        n: [c[0] + j, c[1] - 0.1, c[2]],
+        bevel: 1,
+        max: lit ? 6 : 5,
+        clip: FW_IN,
+        glow: lit ? 0.2 : 0
+      });
+      if (!lit && roll < 0.25 && FW_IN(x + 3, y + 3) && FW_IN(x + 6, y + 4)) r.line(x + 3, y + 3, x + 6, y + 4, BRICK[1]);
+    }
+  }
+  const ck = clamp6(key, 0.2, 1.5);
+  r.poly([[57, 44], [68, 44], [68, 51], [57, 51]], BRICK, { idx: 0 });
+  r.poly([[62.5, 44.5], [65.5, 47.5], [62.5, 50.5], [59.5, 47.5]], HARD, { n: [-0.3, -0.4, 0.85], glow: 0.7 * ck, max: 7, min: 3 });
+  if (key > 0.55) r.dot(62, 46, WHITE3, 1);
+  r.begin();
+  r.poly([[60, 29], [67, 25], [75, 28], [77, 36], [71, 40], [61, 38]], PLATE2, { nf: dome2(68, 31, 10, 8), bevel: 1, max: 5, bias: -0.06 });
+  r.end(0.55);
+  if (fire > 0) {
+    const bases = [[22, 19, 8], [30, 29, 14], [38, 17, 9], [45, 29, 16], [53, 18, 10], [61, 28, 12], [68, 29, 8]];
+    bases.forEach(([x, y, h], i) => dataFlame(r, x, y, Math.round(h * fire * (0.75 + 0.25 * Math.sin(ph + i * 1.9))), ph + i * 1.3, 0.5 * clamp6(fire, 0.3, 1.2)));
+  } else if (P2.embers) {
+    for (const [x, y] of [[30, 25], [45, 25], [61, 24]]) smoke2(r, P2.embers + x, x, y, 3, 0.5, G_VIOLET_DIM2);
+  }
+  r.restore();
+  if (P2.shield !== 0) {
+    const sh = P2.shield || {};
+    const [scx, scy] = sh.at || [88, 60];
+    const sR = sh.R || 12;
+    r.save();
+    r.translate(tx * 0.6, ty);
+    r.begin();
+    r.poly(hexPts(scx, scy, sR), PLATE2, { nf: dome2(scx - 2, scy - 2, sR + 2, sR + 2), bevel: 1, max: 6, spec: PLATE2[7], specT: 0.985 });
+    r.end(0.6);
+    honeycomb(r, scx, scy, sR - 2.2, 3, sh.k ?? clamp6(key, 0.3, 1.2), { holes: sh.holes || 0, seed: 3 });
+    r.glow(scx, scy, 1.6, 1.6, G_CYAN2, { k: clamp6(key, 0.2, 1.3) });
+    r.restore();
+  }
+  r.save();
+  torso();
+  r.translate(0, P2.hy || 0);
+  r.rotate(P2.head || 0, 76, 42);
+  padlock(r, 77, 35, key, P2.open || 0);
+  r.restore();
+  fwLeg(r, hipN, L2.near || [33, 94], false);
+  const na = A.near || { el: [17, 62], fist: [20, 80] };
+  fwArm(r, shN, na.el, na.fist, false);
+  fwFist(r, na.fist[0], na.fist[1], key);
+  r.save();
+  torso();
+  r.begin();
+  r.poly([[11, 40], [15, 35], [31, 34], [36, 38], [35, 47], [30, 51], [15, 51], [11, 47]], PLATE2, { nf: dome2(22, 40, 15, 12, 0.6), bevel: 1, max: 6, bias: -0.05 });
+  r.poly([[12, 39], [15, 35], [31, 34], [35, 38], [30, 39], [16, 40]], PLATE2, { n: [-0.1, -0.9, 0.4], bevel: 1, max: 6 });
+  r.end(0.6);
+  r.line(14, 46, 32, 46, (key > 0.5 ? G_CYAN2 : G_CYAN_DIM)[2], 0.55 * clamp6(key, 0.3, 1));
+  for (const x of [16, 23, 30]) r.dot(x, 43, STEEL4[5]);
+  r.restore();
+  if (P2.slam) {
+    const [fx] = na.fist;
+    r.glow(fx + 4, 93, 18, 2.6, G_CYAN2, { fx: true, k: 0.85, bias: 0.3 });
+    for (let k = -3; k <= 3; k++) r.rect(fx + 4 + k * 5 - 1, 91 - (Math.abs(k) < 2 ? 1 : 0), 3, 1, G_CYAN2[3], 0.8, true);
+    sparks2(r, P2.slam, fx + 4, 84, 13, 8, G_CYAN2);
+  }
+  if (P2.barrier) hexPanel(r, 91, 103, 24, 93, P2.barrier);
+  if (fallen.length && P2.rubble) {
+    const Rf = rng(P2.rubble);
+    for (let i = 0; i < Math.min(6, fallen.length); i++) {
+      const x = 8 + Rf() * 80;
+      r.begin();
+      r.poly([[x, 89], [x + 9, 88 + Rf() * 2], [x + 9, 94], [x, 94]], BRICK, { n: [0.1, -0.5, 0.8], bevel: 1, max: 5 });
+      r.end(0.55);
+    }
+  }
+  if (P2.sparkle) sparks2(r, P2.sparkle, 56, 40, 14, 7, G_CYAN2);
+  for (const [y, h, dx] of P2.tears || []) tear2(r, y, h, dx);
+  if (P2.chroma) chroma2(r, P2.chroma[0], P2.chroma[1], P2.chroma[2], 0.5);
+}
+var FW_KNEEL = { near: [30, 94], far: [52, 94] };
+var FIREWALL_GOLEM = {
+  w: 104,
+  h: 96,
+  // room on the right for the shield and its barrier
+  bevel: 4,
+  draw: drawGolemFW,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { ph: 0, scanY: 24 },
+      { ph: 1.6, scanY: 38, ty: 1 },
+      { ph: 3.2, scanY: 52, ty: 1, arms: { near: { el: [17, 63], fist: [20, 81] }, far: { el: [74, 51], hand: [82, 59] } }, shield: { at: [88, 61] } },
+      { ph: 4.8, scanY: 66 }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { ph: 1, key: 1.4, fire: 1.3, lean: -0.1, tx: -3, ty: -1, arms: { near: { el: [12, 34], fist: [18, 16] } }, scanY: 30 },
+      { ph: 2.4, key: 1.4, fire: 1.2, lean: 0.12, tx: 4, ty: 2, slam: 11, arms: { near: { el: [50, 62], fist: [62, 84] } }, scanY: 50 },
+      { ph: 3.6, key: 1.1, lean: 0.06, tx: 2, ty: 1, arms: { near: { el: [46, 62], fist: [56, 82] } }, scanY: 64 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        key: 0.4,
+        fire: 0.5,
+        ph: 2,
+        lean: -0.1,
+        tx: -4,
+        head: -0.1,
+        sparkle: 9,
+        tears: [[24, 3, -3], [46, 4, 3], [70, 3, -2]],
+        chroma: [20, 80, 1],
+        arms: { near: { el: [14, 60], fist: [15, 77] } }
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        key: 0.25,
+        fire: 0,
+        embers: 3,
+        ty: 8,
+        lean: 0.12,
+        head: 0.12,
+        open: 38,
+        loose: 0.22,
+        seed: 7,
+        rubble: 5,
+        legs: FW_KNEEL,
+        arms: { near: { el: [20, 66], fist: [22, 85] }, far: { el: [72, 62], hand: [78, 72] } },
+        shield: { at: [84, 80], R: 11, holes: 0.35, k: 0.4 }
+      },
+      {
+        key: 0.55,
+        fire: 0,
+        embers: 9,
+        ty: 8,
+        lean: 0.13,
+        head: 0.14,
+        open: 42,
+        loose: 0.22,
+        seed: 7,
+        rubble: 5,
+        legs: FW_KNEEL,
+        tears: [[36, 2, 2]],
+        arms: { near: { el: [20, 66], fist: [22, 85] }, far: { el: [72, 62], hand: [78, 72] } },
+        shield: { at: [84, 80], R: 11, holes: 0.35, k: 0.6 }
+      }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 1, 1], poses: [
+      { key: 1.5, fire: 1.3, ph: 1, scanY: 34, barrier: 0.5, arms: { far: { el: [76, 44], hand: [84, 50] } }, shield: { at: [88, 50], R: 13 } },
+      { key: 1.6, fire: 1.4, ph: 2.6, scanY: 58, barrier: 1, arms: { far: { el: [76, 44], hand: [84, 50] } }, shield: { at: [88, 50], R: 13 } }
+    ] }
+  },
+  points: { center: [48, 52], muzzle: [70, 86], top: [46, 10] },
+  icon: { x: 74, y: 36, scale: 0.55 }
+};
+var VOXEL = [PLATE2, HARD, ROT2];
+function voxel(r, x, y, h, look, { back = false, eye = 1, trail = 0, flap = 0 } = {}) {
+  const ramp2 = VOXEL[look % 3], o = { bevel: 1, max: back ? 5 : 7, bias: back ? -0.12 : 0 };
+  const glowR = look % 3 === 2 ? G_MAG2 : look % 3 === 1 ? G_CYAN2 : G_VIOLET2;
+  if (trail) for (let k = 1; k <= trail; k++) r.dot(Math.round(x - h - k * 1.5), Math.round(y + (k & 1)), glowR[Math.max(0, 3 - k)], 0.5, true);
+  if (flap != null && !trail) {
+    const wy = y - h * 0.6, tip2 = [x - h * 1.5, wy - h * (0.9 + flap * 0.7)], root = [x - h * 0.1, wy];
+    r.poly([root, tip2, [x - h * 1.1, wy + h * 0.3]], ramp2, { idx: back ? 2 : 4, glow: back ? 0.12 : 0.25 });
+    r.line(Math.round(root[0]), Math.round(root[1]), Math.round(tip2[0]), Math.round(tip2[1]), glowR[back ? 1 : 3], back ? 0.3 : 0.55, true);
+  }
+  r.begin();
+  r.poly([[x, y - h], [x + h, y - h / 2], [x, y], [x - h, y - h / 2]], ramp2, { ...o, n: [-0.2, -0.9, 0.4] });
+  r.poly([[x - h, y - h / 2], [x, y], [x, y + h], [x - h, y + h / 2]], ramp2, { ...o, n: [-0.75, 0.1, 0.65] });
+  r.poly([[x, y], [x + h, y - h / 2], [x + h, y + h / 2], [x, y + h]], ramp2, { ...o, n: [0.6, 0.1, 0.8], bias: (o.bias || 0) - 0.08 });
+  r.end(0.5);
+  if (eye > 0 && !back) {
+    const ex = Math.round(x + h * 0.5), ey = Math.round(y + h * 0.15);
+    r.dot(ex, ey, (look % 3 === 1 ? G_MAG2 : G_CYAN2)[eye > 0.6 ? 4 : 2], clamp6(eye, 0.2, 1.2));
+    if (h >= 3) r.dot(ex, ey + 1, (look % 3 === 1 ? G_MAG2 : G_CYAN2)[2], 0.6 * eye);
+  }
+}
+function kernel(r, cx, cy, k, crack) {
+  const h = 9;
+  r.begin();
+  r.poly([[cx, cy - h], [cx + h, cy - h / 2], [cx, cy], [cx - h, cy - h / 2]], ROT2, { n: [-0.2, -0.9, 0.4], bevel: 1, max: 7, spec: ROT2[7], specT: 0.99 });
+  r.poly([[cx - h, cy - h / 2], [cx, cy], [cx, cy + h], [cx - h, cy + h / 2]], ROT2, { n: [-0.75, 0.1, 0.65], bevel: 1, max: 6 });
+  r.poly([[cx, cy], [cx + h, cy - h / 2], [cx + h, cy + h / 2], [cx, cy + h]], ROT2, { n: [0.6, 0.1, 0.8], bevel: 1, max: 5, bias: -0.06 });
+  r.end(0.6);
+  const kk = clamp6(k, 0.2, 1.4), g = k > 0.55 ? G_CYAN2 : G_CYAN_DIM;
+  const ex = cx + 4.5, ey = cy + 2.5;
+  r.poly([[ex - 3.6, ey + 1.6], [ex, ey - 2.4], [ex + 3.6, ey - 1.6], [ex, ey + 2.6]], ROT2, { idx: 0 });
+  r.glow(ex + 0.5, ey, 1.9, 1.9, g, { k: kk, bias: k > 1.05 ? 0.6 : 0.2 });
+  r.dot(ex + 1, ey, ROT2[0]);
+  if (k > 0.55) r.dot(ex - 1, ey - 1, WHITE3, 1);
+  r.line(cx - 4, cy - 5, cx + 1, cy - 7, G_MAG2[3], 0.6 * kk);
+  r.line(cx + 1, cy - 7, cx + 4, cy - 5, G_MAG2[2], 0.5 * kk);
+  r.line(cx - 6, cy - 1, cx - 4, cy + 5, ROT2[6]);
+  if (crack) {
+    r.line(cx - 7, cy - 3, cx - 3, cy + 3, G_MAG2[4], 0.9);
+    r.line(cx - 3, cy + 3, cx - 1, cy + 8, G_MAG2[3], 0.8);
+    r.line(cx + 2, cy - 6, cx + 6, cy - 1, G_MAG2[3], 0.8);
+  }
+}
+var SWARM = [[0, 1, 4.5], [45, 0.8, 3.5], [90, 0.95, 4], [135, 0.78, 3.5], [180, 1, 5], [225, 0.85, 3.5], [270, 0.95, 4], [315, 0.78, 3.5]];
+function drawSwarm(r, P2) {
+  const k = P2.k ?? 1, orbit = P2.orbit || 0, spread = P2.spread ?? 1, look = P2.look || 0;
+  const cx = 40 + (P2.cx || 0), cy = 30 + (P2.cy || 0);
+  const bits = SWARM.map(([a, rad, h], i) => {
+    if (P2.line) return { x: 50 + i * 3.6, y: cy + Math.round(Math.sin(i * 1.7) * 3), h: h * 0.85, front: true, trail: 3 + i % 3, i };
+    if (P2.floor) return { x: 8 + i * 9 + i % 3, y: 60 - h * 0.6, h, front: true, i };
+    const ang = (a + orbit) * DEG2, rr = rad * spread;
+    const ring2 = P2.ring ? 1 : 0;
+    return {
+      x: cx + Math.cos(ang) * (ring2 ? 25 : 29 * rr),
+      y: cy + Math.sin(ang) * (ring2 ? 16 : 17 * rr) + (ring2 ? 0 : Math.sin(i * 2.1 + orbit * 0.05)),
+      h: h * (Math.sin(ang) > 0 ? 1.1 : 0.9),
+      front: Math.sin(ang) > 0,
+      i
+    };
+  });
+  const bitOpts = (b) => ({
+    back: !b.front,
+    eye: P2.floor ? b.i % 4 === 1 ? 0.5 : 0 : k,
+    trail: b.trail || 0,
+    flap: P2.floor ? null : Math.sin((P2.flap || 0) + b.i * 1.9)
+  });
+  if (!P2.floor) for (const b of bits) {
+    if (b.i % 3) continue;
+    const n = Math.max(2, Math.round(Math.hypot(b.x - cx, b.y - cy) / 2));
+    for (let s = 1; s < n; s += 2) r.dot(Math.round(cx + (b.x - cx) * s / n), Math.round(cy + (b.y - cy) * s / n), G_VIOLET2[2], 0.35 * k, true);
+  }
+  for (const b of bits) if (!b.front) voxel(r, b.x, b.y, b.h, look + b.i, bitOpts(b));
+  if (P2.floor) kernel(r, cx, 51, 0.3, true);
+  else kernel(r, cx, cy, k, P2.crack);
+  for (const b of bits) if (b.front) voxel(r, b.x, b.y, b.h, look + b.i, bitOpts(b));
+  if (P2.dust) {
+    const R = rng(P2.dust);
+    for (let i = 0; i < 9; i++) r.dot(Math.round(12 + R() * 56), Math.round(10 + R() * 40), (R() < 0.5 ? G_CYAN2 : G_VIOLET2)[2 + Math.floor(R() * 2)], 0.6, true);
+  }
+  if (P2.flare) {
+    r.glow(cx, cy, P2.flare, P2.flare, G_MAG2, { fx: true, k: 0.8, bias: 0.4 });
+    for (let i = 0; i < 6; i++) spark2(r, Math.round(cx + Math.cos(i * 1.05) * (P2.flare + 4)), Math.round(cy + Math.sin(i * 1.05) * (P2.flare + 3)), 1, G_MAG2);
+  }
+  if (P2.sparkle) sparks2(r, P2.sparkle, cx, cy, 14, 7, G_MAG2);
+  for (const [y, h, dx] of P2.tears || []) tear2(r, y, h, dx);
+  if (P2.chroma) chroma2(r, P2.chroma[0], P2.chroma[1], P2.chroma[2], 0.5);
+}
+var GLITCH_SWARM = {
+  w: 80,
+  h: 64,
+  bevel: 2,
+  draw: drawSwarm,
+  anims: {
+    idle: { fps: 6, loop: true, poses: [
+      { orbit: 0, look: 0, dust: 1, flap: 0 },
+      { orbit: 9, look: 0, cy: -1, dust: 2, flap: 1.6 },
+      { orbit: 18, look: 1, cy: -2, dust: 3, flap: 3.2, tears: [[26, 2, 2]], chroma: [24, 30, 1] },
+      { orbit: 27, look: 1, cy: -1, dust: 4, flap: 4.8 }
+    ] },
+    attack: { fps: 9, loop: false, poses: [
+      { orbit: 40, spread: 0.45, look: 2, k: 1.4, flare: 4 },
+      { line: 1, look: 2, k: 1.4, cx: 4, dust: 6 },
+      { orbit: 60, spread: 1.25, look: 1, k: 1.1, cx: 2, dust: 7 }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      { orbit: 50, spread: 1.35, look: 2, k: 0.4, cx: -3, crack: 1, sparkle: 5, tears: [[16, 3, -3], [30, 3, 3], [44, 2, -2]], chroma: [8, 56, 2] }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      { floor: 1, look: 0, dust: 8 },
+      { floor: 1, look: 2, dust: 9, tears: [[50, 2, 1]] }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 1, 0, 1], poses: [
+      { ring: 1, orbit: 0, look: 1, k: 1.3, flare: 5 },
+      { ring: 1, orbit: 18, look: 2, k: 1.4, flare: 7, chroma: [10, 50, 1] }
+    ] }
+  },
+  points: { center: [40, 30], muzzle: [74, 30], top: [40, 10] },
+  icon: { x: 41, y: 29, scale: 0.85 }
+};
+var CM_JAG = [[24, 55], [28, 61], [32, 54], [36, 63], [40, 57], [44, 62], [48, 53], [52, 59], [57, 52]];
+function jagY(x, J) {
+  for (let i = 1; i < J.length; i++) {
+    if (x <= J[i][0]) {
+      const [x0, y0] = J[i - 1], [x1, y1] = J[i];
+      return y0 + (y1 - y0) * (x - x0) / (x1 - x0 || 1);
+    }
+  }
+  return J[J.length - 1][1];
+}
+function rotSpike(r, x, y, ang, len, w, dim = false) {
+  const b = [x, y], tip2 = polar2(x, y, ang, len);
+  const lB = along2(b, tip2, 0, w), rB = along2(b, tip2, 0, -w), mid = along2(b, tip2, 0.15, 0);
+  const a = ang * DEG2, px = Math.sin(a), py = -Math.cos(a);
+  r.begin();
+  r.poly([lB, tip2, mid], ROT2, { n: [px * 0.7, py * 0.7, 0.7], bevel: 1, max: dim ? 4 : 7 });
+  r.poly([mid, tip2, rB], ROT2, { n: [-px * 0.7, -py * 0.7, 0.7], bevel: 1, max: dim ? 3 : 5, glow: dim ? 0 : 0.12 });
+  r.end(0.5);
+}
+function rotTendril(r, pts, size, dim) {
+  const o = { max: dim ? 4 : 6, bias: dim ? -0.1 : 0, spec: dim ? null : ROT2[7], specT: 0.95 };
+  const n = pts.length - 1;
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+    const ra = size * (1 - i / n * 0.5), rb = size * (1 - (i + 1) / n * 0.5);
+    r.begin();
+    r.seg(ax, ay, bx, by, ra, rb, ROT2, o);
+    r.end(0.55);
+    const sp = along2(pts[i], pts[i + 1], 0.5, ra * 0.8);
+    rotSpike(r, sp[0], sp[1], Math.atan2(by - ay, bx - ax) / DEG2 - 70, ra * 1.6, ra * 0.45, dim);
+  }
+  const [ex, ey] = pts[n], [px, py] = pts[n - 1];
+  const base = Math.atan2(ey - py, ex - px) / DEG2;
+  for (const d of [-35, 0, 35]) rotSpike(r, ex, ey, base + d, size * 2.2, size * 0.45, dim);
+}
+function drawMemory(r, P2) {
+  const core = P2.core ?? 1, load = P2.load ?? 4, mem = P2.mem ?? 1;
+  const tx = P2.tx || 0, ty = (P2.ty || 0) + (P2.bob || 0);
+  const ringA = (P2.spin || 0) * DEG2;
+  const J = P2.jag || CM_JAG;
+  const mass = P2.mass ?? 1;
+  r.save();
+  r.translate(tx, ty);
+  r.rotate(P2.tilt || 0, 40, 50);
+  const seg = (front) => {
+    if (P2.ringOff) return;
+    for (let i = 0; i < 12; i++) {
+      const a0 = ringA + i / 12 * Math.PI * 2;
+      const isFront = Math.sin(a0 + Math.PI / 12) > 0;
+      if (isFront !== front) continue;
+      const lit = i < load;
+      const c = lit ? load >= 12 ? G_MAG2[4] : G_MAG2[3] : front ? ROT2[3] : ROT2[1];
+      for (let t = 0.12; t < 0.88; t += 0.08) {
+        const a = a0 + t / 12 * Math.PI * 2;
+        r.dot(Math.round(41 + Math.cos(a) * 29), Math.round(28 + Math.sin(a) * 6), c, lit ? 0.85 : 0, lit);
+      }
+    }
+  };
+  seg(false);
+  for (const [x, y, a, l] of P2.splinters || [[13, 30, -110, 7], [68, 20, -60, 6]]) {
+    r.begin();
+    r.poly([polar2(x, y, a, l), polar2(x, y, a + 90, 2), polar2(x, y, a + 180, l * 0.4), polar2(x, y, a - 90, 2)], HARD, { n: [-0.4, -0.4, 0.8], bevel: 1, max: 7, glow: 0.2 });
+    r.end(0.5);
+  }
+  if (mass > 0.5) rotTendril(r, P2.back || [[28, 66], [18, 62], [12, 52], [13, 42]], 3.2, true);
+  const below = (mx, my) => my < jagY(mx, J);
+  const tip2 = [41, 5];
+  const faces = [
+    [[tip2, [25, 19], [34, 22]], [-0.6, -0.6, 0.55], 7],
+    [[tip2, [34, 22], [48, 22]], [-0.05, -0.75, 0.66], 7],
+    [[tip2, [48, 22], [56, 18]], [0.6, -0.55, 0.58], 5],
+    [[[25, 19], [34, 22], [34, 66], [25, 66]], [-0.7, -0.05, 0.7], 6],
+    [[[34, 22], [48, 22], [48, 66], [34, 66]], [0, 0, 1], 5],
+    [[[48, 22], [56, 18], [56, 66], [48, 66]], [0.75, 0, 0.66], 4]
+  ];
+  const ek = 0.1 * clamp6(core, 0.4, 1.4);
+  r.begin();
+  for (const [pts, n, mx] of faces) r.poly(pts, CRYSTAL, { n, bevel: 1, max: mx, clip: below, glow: ek, spec: CRYSTAL[7], specT: 0.97 });
+  r.end(0.6);
+  for (const [x0, y0, x1, y1, c] of [[41, 6, 26, 19, 7], [41, 6, 34, 21, 7], [41, 6, 48, 21, 6], [34, 23, 34, 52, 6], [48, 23, 48, 50, 5], [26, 20, 26, 50, 5]]) {
+    r.line(x0, y0, x1, y1, c === 7 ? MASK[7] : CRYSTAL[c], 0.35);
+  }
+  r.line(29, 24, 29, 34, CRYSTAL[7], 0.3);
+  if (mem > 0) {
+    const g = mem > 0.6 ? G_CYAN2 : G_CYAN_DIM, mk = clamp6(mem, 0.2, 1.1);
+    r.each(35, 25, 47, 47, (mx, my, X, Y) => {
+      if (mx < 35.5 || mx > 46.5 || my < 25.5 || my > 46.5 || !below(mx, my)) return;
+      const v = 1 - Math.abs(my - 33) / 16;
+      r.put(X, Y, g[clamp6(Math.round(v * 3.4), 0, 3)], 0.55 * mk);
+    });
+    r.rect(35, 36, 12, 1, CRYSTAL[2]);
+    for (const [x, y, hgt] of [[38, 30, 15], [43, 32, 13]]) {
+      r.rect(x, y, 2, 2, CRYSTAL[0]);
+      r.rect(x - 1, y + 2, 4, 5, CRYSTAL[0]);
+      r.rect(x, y + 7, 2, hgt - 8, CRYSTAL[1]);
+    }
+    r.rect(40, 34, 3, 1, CRYSTAL[0]);
+    for (const y of P2.static || [29]) r.line(35, y, 46, y, G_MAG2[3], 0.7);
+  }
+  for (const [x0, y0, x1, y1] of [[30, 56, 28, 42], [28, 42, 31, 33], [44, 58, 46, 46], [46, 46, 44, 38], [52, 54, 54, 40]]) {
+    r.line(x0, y0, x1, y1, G_MAG2[core > 1.2 ? 3 : 2], clamp6(core, 0.3, 1.4) * 0.7);
+  }
+  if (mass > 0) {
+    const R = rng(P2.seed || 5);
+    const blocks = [];
+    for (let i = 0; i < 16; i++) {
+      const x = 22 + R() * 38, y = 56 + R() * 22 * mass, h = 2.5 + R() * 3.5 * mass;
+      blocks.push([x, y, h]);
+    }
+    blocks.sort((a, b) => a[1] - b[1]);
+    for (const [x, y, a, l] of [[22, 64, -160, 10], [60, 60, -20, 9], [30, 78, 130, 9], [52, 78, 60, 8], [41, 82, 95, 8]]) rotSpike(r, x, y, a, l * mass, 2.4);
+    for (const [x, y, h] of blocks) voxel(r, x, y, h, 2, { eye: 0, flap: null });
+    const ck = clamp6(core, 0.2, 1.6);
+    r.poly([[33, 68], [40, 63], [48, 67], [41, 72]], ROT2, { idx: 0 });
+    r.glow(41, 67.5, 3 + (core > 1.2 ? 1 : 0), 2.4, core > 0.55 ? G_MAG2 : G_MAG_DIM2, { k: ck, bias: core > 1.2 ? 0.7 : 0.2 });
+    r.line(41, 66, 41, 69, ROT2[0]);
+    if (core > 0.55) r.dot(39, 66, WHITE3, 1);
+    rotTendril(r, P2.claw || [[54, 66], [64, 62], [70, 68]], 3.6, false);
+    for (let i = 0; i < 4; i++) fragments(r, 28 + i * 8, 84 + (i & 1) * 2, 3, G_MAG2, (P2.seed || 5) * 7 + i + (P2.drip || 0), 0.7);
+  }
+  r.restore();
+  r.save();
+  r.translate(tx, ty);
+  r.rotate(P2.tilt || 0, 40, 50);
+  seg(true);
+  r.restore();
+  if (P2.burst) {
+    const [bx, by] = [41 + tx, 40 + ty];
+    r.each(bx - 44, by - 34, bx + 44, by + 34, (mx, my, X, Y) => {
+      const d = Math.hypot((mx - bx) / 42, (my - by) / 32);
+      if (Math.abs(d - P2.burst) < 0.03 && (X + Y) % 3) r.put(X, Y, G_MAG2[3], 0.8, true);
+    });
+    for (const [y, x0, len] of [[24, 58, 26], [33, 62, 22], [44, 60, 26], [52, 64, 20], [61, 58, 24]]) {
+      for (let x = x0; x < Math.min(88, x0 + len); x++) if ((x + y) % 4) r.dot(x, y + ty, x > x0 + len * 0.6 ? G_MAG2[2] : G_MAG2[4], 0.8, true);
+    }
+  }
+  if (P2.ringShards) {
+    for (const [x, y] of P2.ringShards) r.rect(x, y, 3, 1, ROT2[3]);
+  }
+  if (P2.sparkle) sparks2(r, P2.sparkle, 41, 40, 14, 8, G_MAG2);
+  for (const [y, h, dx] of P2.tears || []) tear2(r, y, h, dx);
+  if (P2.chroma) chroma2(r, P2.chroma[0], P2.chroma[1], P2.chroma[2], 0.5);
+}
+var CM_BROKEN = [[24, 50], [28, 57], [32, 49], [36, 58], [40, 52], [44, 60], [48, 48], [52, 55], [57, 47]];
+var CORRUPTED_MEMORY = {
+  w: 88,
+  h: 100,
+  // room on the right for the claw and the Overwrite wave
+  bevel: 3,
+  draw: drawMemory,
+  anims: {
+    idle: { fps: 5, loop: true, poses: [
+      { bob: 0, spin: 0, load: 3, static: [29], drip: 0 },
+      { bob: -1, spin: 8, load: 4, static: [33], drip: 1, claw: [[54, 66], [64, 61], [71, 66]] },
+      { bob: -2, spin: 16, load: 5, static: [27, 37], drip: 2, mem: 0.7, tears: [[30, 2, 2]], chroma: [26, 34, 1] },
+      { bob: -1, spin: 24, load: 4, static: [31], drip: 3, claw: [[54, 66], [64, 63], [70, 69]] }
+    ] },
+    attack: { fps: 8, loop: false, poses: [
+      { core: 1.6, load: 12, spin: 30, mem: 0.5, static: [28, 32, 36], claw: [[54, 64], [62, 56], [68, 50]], sparkle: 3 },
+      { core: 1.8, load: 12, spin: 40, mem: 0.3, tx: 2, burst: 0.85, static: [27, 30, 33, 36], tears: [[20, 3, 3], [46, 3, -3]], chroma: [10, 90, 2], claw: [[54, 66], [66, 62], [76, 62]] },
+      { core: 1, load: 0, spin: 50, mem: 0.6, tx: 1, burst: 1.05, static: [31], claw: [[54, 66], [64, 64], [72, 68]] }
+    ] },
+    hurt: { fps: 6, loop: false, poses: [
+      {
+        core: 0.4,
+        load: 2,
+        spin: 60,
+        mem: 0.4,
+        tx: -4,
+        tilt: -0.08,
+        static: [27, 30, 34],
+        sparkle: 9,
+        tears: [[14, 3, -3], [40, 4, 4], [70, 3, -2]],
+        chroma: [6, 92, 2],
+        claw: [[54, 66], [62, 68], [66, 76]]
+      }
+    ] },
+    break: { fps: 4, loop: true, poses: [
+      {
+        core: 0.2,
+        mass: 0.5,
+        mem: 1.1,
+        ty: 10,
+        tilt: 0.12,
+        jag: CM_BROKEN,
+        ringOff: 1,
+        static: [],
+        seed: 9,
+        splinters: [[14, 84, -20, 6], [66, 86, 200, 5]],
+        ringShards: [[10, 95], [22, 96], [60, 95], [72, 96], [80, 94]],
+        claw: [[52, 68], [58, 76], [62, 84]],
+        back: [[28, 68], [20, 72], [14, 80], [12, 86]]
+      },
+      {
+        core: 0.5,
+        mass: 0.5,
+        mem: 1.2,
+        ty: 10,
+        tilt: 0.13,
+        jag: CM_BROKEN,
+        ringOff: 1,
+        static: [],
+        seed: 9,
+        drip: 2,
+        splinters: [[14, 84, -20, 6], [66, 86, 200, 5]],
+        ringShards: [[10, 95], [22, 96], [60, 95], [72, 96], [80, 94]],
+        claw: [[52, 68], [58, 76], [62, 84]],
+        back: [[28, 68], [20, 72], [14, 80], [12, 86]],
+        tears: [[60, 2, 1]]
+      }
+    ] },
+    special: { fps: 6, loop: false, order: [0, 1, 0, 1], poses: [
+      { core: 1.4, load: 8, spin: 10, mem: 0.6, static: [28, 34], claw: [[54, 64], [63, 58], [70, 56]], chroma: [20, 40, 1] },
+      { core: 1.7, load: 12, spin: 20, mem: 0.4, static: [27, 31, 35], claw: [[54, 64], [63, 57], [70, 54]], sparkle: 13, tears: [[36, 2, 2]] }
+    ] }
+  },
+  points: { center: [41, 46], muzzle: [72, 60], top: [41, 4], core: [41, 38] },
+  icon: { x: 41, y: 34, scale: 0.42 }
+};
+var enemyart_default7 = {
+  data_wraith: DATA_WRAITH,
+  firewall_golem: FIREWALL_GOLEM,
+  glitch_swarm: GLITCH_SWARM,
+  corrupted_memory: CORRUPTED_MEMORY
+};
 
 // src/content/vault/props.js
 var props_default7 = {};
@@ -71510,6 +74832,11 @@ function registerAll() {
 }
 
 // src/story/cutscene.js
+var quiet = (p) => {
+  p.catch(() => {
+  });
+  return p;
+};
 var AbortError = class extends Error {
   constructor() {
     super("cutscene aborted");
@@ -71584,7 +74911,7 @@ var Session = class {
 var CutsceneRunner = class {
   constructor(ctx4) {
     this.ctx = ctx4;
-    this.fast = false;
+    this._fast = false;
     this.choices = [];
     this.autoSkip = null;
     this.touched = /* @__PURE__ */ new Set();
@@ -71602,6 +74929,15 @@ var CutsceneRunner = class {
   }
   get depth() {
     return this._session ? this._session.depth : 0;
+  }
+  /** debug.skip; switching it on mid-script hurries the camera tweens and walks already in flight. */
+  get fast() {
+    return this._fast;
+  }
+  set fast(on) {
+    const was = this._fast;
+    this._fast = !!on;
+    if (this._fast && !was) this._hurry(this._session);
   }
   get instant() {
     return !!this._session?.instant;
@@ -71770,10 +75106,18 @@ var CutsceneRunner = class {
     }
   }
   // ------------------------------------------------------------------ helpers (shared with Cs)
+  /**
+   * The promise of an async cs call. An abort rejects it with an AbortError that counts as handled,
+   * so a call the script did not await (a letterbox, a pan, a card started in the background) cannot
+   * surface as an unhandled rejection when abortAll() runs; an awaiting script still sees it.
+   */
   _wrap(s, promise) {
-    if (s.aborted) return Promise.reject(new AbortError());
-    return new Promise((resolve2, reject) => {
-      const abort = () => reject(new AbortError());
+    if (s.aborted) return quiet(Promise.reject(new AbortError()));
+    const p = new Promise((resolve2, reject) => {
+      const abort = () => {
+        quiet(p);
+        reject(new AbortError());
+      };
       s.rejects.add(abort);
       promise.then((v) => {
         s.rejects.delete(abort);
@@ -71783,6 +75127,7 @@ var CutsceneRunner = class {
         reject(e);
       });
     });
+    return p;
   }
   _explore() {
     return this.ctx.game?.states?.explore || null;
@@ -71806,8 +75151,24 @@ var CutsceneRunner = class {
     return this._quick(s) ? Math.min(ms, 300) : ms;
   }
   _goInstant(s) {
+    const was = s.instant;
     s.instant = true;
     if (!s.choosing) this.ctx.ui.dialog.clear();
+    if (!was) this._hurry(s);
+  }
+  /**
+   * A skip that starts mid-shot: camera tweens in flight land now (their targets kept) and the walks
+   * of the actors this script moves speed up to the skip pace (x6 fast, near-instant on a player skip).
+   */
+  _hurry(s) {
+    const ex = this._explore();
+    ex?.camera?.hurry?.();
+    if (!s) return;
+    const k = s.instant ? 1e4 : 6;
+    const world = ex?.world;
+    const actors = /* @__PURE__ */ new Set([...s.gathered.values(), s.proxy]);
+    if (world?.npc) for (const id of this.touched) actors.add(world.npc(id));
+    for (const a of actors) a?.hurry?.(k);
   }
   _resetHold() {
     if (this._hinted) {
@@ -73050,9 +76411,13 @@ function installDebug({ explore, battle }) {
         }
       } else for (const m of gameState.party) if (m.alive) m.hp = Math.min(m.maxHp, hp);
     },
-    /** Party commands from a policy instead of the menu: 'auto' (heuristic), 'defend', or off. */
+    /**
+     * Party commands from a policy instead of the menu: 'auto' (heuristic: peeks at hidden
+     * weaknesses, maxes Boost on Breaks), 'policy' (the human-like policy of tests/policy.mjs, as in
+     * autoResolve('policy'): human-length fights for pacing runs), 'defend', or off.
+     */
     autoplay(policy = "auto") {
-      battle.autoPolicy = policy === "defend" ? (m, id) => ({ actorId: id, kind: "defend" }) : null;
+      battle.autoPolicy = policy === "defend" ? (m, id) => ({ actorId: id, kind: "defend" }) : policy === "policy" ? createPolicy() : null;
       battle.setAutoplay(!!policy);
     },
     /** Battle presentation speed (1 = normal); handy for slow software-GL runs. */

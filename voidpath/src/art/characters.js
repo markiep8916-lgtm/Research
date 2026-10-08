@@ -2386,6 +2386,20 @@ const EXPR_ALIAS = {
 };
 const NPC_EXPRESSIONS = { bolt: ['neutral', 'happy', 'worried', 'determined'], holo: ['neutral', 'calm', 'flicker'] };
 
+/**
+ * True when portrait `id` draws `want` itself: EXPRESSIONS (BOLT's and HALCYON's own sets with their
+ * aliases) or a registered character's own `expressions`. Never warns or records missingArt, so
+ * prewarm can ask before painting (content/prewarm.js).
+ */
+export function hasExpression(id, want) {
+  const pid = NPC_ALIAS[id] || id;
+  const known = NPC_EXPRESSIONS[pid] || EXPRESSIONS;
+  const expr = (EXPR_ALIAS[pid] && EXPR_ALIAS[pid][want]) || want;
+  if (known.includes(expr)) return true;
+  const custom = resolveChar(pid);
+  return !!(custom && custom.expressions && custom.expressions[expr]);
+}
+
 /** 'sera:sad' -> ['sera', 'sad']; unknown expressions fall back to neutral with one warning. */
 function parsePortraitId(spec) {
   const [raw, want = 'neutral'] = String(spec).split(':');

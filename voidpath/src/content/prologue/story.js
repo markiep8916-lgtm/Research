@@ -589,6 +589,8 @@ const PROLOGUE_DONE = [
   'seen:halcyon:nyx_door', 'seen:halcyon:bridge_open', 'pro:medbay_alarm', 'sw:halcyon:control_shutter',
   'chest:halcyon:brandt', 'dest:halcyon', 'visited:halcyon', 'visited:exterior',
   'tut:reveal', 'tut:break', 'tut:bp3', 'tut:telegraph', 'tut:learn', 'tut:pro_items', 'tut:pro_area', 'tut:pro_expose',
+  // the ch1+ kits wear the Stimulus Chip, so a chapter jump must not replay Orion's equip tip
+  'tut:equip',
 ];
 
 // the POC regression sandbox (2.9): every prologue beat up to the bridge door, without the keycard

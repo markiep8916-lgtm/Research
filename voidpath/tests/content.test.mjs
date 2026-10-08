@@ -272,6 +272,12 @@ test('lint: inline lines outside poc maps, id prefixes', () => {
   assert.ok(!lintFixture(loc).errors.some((e) => e.rule === 'inline'), 'poc maps may keep inline lines');
 });
 
+test('lint: a map NPC that takes a party member id', () => {
+  const loc = base();
+  loc.maps.fx_room.npcs[0].id = 'orion';
+  expectError(lintFixture(loc), 'id', /npc "orion" uses a party member id/);
+});
+
 test('lint: a condition that does not compile', () => {
   const loc = base();
   loc.story.partyTalks = { 'fx.pt': { chapter: 'prologue', members: ['kade', 'sera'], title: 'T', when: 'story:a &', script: 'fx.talk' } };

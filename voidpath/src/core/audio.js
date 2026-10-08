@@ -292,10 +292,21 @@ function sfxVoice(r, { vol = 1, pan = 0, wet = 0.15, echo = 0 }) {
   return inp;
 }
 
+const crushCurves = new Map();
+/** Staircase curve with `levels` steps: a bit-crusher's quantised, digital grit. */
+function getCrushCurve(levels) {
+  if (crushCurves.has(levels)) return crushCurves.get(levels);
+  const c = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) c[i] = Math.round(((i / 1023) * 2 - 1) * levels) / levels;
+  crushCurves.set(levels, c);
+  return c;
+}
+
 /**
  * Oscillator layer. Options:
  *  type, f, f1 (glide target), glide, f2/glide2 (second leg), a, d, hold, vol, detune (cents),
- *  lp / lp1 / lpGlide / lpQ (lowpass + sweep), hp, bp/bpQ, drive (soft clip), trem / tremDepth (Hz / 0-1).
+ *  crush (staircase steps, applied to the raw wave), lp / lp1 / lpGlide / lpQ (lowpass + sweep), hp, bp/bpQ,
+ *  drive (soft clip), trem / tremDepth (Hz / 0-1).
  */
 function tone(r, out, t, o) {
   const ctx = r.ctx;
@@ -303,6 +314,11 @@ function tone(r, out, t, o) {
   if (o.detune) osc.detune.value = o.detune;
   sweep(osc.frequency, t, o.f, o.f1, o.glide ?? 0.1, o.f2, o.glide2 ?? 0.1);
   let node = osc;
+  if (o.crush) {
+    const ws = ctx.createWaveShaper();
+    ws.curve = getCrushCurve(o.crush);
+    node = node.connect(ws);
+  }
   if (o.lp) {
     const f = filterNode(ctx, 'lowpass', o.lp, o.lpQ ?? 0.9);
     sweep(f.frequency, t, o.lp, o.lp1, o.lpGlide ?? o.glide ?? 0.1);
@@ -435,7 +451,8 @@ function brass(r, out, t, freqs, o = {}) {
 // Layers follow transient + body + tail.
 
 const C6 = 1046.5;
-// WARDEN's per-box 'choir' sfx sings one of these chords of its F minor song (Fm, Db, Ab, Bbm).
+// WARDEN's per-box 'choir' sfx sings one of these chords of its F minor song (Fm, Db, Ab, Bbm), or one of
+// the playing track's `choirSfx` chords, so WARDEN always sings in the key of the room it speaks in.
 const CHOIR_SFX = [['F3', 'Ab3', 'C4', 'F4'], ['Db3', 'Ab3', 'C4', 'F4'], ['Ab2', 'Eb3', 'Ab3', 'C4'], ['Bb2', 'F3', 'Db4', 'F4']];
 const SFX = {
   cursor: { gain: 0.36, wet: 0.08, vary: 0.03, play(r, o, t, p) {
@@ -824,9 +841,10 @@ const SFX = {
     noise(r, o, t + 0.15, { f: 600, q: 3, a: 0.05, d: 0.3, vol: 0.08 });
     noise(r, o, t + 0.7, { f: 900, q: 4, a: 0.02, d: 0.2, vol: 0.07 });
   } },
-  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
-    // WARDEN's per-box voice: a soft 'oo' chord from its F minor song breathes in and fades
-    const chord = CHOIR_SFX[Math.floor(Math.random() * CHOIR_SFX.length)].map(noteMidi);
+  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p, opts) {
+    // WARDEN's per-box voice: a soft 'oo' chord from its F minor song (or opts.chords) breathes in and fades
+    const set = opts.chords || CHOIR_SFX;
+    const chord = set[Math.floor(Math.random() * set.length)].map(noteMidi);
     choirVoice(r, o, t, chord, 0.45, 1, { attack: 0.25, release: 1.6, level: 0.5, oct: 12 * Math.log2(p) });
   } },
   glitch: { gain: 0.62, wet: 0.15, vary: 0.05, play(r, o, t, p) {
@@ -899,7 +917,7 @@ const SFX = {
 export const SFX_NAMES = Object.keys(SFX);
 
 /**
- * Play an sfx on a rig at audio time `when` (0 = now). opts: { volume, pitch, pan }.
+ * Play an sfx on a rig at audio time `when` (0 = now). opts: { volume, pitch, pan, chords ('choir') }.
  * pitch is a frequency multiplier (1 = normal); for 'boost' an integer pitch (1-3) is the boost level instead.
  * Returns false for unknown names.
  */
@@ -963,7 +981,11 @@ function padVoice(r, out, t, notes, dur, vel, o) {
   }
 }
 
-/** Lead: saw stack (with an octave-down layer) through an enveloped lowpass, delayed vibrato, optional glide. */
+/**
+ * Lead: saw stack (with an octave-down layer) through an enveloped lowpass, delayed vibrato, optional glide.
+ * o.layers replaces the stack ([wave, cents, gain]); o.drive (pre-gain, ~0.5-2) saturates the stack before the
+ * filter (a driven, distorted lead); o.hp thins it with a highpass after the filter (a nasal alarm tone).
+ */
 function leadVoice(r, out, t, m, dur, vel, o, from) {
   const ctx = r.ctx;
   const oct = o.oct ?? 0;
@@ -977,7 +999,15 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
   lp.frequency.linearRampToValueAtTime(bright * (0.55 + 0.45 * vel), t + 0.05);
   lp.frequency.setTargetAtTime(bright * 0.5, t + 0.06, 0.18);
   const v = gainNode(ctx, 0);
-  lp.connect(v).connect(out);
+  (o.hp ? lp.connect(filterNode(ctx, 'highpass', o.hp, 0.7)) : lp).connect(v).connect(out);
+  let into = lp;
+  if (o.drive) {
+    const ws = ctx.createWaveShaper();
+    ws.curve = getDriveCurve();
+    ws.oversample = '2x';
+    into = gainNode(ctx, o.drive);
+    into.connect(ws).connect(lp);
+  }
   const lvl = vel * (o.level ?? 0.2);
   const atk = o.attack ?? 0.018;
   v.gain.setValueAtTime(0, t);
@@ -999,7 +1029,7 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
       osc.frequency.exponentialRampToValueAtTime(f, t + (o.glide ?? 0.07));
     }
     depth.connect(osc.detune);
-    osc.connect(gainNode(ctx, gain)).connect(lp);
+    osc.connect(gainNode(ctx, gain)).connect(into);
     osc.start(t);
     osc.stop(stop);
   }
@@ -1007,6 +1037,69 @@ function leadVoice(r, out, t, m, dur, vel, o, from) {
   vib.stop(stop);
 }
 const LEAD_LAYERS = [['sawtooth', 0, 1], ['sawtooth', 9, 0.75], ['sawtooth', -1197, 0.55]];
+const FLUTE_LAYERS = [['sine', 0, 1], ['triangle', 4, 0.32], ['sine', 1202, 0.07]];
+
+/** Flute: a breathy sine lead with a chiff of air at the onset and a thin airy band under the tone. */
+function fluteVoice(r, out, t, m, dur, vel, o, from) {
+  const lvl = o.level ?? 0.16;
+  leadVoice(r, out, t, m, dur, vel, {
+    layers: FLUTE_LAYERS, cutoff: o.cutoff ?? 2600, base: 1500, q: 0.7, level: lvl, attack: o.attack ?? 0.07,
+    release: o.release ?? 0.28, vib: o.vib ?? 13, vibRate: o.vibRate ?? 4.8, glide: o.glide ?? 0.12, oct: o.oct,
+  }, from);
+  const f = mtof(m + (o.oct ?? 0));
+  noise(r, out, t, { f: hz(f * 2.2), q: 2.2, a: 0.012, d: 0.11, vol: vel * lvl * 0.45 });
+  noise(r, out, t, { f: hz(f * 1.5), q: 1.2, a: 0.08, hold: Math.max(0, dur - 0.1), d: 0.25, vol: vel * lvl * (o.breath ?? 0.14) });
+}
+
+/**
+ * Strings: three detuned saws per note through a lowpass with a bowed bite and delayed vibrato. A short
+ * o.attack and o.gate play spiccato (march ostinati), a long attack plays legato chords; o.bow adds rosin noise.
+ */
+function stringsVoice(r, out, t, m, dur, vel, o) {
+  const ctx = r.ctx;
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.16);
+  const a = Math.min(o.attack ?? 0.04, dur * 0.6);
+  const rel = o.release ?? 0.18;
+  const end = t + Math.max(a + 0.02, dur * (o.gate ?? 0.95));
+  const stop = end + rel * 1.4 + 0.02;
+  const cut = o.cutoff ?? 1600;
+  const lp = filterNode(ctx, 'lowpass', cut, o.q ?? 0.8);
+  lp.frequency.setValueAtTime(cut * 1.7, t);
+  lp.frequency.setTargetAtTime(cut, t + a, 0.12);
+  const v = gainNode(ctx, 0);
+  lp.connect(v).connect(out);
+  v.gain.setValueAtTime(0, t);
+  v.gain.linearRampToValueAtTime(lvl, t + a);
+  v.gain.setValueAtTime(lvl, end);
+  v.gain.setTargetAtTime(0, end, rel / 5);
+  const vib = oscNode(r, 'sine', o.vibRate ?? 5.2);
+  const depth = gainNode(ctx, 0);
+  depth.gain.setValueAtTime(0, t + 0.15);
+  depth.gain.linearRampToValueAtTime(o.vib ?? 10, t + 0.5);
+  vib.connect(depth);
+  for (const det of [-11, 0, 9]) {
+    const osc = oscNode(r, 'sawtooth', f);
+    osc.detune.value = det + (Math.random() - 0.5) * 3;
+    depth.connect(osc.detune);
+    osc.connect(lp);
+    osc.start(t);
+    osc.stop(stop);
+  }
+  vib.start(t);
+  vib.stop(stop);
+  if (o.bow) noise(r, out, t, { f: hz(Math.min(5000, f * 7)), q: 1.4, a: 0.004, d: 0.07, vol: lvl * o.bow });
+}
+
+/** Water drop: a sine that chirps up onto its pitch (a drop's bubble rings rising), a glassy overtone, a tick. */
+function dripVoice(r, out, t, m, dur, vel, o) {
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.18);
+  const d = o.decay ?? 0.45;
+  tone(r, out, t, { f: f * (o.rise ?? 0.6), f1: f, glide: o.chirp ?? 0.03, a: 0.001, d, vol: lvl });
+  tone(r, out, t, { type: 'triangle', f: f * 2, a: 0.001, d: d * 0.22, vol: lvl * 0.16 });
+  noise(r, out, t, { type: 'highpass', f: 6000, d: 0.004, vol: lvl * 0.25 });
+}
 
 /** Bass: saw + square through a resonant lowpass with a fast filter envelope; or a soft round bass. */
 function bassVoice(r, out, t, m, dur, vel, o) {
@@ -1038,10 +1131,15 @@ function bassVoice(r, out, t, m, dur, vel, o) {
   }
 }
 
+/** Pluck: one enveloped wave through a closing lowpass; o.spread (cents) doubles it detuned, o.crush quantises it. */
 function pluckVoice(r, out, t, m, dur, vel, o) {
   const d = o.decay ?? 0.25;
   const cut = o.cutoff ?? 3600;
-  tone(r, out, t, { type: o.wave ?? 'square', f: mtof(m + (o.oct ?? 0)), lp: cut, lp1: cut * 0.2, lpGlide: d * 0.6, lpQ: 2, a: 0.002, d, vol: vel * (o.level ?? 0.15) });
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.15);
+  for (const det of o.spread ? [-o.spread, o.spread] : [0]) {
+    tone(r, out, t, { type: o.wave ?? 'square', f, detune: det, crush: o.crush, lp: cut, lp1: cut * 0.2, lpGlide: d * 0.6, lpQ: 2, a: 0.002, d, vol: o.spread ? lvl * 0.7 : lvl });
+  }
 }
 
 function harpVoice(r, out, t, m, dur, vel, o) {
@@ -1091,6 +1189,7 @@ const VOWELS = {
   oh: [[460, 1], [820, 0.45], [2700, 0.08]],
   ah: [[760, 1], [1150, 0.55], [2800, 0.14]],
   ee: [[300, 1], [2200, 0.35], [3000, 0.14]],
+  mm: [[250, 1], [1050, 0.1], [2500, 0.03]], // a closed-mouth hum
 };
 
 /**
@@ -1186,14 +1285,15 @@ function swellVoice(r, out, t, notes, dur, vel, o) {
 const SYNTHS = {
   pad: padVoice, lead: leadVoice, bell: bellVoice, bass: bassVoice, arp: pluckVoice, harp: harpVoice,
   stab: stabVoice, box: boxVoice, choir: choirVoice, sub: subVoice, swell: swellVoice,
+  flute: fluteVoice, strings: stringsVoice, drip: dripVoice,
 };
 const CHORD_SYNTHS = new Set(['pad', 'stab', 'choir', 'swell']);
 
-function playNote(r, out, t, e, dur, vo) {
+function playNote(r, out, t, e, dur, v, vo) {
   const kind = vo.synth || e.b;
   const fn = SYNTHS[kind];
-  if (CHORD_SYNTHS.has(kind)) fn(r, out, t, [].concat(e.m), dur, e.v, vo);
-  else for (const m of [].concat(e.m)) fn(r, out, t, m, dur, e.v, vo, e.from);
+  if (CHORD_SYNTHS.has(kind)) fn(r, out, t, [].concat(e.m), dur, v, vo);
+  else for (const m of [].concat(e.m)) fn(r, out, t, m, dur, v, vo, e.from);
 }
 
 const TOM_PITCH = { h: 165, m: 125, l: 92, x: 125, X: 125, o: 125 };
@@ -1226,6 +1326,7 @@ function makeStrip(rt, name, base) {
 //   meter: '4/4' (default), '3/4', '6/8', '7/8'... A bar holds beats * 16 / unit sixteenth steps (4/4: 16,
 //   3/4 and 6/8: 12, 7/8: 14). bpm counts quarter notes, or dotted quarters in compound metres (6/8, 9/8, 12/8).
 //   delay: echo time in beats. once: a sting, played one time over the ducked current track.
+//   choirSfx: chords (note-name arrays) WARDEN's 'choir' sfx sings while this track plays (default: F minor).
 //   voices.<line>: synth options; voices.<line>.synth borrows another synth (a 'bell' line on the music box).
 // A part is { bars, chords, <instrument>: pattern | pattern[] (one per bar, cycled) }.
 // A numbered line ('lead2', 'bell2') is an extra voice of the base instrument with its own channel strip.
@@ -1237,6 +1338,9 @@ function makeStrip(rt, name, base) {
 //   arp / harp: digits index the chord voicing (4 notes: 4 = first note + 12 ...), or note names;
 //   stab, swell: x / X play the chord; choir: x / X sing the chord, or note names;
 //   drums (kick snare hat ohat crash tom): X accent, x normal, o ghost; tom also h / m / l pitch.
+//   Any note or drum token may end in '*N' (N = 2-9): a ratchet that retriggers it N times evenly inside its
+//   own step span ('x*2' a snare drag, 'D#5*4' a glitch stutter); earlier hits are softer, the last one keeps
+//   any '-' extensions.
 // Chord = 'BASS: voicing notes', or an array of chords splitting the bar evenly.
 
 const DRUMS = new Set(['kick', 'snare', 'hat', 'ohat', 'crash', 'tom']);
@@ -1261,6 +1365,8 @@ function parseChord(s, where) {
 }
 
 function makeEvent(inst, base, tok, chord, len, prev, where) {
+  const rat = /^(.+)\*([2-9])$/.exec(tok);
+  if (rat) return { ...makeEvent(inst, base, rat[1], chord, len, prev, where), rat: Number(rat[2]), span: len };
   if (DRUMS.has(base)) {
     const v = { X: 1, x: 0.72, o: 0.38, h: 0.85, m: 0.85, l: 0.85 }[tok];
     if (!v) throw new Error(`bad drum token "${tok}" ${where}`);
@@ -1397,6 +1503,18 @@ function advance(rt) {
   rt.next += rt.stepDur;
 }
 
+function playEvent(r, out, t, e, dur, v, vo) {
+  switch (e.b) {
+    case 'kick': kick(r, out, t, v, vo); break;
+    case 'snare': snare(r, out, t, v, vo); break;
+    case 'hat': hat(r, out, t, v, false, vo); break;
+    case 'ohat': hat(r, out, t, v, true, vo); break;
+    case 'crash': crash(r, out, t, v); break;
+    case 'tom': tom(r, out, t, v, TOM_PITCH[e.tok] * (vo.pitch ?? 1)); break;
+    default: playNote(r, out, t, e, dur, v, vo);
+  }
+}
+
 function playStep(rt, t) {
   const evs = rt.c.parts[partAt(rt)].steps[rt.step];
   for (let k = 0; k < evs.length; k++) {
@@ -1406,15 +1524,15 @@ function playStep(rt, t) {
     const out = rt.strips[name] || (rt.strips[name] = makeStrip(rt, name, e.b === 'ohat' ? 'hat' : e.b));
     const vo = rt.track.voices?.[e.i] || rt.track.voices?.[e.b] || {};
     const dur = e.len * rt.stepDur;
-    const r = rt.r;
-    switch (e.b) {
-      case 'kick': kick(r, out, t, e.v, vo); break;
-      case 'snare': snare(r, out, t, e.v, vo); break;
-      case 'hat': hat(r, out, t, e.v, false, vo); break;
-      case 'ohat': hat(r, out, t, e.v, true, vo); break;
-      case 'crash': crash(r, out, t, e.v); break;
-      case 'tom': tom(r, out, t, e.v, TOM_PITCH[e.tok] * (vo.pitch ?? 1)); break;
-      default: playNote(r, out, t, e, dur, vo);
+    if (!e.rat) {
+      playEvent(rt.r, out, t, e, dur, e.v, vo);
+      continue;
+    }
+    // ratchet: e.rat hits across the token's own span; the last one carries the rest of the note
+    const sub = (e.span * rt.stepDur) / e.rat;
+    for (let h = 0; h < e.rat; h++) {
+      const last = h === e.rat - 1;
+      playEvent(rt.r, out, t + h * sub, e, last ? dur - h * sub : sub * 0.8, last ? e.v : e.v * 0.62, vo);
     }
   }
 }
@@ -1535,6 +1653,51 @@ const G_FS = 'F#1: B2 D3 G3';
 const D_FS = 'F#1: A2 D3 F#3';
 const EM_FS = 'F#1: B2 E3 G3';
 const BM_FS = 'F#1: B2 D3 F#3';
+
+// The Arboretum, D Dorian 3/4. The lullaby's opening fits D Dorian at its own pitches (A C F E D E), so the
+// flute states it untransposed over Dm7 - Fmaj7 - G - Cadd9, then wanders down a sequence onto A.
+const ARB_A = {
+  chords: ['D2: D3 F3 A3 C4', 'F2: F3 A3 C4 E4', 'G1: D3 G3 B3 D4', 'C2: E3 G3 C4 D4',
+    'A1: E3 A3 C4 E4', 'G1: D3 G3 B3 D4', 'E2: D3 G3 B3 E4', ['A1: D3 E3 A3 D4', 'A1: C3 E3 A3 C4']],
+  tune: ['A4 - C5', 'F5 - E5', 'D5 E5 D5', 'C5 - -', 'E5 - - - C5 D5', 'B4 - - - G4 A4', 'G4 - - - A4 B4', 'A4 - - - - -'],
+};
+// Drips: chord tones two octaves up, never on the same steps twice in a row, so they fall like water.
+const DRIPS = ['0 . . 2 . . . 4 . 1 . .', '. . 3 . . 5 . . . . 2 .', '1 . . . 4 . 2 . . . . 5', '. 3 . . . . 0 . . 4 . .'];
+const DRIPS_HI = ['', '. . . . . . . . 6 . . .', '', '. . . . 7 . . . . . . .'];
+const RAIN = ['o . . o . o . . o . . o', '. o . . o . . o . o . .', 'o . o . . . o . . o . .', '. . o . o . . o . . o o'];
+
+// The Choir: every voicing of the Choir chord (A E B D F#, a pentatonic cluster over A) and its golden turns.
+const CHOIR_CHORD = 'A1: A2 E3 B3 D4 F#4';
+const CHOIR_GOLD = 'A1: A2 E3 C#4 E4 B4';
+const CHOIR_D = 'A1: A2 D3 F#3 B3 E4';
+const CHOIR_G = 'A1: G2 D3 B3 E4 F#4';
+
+// The Security Spire, C minor march. The alarm is WARDEN's theme upside down (+4 +5 -2 -2 +2 becomes
+// -4 -5 +2 +2 -2): from C6 it fits Cm, Ab and Fm, from G5 it fits Cm. The low strings saw a dotted ostinato.
+const ALARM_C = 'C6 . Ab5 . Eb5 . F5 . G5 . F5 . . . . .';
+const ALARM_C4 = 'C5 . Ab4 . Eb4 . F4 . G4 . F4 . . . . .';
+const ALARM_G = 'G5 . Eb5 . Bb4 . C5 . D5 . C5 . . . . .';
+const MARCH = 'R . R R R . O . R . R R R . F .';
+const SNARE_MARCH = 'X . . o x . o . X . . o x . o o';
+const SPIRE_A = ['C2: G3 C4 Eb4', 'C2: G3 C4 Eb4', 'Ab1: Ab3 C4 Eb4', 'Ab1: Ab3 C4 Eb4', 'F1: Ab3 C4 F4', 'F1: Ab3 C4 F4', 'G1: G3 B3 D4', 'G1: G3 B3 D4'];
+const SPIRE_B = {
+  chords: ['C2: G3 C4 Eb4', 'Eb2: G3 Bb3 Eb4', 'Ab1: Ab3 C4 Eb4', 'G1: G3 B3 D4', 'C2: G3 C4 Eb4', 'Bb1: F3 Bb3 D4', 'Ab1: Ab3 C4 Eb4', 'G1: G3 B3 D4'],
+  cello: ['G3 - - - C4 - - -', 'Bb3 - - - G3 - Eb3 -', 'C4 - - - Ab3 - C4 -', 'B3 - - - - - G3 -',
+    'Eb4 - - - D4 - C4 -', 'D4 - - - F4 - D4 -', 'Eb4 - - - C4 - Ab3 -', 'G3 - - - B3 - D4 -'],
+};
+
+// battle_2, E Phrygian: octave bass in sixteenths; every strain ends on the Phrygian cadence (F -> Em) or on
+// E major with its F above (the Phrygian dominant).
+const OCT16 = 'R O R O R O R O R O R O R O R O';
+
+// The Memory Vault, B Lydian 7/8 (2+2+3). The lullaby moves to B (D# F# B A# G# A#) and stutters; the
+// Lydian II (C# major over B) and the raised fourth (E#) keep it floating.
+const VAULT_A = ['B1: F#3 A#3 D#4 F#4', 'B1: G#3 C#4 E#4 G#4', 'B1: F#3 A#3 D#4 F#4', 'B1: G#3 C#4 E#4 G#4',
+  'G#1: G#3 B3 D#4 F#4', 'C#2: G#3 C#4 E#4 G#4', 'D#2: F#3 A#3 C#4 F#4', 'F#1: F#3 A#3 C#4 E#4'];
+const VAULT_ARP = ['0 2 1 3 2 4 3 5 4 6 5 3 4 2', '7 5 6 4 5 3 4 2 3 1 2 0 1 3'];
+const VAULT_LEAD = ['D#5 - - - E#5 - F#5', 'G#5 - - - E#5 - -', 'F#5 - - - D#5 - B4', 'C#5 - - - E#5 - G#5',
+  'B5 - - - A#5 - G#5', 'E#5 - - - G#5 - C#6', 'A#5 - - - F#5 - D#5', 'E#5 - - - - - -'];
+const GLITCH_HAT = ['x . x . x . x . x . x x*2 x .', 'x . x*3 . x . x . x . x . x*2 x*2'];
 
 export const TRACKS = {
   // D minor, i-VI-III-VII colour; celesta bell melody over drifting pads and a slow harp. Melancholy, wistful.
@@ -2012,6 +2175,7 @@ export const TRACKS = {
     gain: 1.12,
     delay: 1,
     motifs: ['lullaby'],
+    choirSfx: [['F3', 'A3', 'C4', 'F4'], ['Bb2', 'F3', 'Bb3', 'D4'], ['D3', 'F3', 'A3', 'D4'], ['C3', 'G3', 'C4', 'E4']],
     voices: {
       bell: { synth: 'box', oct: 12, level: 0.26, decay: 2.2 },
       harp: { synth: 'box', oct: 12, level: 0.085, decay: 1.3 },
@@ -2059,6 +2223,402 @@ export const TRACKS = {
       B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: '. . 1 . 2 .', bass: 'R - -', bell2: ['Ab2 - -', '', '', 'C3 - -', '', '', '', ''] },
       A2: { bars: 8, chords: WARDEN_A.chords, choir: WARDEN_A.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: firstOnly(8, 'F3 - -') },
       B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: ['Ab2 - -', '', '', 'C3 - -', '', '', '', ''] },
+    },
+  },
+
+  // The Arboretum, D Dorian 3/4, 84: overgrown, wistful, Sera's chapter. Water drips off the leaves (a rising
+  // 'plink' on the chord tones, echoing), the room hums, and a wooden flute remembers the opening of HALCYON's
+  // lullaby before it wanders off down a sequence. B is the hope (the Dorian B natural, a lift to A major); C is
+  // the grief: only drips, the hum, sprinkler rain and a glass chime falling E D C B A; A2 brings the flute back
+  // over a harp.
+  arboretum: {
+    key: 'D Dorian',
+    bpm: 84,
+    meter: '3/4',
+    gain: 0.96,
+    delay: 0.75,
+    motifs: ['lullaby'],
+    choirSfx: [['D3', 'F3', 'A3', 'D4'], ['G2', 'D3', 'G3', 'B3'], ['F3', 'A3', 'C4', 'F4'], ['A2', 'E3', 'A3', 'C4']],
+    voices: {
+      pad: { synth: 'choir', vowel: 'mm', attack: 1.8, release: 2.6, level: 0.3, vib: 5 },
+      lead: { synth: 'flute', level: 0.15 },
+      arp: { synth: 'drip', oct: 24, level: 0.26, decay: 0.5 },
+      arp2: { synth: 'drip', oct: 24, level: 0.18, decay: 0.7, rise: 0.5 },
+      harp: { decay: 1.6, level: 0.11 },
+      bell: { ratio: 3.5, index: 0.8, decay: 3.4, level: 0.16 },
+      bass: { soft: true, level: 0.2 },
+      hat: { f: 7500, d: 0.035 },
+    },
+    mix: { hat: 2 },
+    sends: {
+      pad: { wet: 0.5 }, lead: { wet: 0.42, echo: 0.16 }, arp: { wet: 0.45, echo: 0.55, pan: -0.3 },
+      arp2: { wet: 0.6, echo: 0.6, pan: 0.4 }, harp: { pan: -0.2 }, bell: { wet: 0.7, echo: 0.3, pan: 0.25 }, hat: { wet: 0.5, pan: 0.15 },
+    },
+    loop: ['A', 'B', 'C', 'A2'],
+    parts: {
+      A: { bars: 8, chords: ARB_A.chords, lead: ARB_A.tune, arp: DRIPS, bass: 'R - -' },
+      B: {
+        bars: 8,
+        chords: ['G1: D3 G3 B3 D4', 'A1: E3 A3 C4 E4', 'F2: F3 A3 C4 E4', 'C2: E3 G3 C4 D4',
+          'G1: D3 G3 B3 D4', 'A1: E3 A3 C4 E4', 'D2: D3 F3 A3 C4', ['A1: D3 E3 A3', 'A1: C#3 E3 A3']],
+        lead: ['B4 - - - D5 -', 'E5 - - - A5 -', 'F5 - - - E5 C5', 'D5 - - - - -', 'D5 - - - B4 D5', 'C5 - - - E5 A5', 'A5 - - - G5 F5', 'E5 - - - - -'],
+        harp: '0 . 2 . 1 .',
+        arp: DRIPS,
+        arp2: DRIPS_HI,
+        bass: 'R - -',
+        hat: RAIN,
+      },
+      C: {
+        bars: 8,
+        chords: ['D2: F3 A3 C4 E4', 'C2: E3 G3 C4 D4', 'G1: F3 G3 B3 D4', 'D2: F3 A3 C4 E4',
+          'F2: F3 A3 C4 E4', 'C2: E3 G3 C4 D4', 'E2: D3 G3 B3 E4', ['A1: D3 E3 A3 D4', 'A1: C3 E3 A3 C4']],
+        bell: ['', 'E5 - -', '', 'D5 - -', '', 'C5 - -', 'B4 - -', 'A4 - -'],
+        arp: [...DRIPS.slice(2), ...DRIPS.slice(0, 2)],
+        arp2: ['. . . . 5 . . . . . . .', '. . . . . . . . . . 7 .', '', '. . 6 . . . . . . . . .'],
+        bass: 'R - -',
+        hat: RAIN,
+      },
+      A2: { bars: 8, chords: ARB_A.chords, lead: ARB_A.tune, harp: '0 1 2 3 2 1', arp: DRIPS, arp2: DRIPS_HI, bass: lastDiff(8, 'R - F', 'R - -') },
+    },
+  },
+
+  // The Choir Chamber, A, 56, free: the cathedral of dreaming sleepers singing one chord (MOTIFS.choir). No
+  // pulse: voices swell in on their own breaths over a sub drone. A lets the chord settle and voices enter one by
+  // one; B blooms gold (A add9, the dream of Elysia) with a treble voice above; C thins to an open fifth and one
+  // child-like voice, then the chord is rebuilt note by note; D sings it whole and ebbs.
+  choir: {
+    key: 'A sus',
+    bpm: 56,
+    gain: 1,
+    delay: 1.5,
+    motifs: ['choir'],
+    choirSfx: [['A2', 'E3', 'B3', 'D4'], ['D3', 'F#3', 'B3', 'E4'], ['E3', 'A3', 'B3', 'F#4'], ['A2', 'D3', 'E3', 'B3']],
+    voices: {
+      pad: { synth: 'choir', vowel: 'oo', attack: 4, release: 5, level: 0.34, vib: 6 },
+      choir: { vowel: 'ah', attack: 2.4, release: 3.2, level: 0.15, vib: 8 },
+      choir2: { vowel: 'oh', attack: 2.8, release: 3.6, level: 0.17, vib: 7 },
+      choir3: { vowel: 'ee', attack: 1.8, release: 2.8, level: 0.08, vib: 10 },
+      bass: { synth: 'sub', level: 0.24, gate: 1, attack: 2.5, decay: 4, harm: 0.15 },
+      bell: { ratio: 3.5, index: 0.9, decay: 5, level: 0.06 },
+    },
+    sends: {
+      pad: { wet: 0.7 }, choir: { wet: 0.8, echo: 0.15, pan: 0.25 }, choir2: { wet: 0.75, echo: 0.1, pan: -0.25 },
+      choir3: { wet: 0.85, echo: 0.25, pan: 0.1 }, bell: { wet: 0.9, echo: 0.35, pan: -0.35 },
+    },
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      A: {
+        bars: 8,
+        chords: [CHOIR_CHORD],
+        choir2: ['', '. . E3 -', '- - - -', '- . . .', '. B3 - -', '- - - -', '- - . .', ''],
+        choir: ['', '', '', '. . . F#4', '- - - -', '- - . .', '. . D4 -', '- - - .'],
+        bell: ['', '. . . . . . . . . . . . . . E5 -', '', '', '. . . . . . B5 - . . . . . . . .', '', '', '. . . . . . . . . . F#5 - . . . .'],
+        bass: ['R - - -', '-'],
+      },
+      B: {
+        bars: 8,
+        chords: [CHOIR_CHORD, CHOIR_CHORD, CHOIR_GOLD, CHOIR_GOLD, CHOIR_D, CHOIR_D, CHOIR_CHORD, CHOIR_CHORD],
+        choir: ['. . F#4 -', '- - E4 -', '- . A4 -', '- - B4 -', '- - - -', '- . A4 -', '- - F#4 -', '- - - .'],
+        choir2: ['E3 - - -', '-', '-', '- - . .', 'D3 - - -', '- - - -', 'E3 - - -', '- - . .'],
+        choir3: ['', '', '. . . E5', '- - C#5 -', '- - . .', '', '', ''],
+        bell: ['', '', '. . . . . . . . C#6 - . . . . . .', '', '', '. . . . . . . . . . . . A5 - . .', '', ''],
+        bass: ['R - - -', '-'],
+      },
+      C: {
+        bars: 8,
+        chords: ['A1: A2 E3', 'A1: A2 E3', 'A1: A2 E3', 'A1: A2 E3', 'A1: A2 E3 B3', 'A1: A2 E3 B3 D4', CHOIR_CHORD, CHOIR_CHORD],
+        choir3: ['', '. . B4 -', '- - A4 -', '- - F#4 -', '- - - -', '- . E4 -', '- - - -', '- - . .'],
+        choir2: ['', '', '', '', '', '', '. . D4 -', '- - - .'],
+        bell: ['. . . . . . . . . . B4 - . . . . ', '', '', '', '. . . . E5 - . . . . . . . . . .', '', '', ''],
+        bass: ['R - - -', '-'],
+      },
+      D: {
+        bars: 8,
+        chords: [CHOIR_CHORD, CHOIR_CHORD, CHOIR_CHORD, CHOIR_CHORD, CHOIR_G, CHOIR_G, CHOIR_CHORD, CHOIR_CHORD],
+        choir: ['. . . .', 'F#4 - - -', '- - - -', '. . E4 -', '- - - -', '. . D4 -', 'E4 - - -', '- - . .'],
+        choir2: ['E3 - - -', '-', '-', '- - . .', 'D3 - - -', '- - - -', 'E3 - - -', '- - . .'],
+        choir3: ['', '', '. . . B4', '- - - -', '- - . .', '', '', ''],
+        bell: ['. . . . . . . . . . . . F#5 - . .', '', '', '. . . . . . . . D5 - . . . . . .', '', '', '. . . . . . E5 - . . . . . . . .', ''],
+        bass: ['R - - -', '-'],
+      },
+    },
+  },
+
+  // The Security Spire, C minor 4/4 march at 112: militarised, tense, cold. Low strings saw a dotted spiccato
+  // ostinato over a field drum; the alarm figure (MOTIFS.warden inverted) pierces it on a nasal square tone. B
+  // gives the cellos a stern march tune; in C the march sinks to a snare whisper and WARDEN's calm theme loops
+  // on a soft choir like the propaganda screens; D is the whole regiment with the alarm in two registers.
+  spire: {
+    key: 'C minor',
+    bpm: 112,
+    gain: 1,
+    delay: 0.5,
+    motifs: ['warden:inverted', 'warden'],
+    choirSfx: [['C3', 'G3', 'C4', 'Eb4'], ['F3', 'Ab3', 'C4', 'F4'], ['Ab2', 'Eb3', 'Ab3', 'C4'], ['C3', 'G3', 'C4', 'G4']],
+    voices: {
+      bass: { synth: 'strings', level: 0.19, attack: 0.012, release: 0.07, gate: 0.55, cutoff: 1100, bow: 0.5, vib: 0 },
+      bass2: { synth: 'strings', level: 0.15, attack: 0.09, release: 0.35, cutoff: 1400, vib: 12, bow: 0.25 },
+      pad: { synth: 'strings', oct: 12, attack: 0.9, release: 1.4, level: 0.045, cutoff: 2400, vib: 9 },
+      lead: { layers: [['square', 0, 1], ['square', 7, 0.6]], cutoff: 3600, base: 2600, hp: 700, level: 0.07, attack: 0.004, release: 0.05, vib: 0 },
+      choir: { vowel: 'oo', attack: 0.5, release: 1.6, level: 0.22 },
+      snare: { f: 2900, tone: 250, d: 0.15 },
+      kick: { f0: 105, f1: 42, sweep: 0.14, d: 0.55, vol: 0.85, click: 0.08 },
+      tom: { pitch: 0.55 },
+    },
+    mix: { tom: 1.1, crash: 0.7 },
+    sends: {
+      bass: { wet: 0.12 }, bass2: { wet: 0.3, pan: -0.15 }, pad: { wet: 0.5 }, lead: { wet: 0.35, echo: 0.32, pan: 0.2 },
+      choir: { wet: 0.7, echo: 0.15 }, snare: { wet: 0.22 }, tom: { wet: 0.3 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      // a buzz roll swells over a timpani pulse, the march falls in under the first alarm
+      I: {
+        bars: 2,
+        chords: ['C2: G3 C4 Eb4'],
+        snare: ['o*2 o*2 o*2 o*2 o*2 o*2 o*2 o*2 x*2 x*2 x*2 x*2 x*2 x*2 X*2 X', SNARE_MARCH],
+        tom: ['l . . . . . . . l . . . l . l l', ''],
+        kick: ['X . . . . . . . . . . . . . . .', 'X . . . . . . . X . . . . . . .'],
+        bass: ['', MARCH],
+        lead: ['', ALARM_C],
+        crash: ['', 'X'],
+      },
+      A: {
+        bars: 8,
+        chords: SPIRE_A,
+        bass: MARCH,
+        lead: [ALARM_C, '', ALARM_C, '', ALARM_C4, '', 'G5 - - - - - - - . . . . . . . .', ''],
+        snare: lastDiff(8, SNARE_MARCH, 'X . . o x . o . x*2 . x*2 . X x X X'),
+        kick: 'X . . . . . . . X . . . . . . .',
+        tom: lastDiff(8, '', '. . . . . . . . . . . . l . l l'),
+        crash: firstOnly(8, 'X'),
+      },
+      B: {
+        bars: 8,
+        chords: SPIRE_B.chords,
+        bass: MARCH,
+        bass2: SPIRE_B.cello,
+        lead: [ALARM_G, '', '', '', ALARM_G, '', '', ''],
+        snare: lastDiff(8, SNARE_MARCH, 'X . . o x . o . X . x*2 . X X X X'),
+        kick: 'X . . . . . . . X . . . . . . .',
+        crash: ['X', '', '', '', 'X', '', '', ''],
+      },
+      C: {
+        bars: 8,
+        chords: ['C2: G3 C4 Eb4', 'C2: G3 C4 Eb4', 'F1: F3 Ab3 C4', 'G1: G3 B3 D4', 'F1: F3 Ab3 C4', 'Bb1: F3 Bb3 D4', 'Ab1: Ab3 C4 Eb4', 'C2: G3 C4 Eb4'],
+        choir: ['Eb4 - - G4', 'C5 - - Bb4', 'Ab4 Bb4 Ab4 -', 'G4 - - -', 'F4 - - Ab4', 'D5 - - C5', 'Bb4 Ab4 Bb4 -', 'C5 - - -'],
+        bass2: ['C3 - - -', '- - - -', 'F2 - - -', 'G2 - - -', 'F2 - - -', 'Bb2 - - -', 'Ab2 - - -', 'C3 - - -'],
+        lead: ['', '', '', '', '', '', '', ALARM_G],
+        snare: 'o . o o o . o . o . o o o . o .',
+        tom: ['l . . . . . . . . . . . . . . .', '', '', 'l . . . . . . . l . . . . . . .'],
+      },
+      D: {
+        bars: 8,
+        chords: SPIRE_B.chords,
+        bass: MARCH,
+        bass2: SPIRE_B.cello,
+        lead: [ALARM_G, '', ALARM_C, 'G5 - - - - - - - . . . . . . . .', ALARM_G, ALARM_C4, ALARM_C, 'B5 . G5 . B5 . G5 . D6 - - - - - . .'],
+        snare: lastDiff(8, 'X . x*2 o x . o . X . . o x x*2 o o', 'x*2 . x*2 . x*2 . x*2 . X x X x X X X X'),
+        kick: 'X . . . . . . . X . . x . . . .',
+        tom: lastDiff(8, '', '. . . . . . . . l . l . l l l l'),
+        crash: ['X', '', '', '', 'X', '', '', ''],
+      },
+    },
+  },
+
+  // battle_2, E Phrygian 148 (battles from ch3 on): as driving as 'battle' but darker and more mechanical.
+  // Octave bass in sixteenths under a driven, distorted saw lead; four-on-the-floor kick; the flat second (F)
+  // colours every strain. A states the theme, B harmonises an Andalusian descent (Am G F E), C is a half-time
+  // breakdown with rising arpeggio cells and a snare build, D is a run-heavy solo that cadences F -> Em back to A.
+  battle_2: {
+    key: 'E Phrygian',
+    bpm: 148,
+    gain: 0.66,
+    delay: 0.75,
+    voices: {
+      lead: { cutoff: 3200, level: 0.12, vib: 16, drive: 1.6, q: 2 },
+      lead2: { cutoff: 2400, level: 0.075, vib: 12, drive: 1 },
+      bass: { cutoff: 1400, level: 0.3, q: 4, gate: 0.7 },
+      stab: { level: 0.22, oct: 12, cutoff: 3400 },
+      pad: { cutoff: 1100, attack: 0.25, release: 0.6, level: 0.08 },
+      arp: { wave: 'pulse', decay: 0.09, level: 0.07, oct: 24, cutoff: 3800 },
+      swell: { level: 0.22, tonal: 0.35, from: 300, to: 7000 },
+      kick: { vol: 1, punch: 0.4, d: 0.3 },
+      snare: { tone: 190, d: 0.22, f: 2000 },
+    },
+    mix: { hat: 0.6, crash: 0.75 },
+    sends: { lead: { wet: 0.2, echo: 0.14 }, lead2: { pan: 0.3, wet: 0.25 }, arp: { pan: -0.3, echo: 0.25 } },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      // the octave bass starts alone under a riser; stabs and a lead pickup land on the theme
+      I: {
+        bars: 2,
+        chords: ['E2: E3 G3 B3', 'F2: F3 A3 C4'],
+        bass: OCT16,
+        swell: ['x - - - - - - - - - - - - - - -', ''],
+        kick: ['X . . . X . . . X . . . X . . .', 'X . . . X . . . X . . . X X X X'],
+        hat: ['. . x . . . x . . . x . . . x .', ''],
+        stab: ['', 'X . . . . . . . X . . . X . . .'],
+        snare: ['', '. . . . . . . . x x x x X X X X'],
+        lead: ['', '. . . . . . . . . . . . B4 C5 D5 F5'],
+      },
+      A: {
+        bars: 8,
+        chords: ['E2: E3 G3 B3 E4', 'F2: F3 A3 C4 F4', 'G2: G3 B3 D4 G4', 'F2: F3 A3 C4 F4',
+          'E2: E3 G3 B3 E4', 'F2: F3 A3 C4 F4', 'D2: D3 F3 A3 D4', 'E2: E3 G#3 B3 E4'],
+        lead: ['E5 - E5 - F5 - E5 - D5 - E5 - B4 - - -', 'C5 - D5 - E5 - F5 - A5 - - - G5 - F5 -',
+          'G5 - - - D5 - G5 - B5 - - - A5 - G5 -', 'A5 - - - - - - - F5 - G5 - A5 - C6 -',
+          'B5 - - - G5 - E5 - B5 - - - C6 - B5 -', 'A5 - - - F5 - C5 - A5 - - - G5 - F5 -',
+          'F5 - - - E5 - D5 - A4 - D5 - F5 - A5 -', 'G#5 - - - - - - - F5 - - - E5 - - -'],
+        bass: OCT16,
+        stab: 'X . . . . . . . . . X . . . . .',
+        kick: 'X . . . X . . x X . . . X . . .',
+        snare: lastDiff(8, '. . . . X . . . . . . . X . . .', '. . . . X . . . X . X x X X X X'),
+        ohat: '. . x . . . x . . . x . . . x .',
+        crash: firstOnly(8, 'X'),
+      },
+      B: {
+        bars: 8,
+        chords: ['A1: E3 A3 C4 E4', 'G1: D3 G3 B3 D4', 'F1: F3 A3 C4 F4', 'E2: E3 G#3 B3 E4',
+          'A1: E3 A3 C4 E4', 'G1: D3 G3 B3 D4', 'F1: F3 A3 C4 F4', 'E2: E3 G#3 B3 E4'],
+        lead: ['A5 - - - - - - - E5 - - - A5 - C6 -', 'B5 - - - - - - - D5 - - - G5 - B5 -',
+          'A5 - - - - - - - C6 - - - A5 - F5 -', 'G#5 - - - - - - - - - - - E5 - F5 -',
+          'E6 - - - D6 - C6 - B5 - - - A5 - - -', 'D6 - - - C6 - B5 - A5 - - - G5 - - -',
+          'C6 - - - A5 - F5 - C6 - - - D6 - - -', 'E6 - - - - - - - - - - - - - - -'],
+        lead2: ['E5 - - - - - - - C5 - - - E5 - A5 -', 'D5 - - - - - - - B4 - - - D5 - G5 -',
+          'F5 - - - - - - - A5 - - - F5 - C5 -', 'E5 - - - - - - - - - - - B4 - D5 -',
+          'C6 - - - B5 - A5 - G5 - - - E5 - - -', 'B5 - - - A5 - G5 - D5 - - - B4 - - -',
+          'A5 - - - F5 - C5 - A5 - - - - - - -', 'B5 - - - - - - - - - - - - - - -'],
+        bass: 'R - O - R - O - R - O - R - O -',
+        stab: 'X . . . . . . . . . . . . . . .',
+        kick: 'X . . . X . . . X . . . X . . .',
+        snare: lastDiff(8, '. . . . X . . . . . . . X . . .', '. . . . X . . . X x X x X X X X'),
+        hat: 'x o x o X o x o x o x o X o x o',
+        crash: ['X', '', '', '', 'X', '', '', ''],
+      },
+      // half time: the bass stretches out, arpeggio cells climb, the lead holds long notes and a snare build
+      // and a riser hand over to the solo
+      C: {
+        bars: 8,
+        chords: ['E2: E3 G3 B3', 'C2: E3 G3 C4', 'A1: E3 A3 C4', 'B1: D3 F3 B3', 'E2: E3 G3 B3', 'C2: E3 G3 C4', 'D2: D3 F3 A3', 'F2: F3 A3 C4'],
+        arp: '0 1 2 0 1 2 3 1 2 3 4 2 3 4 5 3',
+        lead: ['', '', '', '', 'E5 - - - - - - - - - - - - - - -', 'E5 - - - - - - - G5 - - - - - - -',
+          'F5 - - - - - - - A5 - - - - - - -', 'A5 - - - - - - - C6 - - - - - - -'],
+        bass: 'R - - - - - O - R - - - - - O -',
+        kick: lastDiff(8, 'X . . . . . . . . . X . . . . .', 'X . . . X . . . X . X . X X X X'),
+        snare: [...rep(6, '. . . . . . . . X . . . . . . .'), 'x . x . x . x . x x x x x x x x', 'X x X x X X X X X*2 X*2 X*2 X*2 X X X X'],
+        hat: '. . . . . . . . x . . . . . . .',
+        swell: [...rep(7, ''), 'x - - - - - - - - - - - - - - -'],
+        tom: lastDiff(8, '', '. . . . . . . . h h m m l l l l'),
+        crash: firstOnly(8, 'X'),
+      },
+      D: {
+        bars: 8,
+        chords: ['E2: E3 G3 B3 E4', 'F2: F3 A3 C4 F4', 'E2: E3 G3 B3 E4', 'F2: F3 A3 C4 F4',
+          'C2: E3 G3 C4 E4', 'D2: D3 F3 A3 D4', 'E2: E3 G3 B3 E4', 'F2: F3 A3 C4 F4'],
+        lead: ['E5 F5 G5 B5 E6 - B5 G5 F5 E5 F5 G5 B5 - - -', 'C6 - A5 F5 C5 - F5 A5 C6 - D6 - C6 - A5 -',
+          'B5 - G5 E5 B4 - E5 G5 B5 - C6 - B5 - G5 -', 'A5 - - - - - - - C6 - - - F6 - - -',
+          'E6 - - - D6 - C6 - G5 - - - C6 - E6 -', 'F6 - - - E6 - D6 - A5 - - - D6 - F6 -',
+          'E6 - - - - - B5 - G5 - - - E5 - - -', 'F5 - - - - - - - A5 - G5 - F5 - - -'],
+        lead2: ['', '', '', '', 'E5 - - - D5 - C5 - G4 - - - C5 - E5 -', 'F5 - - - E5 - D5 - A4 - - - D5 - F5 -',
+          'E5 - - - - - B4 - G4 - - - E4 - - -', 'C5 - - - - - - - F5 - E5 - D5 - - -'],
+        arp: '0 1 2 0 1 2 3 1 2 3 4 2 3 4 5 3',
+        bass: OCT16,
+        stab: '. . . . . . . . . . X . . . . .',
+        kick: 'X . . . X . . x X . . . X . x .',
+        snare: lastDiff(8, '. . o . X . . o . . o . X . o .', 'X . . . X . . . X x X x X X X X'),
+        hat: 'x x X x x x X x x x X x x x X x',
+        crash: ['X', '', '', '', 'X', '', '', ''],
+      },
+    },
+  },
+
+  // The Memory Vault, B Lydian 7/8 (2+2+3) at 120: cyberspace inside HALCYON's mind, crystalline and strange.
+  // Detuned, bit-crushed arpeggios run in sevens over a sub pulse and stuttering hats. B plays the lullaby on its
+  // own music box, but the memory is corrupted: notes stutter (ratchets) and drop out. C is a crystal cave where
+  // the box plays the tune's notes backwards, one per bar; A2 adds a square-wave lead on the raised fourth; D is
+  // the full stream with the lullaby again, glitchier, until the last bar freezes into stutters.
+  vault: {
+    key: 'B Lydian',
+    bpm: 120,
+    meter: '7/8',
+    gain: 1.45,
+    delay: 0.75,
+    motifs: ['lullaby'],
+    choirSfx: [['B2', 'F#3', 'B3', 'D#4'], ['C#3', 'G#3', 'C#4', 'E#4'], ['G#2', 'D#3', 'G#3', 'B3'], ['F#3', 'A#3', 'C#4', 'F#4']],
+    voices: {
+      pad: { cutoff: 1500, attack: 1.2, release: 1.8, level: 0.1, air: 0.05, drift: 0.6 },
+      arp: { wave: 'triangle', decay: 0.18, level: 0.18, oct: 12, cutoff: 5200, spread: 14, crush: 5 },
+      arp2: { wave: 'sawtooth', decay: 0.07, level: 0.09, oct: 24, cutoff: 7000, spread: 22, crush: 3 },
+      bell: { synth: 'box', oct: 12, level: 0.2, decay: 2, droop: 8, beat: 6 },
+      bell2: { ratio: 3.5, index: 1.4, decay: 2.8, level: 0.08 },
+      lead: { layers: [['square', 0, 1], ['square', -16, 0.7], ['triangle', 1200, 0.25]], cutoff: 2800, level: 0.075, vib: 8, attack: 0.01, release: 0.12 },
+      bass: { synth: 'sub', level: 0.42, gate: 0.4, decay: 0.5, harm: 0.4 },
+      swell: { level: 0.2, tonal: 0.3, from: 400, to: 9000 },
+      kick: { vol: 0.7, punch: 0.25, d: 0.25 },
+      hat: { f: 9000, d: 0.025 },
+    },
+    mix: { hat: 1.2, kick: 0.8 },
+    sends: {
+      arp: { wet: 0.3, echo: 0.35, pan: -0.3 }, arp2: { wet: 0.4, echo: 0.5, pan: 0.4 }, bell: { wet: 0.55, echo: 0.3 },
+      bell2: { wet: 0.7, echo: 0.45, pan: -0.2 }, lead: { wet: 0.3, echo: 0.25, pan: 0.1 }, hat: { pan: 0.2 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'A2', 'D'],
+    parts: {
+      // boot: crushed blips stutter in over a riser
+      I: { bars: 1, chords: [VAULT_A[0]], arp2: '7*4 . . . 5*3 . . . 4*2 . 2*3 . 0 .', swell: 'x - - - - - - - - - - - - -', bass: '. . . . . . . . R . . . . .' },
+      A: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: VAULT_ARP,
+        arp2: ['', '. . . . . . . . . . 9*3 . . .', '', '. . . . 8*2 . . . . . . . 6*4 .'],
+        bass: 'R! . . . R . . . R . . . . .',
+        kick: 'X . x . X . .',
+        hat: GLITCH_HAT,
+      },
+      B: {
+        bars: 8,
+        chords: ['B1: F#3 B3 D#4', 'B1: F#3 A#3 D#4', 'C#2: G#3 C#4 E#4', 'F#1: F#3 A#3 C#4', 'G#1: G#3 B3 D#4', 'C#2: G#3 C#4 E#4', 'F#1: F#3 A#3 C#4', 'B1: F#3 B3 D#4'],
+        bell: ['D#5*3 - - - F#5 - -', 'B5 - - - A#5*2 - -', 'G#5 - A#5 - G#5*4 - -', 'F#5 - - - - . .',
+          'E#5 - - - G#5 - -', 'C#6 - - - B5*3 - -', 'A#5 - G#5 - A#5 - -', 'B5 - - - . . B5*4'],
+        arp2: ['. . . . . . . . . . 7*2 . . .', '', '. . . . 9*3 . . . . . . . . .', ''],
+        bass: 'R . . . R . . . R . . . . .',
+        kick: 'X . . . x . .',
+        hat: 'x . . . x . . . x . . . x*2 .',
+      },
+      C: {
+        bars: 8,
+        chords: ['B1: F#3 B3 D#4 E#4', 'B1: F#3 B3 D#4 E#4', 'C#2: G#3 C#4 E#4', 'C#2: G#3 C#4 E#4', 'G#1: G#3 B3 D#4', 'G#1: G#3 B3 D#4', 'F#1: F#3 A#3 C#4 E#4', 'F#1: F#3 A#3 C#4 E#4'],
+        bell: ['A#5 - - - - - -', 'G#5 - - - - - -', 'A#5 - - - - - -', 'B5 - - - - - -', 'F#5 - - - - - -', 'D#5 - - - - - -', '', '. . . . E#5*3 - -'],
+        bell2: ['. . . . . . . . . . D#6 . . .', '. . . . E#6 . . . . . . . . .', '. . . . . . . . G#6 . . . . .', '. . C#6 . . . . . . . . . . .',
+          '. . . . . . . . . . B5 . . .', '. . . . D#6 . . . . . . . . .', '. . . . . . . . A#5 . . . . .', ''],
+        arp2: ['', '', '. . . . . . . . . . 9*2 . . .', '', '', '. . 5*3 . . . . . . . . . . .', '', ''],
+        bass: 'R - - . . . .',
+        swell: [...rep(7, ''), 'x - - - - - -'],
+      },
+      A2: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: VAULT_ARP,
+        lead: VAULT_LEAD,
+        bass: 'R! . . . R . . . R . . . . .',
+        kick: 'X . x . X . .',
+        hat: GLITCH_HAT,
+      },
+      D: {
+        bars: 8,
+        chords: VAULT_A,
+        arp: lastDiff(8, VAULT_ARP[0], '7*3 . 5*2 . 4*4 . 2*3 . . . 0*4 . . .'),
+        arp2: ['. . . . . . . . . . 9*3 . . .', '. . . . 8*2 . . . . . . . 6*4 .'],
+        bell: ['D#5 - - - F#5 - -', 'B5*3 - - - A#5 - -', 'G#5*2 - A#5 - G#5 . .', 'F#5*4 . . . . . .', '', '', '', ''],
+        lead: ['', '', '', '', ...VAULT_LEAD.slice(4)],
+        bass: lastDiff(8, 'R! . . . R . . . R . R . . .', 'R*4 . . . . . . . . . . . . .'),
+        kick: lastDiff(8, 'X . x . X . x', 'X*3 . . . . . .'),
+        hat: lastDiff(8, GLITCH_HAT[1], 'x*4 x*4 x*3 x*3 x*2 x*2 x . . . . . . .'),
+      },
     },
   },
 
@@ -2114,9 +2674,12 @@ const CHORD_MOTIFS = new Set(['choir']);
  * Where a motif sounds in a compiled track (transposition allowed): [{ line, part, bar }] at its first note.
  * A melodic motif must be consecutive pitches of one line in play order (intro, then the loop); rests and
  * repeated notes in between are allowed. The chord motif matches any chord holding its pitch classes.
+ * '<name>:inverted' looks for the melodic motif upside down (every interval mirrored), as in the spire's alarm.
  */
 export function findMotif(c, motif) {
-  const notes = MOTIFS[motif].map(noteMidi);
+  const [name, form] = motif.split(':');
+  if (!MOTIFS[name] || (form && (form !== 'inverted' || CHORD_MOTIFS.has(name)))) throw new Error(`unknown motif "${motif}"`);
+  const notes = MOTIFS[name].map(noteMidi);
   const hits = [];
   const lines = {};
   for (const k of [...c.intro, ...c.loop]) {
@@ -2125,7 +2688,7 @@ export function findMotif(c, motif) {
       const bar = Math.floor(s / part.barSteps) + 1;
       for (const e of evs) {
         if (e.m == null) continue;
-        if (CHORD_MOTIFS.has(motif)) {
+        if (CHORD_MOTIFS.has(name)) {
           if (Array.isArray(e.m) && hasPitchClasses(e.m, notes)) hits.push({ line: e.i, part: k, bar });
         } else if (!Array.isArray(e.m)) {
           const seq = lines[e.i] || (lines[e.i] = []);
@@ -2134,7 +2697,7 @@ export function findMotif(c, motif) {
       }
     });
   }
-  const want = intervals(notes.filter((m, i) => i === 0 || m !== notes[i - 1]));
+  const want = intervals(notes.filter((m, i) => i === 0 || m !== notes[i - 1])).map((d) => (form ? -d : d));
   for (const [line, seq] of Object.entries(lines)) {
     const got = intervals(seq.map((n) => n.m));
     for (let i = 0; i + want.length <= got.length; i++) {
@@ -2297,10 +2860,16 @@ export const audio = {
     }
   },
 
-  /** Play a sound effect. opts: { volume (0-2, default 1), pitch (multiplier; for 'boost' an integer 1-3 = boost level), pan (-1..1) }. */
+  /**
+   * Play a sound effect. opts: { volume (0-2, default 1), pitch (multiplier; for 'boost' an integer 1-3 = boost
+   * level), pan (-1..1), chords ('choir' only: note-name chords to sing; default the wanted track's choirSfx) }.
+   */
   sfx(name, opts = {}) {
     if (!S.rig || S.muted || !SFX[name] || pageHidden() || !clockLive()) return;
-    try { playSfx(S.rig, name, opts || {}); } catch { /* a sound must never break gameplay */ }
+    let o = opts || {};
+    // WARDEN's voice follows the music: the wanted track's choirSfx chords, if it has any
+    if (name === 'choir' && !o.chords && S.want && TRACKS[S.want]?.choirSfx) o = { ...o, chords: TRACKS[S.want].choirSfx };
+    try { playSfx(S.rig, name, o); } catch { /* a sound must never break gameplay */ }
   },
 
   /**

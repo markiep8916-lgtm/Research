@@ -1041,3 +1041,20 @@ test('policy: knows only revealed weaknesses and learns the rest by trying', () 
   }
   assert.equal(b.result, 'victory');
 });
+
+test('grantUltimate raises a member\'s EP to the ultimate\'s cost (never lowers it)', () => {
+  const m = battle('dev_ultimate');
+  const e = m.get('e0');
+  m.begin();
+  toTurn(m, 'kade');
+  const kade = m.get('kade'), nyx = m.get('nyx');
+  kade.ep = 3;
+  nyx.ep = nyx.maxEp;
+  e.hp = Math.floor(e.maxHp * 0.5) + 2;
+  const grant = m.act({ kind: 'attack', weapon: 'blade', targetId: 'e0' });
+  const cost = SKILLS.oathblade.cost;
+  assert.equal(kade.ep, Math.min(kade.maxEp, cost));
+  assert.deepEqual(ofType(grant, 'ep').find((x) => x.targetId === 'kade'), { type: 'ep', targetId: 'kade', amount: kade.ep - 3, epAfter: kade.ep });
+  assert.equal(nyx.ep, nyx.maxEp);
+  assert.ok(!ofType(grant, 'ep').some((x) => x.targetId === 'nyx'));
+});

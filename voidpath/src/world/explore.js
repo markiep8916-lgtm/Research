@@ -308,11 +308,17 @@ export class ExploreState {
     this._arrived({ kind, scene, load: !scene && LOAD_KINDS.has(kind) });
   }
 
-  /** The arrival rules (3.7): staged maps run no triggers or encounters; `load` triggers when asked. */
+  /**
+   * The arrival rules (3.7): staged maps run no triggers or encounters; `load` triggers when asked.
+   * Arrivals that run `load` triggers (exits, travel, loads, a Retry respawn) also re-seed field boss
+   * arming from the new position: a same-map respawn only teleports, so without this a boss
+   * confronted before the defeat stayed disarmed until the leader walked triggerRadius + 2.5 away.
+   */
   _arrived({ load = false, scene = false }) {
     if (!this.world) return;
     this._staged = !!(scene || this.world.map.scene || this.world.map.transit);
     this._walked = 0;
+    if (load) this._armed.clear();
     this._seedTriggers();
     if (this._staged) return;
     if (load) for (const t of this.world.map.triggers) if (t.on === 'load') this._due(t);

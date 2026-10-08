@@ -10,8 +10,9 @@
 //   map       validateMap problems of every map, merged with its extends (walls, pairs, ids per map,
 //             spawns on walls without `requires`, conditions in the map, ...)
 //   extends   an `extends` entry for a map nobody registered
-//   ref       exits, exit/lift interactables, destinations, jumps, CHAPTER_START and newJourney
-//             pointing at unknown maps or spawns (a { x, z } spawn must stand on a walkable cell)
+//   ref       exits, exit/lift interactables, destinations, jumps, CHAPTER_START, newJourney and
+//             scenes' contact-sheet staging (`jump`, `at: 'map:spawn'`) pointing at unknown jumps,
+//             maps or spawns (a { x, z } spawn must stand on a walkable cell)
 //   cond      a condition that does not compile (destinations, shops, party talks, companions, map.talk)
 //   script    a referenced script id that does not exist (talk, interactables, triggers, bosses,
 //             scenes, party talks, companions, newJourney, destinations' before)
@@ -28,7 +29,9 @@
 //             chest/prop whose `when` has no story: or chapter term (poc maps and dev are exempt)
 //   inline    inline (legacy) lines on a map without poc: true, outside dev
 //   id        extends ids without the adding location's code, script ids without '<loc>.',
-//             encounter and zone ids without the location prefix (2.7)
+//             encounter and zone ids without the location prefix (2.7), map NPCs whose id is a
+//             party member id (a world NPC wins actor lookups in scripts, so a hidden map NPC
+//             'orion' would take Orion's place in cs.move / cs.face once he is in the party)
 
 import { CHAPTER_IDS, CHAPTER_START, CHAPTER_FLAGS, chapterIndex } from '../src/content/chapters.js';
 import { validateMap, cellSpec, isWalkableSpec, inlineLines, normalizeTalk } from '../src/world/mapdef.js';
@@ -140,7 +143,10 @@ export function lintContent(reg, { written = [], reads = [] } = {}) {
     const devLike = loc === 'dev';
     if (!map.poc && !devLike) for (const id of inlineLines(map)) err('inline', loc, `${mapId}: ${id} holds inline lines (maps without poc: true use scripts)`);
 
-    for (const n of map.npcs) checkTalk(n.talk, loc, `${mapId} npc "${n.id}"`, true);
+    for (const n of map.npcs) {
+      checkTalk(n.talk, loc, `${mapId} npc "${n.id}"`, true);
+      if (PARTY.includes(n.id)) err('id', loc, `${mapId} npc "${n.id}" uses a party member id: give the map NPC its own id (e.g. "${n.id}_npc")`);
+    }
     for (const it of map.interactables) {
       checkTalk(it.talk, loc, `${mapId} interactable "${it.id}"`, true);
       checkScript(it.script, loc, `${mapId} interactable "${it.id}"`);
@@ -269,6 +275,12 @@ export function lintContent(reg, { written = [], reads = [] } = {}) {
   for (const sc of REG.scenes) {
     if (!scriptExists(sc.id)) err('script', sc.loc, `scene "${sc.id}" has no script`);
     if (sc.chapter && chapterIndex(sc.chapter) < 0) err('ref', sc.loc, `scene "${sc.id}": unknown chapter "${sc.chapter}"`);
+    // contact-sheet staging: jump = a chapter or a jumps id, at = 'map:spawn'
+    if (sc.jump && chapterIndex(sc.jump) < 0 && !(REG.jumps && REG.jumps[sc.jump])) err('ref', sc.loc, `scene "${sc.id}": unknown jump "${sc.jump}"`);
+    if (sc.at) {
+      const [m, sp] = typeof sc.at === 'string' ? sc.at.split(':') : [sc.at.map, sc.at.spawn];
+      checkTarget(m, sp, sc.loc, `scene "${sc.id}" at`);
+    }
   }
   for (const [id, s] of entries(REG.scripts)) {
     const loc = ownerOf('scripts', id);

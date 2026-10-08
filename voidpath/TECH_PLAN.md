@@ -3058,3 +3058,38 @@ full API; read it before calling into that file.
 - Proposed cross-owner ids are in WRITING.md: trigger ids, `extends` ids and local flags in section 5
   (scene inventory), Driftmarket NPC ids and looks in section 7, objective ids in section 9; use them
   as written so references line up.
+
+### C-alpha cross-file fixes (after the C-alpha sub-wave)
+
+Applied from the requests in `docs/gates/C-alpha-reports.md`; these extend the contracts above.
+
+- Actor ids in scripts: an id names a world NPC first (map NPC, field boss, `cs.spawn` actor) and a
+  party member only when no world NPC holds it. A script may `cs.spawn('orion', ...)` as a stand-in
+  before Orion joins (and despawn it after), but a **map NPC must never use a party member id**: even
+  hidden by its `when` it would take the member's place in `cs.move`/`cs.face`/`cs.anim`. The content
+  lint rejects it (rule `id`); use ids like `orion_ctrl`.
+- Field bosses re-arm on every arrival that runs `load` triggers (exits, travel, loads and the Retry
+  respawn, also on the same map): arming is re-seeded from the new position, so a Med-Station
+  checkpoint may sit anywhere outside `triggerRadius`.
+- `debug.skip(true)` (and the player's hold-to-skip) also lands camera tweens already in flight
+  (`FieldCamera.hurry()`) and speeds up walks in flight (`NpcActor.hurry(k)`) of the script's actors.
+- An abort (`abortAll`) of a cs call the script did not await (a background letterbox, pan or card)
+  is a handled rejection: no `AbortError` pageerror. Awaiting scripts still see the AbortError.
+- `api.grantUltimate(member)`: a member in the battle with less EP than the ultimate's cost is raised
+  to that cost (an `ep` event after the `learn`).
+- `debug.autoplay('policy')`: the human-like policy of `tests/policy.mjs` drives the party (like
+  `autoResolve('policy')`), for human-length fights in pacing runs; `'auto'` stays the peeking
+  heuristic. An autoplay pick the model refuses falls back to Defend.
+- Chapter cards and the logo close at `ms` only once their entrance animations have ended (then hold
+  0.8 s): on software GL they no longer close before the title has faded in.
+- Prewarm: NPC, spawned and companion sprites named `'enemy:<art>'` prewarm as enemy sheets; a
+  script's expressions pair with the speaker named before them and are painted only when that
+  portrait draws them (`characters.hasExpression`), so prewarm records no missingArt like `kade:worried`.
+- `scenes` entries may carry `jump` (a jumpTo target: a chapter or a `jumps` id) and `at`
+  (`'map:spawn'`) for the contact sheet's key-scene frames staged away from the chapter's start map
+  (linted as `ref`).
+- Tools: `tools/scenarios.mjs --timeout <ms>` (default 7200000, or `VP_SCENARIO_TIMEOUT`),
+  `--shot-timeout <ms>` and `--jobs <n>` (parallel browsers); `tools/play.mjs --shot-timeout <ms>`
+  (default 300000) and a per-shot `"timeout"`.
+- The prologue's `doneFlags` include `tut:equip`, so `jumpTo('ch1')` and later no longer replay
+  Orion's equip tip (the ch1+ kits wear the Stimulus Chip).

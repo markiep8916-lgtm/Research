@@ -470,9 +470,14 @@ function installDebug({ explore, battle }) {
         for (const c of battle.model.party) if (c.alive) { c.hp = hp; battle.ui.setHp(c.id, hp); }
       } else for (const m of gameState.party) if (m.alive) m.hp = Math.min(m.maxHp, hp);
     },
-    /** Party commands from a policy instead of the menu: 'auto' (heuristic), 'defend', or off. */
+    /**
+     * Party commands from a policy instead of the menu: 'auto' (heuristic: peeks at hidden
+     * weaknesses, maxes Boost on Breaks), 'policy' (the human-like policy of tests/policy.mjs, as in
+     * autoResolve('policy'): human-length fights for pacing runs), 'defend', or off.
+     */
     autoplay(policy = 'auto') {
-      battle.autoPolicy = policy === 'defend' ? (m, id) => ({ actorId: id, kind: 'defend' }) : null;
+      battle.autoPolicy = policy === 'defend' ? (m, id) => ({ actorId: id, kind: 'defend' })
+        : policy === 'policy' ? createPolicy() : null;
       battle.setAutoplay(!!policy);
     },
     /** Battle presentation speed (1 = normal); handy for slow software-GL runs. */

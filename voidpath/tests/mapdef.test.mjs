@@ -91,10 +91,20 @@ test('TalkSpecs become entry lists; legacy line lists become { lines }', () => {
 });
 
 test('inlineLines finds legacy lines (poc maps only may keep them)', () => {
-  assert.equal(halcyon.poc, true);
-  assert.ok(inlineLines(halcyon).includes('npc:bolt'));
-  assert.ok(inlineLines(halcyon).includes('lock:bridge_door'));
+  // A poc fixture with inline lines on an NPC and on a locked door. (The Halcyon was converted to
+  // scripts by C1 and is no longer a poc map, so it is checked below to hold no inline lines.)
+  const legacy = room({
+    poc: true,
+    legend: { K: { t: 'door', tex: 'door', lock: { flag: 'story:x', id: 'k_door', talk: ['Locked.'] } } },
+    npcs: [{ id: 'n', sprite: 'bolt', x: 3, z: 3, talk: ['Hi.', 'Bye.'] }],
+  });
+  legacy.grid = legacy.grid.map((r, i) => (i === 4 ? '###KK###' : r));
+  assert.deepEqual(validateMap(legacy), []);
+  assert.ok(inlineLines(legacy).includes('npc:n'));
+  assert.ok(inlineLines(legacy).includes('lock:k_door'));
   assert.deepEqual(inlineLines(room({ npcs: [{ id: 'n', sprite: 'bolt', x: 3, z: 3, talk: 'x.talk' }] })), []);
+  assert.notEqual(halcyon.poc, true, 'the converted Halcyon is not a poc map');
+  assert.deepEqual(inlineLines(halcyon), [], 'the converted Halcyon keeps no inline lines');
 });
 
 test('cellSpec and walkability', () => {

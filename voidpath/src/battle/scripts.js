@@ -37,7 +37,9 @@
 //   api.protect(memberId, { hits = 1 })         // the next lethal hit leaves 1 HP; cue 'protect' (and
 //                                               // cue 'protected' when it triggers)
 //   api.telegraph(enemyId, targetId | null, text); api.useAction(enemyId, actionId, targetId)
-//   api.grantUltimate(memberId)                 // sets ult:<member>, adds the skill, 'learn' (ultimate: true)
+//   api.grantUltimate(memberId)                 // sets ult:<member>, adds the skill, 'learn' (ultimate: true);
+//                                               // a member in the battle with less EP than the
+//                                               // ultimate costs is raised to that cost ('ep' event)
 //   api.rechargeUltimates()                     // every ultimate usable again; cue 'ultimatesRecharged'
 //
 // Durations: setUntargetable and setResist last the rest of the current round plus `rounds` more

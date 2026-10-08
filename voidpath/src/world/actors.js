@@ -13,6 +13,7 @@
 //   face(dirOrPoint)                   'up' | 'down' | 'left' | 'right' or { x, z } / [x, z]
 //   play(anim)                         a sheet anim or a pose (held until the next move or play(null)); null = idle
 //   walkTo(points, { speed = 2.4, run = false }) -> Promise   [[x, z], ...]; collision ignored
+//   hurry(k)          multiply the speed of the walk in flight (cutscene skip)
 //   setVisible(on, { fade = 0 }) -> Promise
 //   setPosition(x, z, facing?)         teleport (cancels a walk)
 //   update(dt, t); dispose()
@@ -157,6 +158,11 @@ export class NpcActor {
       this._walk = { list, i: 0, speed: speed * (run ? 1.75 : 1), resolve };
       this.walking = true;
     });
+  }
+
+  /** Speed up the walk in flight by k (a cutscene skip that starts mid-walk). */
+  hurry(k) {
+    if (this._walk && k > 0) this._walk.speed *= k;
   }
 
   _finishWalk() {

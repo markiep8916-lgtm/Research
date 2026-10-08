@@ -12,9 +12,10 @@ import {
 // The POC tracks keep their shorter loops ("keep" in the section 9 table).
 const POC_TRACKS = new Set(['title', 'explore', 'battle', 'boss', 'victory']);
 
-// Section 9: tempo and metre per track id (tracks of later sub-waves are checked once they exist).
+// Section 9: tempo and metre per track id (tracks of later sub-waves are checked once they exist). The Choir
+// is "free": it has no pulse, so only its tempo is pinned.
 const TEMPO = {
-  battle_2: [148, '4/4'], driftmarket: [92, '6/8'], shoals: [70, '4/4'], meridian: [60, '4/4'], arboretum: [84, '3/4'],
+  battle_2: [148, '4/4'], driftmarket: [92, '6/8'], shoals: [70, '4/4'], meridian: [60, '4/4'], arboretum: [84, '3/4'], choir: [56, null],
   spire: [112, '4/4'], vault: [120, '7/8'], heart: [66, '4/4'], warden: [72, '3/4'], final_boss: [132, '7/8'],
   final_boss_2: [144, '6/8'], lullaby: [76, '3/4'], ione: [80, '4/4'],
 };
@@ -27,7 +28,7 @@ const MOTIF_TABLE = [
   ['vault', 'lullaby'], ['heart', 'warden'], ['warden', 'warden'], ['final_boss', 'warden'],
   ['final_boss_2', 'lullaby'], ['final_boss_2', 'choir'], ['lullaby', 'lullaby'], ['ione', 'ringborn'], ['ione', 'lullaby'],
   ['credits', 'lullaby'], ['credits', 'ringborn'],
-  // spire carries the WARDEN theme inverted in its alarm figure: C9-beta adds an inversion check with the track
+  ['spire', 'warden:inverted'], // the WARDEN theme inverted in the alarm figure
 ];
 
 const NEW_SFX = ['emote', 'splash', 'valve', 'laser_on', 'laser_off', 'shard', 'transform', 'summon', 'submerge', 'emerge',
@@ -84,7 +85,7 @@ test('section 9 tempos and metres; locations never share key and tempo', () => {
   for (const [name, [bpm, meter]] of Object.entries(TEMPO)) {
     if (!TRACKS[name]) continue;
     assert.equal(TRACKS[name].bpm, bpm, `${name} bpm`);
-    assert.equal(TRACKS[name].meter || '4/4', meter, `${name} meter`);
+    if (meter) assert.equal(TRACKS[name].meter || '4/4', meter, `${name} meter`);
   }
   const located = Object.keys(TEMPO).filter((n) => TRACKS[n] && !['battle_2', 'final_boss', 'final_boss_2'].includes(n));
   for (const a of located) {
@@ -106,7 +107,7 @@ for (const [name, motif, later] of MOTIF_TABLE) {
 test('every motif a track lists is present in its notes', () => {
   for (const name of TRACK_NAMES) {
     for (const m of TRACKS[name].motifs || []) {
-      assert.ok(MOTIFS[m], `${name} lists unknown motif ${m}`);
+      assert.ok(MOTIFS[m.split(':')[0]], `${name} lists unknown motif ${m}`);
       assert.ok(findMotif(compileTrack(TRACKS[name], name), m).length > 0, `${name} lists ${m} but never plays it`);
     }
   }
@@ -131,6 +132,83 @@ test('findMotif matches transposed statements with rests between notes, and noth
   assert.equal(findMotif(compileTrack(def(['E5 . A5 G5 . E5 D5 .', 'C5 - . . A4 - - -'])), 'ringborn').length, 0);
   const chord = { bpm: 90, loop: ['A'], parts: { A: { bars: 1, chords: ['F1: F2 C3 G3 Bb3 D4'] } } };
   assert.equal(findMotif(compileTrack(chord), 'choir').length, 1, 'the Choir chord, transposed to F');
+});
+
+test('findMotif finds a motif upside down only when asked for the inversion', () => {
+  const def = (lead) => ({ bpm: 112, loop: ['A'], parts: { A: { bars: 1, lead } } });
+  // WARDEN is +4 +5 -2 -2 +2; the spire's alarm from C6 is -4 -5 +2 +2 -2
+  const alarm = compileTrack(def('C6 . Ab5 . Eb5 . F5 . G5 . F5 . . . . .'));
+  assert.deepEqual(findMotif(alarm, 'warden:inverted'), [{ line: 'lead', part: 'A', bar: 1 }]);
+  assert.equal(findMotif(alarm, 'warden').length, 0);
+  const upright = compileTrack(def('Eb4 . G4 . C5 . Bb4 . Ab4 . Bb4 . . . . .'));
+  assert.equal(findMotif(upright, 'warden').length, 1);
+  assert.equal(findMotif(upright, 'warden:inverted').length, 0);
+  assert.throws(() => findMotif(alarm, 'choir:inverted'), /unknown motif/);
+  assert.throws(() => findMotif(alarm, 'warden:backwards'), /unknown motif/);
+});
+
+test('ratchets retrigger a token inside its own span and keep its extensions', () => {
+  const c = compileTrack({ bpm: 120, meter: '7/8', loop: ['A'], parts: { A: { bars: 1, bell: 'D#5*3 - - F#5 . . B5*2', hat: 'x*4 . . . . . . . . . . . . x*2' } } }, 'stutter');
+  const evs = c.parts.A.steps.flat();
+  const bell = evs.filter((e) => e.i === 'bell');
+  assert.deepEqual(bell.map((e) => [e.m, e.len, e.rat ?? 1, e.span ?? e.len]), [[noteMidi('D#5'), 6, 3, 2], [noteMidi('F#5'), 2, 1, 2], [noteMidi('B5'), 2, 2, 2]]);
+  assert.deepEqual(evs.filter((e) => e.i === 'hat').map((e) => e.rat), [4, 2]);
+  // a stuttered statement still counts as the motif (repeats collapse)
+  assert.equal(findMotif(compileTrack({ bpm: 76, meter: '3/4', loop: ['A'], parts: { A: { bars: 2, bell: ['A4*3 - C5*2', 'F5 E5*4 D5 E5 . .'] } } }), 'lullaby').length, 1);
+  for (const bad of ['C5*1', 'C5*10', 'x*', '*3']) {
+    assert.throws(() => compileTrack({ bpm: 90, loop: ['A'], parts: { A: { bars: 1, [bad.startsWith('x') ? 'hat' : 'bell']: bad } } }, 'wonky'), /bad (drum )?token/, bad);
+  }
+});
+
+// Section 9: each C-beta location's lead instrument, as the track data names it.
+test('section 9 leads: arboretum drips and hums, the choir sings, spire saws low strings, battle_2 drives, vault glitches', () => {
+  const v = (name, line) => TRACKS[name].voices[line];
+  const lines = (name) => new Set(Object.values(TRACKS[name].parts).flatMap((p) => Object.keys(p)));
+  const tokens = (name) => Object.values(TRACKS[name].parts).flatMap((p) => Object.values(p)).flat().filter((x) => typeof x === 'string').join(' ');
+  if (TRACKS.arboretum) {
+    assert.equal(v('arboretum', 'arp').synth, 'drip');
+    assert.equal(v('arboretum', 'pad').synth, 'choir');
+    assert.equal(v('arboretum', 'pad').vowel, 'mm');
+  }
+  if (TRACKS.choir) {
+    assert.equal(v('choir', 'pad').synth, 'choir');
+    assert.ok(!['kick', 'snare', 'hat', 'ohat', 'tom'].some((d) => lines('choir').has(d)), 'the Choir has no pulse');
+  }
+  if (TRACKS.spire) {
+    assert.equal(v('spire', 'bass').synth, 'strings');
+    assert.ok(lines('spire').has('snare'));
+  }
+  if (TRACKS.battle_2) {
+    assert.ok(v('battle_2', 'lead').drive > 0, 'driven saw lead');
+    assert.ok(Object.values(TRACKS.battle_2.parts).some((p) => /R O R O/.test([].concat(p.bass).join(' '))), 'octave bass');
+    assert.notEqual(TRACKS.battle_2.key, TRACKS.battle.key, 'distinct from battle');
+  }
+  if (TRACKS.vault) {
+    assert.ok(v('vault', 'arp').spread && v('vault', 'arp').crush, 'detuned, crushed digital arps');
+    assert.ok(/\*[2-9]/.test(tokens('vault')), 'glitch stutters');
+  }
+});
+
+test("WARDEN's choir sfx sings in the room's key: choirSfx chords parse and fit their track", () => {
+  const pcs = (notes) => new Set(notes.map((n) => noteMidi(n) % 12));
+  // the scale (pitch classes) each track's choirSfx must stay inside
+  const SCALE = {
+    choir: MOTIFS.choir, lullaby: ['F4', 'G4', 'A4', 'Bb4', 'C5', 'D5', 'E5'], arboretum: ['D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'],
+    spire: ['C4', 'D4', 'Eb4', 'F4', 'G4', 'Ab4', 'Bb4'], vault: ['B4', 'C#5', 'D#5', 'E#5', 'F#5', 'G#5', 'A#5'],
+  };
+  for (const name of TRACK_NAMES) {
+    const set = TRACKS[name].choirSfx;
+    if (!set) continue;
+    assert.ok(Array.isArray(set) && set.length > 0, `${name} choirSfx`);
+    for (const chord of set) {
+      assert.ok(chord.length >= 3 && chord.every((n) => Number.isFinite(noteMidi(n))), `${name}: ${chord}`);
+      if (SCALE[name]) {
+        const scale = pcs(SCALE[name]);
+        assert.ok([...pcs(chord)].every((pc) => scale.has(pc)), `${name}: ${chord} leaves the key`);
+      }
+    }
+  }
+  for (const name of ['choir', 'spire', 'lullaby']) if (TRACKS[name]) assert.ok(TRACKS[name].choirSfx, `WARDEN speaks over ${name}`);
 });
 
 test('stings are once and every once track is a sting', () => {

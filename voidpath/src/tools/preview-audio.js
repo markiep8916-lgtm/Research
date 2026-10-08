@@ -29,6 +29,9 @@ const pick = (key, all) => {
 };
 const trackJobs = [...new Set([...REFS, ...pick('tracks', TRACK_NAMES)])].filter((n) => TRACK_NAMES.includes(n));
 const sfxJobs = pick('sfx', SFX_NAMES);
+// [label, sfx, opts]: WARDEN's 'choir' also renders once per track that gives it chords (choirSfx)
+const sfxRuns = sfxJobs.flatMap((name) => [[name, name, {}],
+  ...(name === 'choir' ? TRACK_NAMES.filter((t) => TRACKS[t].choirSfx).map((t) => [`choir @ ${t}`, 'choir', { chords: TRACKS[t].choirSfx }]) : [])]);
 const stemJobs = (query.get('stems') || '').split(',').filter((n) => TRACK_NAMES.includes(n));
 
 injectCSS('preview-audio', `
@@ -240,6 +243,7 @@ const MOTIF_COLOR = '#ff6fd8';
 
 function drawRoll(cv, c, hits) {
   const order = [...c.intro, ...c.loop];
+  let labelEnd = -Infinity; // motif labels never overlap: a crowded marker keeps its line and drops its text
   const total = order.reduce((n, k) => n + c.parts[k].steps.length, 0);
   const W = cv.width;
   const H = cv.height;
@@ -280,7 +284,11 @@ function drawRoll(cv, c, hits) {
           g.fillStyle = ROLL[layer];
           g.globalAlpha = layer === 'pad' || layer === 'swell' ? 0.45 : layer === 'stab' || layer === 'choir' ? 0.8 : 1;
           const tall = layer === 'lead' || layer === 'bell' ? 2.2 : 1;
-          for (const m of notes) g.fillRect((at + s) * sx, y(m) - (tall - 1) * noteH * 0.5, Math.max(1.5, e.len * sx - 1), Math.max(2, noteH * tall));
+          // a ratchet (stutter) draws each of its hits; the last one carries the note's extension
+          const hits = e.rat ? Array.from({ length: e.rat }, (_, h) => [h * e.span / e.rat, h === e.rat - 1 ? e.len - h * e.span / e.rat : e.span / e.rat]) : [[0, e.len]];
+          for (const m of notes) {
+            for (const [off, len] of hits) g.fillRect((at + s + off) * sx, y(m) - (tall - 1) * noteH * 0.5, Math.max(1.5, len * sx - 1), Math.max(2, noteH * tall));
+          }
         }
       });
     }
@@ -298,7 +306,11 @@ function drawRoll(cv, c, hits) {
       g.fillStyle = MOTIF_COLOR;
       g.fillRect(x, top - 4, 2, H - top - drumH);
       g.font = '700 13px ui-monospace, monospace';
-      g.fillText(`♪ ${h.motif} (${h.line})`, x + 5, top + 9);
+      const label = `♪ ${h.motif} (${h.line})`;
+      if (x + 5 > labelEnd) {
+        g.fillText(label, x + 5, top + 9);
+        labelEnd = x + 5 + g.measureText(label).width + 8;
+      }
     }
     at += part.steps.length;
   }
@@ -367,7 +379,7 @@ const legend = el('div', { class: 'legend' }, Object.entries({ lead: 'lead', bel
 const musicGrid = el('div', { class: 'grid', style: { gridTemplateColumns: '1fr' } });
 const sfxGrid = el('div', { class: 'grid' });
 root.append(el('h2', { text: 'Scores (intro + one full loop, from the track data)' }), legend, rollGrid,
-  el('h2', { text: 'Music renders (intro + one full loop)' }), musicGrid, el('h2', { text: `Sound effects (${sfxJobs.length})` }), sfxGrid);
+  el('h2', { text: 'Music renders (intro + one full loop)' }), musicGrid, el('h2', { text: `Sound effects (${sfxRuns.length})` }), sfxGrid);
 
 function makeCard(grid, title, playFn, w, h1, h2) {
   const wave = el('canvas', { width: w, height: h1 });
@@ -493,11 +505,11 @@ async function run() {
     if (!row.ok) report.failures.push(`${name}: ${row.problems.join(',')}`);
   }
 
-  for (const name of sfxJobs) {
-    const ui = makeCard(sfxGrid, name, () => audio.sfx(name, name === 'boost' ? { pitch: 1 + Math.floor(Math.random() * 3) } : {}), 560, 64, 56);
-    ui.card.id = `sfx-${name}`;
-    status.textContent = `rendering ${name}...`;
-    const buf = await renderOffline('sfx', name, { seconds: SFX_SECONDS[name] || 1.4, sampleRate: SR });
+  for (const [label, name, opts] of sfxRuns) {
+    const ui = makeCard(sfxGrid, label, () => audio.sfx(name, name === 'boost' ? { pitch: 1 + Math.floor(Math.random() * 3) } : opts), 560, 64, 56);
+    ui.card.id = `sfx-${label.replace(/\W+/g, '-')}`;
+    status.textContent = `rendering ${label}...`;
+    const buf = await renderOffline('sfx', name, { seconds: SFX_SECONDS[name] || 1.4, sampleRate: SR, opts });
     const a = analyze(buf);
     drawWave(ui.wave, buf, '#ffc560');
     drawSpectrogram(ui.spec, buf);
@@ -508,9 +520,9 @@ async function run() {
     if (a.peakDb > -3) warns.push('HOT');
     verdict(ui, problems, warns);
     ui.stats.textContent = `pk ${fmt(a.peakDb)} · st ${fmt(a.shortDb)} · ${a.dur.toFixed(2)}s`;
-    const row = { name, peakDb: +fmt(a.peakDb), shortDb: +fmt(a.shortDb), rmsDb: +fmt(a.rmsDb), dur: +a.dur.toFixed(2), ok: !problems.length };
+    const row = { name: label, peakDb: +fmt(a.peakDb), shortDb: +fmt(a.shortDb), rmsDb: +fmt(a.rmsDb), dur: +a.dur.toFixed(2), ok: !problems.length };
     report.sfx.push(row);
-    if (problems.length) report.failures.push(`${name}: ${problems.join(',')}`);
+    if (problems.length) report.failures.push(`${label}: ${problems.join(',')}`);
   }
 
   const sfxPeaks = report.sfx.map((r) => r.peakDb);

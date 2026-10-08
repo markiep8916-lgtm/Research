@@ -11,7 +11,9 @@
 //   abortAll()                game over, Retry, Load, Title and New Journey: pending cs calls reject
 //                             with an AbortError (swallowed), no seen:/ptalk: flags, queued saves dropped,
 //                             locks, letterbox, menu, fxOverride, exemptions and dialogs released
-//   fast                      debug.skip: dialog auto-advances, waits x0.05, walks x6, tweens instant
+//   fast                      debug.skip: dialog auto-advances, waits x0.05, walks x6, tweens instant;
+//                             turning it on mid-script also lands camera tweens in flight and speeds
+//                             up walks in flight (so does the player's skip)
 //   update()                  extra, every frame before ui.update: hold-to-skip, flight skip, leader stand-in
 //   rethrow(err)              extra: how script errors surface after cleanup (default: thrown async)
 //   queue(kind) -> bool       extra: 'checkpoint' | 'save' queued until the outermost script ends
@@ -34,6 +36,12 @@
 // actor, a stand-in NpcActor (id '__leader') with the leader's sprite takes its place and the hidden
 // Player follows it, so the camera and tilt-shift keep tracking; the Player comes back at the end.
 // Party members who are not leading step out of the leader as NpcActors ('party:<id>').
+//
+// Actor ids: an id names a world NPC first (a map NPC, a field boss or a cs.spawn actor), and a
+// party member only when no world NPC holds that id. So a script may cs.spawn('orion', ...) as a
+// stand-in before Orion joins and despawn it after, but a map NPC must never use a member id:
+// even hidden by its `when`, it would take the member's place in cs.move / cs.face / cs.anim once
+// that member is in the party (the content lint rejects it; use ids like 'orion_ctrl').
 
 import { gameState, addItem, removeItem, healParty, joinParty, leaveParty, setLeader as setStateLeader } from '../core/state.js';
 import { shopStock } from '../core/shop.js';
@@ -43,6 +51,9 @@ import { REG } from '../content/registry.js';
 import { chapterDef } from '../content/chapters.js';
 import { story } from './story.js';
 import { travel } from './travel.js';
+
+/** Mark a promise's rejection as handled (aborts of cs calls nobody awaited); returns it. */
+const quiet = (p) => { p.catch(() => {}); return p; };
 
 export class AbortError extends Error {
   constructor() {
@@ -121,7 +132,7 @@ class Session {
 export class CutsceneRunner {
   constructor(ctx) {
     this.ctx = ctx;
-    this.fast = false;
+    this._fast = false;
     this.choices = [];
     this.autoSkip = null;
     this.touched = new Set();
@@ -136,6 +147,13 @@ export class CutsceneRunner {
 
   get active() { return !!this._session; }
   get depth() { return this._session ? this._session.depth : 0; }
+  /** debug.skip; switching it on mid-script hurries the camera tweens and walks already in flight. */
+  get fast() { return this._fast; }
+  set fast(on) {
+    const was = this._fast;
+    this._fast = !!on;
+    if (this._fast && !was) this._hurry(this._session);
+  }
   get instant() { return !!this._session?.instant; }
   /** Id of the outermost running script (null when none). */
   get current() { return this._session ? this._session.id : null; }
@@ -315,13 +333,19 @@ export class CutsceneRunner {
 
   // ------------------------------------------------------------------ helpers (shared with Cs)
 
+  /**
+   * The promise of an async cs call. An abort rejects it with an AbortError that counts as handled,
+   * so a call the script did not await (a letterbox, a pan, a card started in the background) cannot
+   * surface as an unhandled rejection when abortAll() runs; an awaiting script still sees it.
+   */
   _wrap(s, promise) {
-    if (s.aborted) return Promise.reject(new AbortError());
-    return new Promise((resolve, reject) => {
-      const abort = () => reject(new AbortError());
+    if (s.aborted) return quiet(Promise.reject(new AbortError()));
+    const p = new Promise((resolve, reject) => {
+      const abort = () => { quiet(p); reject(new AbortError()); };
       s.rejects.add(abort);
       promise.then((v) => { s.rejects.delete(abort); resolve(v); }, (e) => { s.rejects.delete(abort); reject(e); });
     });
+    return p;
   }
 
   _explore() {
@@ -341,8 +365,25 @@ export class CutsceneRunner {
   _capMs(s, ms) { return this._quick(s) ? Math.min(ms, 300) : ms; }
 
   _goInstant(s) {
+    const was = s.instant;
     s.instant = true;
     if (!s.choosing) this.ctx.ui.dialog.clear();
+    if (!was) this._hurry(s);
+  }
+
+  /**
+   * A skip that starts mid-shot: camera tweens in flight land now (their targets kept) and the walks
+   * of the actors this script moves speed up to the skip pace (x6 fast, near-instant on a player skip).
+   */
+  _hurry(s) {
+    const ex = this._explore();
+    ex?.camera?.hurry?.();
+    if (!s) return;
+    const k = s.instant ? 1e4 : 6;
+    const world = ex?.world;
+    const actors = new Set([...s.gathered.values(), s.proxy]);
+    if (world?.npc) for (const id of this.touched) actors.add(world.npc(id));
+    for (const a of actors) a?.hurry?.(k);
   }
 
   _resetHold() {

@@ -193,13 +193,18 @@ export class BattleState {
         await this._showTip();
         if (!this.active) return;
         let events = null;
+        let refused = 0;
         while (!events && !m.isOver()) {
-          const action = this.autoplay ? await this._auto(cur.id) : await this.ui.chooseAction(cur.id);
+          // an autoplay policy whose pick the model refused defends instead (no endless retries)
+          const action = this.autoplay
+            ? (refused ? { actorId: cur.id, kind: 'defend' } : await this._auto(cur.id))
+            : await this.ui.chooseAction(cur.id);
           if (!this.active) return;
           if (this._forced) break;
           if (!action) continue;
           const ev = m.act(action);
           if (ev.length === 1 && ev[0].type === 'message') {
+            refused++;
             this.ctx.audio?.sfx('error');
             await this.ui.banner(ev[0].text, { ms: 1000 });
             continue;

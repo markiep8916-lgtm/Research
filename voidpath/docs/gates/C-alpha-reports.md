@@ -330,3 +330,28 @@ npm test is 228/229. The one failure is mapdef.test 'inlineLines', from C1's hal
 - On the critical path a player meets the SENTINEL at about level 6.8, below the level-7 check, and wins it first try 88% of the time in the route simulation (the Maw: 95%).
 - The economy allows every chapter-1 purchase by the chapter's end: weapons, Pressure Suits for all and a Focus Lens. The only real choice is at the start, where 1100 credits buy two weapons.
 - Headless SwiftShader was very slow under load from other agents. The SENTINEL fight reached round 6 only after about 15 minutes, so the boss screenshots are mid-fight frames with autoplay on.
+
+## Cross-file requests: status (C-alpha fix-up task)
+
+Applied (contract notes in TECH_PLAN "C-alpha cross-file fixes"):
+- tests/mapdef.test.mjs (C1, C2, C3): the inlineLines test uses a `poc: true` fixture with inline NPC and locked-door lines, and checks that the converted Halcyon is not poc and keeps no inline lines. npm test is green.
+- prologue.equip_tip after jumpTo('ch1') (C10): 'tut:equip' is in the prologue's doneFlags.
+- Retry respawn on the same map (C3): ExploreState re-seeds field-boss arming on every arrival that runs `load` triggers (tests/explore.test.mjs). The Maw's Med-Station workaround is no longer needed but is harmless.
+- Prewarm (C1, C3): 'enemy:*' NPC, cs.spawn and companion sprites prewarm as enemy sheets; each `expr` pairs with the speaker named before it and is painted only when that portrait draws it (new characters.hasExpression). Prologue portrait jobs went from 30 to 22, Driftmarket from 45 to 31, Shoals from 29 to 16, with no kade:flicker / holo:happy / nyx:worried style entries.
+- tools/scenarios.mjs (C1, C3): `--timeout` (default 2 h, or VP_SCENARIO_TIMEOUT), `--shot-timeout`, `--jobs n`. tools/play.mjs (C3): `--shot-timeout` (default 300000) and a per-shot "timeout".
+- cs skip and in-flight tweens (C1): turning debug.skip on, or the player's skip, lands camera tweens in flight (FieldCamera.hurry) and speeds up walks in flight (NpcActor.hurry).
+- grantUltimate (C10): raises the member's EP to the ultimate's cost, with an `ep` event. `npm run balance -- --check` still passes (Maw 92.0%, ultimate used 0.36 per battle, from 0.33).
+- Chapter card timing (C1): chapter cards and the logo close only after their entrance animations have ended, then hold 0.8 s; nothing changes at normal frame rates.
+- Map NPC ids vs party ids (C1): documented (cutscene.js header, TECH_PLAN) and linted: a map NPC whose id is a party member id is a content-lint error (rule `id`). Stand-in spawns with member ids stay allowed.
+- Background cs promise AbortError (C2 to C3): fixed in the runner rather than per script. An abort of a cs call nobody awaited (Shoals' un-awaited cs.letterbox calls, for example) is a handled rejection, so it is no longer a pageerror (tests/story.test.mjs).
+- Contact sheet key scenes on the wrong map (C3): `scenes` entries may carry `jump` and `at: 'map:spawn'`. The three Meridian key scenes now carry them, and the lint checks them.
+- debug.autoplay('policy') (C10 to S2a/I2d): the human-like policy drives autoplay; a refused autoplay pick falls back to Defend.
+- MODULE_NOTES.md audio (C9): the C9-alpha surface is documented.
+
+Already done before this pass: C9's duplicate 'card' sfx in cs.card (cutscene.js no longer plays it); CA-alpha's sentinel_mk1 data requests (C1) and Shoals art requests (C3).
+
+Not applied:
+- C2 to C4, objective 'ch2.go_arboretum': it belongs to arboretum/story.js, which C4 owns in C-beta. driftmarket's objectiveIfKnown already copes with its absence.
+- C1 and C2 to C10 (XP tables for pro_parade_drone and pro_rigged_crawler; the favour, Harl, pier_cache and dock_suit rewards): these are optional, off-route content with hand-set rewards. The balance check passes without them, and counting them could only make the economy more generous, so this is left to C10-beta and I2c.
+- C3 to C10, the Maw hits hard early: advisory. C10-alpha's tuning after that report puts the Maw at about 92% with the human-like policy.
+- CA-alpha to C7 (elite_rime_golem art) and the bestiary-toolkit notes: information for later sub-waves.

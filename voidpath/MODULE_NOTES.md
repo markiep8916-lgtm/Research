@@ -212,15 +212,18 @@ Files: src/art/tiles.js, src/art/fx.js, src/tools/preview-tiles.js
 Files: src/core/audio.js, src/tools/preview-audio.js
 
 ### Exports
-- audio (singleton): init(), sfx(name, { volume, pitch, pan }), music(track | null), setMuted(bool), toggleMute() -> bool, muted (getter), setVolume({ master, music, sfx }), volume (getter), track (getter), context (getter), ready (getter), position() -> { track, part, bar, time } | null
-- SFX_NAMES: string[] (39 contract names)
-- TRACKS: track data object; TRACK_NAMES: ['title','explore','battle','boss','victory']
+- audio (singleton): init(), sfx(name, { volume, pitch, pan }), music(track | null, { fade, restart }), setMuted(bool), toggleMute() -> bool, muted (getter), setVolume({ master, music, sfx }), volume (getter), track (getter), sting (getter, C9-alpha: the sting playing now or null), context (getter), ready (getter), position() -> { track, part, bar, time } | null (bar follows the track's time signature)
+- music(track, opts) (C9-alpha): opts.fade sets the crossfade seconds (cs.music(null, { fade: 1.5 }) fades to silence); opts.restart replays a track that is already playing. A track marked `once` (a sting, e.g. 'sting_chapter') plays one time through a duck node: the current track drops to about -16 dB and comes back over 1.4 s; audio.track is never changed by a sting, and a new sting cuts the previous one. A malformed or throwing track fails alone (console.error names it once) and everything else keeps playing.
+- SFX_NAMES: string[] (39 contract names plus the 27 of TECH_PLAN 9 added by C9-alpha, e.g. 'choir', 'valve', 'pod_flip', 'card', 'transform', 'awaken')
+- TRACKS: track data object; TRACK_NAMES: Object.keys(TRACKS) (the five POC tracks plus 'driftmarket', 'shoals', 'meridian', 'lullaby', 'warden', 'sting_chapter' after C9-alpha)
+- MOTIFS = { lullaby, ringborn, warden, choir } (note lists; 'choir' is a chord); findMotif(compiled, motif) -> [{ line, part, bar }] where a motif sounds (transposition allowed)
 - createRig(ctx, destination?, { volume, muted }) -> rig (the full audio graph on any BaseAudioContext)
 - playSfx(rig, name, opts, when) -> bool
-- startTrack(rig, name, when, { fade, part }) -> runtime; pumpTrack(runtime, until, now?); stopTrack(runtime, when, fade)
-- compileTrack(name) -> { parts, intro, loop, introSeconds, loopSeconds, loopBars }
-- renderOffline('sfx' | 'music', name, { seconds, sampleRate, part, opts }) -> Promise<AudioBuffer>
+- startTrack(rig, name, when, { fade, part, only }) -> runtime (only: play just some lines); pumpTrack(runtime, until, now?); stopTrack(runtime, when, fade)
+- compileTrack(def, name = 'track') -> { parts, intro, loop, introSeconds, loopSeconds, loopBars, ... } (imports in node; name only labels errors); compiledTrack(name) -> the cached compile of TRACKS[name], or null (reported once) when malformed
+- renderOffline('sfx' | 'music', name, { seconds, sampleRate, part, only, opts }) -> Promise<AudioBuffer>
 - noteMidi(name) -> midi number; mtof(midi) -> Hz
+- Track data (C9-alpha): key, meter ('4/4' default, '3/4', '6/8', '7/8'; bpm counts quarters, or dotted quarters in 6/8, 9/8 and 12/8), once, motifs, voices.<line>.synth (borrow another synth: the music box 'box', formant 'choir', 'sub' pulse, 'swell'), voices.tom.pitch; tokens gain ghost notes ('E5?'), note names in arp/harp lines and chord arrays that split a bar evenly. The header comment above TRACKS in src/core/audio.js is the full grammar.
 
 ### Deviations / additions
 - None in the API surface. Semantics chosen where the contract is open: opts.pitch is a frequency multiplier (1 = normal) for every sfx, except that for 'boost' an integer pitch 1..3 means the boost level (each level climbs a major third); a non-integer pitch on 'boost' is still treated as a multiplier. opts.level is also accepted for 'boost'.
@@ -240,6 +243,8 @@ Files: src/core/audio.js, src/tools/preview-audio.js
 - Debug: audio.position() returns { track, part, bar, time } and audio.track returns the requested track; useful for window.__VP debug hooks and headless tests. With play.mjs, eval steps must be single expressions (use commas, not semicolons).
 - Levels: sfx are calibrated so stacked hits (impact + weak + shieldCrack + break) stay under the limiter; music RMS sits about 15 dB below the big hits. Nothing in the game should need per-call volume above 1.
 - Preview: node build.mjs --dev --only preview-audio then node tools/play.mjs dist/tools/preview-audio.html --full-page --timeout 240000 --steps-json '[{"waitFor":"window.__PREVIEW && window.__PREVIEW.ready","timeout":200000},{"shot":"bench"}]'. Rendering everything offline takes about 25 s headless. The page exposes window.__audio for live probing.
+- Bench filters (C9-alpha): the bench renders each track's intro plus one whole loop with a piano roll and motif markers; ?tracks=a,b and ?sfx=a,b render only those, ?stems= renders each line of the chosen tracks solo (22.05 kHz, for balance only). The full bench takes minutes on a loaded machine, so filter while iterating.
+- Chapter cards: ui.cards.chapter plays 'card' when the title lands (1.15 s at normal pace), in time with sting_chapter's strike; cs.card plays the sting and no extra 'card'.
 
 ### Known issues
 - I cannot hear: musical quality (melodies, voicings, mix) is verified only through measured levels, spectrograms and piano-roll scores of the compiled note data. A human listen is recommended; tweak the TRACKS data (mix / voices / patterns) or per-sfx gain values to taste.

@@ -14,7 +14,9 @@
 //   ui.cards.clear()     drop every card and caption at once (aborted scripts); their promises resolve
 //
 // `ms` scales a card's whole timeline (the cutscene runner passes about 300 in skip mode); `hold:
-// true` keeps a chapter card or logo up until clear() (previews, screenshots).
+// true` keeps a chapter card or logo up until clear() (previews, screenshots). A chapter card or
+// logo closes at `ms` only once its entrance animations have ended: on very slow frames (software
+// GL) they start late, so the card then holds a beat after the last one before fading out.
 // isBlocking is true while a chapter card, logo, credits or THE END is up.
 
 import { el, injectCSS } from '../core/util.js';
@@ -147,7 +149,7 @@ export class Cards {
     ]);
     view.style.setProperty('--acc', accent);
     setTimeout(() => this.ui.sfx('card'), 1150 * k);
-    return this._open(view, 'chapter', { k, ms, fadeOut: 700 * k, wait: hold });
+    return this._open(view, 'chapter', { k, ms, fadeOut: 700 * k, wait: hold, settle: 800 * k });
   }
 
   logo({ text = 'VOIDPATH', ms = 4000, hold = false } = {}) {
@@ -156,7 +158,7 @@ export class Cards {
     const view = el('div', { class: 'vp-sc vp-sc-logo', role: 'img', 'aria-label': text }, [
       el('h1', { class: 'vp-logo' }, [ghost('c'), ghost('m'), el('span', { class: 'vp-logo-main', text })]), rule(),
     ]);
-    return this._open(view, 'logo', { k, ms, fadeOut: 800 * k, wait: hold });
+    return this._open(view, 'logo', { k, ms, fadeOut: 800 * k, wait: hold, settle: 800 * k });
   }
 
   /** Centred caption over the scene ("En route"); never blocks input. */
@@ -270,8 +272,11 @@ export class Cards {
     this._holdHint.firstChild.replaceChildren(dev === 'touch' ? '' : glyph('confirm', dev));
   }
 
-  /** Show a blocking card; it ends after `ms`, or stays until clear() when `wait` (previews). */
-  _open(view, kind, { k = 1, ms = 0, fadeOut = 600, wait = false, onSkip = null } = {}) {
+  /**
+   * Show a blocking card; it ends after `ms`, or stays until clear() when `wait` (previews). With
+   * `settle` (ms) it also waits for its entrance animations to end, then holds `settle` ms.
+   */
+  _open(view, kind, { k = 1, ms = 0, fadeOut = 600, wait = false, onSkip = null, settle = 0 } = {}) {
     if (this._cur) this._finish(true);
     view.style.setProperty('--k', k);
     this.root.appendChild(view);
@@ -281,8 +286,30 @@ export class Cards {
     void view.offsetWidth;
     view.classList.add('is-on');
     return new Promise((resolve) => {
-      this._cur = { view, kind, resolve, fadeOut, onSkip, ready: false, timer: 0 };
-      if (ms && !wait) this._cur.timer = setTimeout(() => this._finish(), Math.max(0, ms - fadeOut));
+      const c = { view, kind, resolve, fadeOut, onSkip, ready: false, timer: 0 };
+      this._cur = c;
+      if (ms && !wait) c.timer = setTimeout(() => (settle ? this._settle(c, settle, ms) : this._finish()), Math.max(0, ms - fadeOut));
+    });
+  }
+
+  /**
+   * The card's time is up: close now if its entrance animations have ended; else wait for them (at
+   * most `cap` ms more), hold `hold` ms so the last line can be read, then close.
+   */
+  _settle(c, hold, cap) {
+    if (this._cur !== c) return;
+    const running = typeof c.view.getAnimations === 'function'
+      ? c.view.getAnimations({ subtree: true }).filter((a) => a.playState !== 'finished' && a.effect?.getComputedTiming?.().iterations !== Infinity)
+      : [];
+    if (!running.length) {
+      this._finish();
+      return;
+    }
+    const capped = new Promise((r) => { c.timer = setTimeout(r, cap); });
+    Promise.race([Promise.all(running.map((a) => a.finished.catch(() => null))), capped]).then(() => {
+      if (this._cur !== c) return;
+      clearTimeout(c.timer);
+      c.timer = setTimeout(() => this._finish(), hold);
     });
   }
 

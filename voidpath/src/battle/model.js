@@ -661,6 +661,12 @@ export class BattleModel {
     if (!c || c.side !== 'party') return; // not in this battle: the flag grants it on the next load
     if (!c.skills.includes(s.id)) c.skills.push(s.id);
     events.push({ type: 'learn', memberId, skillId: s.id, name: s.name, ultimate: true });
+    // the awakening also fills EP up to the ultimate's cost, so it can fire once the BP is there
+    if (c.alive && c.ep < s.cost) {
+      const before = c.ep;
+      c.ep = Math.max(c.ep, Math.min(c.maxEp, s.cost));
+      if (c.ep > before) events.push({ type: 'ep', targetId: c.id, amount: c.ep - before, epAfter: c.ep });
+    }
   }
 
   // ---------------------------------------------------------------- enemy AI

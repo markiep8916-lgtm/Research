@@ -13,6 +13,8 @@
 //     --dpr <n>           device scale factor (default 1)
 //     --reduced-motion    emulate prefers-reduced-motion: reduce
 //     --timeout <ms>      overall timeout (default 120000)
+//     --shot-timeout <ms> timeout of each screenshot (default 300000; SwiftShader under heavy load is
+//                         slow); a shot step's own "timeout" wins
 //     --strict            exit 1 if any page error or console.error occurred
 //     --full-page         full-page screenshots (useful for long art preview pages)
 //
@@ -27,6 +29,7 @@
 //   {"type": "abc"}                       type text
 //   {"shot": "name"}                      screenshot -> <out>/<name>.png
 //   {"shot": "name", "clip": [x,y,w,h]}   clipped screenshot
+//   {"shot": "name", "timeout": 600000}   screenshot with its own timeout (default --shot-timeout)
 //   {"eval": "window.__VP.debug.startBattle('drone_pair')"}   run JS in page (awaits promises)
 //   {"log": "JSON.stringify(window.__VP.state.party.map(p=>p.hp))"}  run JS and print the result
 //   {"waitFor": "window.__VP && window.__VP.ready", "timeout": 15000}
@@ -72,6 +75,7 @@ if (opt('--steps-json')) steps = JSON.parse(opt('--steps-json'));
 const size = (opt('--size', '1280x720')).split('x').map(Number);
 const mobile = flag('--mobile');
 const timeoutMs = Number(opt('--timeout', 120000));
+const shotTimeoutMs = Number(opt('--shot-timeout', 300000));
 const fullPage = flag('--full-page');
 
 const report = { page: pageUrl, console: [], errors: [], logs: [], shots: [], fps: [] };
@@ -109,7 +113,7 @@ async function step(s, id) {
   else if ('type' in s) await page.keyboard.type(s.type, { delay: 40 });
   else if ('shot' in s) {
     const file = path.join(outDir, `${s.shot}.png`);
-    const o = { path: file, fullPage, timeout: 120000 }; // SwiftShader under load can take a while
+    const o = { path: file, fullPage, timeout: s.timeout || shotTimeoutMs }; // SwiftShader under load can take a while
     if (s.clip) o.clip = { x: s.clip[0], y: s.clip[1], width: s.clip[2], height: s.clip[3] };
     await page.screenshot(o);
     report.shots.push(file);

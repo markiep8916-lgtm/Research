@@ -505,3 +505,62 @@ test('holding Cancel skips the rest of an already-played script; a first viewing
   assert.equal(says(), before, 'no dialog shown in instant mode');
   assert.equal(gameState.flags['st:replayed'], true, 'the 20 s wait took no time');
 });
+
+test('a skip that starts mid-shot lands camera tweens in flight and speeds up walks in flight', async () => {
+  const ctx = fresh();
+  const hurried = [];
+  ctx.explore.camera.hurry = () => hurried.push('camera');
+  const g = gate();
+  scripts['st.shot'] = async (cs) => {
+    await cs.spawn('st_walker', { sprite: 'bolt', x: 1.5, z: 1.5 });
+    cs.actor('st_walker').hurry = (k) => hurried.push(`walk x${k}`);
+    await g.p;
+  };
+  const done = run(ctx, 'st.shot');
+  await tick();
+  await tick();
+  ctx.cutscenes.fast = true;
+  assert.deepEqual(hurried, ['camera', 'walk x6']);
+  ctx.cutscenes.fast = true;
+  assert.equal(hurried.length, 2, 'already fast: nothing is hurried twice');
+  ctx.cutscenes.fast = false;
+  g.open();
+  await done;
+});
+
+test('FieldCamera.hurry lands a pan in flight on its end point within one frame', async () => {
+  const { FieldCamera } = await import('../src/world/camera.js');
+  const host = { player: { x: 0, z: 0, moving: false, dir: { x: 0, z: 0 } }, world: null, area: null, ctx: { engine: { size: { aspect: 16 / 9 } } } };
+  const cam = new FieldCamera(host);
+  let landed = false;
+  cam.pan([[10, 4]], { sec: 6 }).then(() => { landed = true; });
+  cam.update(0.1);
+  assert.ok(cam.look.x < 10);
+  cam.hurry();
+  cam.update(0.016);
+  await tick();
+  assert.equal(landed, true);
+  assert.deepEqual([cam.look.x, cam.look.z], [10, 4]);
+});
+
+test('abortAll rejects a cs call the script did not await without an unhandled rejection', async () => {
+  const ctx = fresh();
+  const unhandled = [];
+  const onUnhandled = (e) => unhandled.push(e);
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    ctx.ui.hud.letterbox = () => new Promise(() => {});   // a letterbox that is still sliding in
+    scripts['st.bg'] = async (cs) => {
+      cs.letterbox(true);
+      await cs.wait(100);
+    };
+    const done = run(ctx, 'st.bg');
+    await tick();
+    ctx.cutscenes.abortAll();
+    await done;
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+  }
+});

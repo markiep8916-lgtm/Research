@@ -7,6 +7,7 @@
 //   pan(points, { sec }) -> Promise                    slow pans along [[x, z], ...]
 //   reset({ ms = 600 }) -> Promise                     back to follow mode with the area view
 //   snap()                                             jump to the follow target (arrivals, teleports)
+//   hurry(ms = 1)                                      scripted tweens in flight end within ms (skip)
 //   update(dt); look ({ x, z }: current look target); scripted (bool); camera (THREE camera)
 //   projectionMatrix, matrixWorldInverse, updateMatrixWorld(): the THREE camera's, for camera-taking tools
 //
@@ -107,6 +108,14 @@ export class FieldCamera {
     const done = this._moveTo(() => this._followTarget(this._desired), ms).then(() => { this.scripted = false; });
     this._startView(ms);
     return done;
+  }
+
+  /**
+   * Make the tweens already in flight (focus, view, pan, reset) land within `ms` from now, keeping
+   * their targets: debug.skip and the player's skip shorten shots that started at full length.
+   */
+  hurry(ms = 1) {
+    for (const tw of [this._move, this._viewTw]) if (tw) tw.ms = Math.max(1, Math.min(tw.ms, tw.t + ms));
   }
 
   /** Drop every scripted state at once (script end without reset, aborts, arrivals). */

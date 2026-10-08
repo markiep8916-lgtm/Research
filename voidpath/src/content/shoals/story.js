@@ -261,10 +261,11 @@ export default {
   // nested in shoals.maw, the coil install comes last)
   scenes: [
     { id: 'shoals.enter', chapter: 'ch1', order: 30, budget: { boxes: 2, sec: 15 } },
-    { id: 'shoals.meridian_arrival', chapter: 'ch1', order: 40, key: true, budget: { boxes: 7, sec: 60 } },
+    // jump / at: where the contact sheet stands before it runs a key scene staged in the Meridian
+    { id: 'shoals.meridian_arrival', chapter: 'ch1', order: 40, key: true, budget: { boxes: 7, sec: 60 }, jump: 'ch1.wreck' },
     { id: 'shoals.power_restored', chapter: 'ch1', order: 50, budget: { boxes: 2, sec: 15 } },
-    { id: 'shoals.varo_log', chapter: 'ch1', order: 60, key: true, budget: { boxes: 12, sec: 150 } },
-    { id: 'shoals.maw', chapter: 'ch1', order: 70, key: true, budget: { boxes: 16, sec: 120 } },
+    { id: 'shoals.varo_log', chapter: 'ch1', order: 60, key: true, budget: { boxes: 12, sec: 150 }, jump: 'ch1.maw', at: 'meridian:log' },
+    { id: 'shoals.maw', chapter: 'ch1', order: 70, key: true, budget: { boxes: 16, sec: 120 }, jump: 'ch1.maw' },
   ],
   objectives: {
     'ch1.restore_power': {

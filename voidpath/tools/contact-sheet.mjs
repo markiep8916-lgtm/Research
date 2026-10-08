@@ -17,7 +17,10 @@
 // Viewpoints come from the registry (MapDef.viewpoints, else its spawns) and are shot with
 // dist/tools/preview-world.html?map=<id>&view=<viewpoint> (S1a). Each card shows renderInfo()
 // (scene and shadow calls, triangles, textures, lights) and visualLint() when the page exposes
-// them. Key scenes run in dist/index.html through __VP.debug.jumpTo(chapter) and runScript(id).
+// them. Key scenes run in dist/index.html through __VP.debug.jumpTo(chapter) and runScript(id). A
+// `scenes` entry staged away from its chapter's start map names where to stand first: `jump` (a jumpTo
+// target, e.g. a REG.jumps id such as 'ch1.maw'; default the chapter) and `at` ('map:spawn', a
+// debug.goto after the jump), e.g. { id: 'shoals.varo_log', ..., jump: 'ch1.maw', at: 'meridian:log' }.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -129,13 +132,15 @@ for (const { map, vp } of shots) {
 
 for (const sc of keyScenes) {
   const file = path.join(dir, `scene-${sc.id.replace(/[^a-z0-9_.-]/gi, '_')}.png`);
-  const chapter = sc.chapter || REG.locations[locId].chapter;
+  const jump = sc.jump || sc.chapter || REG.locations[locId].chapter;
+  const [atMap, atSpawn] = typeof sc.at === 'string' ? sc.at.split(':') : [sc.at?.map, sc.at?.spawn];
   const stats = await capture(`${path.join(ROOT, 'dist/index.html')}?q=medium`, SIZES[1] || { mobile: true }, file, {
     ready: 'window.__VP && window.__VP.ready',
     prepare: `(async () => {
       const d = window.__VP.debug;
       if (!d.jumpTo || !d.runScript) throw new Error('__VP.debug.jumpTo / runScript missing');
-      await d.jumpTo(${JSON.stringify(chapter)});
+      await d.jumpTo(${JSON.stringify(jump)});
+      ${atMap ? `await d.goto(${JSON.stringify(atMap)}, ${JSON.stringify(atSpawn)});` : ''}
       d.runScript(${JSON.stringify(sc.id)});
       const t0 = performance.now();
       while (!document.querySelector('.vp-dlg.is-open') && performance.now() - t0 < 60000) await new Promise((r) => setTimeout(r, 200));
