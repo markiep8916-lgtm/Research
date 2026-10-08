@@ -1,6 +1,7 @@
 // driftmarket: LocationDef (PURE, TECH_PLAN 2.2), assembled from data.js, story.js and maps/.
 import data from './data.js';
 import story from './story.js';
+import driftmarket from './maps/driftmarket.js';
 
 export default {
   id: 'driftmarket',
@@ -8,5 +9,5 @@ export default {
   name: 'Driftmarket',
   data,
   story,
-  maps: {},
+  maps: { driftmarket },
 };
