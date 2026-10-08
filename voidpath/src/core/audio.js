@@ -1401,6 +1401,7 @@ function playStep(rt, t) {
   const evs = rt.c.parts[partAt(rt)].steps[rt.step];
   for (let k = 0; k < evs.length; k++) {
     const e = evs[k];
+    if (rt.only && !rt.only.has(e.i)) continue;
     const name = e.i === 'ohat' ? 'hat' : e.i;
     const out = rt.strips[name] || (rt.strips[name] = makeStrip(rt, name, e.b === 'ohat' ? 'hat' : e.b));
     const vo = rt.track.voices?.[e.i] || rt.track.voices?.[e.b] || {};
@@ -1420,11 +1421,12 @@ function playStep(rt, t) {
 
 /**
  * Start a track on a rig at audio time `when`. Returns a runtime handle for pumpTrack/stopTrack.
- * opts.fade: fade-in seconds; opts.part: start at this loop part (skips the intro). Looping tracks play into
+ * opts.fade: fade-in seconds; opts.part: start at this loop part (skips the intro); opts.only: play just these
+ * lines (the bench's stems; chords are the line 'pad'). Looping tracks play into
  * the duckable bed; a `once` track (sting) plays straight into the music bus and stops scheduling after
  * its intro and loop have played one time. Throws for an unknown or malformed track.
  */
-export function startTrack(r, name, when, { fade = 0, part = null } = {}) {
+export function startTrack(r, name, when, { fade = 0, part = null, only = null } = {}) {
   const c = compiledTrack(name);
   if (!c) throw new Error(`track "${name}" is unknown or malformed`);
   const tr = TRACKS[name];
@@ -1438,7 +1440,7 @@ export function startTrack(r, name, when, { fade = 0, part = null } = {}) {
     p.setValueAtTime(fade > 0 ? 0.0001 : level, when);
     if (fade > 0) p.linearRampToValueAtTime(level, when + fade);
   }
-  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity };
+  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity, only: only && new Set(only) };
   if (c.once) rt.stopAt = when + c.introSeconds + c.loopSeconds;
   else {
     const i = part ? c.loop.indexOf(part) : -1;
@@ -2153,17 +2155,18 @@ function hasPitchClasses(chord, motif) {
 
 /**
  * Render an sfx (kind 'sfx') or the first `seconds` of a track (kind 'music') into an AudioBuffer
- * with an OfflineAudioContext, through the full graph (reverb, delay, limiter). Used by the preview bench.
- * The sound starts after a short silent warm-up (a fresh DynamicsCompressor over-attenuates for its
- * first ~0.5 s, which live play never hears); the warm-up is trimmed from the result.
+ * with an OfflineAudioContext, through the full graph (reverb, delay, limiter). Used by the preview bench;
+ * `only` (music) renders just those lines. The sound starts after a short silent warm-up (a fresh
+ * DynamicsCompressor over-attenuates for its first ~0.5 s, which live play never hears); the warm-up is
+ * trimmed from the result.
  */
-export async function renderOffline(kind, name, { seconds = 2, sampleRate = 44100, part = null, opts = {} } = {}) {
+export async function renderOffline(kind, name, { seconds = 2, sampleRate = 44100, part = null, only = null, opts = {} } = {}) {
   const OAC = globalThis.OfflineAudioContext || globalThis.webkitOfflineAudioContext;
   const lead = 0.6;
   const ctx = new OAC(2, Math.ceil((seconds + lead) * sampleRate), sampleRate);
   const rig = createRig(ctx);
   if (kind === 'sfx') playSfx(rig, name, opts, lead);
-  else pumpTrack(startTrack(rig, name, lead, { part }), seconds + lead);
+  else pumpTrack(startTrack(rig, name, lead, { part, only }), seconds + lead);
   const full = await ctx.startRendering();
   const skip = Math.floor(lead * sampleRate);
   const out = new AudioBuffer({ numberOfChannels: 2, length: full.length - skip, sampleRate });

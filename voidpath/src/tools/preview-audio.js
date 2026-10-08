@@ -3,7 +3,8 @@
 // a piano roll per track from its compiled notes (with the motifs of TECH_PLAN 9 marked), and asserts levels:
 // no clipping, no silence, and every track's loop RMS within 2 dB of both `explore` and `battle`.
 // Buttons play everything live. Query filters for quick iteration: ?tracks=a,b (explore and battle always
-// render as the reference) and ?sfx=a,b, or 'none'. window.__PREVIEW = { ready, report }.
+// render as the reference) and ?sfx=a,b, or 'none'; ?stems=a,b also renders each line of those tracks solo and
+// reports its loop RMS (mix balance). window.__PREVIEW = { ready, report }.
 import { audio, renderOffline, compiledTrack, findMotif, SFX_NAMES, TRACK_NAMES, TRACKS } from '../core/audio.js';
 import { injectCSS, el } from '../core/util.js';
 
@@ -28,6 +29,7 @@ const pick = (key, all) => {
 };
 const trackJobs = [...new Set([...REFS, ...pick('tracks', TRACK_NAMES)])].filter((n) => TRACK_NAMES.includes(n));
 const sfxJobs = pick('sfx', SFX_NAMES);
+const stemJobs = (query.get('stems') || '').split(',').filter((n) => TRACK_NAMES.includes(n));
 
 injectCSS('preview-audio', `
 html, body { height: auto !important; overflow: auto !important; touch-action: auto !important; user-select: text; }
@@ -235,7 +237,7 @@ const ROLL = {
   bell: '#7fe3ff', lead: '#ffc560',
 };
 const LAYERS = ['pad', 'swell', 'choir', 'bass', 'harp', 'arp', 'stab', 'bell', 'lead'];
-const MOTIF_COLOR = '#ffd27a';
+const MOTIF_COLOR = '#ff6fd8';
 
 function drawRoll(cv, c, hits) {
   const order = [...c.intro, ...c.loop];
@@ -422,7 +424,7 @@ async function renderTrack(name, c, refs) {
   ui.card.id = `music-${name}`;
   status.textContent = `rendering ${name}...`;
   const seconds = c.introSeconds + c.loopSeconds;
-  const buf = await renderOffline('music', name, { seconds, sampleRate: SR });
+  const buf = await renderOffline('music', name, { seconds: seconds + (c.once ? 2.5 : 0), sampleRate: SR }); // a sting rings on
   const a = analyze(buf);
   // the loop's level, and each section's, measured on the loop that follows the intro
   const t0 = c.once ? 0 : c.introSeconds;
@@ -446,7 +448,19 @@ async function renderTrack(name, c, refs) {
   verdict(ui, problems, []);
   ui.stats.textContent = `peak ${fmt(a.peakDb)} dB · loop rms ${fmt(loopRms)} dB (${off.map((d) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`).join(' / ')} vs ${REFS.join(' / ')}) · sections ${sections.map((x) => `${x.part} ${fmt(x.rmsDb)}`).join(', ')}`;
   ui.meta.textContent = `${describe(tr, c)}${c.intro.length ? ` after a ${c.introSeconds.toFixed(1)} s intro` : ''} · sections ${[...c.intro, ...c.loop].join(' ')}`;
-  return { name, peakDb: +fmt(a.peakDb), rmsDb: +fmt(loopRms), sections, loopBars: c.loopBars, loopSeconds: +c.loopSeconds.toFixed(1), ok: !problems.length, problems };
+  const row = { name, peakDb: +fmt(a.peakDb), rmsDb: +fmt(loopRms), sections, loopBars: c.loopBars, loopSeconds: +c.loopSeconds.toFixed(1), ok: !problems.length, problems };
+  if (stemJobs.includes(name)) {
+    // each line solo over the loop (the intro skipped): how loud the melody sits over its accompaniment
+    const lines = [...new Set(c.loop.flatMap((k) => c.parts[k].steps.flat().map((e) => e.i)))];
+    row.stems = {};
+    for (const line of lines) {
+      status.textContent = `rendering ${name} / ${line}...`;
+      const stem = await renderOffline('music', name, { seconds: c.loopSeconds, sampleRate: 22050, part: c.loop[0], only: [line] }); // balance only: half rate for speed
+      row.stems[line] = +fmt(rmsDb(stem, 0, c.loopSeconds));
+    }
+    ui.meta.textContent += ` \u00b7 stems ${Object.entries(row.stems).map(([k, v]) => `${k} ${v}`).join(', ')}`;
+  }
+  return row;
 }
 
 async function run() {
