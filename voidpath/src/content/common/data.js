@@ -114,18 +114,20 @@ const outfit = (armorId, gearByMember) => Object.fromEntries(Object.entries(gear
   .map(([id, [weaponId, accessoryId]]) => [id, { weapon: weaponId, armor: armorId, accessory: accessoryId }]));
 
 // jumpTo starter kits (10.1): what a player following the critical path holds when the chapter starts.
+// ch1 and ch2 match how tests/campaign.mjs's route ends the chapter before (`npm run balance` prints
+// kit and route side by side); ch3 onwards are first-pass until their chapters are simulated.
 const kits = {
   prologue: { equip: TIER1, items: { medigel: 3, ether: 1 }, credits: 0 },
   ch1: {
     equip: { ...TIER1, kade: { ...TIER1.kade, accessory: 'eq_x_stim_chip' } },
-    items: { medigel: 4, ether: 2, revive: 1 }, credits: 300,
+    items: { medigel: 4, ether: 3, revive: 1, stim: 2 }, credits: 1100,
   },
   ch2: {
     equip: outfit('eq_a_2', {
       kade: ['eq_w_kade_2', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
       orion: ['eq_w_orion_2', 'eq_x_focus_lens'], sera: ['eq_w_sera_2', 'eq_x_frost_charm'],
     }),
-    items: { medigel: 4, medigel_plus: 2, ether: 2, revive: 2, stim: 2 }, credits: 600,
+    items: { medigel: 5, medigel_plus: 2, ether: 3, ether_plus: 1, revive: 2, stim: 4, cryo_charge: 2 }, credits: 350,
   },
   ch3: {
     equip: outfit('eq_a_3', {
@@ -160,8 +162,8 @@ const kits = {
 // The Halcyon fabricator (antechamber; the interactable is placed by the prologue). Stock grows by chapter.
 const shops = {
   fabricator: {
-    name: 'Halcyon Fabricator', keeper: 'BOLT', portrait: 'bolt',
-    greeting: 'The fabricator is warm. It only smells a little like burning.',
+    name: 'Halcyon Fabricator', keeper: 'FABRICATOR', portrait: 'fabricator',
+    greeting: 'Fabricator online. Specify your desires. Within reason.',
     sellRate: 0.5,
     stock: [
       { item: 'medigel' },

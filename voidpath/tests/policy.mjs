@@ -10,14 +10,35 @@
 //
 // It plays like a person: it knows only revealed weaknesses (the bestiary starts empty for new
 // kinds) and probes untried types; targets only validTargets and defends when there are none;
-// defends against telegraphs aimed at it (lock-on) or at everyone (charge); revives, cures sleepers
-// and heals; Provokes when an ally is marked; spends Boost on broken foes or to finish a break; and
-// saves its ultimate for a Break (Lifebloom for a downed or battered squad).
+// answers telegraphs (a lock-on aimed at it, a charge, the blow a diving foe comes back up with) by
+// Breaking the foe when it knows how, else by defending when the blow lands before its next turn;
+// revives, cures sleepers and heals; Provokes when an ally is marked; spends Boost on broken foes
+// or to finish a break; and saves its ultimate for a Break or a boss's last stand (Lifebloom for a
+// downed or battered squad).
 
-import { SKILLS } from '../src/battle/data.js';
+import { SKILLS, ENEMIES, BATTLE_RULES } from '../src/battle/data.js';
 import { BOOST_POTENCY } from '../src/battle/model.js';
 
 const hpFrac = (c) => c.hp / c.maxHp;
+const enemyAction = (e, id) => (id ? ENEMIES[e.key]?.actions?.find((a) => a.id === id) || null : null);
+
+// Telegraphed blows still pending: { enemy, action, target, now }. `target` is the member a lock-on
+// aims at (null: anyone); `now` means the blow lands this round, after the current actor
+// (lock-ons and charges fire in the foe's last slot of the round they are due; a diver's follow-up
+// `then` comes with its next action). A Break cancels all of them.
+function threatsOf(m) {
+  const later = m.order.slice(1);
+  const out = [];
+  for (const e of m.enemies) {
+    if (!e.alive || e.broken) continue;
+    const acting = later.includes(e.id);
+    const add = (id, target, due) => out.push({ enemy: e, action: enemyAction(e, id), target, now: acting && due });
+    if (e.lockOnTarget) add(e.lockFires || 'annihilator_beam', e.lockOnTarget, e.lockRound < m.round);
+    if (e.charge) add(e.charge.fires, null, e.charge.round <= m.round);
+    if (e.then) add(e.then, null, true);
+  }
+  return out.filter((t) => t.action && t.action.power > 0);
+}
 
 // Rough expected damage of one hit (the model's formula without randomness), from known facts only.
 function estHit(m, actor, target, type, power, scale) {
@@ -42,16 +63,19 @@ export function observe(memo, events) {
 
 // Best damaging option: every (weapon or attack skill, target, boost) is scored by expected damage,
 // shield progress and the value of probing an untested type, minus EP and BP spent.
+// The BP and EP an unused ultimate needs are kept for it. Returns { action, breaks: [foe ids it
+// surely Breaks] } or null.
 function bestOffense(m, actor, menu, foes, memo) {
+  const held = menu.skills.find((s) => s.ultimate && s.reason !== 'Used');
   const options = [];
   for (const w of menu.weapons) options.push({ kind: 'attack', weapon: w, type: w, power: 1, hits: 1, scale: 'atk', aoe: false, cost: 0, byHits: true });
   for (const s of menu.skills) {
-    if (!s.usable || s.kind !== 'attack' || s.ultimate) continue;
+    if (!s.usable || s.kind !== 'attack' || s.ultimate || (held && actor.ep - s.cost < held.cost)) continue;
     const d = SKILLS[s.id];
     options.push({ kind: 'skill', skillId: s.id, type: d.type, power: d.power, hits: d.hits, scale: d.scale,
       aoe: d.target === 'enemies' || d.target === 'randomEnemies', cost: d.cost, byHits: d.boostMode === 'hits' });
   }
-  const bp = m.maxBoost(actor.id);
+  const bp = Math.min(m.maxBoost(actor.id), Math.max(0, actor.bp - (held ? BATTLE_RULES.ultimateBp : 0)));
   let best = null;
   for (const o of options) {
     for (const t of o.aoe ? [null] : foes) {
@@ -68,7 +92,7 @@ function bestOffense(m, actor, menu, foes, memo) {
           if (known) {
             const shieldHits = Math.min(hits, e.shield);
             score += shieldHits * 60;
-            if (shieldHits >= e.shield) score += 260 + (e.charge || e.lockOnTarget ? 400 : 0); // breaks now (and cancels a telegraph)
+            if (shieldHits >= e.shield) score += 260 + (e.charge || e.lockOnTarget || e.then ? 400 : 0); // breaks now (and cancels a telegraph)
           } else if (!notWeak) score += 90 * hits; // probe an untested type
         }
         score -= o.cost * 4;
@@ -79,8 +103,10 @@ function bestOffense(m, actor, menu, foes, memo) {
   }
   if (!best) return null;
   const { o, t, b } = best;
-  if (o.kind === 'attack') return { kind: 'attack', weapon: o.weapon, targetId: t.id, boost: b };
-  return { kind: 'skill', skillId: o.skillId, targetId: t ? t.id : undefined, boost: b };
+  const breaks = (o.aoe ? foes : [t]).filter((e) => !e.broken && e.revealed.includes(o.type) && (o.byHits ? o.hits + b : o.hits) >= e.shield);
+  const action = o.kind === 'attack' ? { kind: 'attack', weapon: o.weapon, targetId: t.id, boost: b }
+    : { kind: 'skill', skillId: o.skillId, targetId: t ? t.id : undefined, boost: b };
+  return { action, breaks: breaks.map((e) => e.id) };
 }
 
 export function policyAction(m, actorId, memo = new Map()) {
@@ -98,7 +124,15 @@ export function policyAction(m, actorId, memo = new Map()) {
   const brokenFoe = foes.find((e) => e.broken);
   const threats = m.enemies.filter((e) => e.alive && !e.broken);
 
-  // Telegraphs: defend when a lock-on is aimed at me or a charge will hit everyone.
+  // Telegraphs: Break the foe if I know how; else defend against a lock-on aimed at me, a pending
+  // charge when I am hurt, and any telegraphed blow that reaches me before my next turn.
+  const pending = threatsOf(m);
+  if (pending.length && foes.length) {
+    const hit = bestOffense(m, actor, menu, foes, memo);
+    if (hit?.breaks.some((id) => pending.some((t) => t.enemy.id === id))) return hit.action;
+  }
+  const reachesMe = (t) => t.now && (t.target ? t.target === actorId : t.action.target === 'all' || hpFrac(actor) < 0.7);
+  if (pending.some(reachesMe)) return { kind: 'defend' };
   if (threats.some((e) => e.lockOnTarget === actorId) && hpFrac(actor) < 0.95) return { kind: 'defend' };
   if (threats.some((e) => e.charge) && hpFrac(actor) < 0.85) return { kind: 'defend' };
 
@@ -142,12 +176,16 @@ export function policyAction(m, actorId, memo = new Map()) {
 
   if (!foes.length) return { kind: 'defend' };
 
-  // Ultimates go on a Break.
-  if (ult && brokenFoe && SKILLS[ult.id].kind === 'attack') return { kind: 'skill', skillId: ult.id, targetId: brokenFoe.id };
+  // Ultimates go on a Break, or finish a boss on its last legs.
+  if (ult && SKILLS[ult.id].kind === 'attack') {
+    const lastStand = foes.find((e) => e.boss && hpFrac(e) < 0.3);
+    if (brokenFoe || lastStand) return { kind: 'skill', skillId: ult.id, targetId: (brokenFoe || lastStand).id };
+  }
 
-  // Support moves against bosses.
+  // Support moves against bosses (not with the EP an unused attack ultimate needs).
   const boss = foes.find((e) => e.boss);
-  if (boss && !boss.broken) {
+  const heldUlt = menu.skills.find((s) => s.ultimate && s.reason !== 'Used' && SKILLS[s.id].kind === 'attack');
+  if (boss && !boss.broken && !(heldUlt && actor.ep < heldUlt.cost + 12)) {
     if (!actor.buffs.taunt && hpFrac(actor) > 0.55 && m.round % 3 === 1) {
       const provoke = firstSkill((d) => d.kind === 'taunt');
       if (provoke) return { kind: 'skill', skillId: provoke.id };
@@ -159,7 +197,7 @@ export function policyAction(m, actorId, memo = new Map()) {
     if (ally && carry && actor.ep > 40) return { kind: 'skill', skillId: ally.id, targetId: carry.id };
   }
 
-  return bestOffense(m, actor, menu, foes, memo) || { kind: 'defend' };
+  return bestOffense(m, actor, menu, foes, memo)?.action || { kind: 'defend' };
 }
 
 // A policy that keeps its own knowledge per battle model. Without observe() calls it infers what an

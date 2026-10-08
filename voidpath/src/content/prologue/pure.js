@@ -2,6 +2,8 @@
 import data from './data.js';
 import story from './story.js';
 import halcyon from './maps/halcyon.js';
+import moth from './maps/moth.js';
+import exterior from './maps/exterior.js';
 
 export default {
   id: 'prologue',
@@ -9,5 +11,5 @@ export default {
   name: 'ISV Halcyon',
   data,
   story,
-  maps: { halcyon },
+  maps: { halcyon, moth, exterior },
 };
