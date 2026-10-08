@@ -684,6 +684,8 @@ export class ShatterEffect {
     this.frozen.texture.name = 'VP.ShatterFrozen';
     /** MSAA samples for the shard overlay (0 = draw straight to the target, aliased edges). */
     this.samples = 4;
+    /** Keep the full-size targets between transitions (no reallocation per encounter; desktop). */
+    this.keepTargets = false;
     this.msaa = null;
     this.copyMaterial = COPY_MATERIAL();
     this.copyQuad = new FullScreenQuad(this.copyMaterial);
@@ -832,8 +834,9 @@ export class ShatterEffect {
     renderer.render(this.scene, this.camera);
   }
 
-  /** Free the full-resolution targets between transitions (they are re-created on demand). */
+  /** Free the full-resolution targets between transitions unless keepTargets (re-created on demand). */
   release() {
+    if (this.keepTargets) return;
     this.frozen.setSize(4, 4);
     this.msaa?.dispose();
     this.msaa = null;

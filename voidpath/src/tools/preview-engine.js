@@ -1,15 +1,24 @@
 // Engine preview: a small plain-geometry diorama that exercises the whole post chain
-// (bloom, tilt-shift, grade) and the transitions. Keys:
+// (bloom, tilt-shift, grade), the transitions and the instrumentation of TECH_PLAN 11.4-11.6.
+// Keys:
 //   T shatter (to the other scene)   Y fade   U iris   F flash   S shake   H hit-stop
 //   G toggle tilt-shift   B toggle bloom   1/2/3 quality low/medium/high
+//   R rebuild the arena (fresh materials, compileScene, old view released through programs.release)
+//   P perf.simulate(45): one automatic quality drop with its toast
+// URL: ?stats=1 shows the perf overlay; ?q=low|medium|high starts on that tier (and locks auto drops).
+// window.__PREVIEW: shatter/fade/iris/hold/pin/release, renderInfo(), rebuild(), cycle(n) -> report,
+// simulate(ms) -> perf result, perf, engine.
 import * as THREE from 'three';
 import { Engine } from '../core/engine.js';
+import { release } from '../core/programs.js';
+import { perf } from '../core/perf.js';
 import { Painter, makeNormalMap, toTexture } from '../art/painter.js';
 import { RAMPS, OUTLINE, GLOW } from '../art/palette.js';
 import { injectCSS, el, makeRng } from '../core/util.js';
 
 const canvas = document.getElementById('view');
-const engine = new Engine(canvas, { quality: 'high' });
+const startQ = new URLSearchParams(location.search).get('q');
+const engine = new Engine(canvas, { quality: ['low', 'medium', 'high'].includes(startQ) ? startQ : 'high' });
 
 // ---------------------------------------------------------------- pixel textures (stand-ins)
 
@@ -292,6 +301,41 @@ let current = 0;
 const show = (i) => { current = i; engine.setView(views[i].scene, views[i].camera); };
 show(0);
 
+// Free a view the way World.dispose / BattleStage.dispose do: geometries disposed, materials
+// released through the program anchor (never material.dispose()).
+function disposeView(v) {
+  v.scene.traverse((o) => {
+    o.geometry?.dispose();
+    if (o.isInstancedMesh) o.dispose();
+    if (o.material) release(o.material);
+    if (o.isLight) o.dispose();
+  });
+}
+
+const nextFrames = (n) => new Promise((resolve) => {
+  let k = 0;
+  const off = engine.onUpdate(() => { if (++k >= n) { off(); resolve(); } });
+});
+
+/** Rebuild the arena from scratch (like a map revisit) and report how many programs it linked. */
+async function rebuild() {
+  const before = engine.renderInfo();
+  engine.markCompiles();
+  const fresh = buildArena();
+  await engine.compileScene(fresh.scene, fresh.camera);
+  const compiled = engine.renderInfo().compilesSince;
+  const old = views[1];
+  views[1] = fresh;
+  show(1);
+  disposeView(old);
+  await nextFrames(3);
+  const after = engine.renderInfo();
+  return {
+    compileScene: compiled, total: after.compilesSince, programs: after.programs, anchors: after.anchors,
+    textures: [before.textures, after.textures], geometries: [before.geometries, after.geometries],
+  };
+}
+
 engine.onUpdate((dt, t) => views[current].update(t));
 
 const swap = () => show(1 - current);
@@ -327,6 +371,20 @@ const api = {
     return true;
   },
   release() { engine.transitionTimeScale = 1; },
+  renderInfo: () => engine.renderInfo(),
+  rebuild,
+  /** n rebuilds in a row; every one after the first should link nothing (compiles === 0). */
+  async cycle(n = 3) {
+    const runs = [];
+    for (let i = 0; i < n; i++) runs.push(await rebuild());
+    api.cycleReport = runs;
+    paintCycle();
+    return runs;
+  },
+  cycleReport: null,
+  simulate: (ms = 45) => perf.simulate(ms).then((r) => { api.perfResult = r; paintCycle(); return r; }),
+  perfResult: null,
+  perf,
   setTiltShift: (on) => engine.setFx({ tiltShift: { enabled: on } }),
   setBloom: (on) => engine.setFx({ bloom: { enabled: on } }),
   show,
@@ -342,16 +400,24 @@ injectCSS('preview-engine', `
 .pe-hud kbd { display: inline-block; min-width: 14px; padding: 0 4px; margin-right: 4px; border: 1px solid var(--vp-line-dim);
   color: var(--vp-ink); font: 11px var(--vp-font-pixel); text-align: center; }
 .pe-hud .pe-stat { color: var(--vp-cyan); }
+.pe-hud .pe-info, .pe-hud .pe-cycle { font: 11px/1.5 ui-monospace, 'Courier New', monospace; color: var(--vp-ink); white-space: pre; }
+.pe-hud .pe-cycle { color: var(--vp-amber); }
+body.has-stats .pe-hud { top: auto; bottom: 14px; }
 @media (max-width: 600px) { .pe-hud { font-size: 11px; padding: 8px 10px; } .pe-hud .pe-keys { display: none; } }
 `);
 const stat = el('div', { class: 'pe-stat' });
+const info = el('div', { class: 'pe-info' });
+const cyc = el('div', { class: 'pe-cycle' });
 const hud = el('div', { class: 'pe-hud vp-passthrough' }, [
   el('b', { text: 'ENGINE PREVIEW' }),
   stat,
+  info,
+  cyc,
   el('div', { class: 'pe-keys', html: [
     '<kbd>T</kbd>shatter <kbd>Y</kbd>fade <kbd>U</kbd>iris',
     '<kbd>F</kbd>flash <kbd>S</kbd>shake <kbd>H</kbd>hit-stop',
     '<kbd>G</kbd>tilt-shift <kbd>B</kbd>bloom <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>quality',
+    '<kbd>R</kbd>rebuild arena <kbd>P</kbd>simulate 45 ms frames',
   ].join('<br>') }),
 ]);
 document.getElementById('ui-root').appendChild(hud);
@@ -367,7 +433,23 @@ engine.onUpdate(() => {
   const fx = engine.getFx();
   const r = engine.renderSize;
   stat.textContent = `${engine.quality} | ${r.width}x${r.height} | ${fps.toFixed(0)} fps | tilt ${fx.tiltShift.enabled ? 'on' : 'off'} | bloom ${fx.bloom.enabled ? 'on' : 'off'}`;
+  const ri = engine.renderInfo();
+  info.textContent = [
+    `scene  ${ri.scene.calls} calls  ${(ri.scene.triangles / 1000).toFixed(1)}k tris`,
+    `shadow ${ri.shadow.calls} calls  ${(ri.shadow.triangles / 1000).toFixed(1)}k tris`,
+    `post   ${ri.post.calls} calls`,
+    `programs ${ri.programs}  compiles ${ri.compiles}  anchors ${ri.anchors}`,
+    `lights ${ri.lights.point}p ${ri.lights.spot}s ${ri.lights.dir}d  textures ${ri.textures}`,
+  ].join('\n');
 });
+
+function paintCycle() {
+  const lines = [];
+  if (api.cycleReport) lines.push(`rebuilds: compiles ${api.cycleReport.map((c) => c.total).join(' / ')}`);
+  const pr = api.perfResult;
+  if (pr) lines.push(pr.dropped ? `auto drop ${pr.from} -> ${pr.to} (avg ${pr.avg} ms)` : `no drop (${pr.blocked || 'fast'}, avg ${pr.avg} ms)`);
+  cyc.textContent = lines.join('\n');
+}
 
 const actions = {
   KeyT: () => api.shatter(),
@@ -381,7 +463,10 @@ const actions = {
   Digit1: () => engine.setQuality('low'),
   Digit2: () => engine.setQuality('medium'),
   Digit3: () => engine.setQuality('high'),
+  KeyR: () => { rebuild().then((r) => { api.cycleReport = [...(api.cycleReport || []), r]; paintCycle(); }); },
+  KeyP: () => { api.simulate(45); },
 };
+if (new URLSearchParams(location.search).get('stats') === '1') document.body.classList.add('has-stats');
 window.addEventListener('keydown', (e) => {
   const fn = actions[e.code];
   if (!fn || e.repeat) return;

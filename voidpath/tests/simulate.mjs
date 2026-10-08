@@ -4,10 +4,11 @@
 //
 //   node tests/simulate.mjs [battlesPerEncounter=300] [--level-bonus N]
 
-import { BattleModel, BOOST_POTENCY } from '../src/battle/model.js';
-import { ENCOUNTERS, ENCOUNTER_TABLES, SKILLS } from '../src/battle/data.js';
+import { BattleModel } from '../src/battle/model.js';
+import { ENCOUNTERS, ENCOUNTER_TABLES } from '../src/battle/data.js';
 import { gameState, resetGame, healParty, gainXp, xpToNext, useItemOutOfBattle } from '../src/core/state.js';
 import { makeRng } from '../src/core/util.js';
+import { policyAction, observe } from './policy.mjs';
 
 const N = Number(process.argv[2]) > 0 ? Number(process.argv[2]) : 300;
 const lvlArg = process.argv.indexOf('--level-bonus');
@@ -15,100 +16,9 @@ const LEVEL_BONUS = lvlArg > 0 ? Number(process.argv[lvlArg + 1]) : 0;
 const MAX_ROUNDS = 40;
 
 const alive = (list) => list.filter((c) => c.alive);
-const hpFrac = (c) => c.hp / c.maxHp;
 
-// Rough expected damage of one hit (mirrors the model's formula without randomness). The policy only
-// knows revealed weaknesses, never the hidden list.
-function estHit(m, actor, target, type, power, scale) {
-  const physical = scale === 'atk';
-  const atk = m.effectiveStat(actor.id, physical ? 'atk' : 'mag');
-  const def = m.effectiveStat(target.id, physical ? 'def' : 'res');
-  let d = Math.max(1, atk * power * 2.2 - def * 1.1);
-  if (target.revealed.includes(type)) d *= 1.3;
-  if (target.broken) d *= 2;
-  return d;
-}
-
-// ------------------------------------------------------------------ heuristic policy
-// Knowledge: revealed weaknesses + types this policy already tried that proved not weak (memo).
-// It exploits known weaknesses, probes untried types, boosts into broken foes or to finish a break,
-// heals below 40%, revives, and handles the boss telegraph (defend) with Provoke/Expose/Overclock support.
-function heuristic(m, actor, memo) {
-  const foes = alive(m.enemies);
-  const allies = alive(m.party);
-  const menu = m.getMenu(actor.id);
-  const skill = (id) => menu.skills.find((s) => s.id === id && s.usable);
-  const item = (id) => menu.items.find((it) => it.id === id && it.usable);
-  const boss = m.enemies.find((e) => e.boss && e.alive);
-  const ko = m.party.filter((p) => !p.alive);
-  const lowest = allies.reduce((a, b) => (hpFrac(a) <= hpFrac(b) ? a : b));
-  const seraUp = allies.some((p) => p.key === 'sera');
-
-  // Survival first.
-  if (boss && boss.lockOnTarget === actor.id && !boss.broken && hpFrac(actor) < 0.95) return { kind: 'defend' };
-  if (actor.key === 'sera') {
-    if (ko.length && skill('revive')) return { kind: 'skill', skillId: 'revive', targetId: ko[0].id, boost: Math.min(1, m.maxBoost(actor.id)) };
-    const hurt = allies.filter((p) => hpFrac(p) < 0.55);
-    if (hurt.length >= 2 && skill('restore_field')) return { kind: 'skill', skillId: 'restore_field', boost: Math.min(hurt.length >= 3 ? 2 : 1, m.maxBoost(actor.id)) };
-    if (hpFrac(lowest) < 0.4 && skill('nanoheal')) return { kind: 'skill', skillId: 'nanoheal', targetId: lowest.id, boost: hpFrac(lowest) < 0.25 ? Math.min(2, m.maxBoost(actor.id)) : 0 };
-  } else {
-    if (ko.length && !seraUp && item('revive')) return { kind: 'item', itemId: 'revive', targetId: ko[0].id };
-    if (hpFrac(lowest) < (seraUp ? 0.2 : 0.4) && item('medigel')) return { kind: 'item', itemId: 'medigel', targetId: lowest.id };
-  }
-
-  // Support moves, mostly for the boss.
-  if (boss && !boss.broken) {
-    if (actor.key === 'kade' && !actor.buffs.taunt && hpFrac(actor) > 0.55 && skill('provoke') && m.round % 3 === 1) {
-      return { kind: 'skill', skillId: 'provoke' };
-    }
-    if (actor.key === 'nyx' && !boss.buffs.def && skill('expose')) return { kind: 'skill', skillId: 'expose', targetId: boss.id };
-  }
-  if (boss && actor.key === 'orion' && skill('overclock')) {
-    const carry = allies.find((p) => (p.key === 'kade' || p.key === 'nyx') && !p.buffs.atk);
-    if (carry && actor.ep > 40) return { kind: 'skill', skillId: 'overclock', targetId: carry.id };
-  }
-
-  // Offense: score every (option, target, boost) and take the best.
-  const options = [];
-  for (const w of menu.weapons) options.push({ kind: 'attack', weapon: w, type: w, power: 1, hits: 1, scale: 'atk', aoe: false, cost: 0, byHits: true });
-  for (const s of menu.skills) {
-    if (!s.usable || s.kind !== 'attack') continue;
-    const d = SKILLS[s.id];
-    options.push({ kind: 'skill', skillId: s.id, type: d.type, power: d.power, hits: d.hits, scale: d.scale, aoe: d.target === 'enemies', cost: d.cost, byHits: d.boostMode === 'hits' });
-  }
-  const bp = m.maxBoost(actor.id);
-  let best = null;
-  for (const o of options) {
-    for (const t of o.aoe ? [null] : foes) {
-      const targets = o.aoe ? foes : [t];
-      for (let b = 0; b <= bp; b++) {
-        const hits = o.byHits ? o.hits + b : o.hits;
-        const potency = o.byHits ? 1 : BOOST_POTENCY[b];
-        let score = 0;
-        for (const e of targets) {
-          const known = e.revealed.includes(o.type);
-          const notWeak = memo.get(e.id)?.has(o.type);
-          const dmg = estHit(m, actor, e, o.type, o.power, o.scale) * hits * potency;
-          score += Math.min(dmg, e.hp * 1.1);
-          if (!e.broken) {
-            if (known) {
-              const shieldHits = Math.min(hits, e.shield);
-              score += shieldHits * 60;
-              if (shieldHits >= e.shield) score += 260; // breaks now
-            } else if (!notWeak) score += 90 * hits; // probe an untested type
-          }
-        }
-        score -= o.cost * 4;
-        // BP is worth saving unless the target is broken or the pool is about to cap.
-        score -= b * (bp >= 4 ? 30 : 95);
-        if (!best || score > best.score) best = { score, o, t, b };
-      }
-    }
-  }
-  const { o, t, b } = best;
-  if (o.kind === 'attack') return { kind: 'attack', weapon: o.weapon, targetId: t.id, boost: b };
-  return { kind: 'skill', skillId: o.skillId, targetId: t ? t.id : undefined, boost: b };
-}
+// The heuristic player is the shared human-like policy (tests/policy.mjs, TECH_PLAN 10.4).
+const heuristic = (m, actor, memo) => policyAction(m, actor.id, memo);
 
 // ------------------------------------------------------------------ random policy
 function randomPolicy(m, actor, _memo, prng) {
@@ -143,11 +53,7 @@ function playBattle(encounterId, seed, policy) {
       model.enemyTurn();
       continue;
     }
-    for (const ev of model.act(policy(model, model.current, memo, prng))) {
-      if (ev.type !== 'hit' || ev.weak || !ev.damageType || !ev.targetId.startsWith('e')) continue;
-      if (!memo.has(ev.targetId)) memo.set(ev.targetId, new Set());
-      memo.get(ev.targetId).add(ev.damageType);
-    }
+    observe(memo, model.act(policy(model, model.current, memo, prng)));
   }
   model.applyRewards();
   return model;

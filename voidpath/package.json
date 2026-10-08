@@ -9,7 +9,10 @@
     "build:dev": "node build.mjs --dev",
     "test": "node --test tests/*.test.mjs",
     "play": "node tools/play.mjs",
-    "scenarios": "node tools/scenarios.mjs"
+    "scenarios": "node tools/scenarios.mjs",
+    "scriptcheck": "node tools/scriptcheck.mjs",
+    "balance": "node tests/campaign.mjs",
+    "contact": "node tools/contact-sheet.mjs"
   },
   "devDependencies": {
     "esbuild": "0.24.0",

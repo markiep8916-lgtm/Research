@@ -3,6 +3,27 @@
 //
 // States own their scenes and cameras and hand them over with setView(); the engine only
 // renders whatever is current, so it never stores game logic.
+//
+// Full-game additions (TECH_PLAN 11.4, 11.6):
+//   QUALITY_PRESETS[q]           the quality tier: pixel ratio cap and budget, shadows (type, field and
+//                                arena map sizes), field and arena light pools, particle scale, post
+//                                settings. World, lighting rig, arenas and particles read engine.tier.
+//   engine.tier                  QUALITY_PRESETS[engine.quality]
+//   engine.setQuality(q, { auto })   no-op when unchanged; recompiles once (shadow programs, anchors)
+//   engine.onQualityChange(fn(q, { auto, previous })) -> unsubscribe
+//   engine.onViewChange(fn(scene, camera, { fresh })) -> unsubscribe   fresh: first time this scene shows
+//   engine.compileScene(scene, camera) -> Promise   links every program of the scene for the composer's
+//                                render target (compileAsync where supported) and uploads its textures;
+//                                call under a cover before setView (map loads, the shatter midpoint)
+//   engine.renderInfo() -> { scene: { calls, triangles }, shadow: { calls, triangles }, post: { calls },
+//                            programs, compiles, compilesSince, textures, geometries,
+//                            lights: { point, spot, dir }, canvasMB, anchors, quality, pixelRatio, renderSize }
+//                                last rendered frame; compiles counts gl.linkProgram calls since start,
+//                                compilesSince those since the last markCompiles()
+//   engine.markCompiles()        starts a new compilesSince window
+//   engine.frameMs               raw duration of the last frame (ms, uncapped), for perf.js
+//   engine.reducedMotion         prefers-reduced-motion: no shake, damped flashes, 'shatter' plays as 'fade'
+//   engine.perf                  the frame-time monitor (core/perf.js): ?stats=1 overlay, automatic drop
 
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -11,18 +32,36 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import {
   DEFAULT_FX, cloneFx, mergeFx, ScaledBloomPass, TiltShiftPass, GradePass, OverlayPass,
 } from './postfx.js';
-import { clamp, ease } from './util.js';
+import { clamp, ease, isTouchDevice, prefersReducedMotion } from './util.js';
+import { setRenderer as setProgramsRenderer, clearAnchors, anchorCount } from './programs.js';
+import { artCache } from '../art/cache.js';
+import { perf } from './perf.js';
 
+// Light counts are fixed per tier so every map and every arena of a tier shares shader programs.
 export const QUALITY_PRESETS = Object.freeze({
-  low: { pixelRatioCap: 1.0, shadows: false, bloomScale: 0.5, tiltTaps: 9, shatterMsaa: 0 },
-  medium: { pixelRatioCap: 1.5, shadows: true, bloomScale: 1.0, tiltTaps: 11, shatterMsaa: 4 },
-  high: { pixelRatioCap: 2.0, shadows: true, bloomScale: 1.0, tiltTaps: 13, shatterMsaa: 4 },
+  low: Object.freeze({
+    pixelRatioCap: 1.0, pixelBudget: 0.75e6, shadows: false, shadowType: null, fieldShadowMap: 0, arenaShadowMap: 0,
+    fieldPointLights: 2, fieldSpot: false, arenaPointLights: 2, arenaSpot: false, particles: 0.5,
+    bloomScale: 0.5, tiltTaps: 9, shatterMsaa: 0,
+  }),
+  medium: Object.freeze({
+    pixelRatioCap: 1.5, pixelBudget: 1.4e6, shadows: true, shadowType: 'pcf', fieldShadowMap: 1024, arenaShadowMap: 1024,
+    fieldPointLights: 4, fieldSpot: false, arenaPointLights: 4, arenaSpot: false, particles: 0.75,
+    bloomScale: 1.0, tiltTaps: 11, shatterMsaa: 4,
+  }),
+  high: Object.freeze({
+    pixelRatioCap: 2.0, pixelBudget: 2.8e6, shadows: true, shadowType: 'pcfsoft', fieldShadowMap: 2048, arenaShadowMap: 2048,
+    fieldPointLights: 8, fieldSpot: true, arenaPointLights: 6, arenaSpot: true, particles: 1,
+    bloomScale: 1.0, tiltTaps: 13, shatterMsaa: 4,
+  }),
 });
 
+const SHADOW_TYPES = { pcf: THREE.PCFShadowMap, pcfsoft: THREE.PCFSoftShadowMap };
 const MAX_PHYSICAL_HEIGHT = 1440;
 const MAX_DT = 1 / 20;       // game-time clamp per frame
 const MAX_REAL_DT = 0.1;     // real-time effects (hit-stop, shake, flash, transitions) per-frame cap
 const TRANSITION_TYPES = ['shatter', 'fade', 'iris'];
+const CONTEXT_RELOAD_MS = 6000;  // a lost WebGL context not restored by then offers a reload
 
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
@@ -43,9 +82,10 @@ export class Engine {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1;
     renderer.shadowMap.enabled = preset.shadows;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = SHADOW_TYPES[preset.shadowType] ?? THREE.PCFSoftShadowMap;
     renderer.setClearColor(0x000000, 1);
     this.renderer = renderer;
+    setProgramsRenderer(renderer);
 
     this.scene = null;
     this.camera = null;
@@ -53,16 +93,21 @@ export class Engine {
     this.dt = 0;            // game delta of the last frame
     this.realTime = 0;      // unscaled seconds (drives grain, shake, flash, transitions)
     this.realDt = 0;        // unscaled delta, capped at 0.1 s
+    this.frameMs = 0;       // raw duration of the last frame in ms (perf monitor)
     this.timeScale = 1;
     this.transitionTimeScale = 1; // debug knob: < 1 slows transitions down
     this.size = { width: 1, height: 1, aspect: 1 };
     this.pixelRatio = 1;
     this.running = false;
+    this.reducedMotion = prefersReducedMotion();
 
     this._fx = cloneFx(DEFAULT_FX);
     this._updaters = [];
     this._updaterSnapshot = [];
     this._updatersDirty = false;
+    this._viewListeners = new Set();
+    this._qualityListeners = new Set();
+    this._shownScenes = new WeakSet();
     this._hitStop = 0;
     this._shake = { amp: 0, dur: 0, t: 0, phase: [0, 0, 0, 0] };
     this._flash = { color: new THREE.Color(), dur: 0, t: 0, strength: 0 };
@@ -97,10 +142,13 @@ export class Engine {
     };
     this.overlayPass.enabled = false;
     this.overlayPass.shatter.samples = preset.shatterMsaa;
-    // Compile the transition shaders now so the first encounter does not hitch.
-    renderer.compile(this.overlayPass.shatter.scene, this.overlayPass.shatter.camera);
+    // Desktop keeps the shatter's full-size targets between encounters (no reallocation per battle).
+    this.overlayPass.shatter.keepTargets = !isTouchDevice();
     this._applyFx();
     this._resize();
+
+    this._instrument();
+    this._precompilePost();
 
     // ---- resize tracking
     if (typeof ResizeObserver !== 'undefined') {
@@ -109,7 +157,218 @@ export class Engine {
     }
     this._onWindowResize = () => { this._resizeDirty = true; };
     window.addEventListener('resize', this._onWindowResize);
-    canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
+    this._watchReducedMotion();
+    this._watchContext();
+    perf.attach(this);
+  }
+
+  // ------------------------------------------------------------ instrumentation (11.4)
+
+  // renderer.info accumulates over the whole frame (every pass) and is split into the scene pass,
+  // its shadow maps and the post chain; gl.linkProgram is counted once at start.
+  _instrument() {
+    const renderer = this.renderer;
+    const info = renderer.info;
+    info.autoReset = false;
+    this.compiles = 0;
+    this._compileMark = 0;
+    const cur = { sceneCalls: 0, sceneTris: 0, shadowCalls: 0, shadowTris: 0 };
+    this._frameInfo = cur;
+    this._lastInfo = { scene: { calls: 0, triangles: 0 }, shadow: { calls: 0, triangles: 0 }, post: { calls: 0 } };
+
+    const gl = renderer.getContext();
+    const link = gl.linkProgram.bind(gl);
+    gl.linkProgram = (program) => {
+      this.compiles++;
+      return link(program);
+    };
+
+    const sm = renderer.shadowMap;
+    const shadowRender = sm.render;
+    sm.render = (...args) => {
+      const c0 = info.render.calls, t0 = info.render.triangles;
+      shadowRender.apply(sm, args);
+      cur.shadowCalls += info.render.calls - c0;
+      cur.shadowTris += info.render.triangles - t0;
+    };
+
+    const rp = this.renderPass;
+    const passRender = rp.render;
+    rp.render = (...args) => {
+      const c0 = info.render.calls, t0 = info.render.triangles;
+      const s0 = cur.shadowCalls, st0 = cur.shadowTris;
+      passRender.apply(rp, args);
+      cur.sceneCalls += info.render.calls - c0 - (cur.shadowCalls - s0);
+      cur.sceneTris += info.render.triangles - t0 - (cur.shadowTris - st0);
+    };
+  }
+
+  _beginFrameInfo() {
+    this.renderer.info.reset();
+    const cur = this._frameInfo;
+    cur.sceneCalls = cur.sceneTris = cur.shadowCalls = cur.shadowTris = 0;
+  }
+
+  _endFrameInfo() {
+    const r = this.renderer.info.render;
+    const cur = this._frameInfo;
+    const last = this._lastInfo;
+    last.scene.calls = cur.sceneCalls;
+    last.scene.triangles = cur.sceneTris;
+    last.shadow.calls = cur.shadowCalls;
+    last.shadow.triangles = cur.shadowTris;
+    last.post.calls = Math.max(0, r.calls - cur.sceneCalls - cur.shadowCalls);
+  }
+
+  /** Draw-call, program, texture and memory counters of the last rendered frame (TECH_PLAN 10.1). */
+  renderInfo() {
+    const r = this.renderer;
+    const last = this._lastInfo;
+    const lights = { point: 0, spot: 0, dir: 0 };
+    this.scene?.traverseVisible((o) => {
+      if (o.isPointLight) lights.point++;
+      else if (o.isSpotLight) lights.spot++;
+      else if (o.isDirectionalLight) lights.dir++;
+    });
+    return {
+      scene: { ...last.scene },
+      shadow: { ...last.shadow },
+      post: { ...last.post },
+      programs: r.info.programs ? r.info.programs.length : 0,
+      compiles: this.compiles,
+      compilesSince: this.compiles - this._compileMark,
+      textures: r.info.memory.textures,
+      geometries: r.info.memory.geometries,
+      lights,
+      canvasMB: Math.round((artCache.bytes / (1024 * 1024)) * 10) / 10,
+      anchors: anchorCount(),
+      quality: this.quality,
+      pixelRatio: Math.round(this.pixelRatio * 100) / 100,
+      renderSize: this.renderSize,
+    };
+  }
+
+  /** Start a new compilesSince window (e.g. right before a revisit that must link nothing). */
+  markCompiles() {
+    this._compileMark = this.compiles;
+  }
+
+  // Link the post-chain variants the first transition would otherwise link on its crack frame
+  // (POC review R13): grade into a target (overlay on), overlay and copy to the screen, the shatter
+  // scene and the copy into a target, and the shatter scene straight to the screen (low quality).
+  _precompilePost() {
+    const r = this.renderer;
+    const target = this.composer.readBuffer;
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const sh = this.overlayPass.shatter;
+    const quadScene = (material) => {
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+      return scene;
+    };
+    const jobs = [
+      [quadScene(this.gradePass.material), target],
+      [quadScene(this.overlayPass.material), null],
+      [quadScene(sh.copyMaterial), target],
+      [quadScene(sh.copyMaterial), null],
+      [sh.scene, target],
+      [sh.scene, null],
+    ];
+    const prev = r.getRenderTarget();
+    for (const [scene, rt] of jobs) {
+      r.setRenderTarget(rt);
+      r.compile(scene, scene === sh.scene ? sh.camera : cam);
+    }
+    r.setRenderTarget(prev);
+    for (const [scene] of jobs) if (scene !== sh.scene) scene.children[0].geometry.dispose();
+  }
+
+  /**
+   * Link every program `scene` needs as the composer will draw it (into its render target, with the
+   * scene's current lights) and upload its textures, so the first frame after a cover does no work.
+   * Objects out of view are included. Resolves when the driver reports the programs ready.
+   */
+  compileScene(scene, camera) {
+    if (!scene || !camera) return Promise.resolve();
+    const r = this.renderer;
+    this._syncShadowPrograms(scene);
+    scene.updateMatrixWorld();
+    const prev = r.getRenderTarget();
+    r.setRenderTarget(this.composer.readBuffer);
+    let pending = null;
+    try {
+      // compileAsync only helps with KHR_parallel_shader_compile; without it, compile synchronously.
+      if (r.compileAsync && r.extensions.has('KHR_parallel_shader_compile')) pending = r.compileAsync(scene, camera);
+      else r.compile(scene, camera);
+    } finally {
+      r.setRenderTarget(prev);
+    }
+    this._uploadTextures(scene);
+    return pending ? pending.then(() => undefined) : Promise.resolve();
+  }
+
+  _uploadTextures(scene) {
+    const r = this.renderer;
+    const seen = new Set();
+    const up = (t) => {
+      if (!t || !t.isTexture || seen.has(t) || !t.image || t.isRenderTargetTexture) return;
+      seen.add(t);
+      r.initTexture(t);
+    };
+    scene.traverse((o) => {
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of mats) {
+        for (const k of Object.keys(m)) if (m[k]?.isTexture) up(m[k]);
+        if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) up(u.value);
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ robustness
+
+  _watchReducedMotion() {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const on = () => { this.reducedMotion = mq.matches; };
+    if (mq.addEventListener) mq.addEventListener('change', on);
+  }
+
+  // A lost context (mobile GPU reset, iOS memory pressure) shows a notice instead of a frozen black
+  // view; three re-uploads everything on restore. If no restore arrives, offer a reload (R28).
+  _watchContext() {
+    const canvas = this.canvas;
+    let box = null;
+    let timer = 0;
+    const show = (text, reload) => {
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'vp-ctxlost';
+        box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;'
+          + 'padding:14px 20px;background:rgba(6,12,22,.92);border:1px solid rgba(127,227,255,.35);'
+          + 'color:#cfefff;font:600 14px/1.4 "Chakra Petch",system-ui,sans-serif;letter-spacing:.06em;'
+          + 'text-align:center;border-radius:4px;display:flex;flex-direction:column;gap:10px;align-items:center;';
+        document.body.appendChild(box);
+      }
+      box.textContent = text;
+      if (reload) {
+        const b = document.createElement('button');
+        b.textContent = 'Reload';
+        b.style.cssText = 'font:inherit;padding:6px 18px;background:#123049;color:#e8f8ff;border:1px solid #4fc8f0;border-radius:3px;cursor:pointer;';
+        b.addEventListener('click', () => location.reload());
+        box.appendChild(b);
+      }
+    };
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      show('Graphics paused, restoring...');
+      clearTimeout(timer);
+      timer = setTimeout(() => show('The graphics device was lost.', true), CONTEXT_RELOAD_MS);
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      clearTimeout(timer);
+      box?.remove();
+      box = null;
+    });
   }
 
   // ------------------------------------------------------------ view
@@ -122,6 +381,16 @@ export class Engine {
     this.renderPass.camera = this.camera;
     if (this.scene) this._syncShadowPrograms(this.scene);
     this._syncCamera();
+    if (!this.scene) return;
+    const fresh = !this._shownScenes.has(this.scene);
+    this._shownScenes.add(this.scene);
+    for (const fn of [...this._viewListeners]) fn(this.scene, this.camera, { fresh });
+  }
+
+  /** fn(scene, camera, { fresh }) after every setView with a scene; fresh = first time it shows. */
+  onViewChange(fn) {
+    this._viewListeners.add(fn);
+    return () => this._viewListeners.delete(fn);
   }
 
   _syncCamera() {
@@ -140,9 +409,11 @@ export class Engine {
     }
   }
 
-  // Toggling renderer.shadowMap.enabled does not rebuild already-compiled programs: do it per scene.
+  // Changing renderer.shadowMap.enabled or .type does not rebuild already-compiled programs: do it
+  // per scene, once per change.
   _syncShadowPrograms(scene) {
-    const on = this.renderer.shadowMap.enabled;
+    const sm = this.renderer.shadowMap;
+    const on = sm.enabled ? `on:${sm.type}` : 'off';
     if (scene.userData.__vpShadows === on) return;
     if (scene.userData.__vpShadows !== undefined) {
       scene.traverse((o) => {
@@ -183,17 +454,37 @@ export class Engine {
 
   // ------------------------------------------------------------ quality / size
 
-  setQuality(q) {
-    if (!QUALITY_PRESETS[q]) return;
+  /** The current quality tier (TECH_PLAN 11.6 budgets). */
+  get tier() {
+    return QUALITY_PRESETS[this.quality];
+  }
+
+  /**
+   * Switch the quality tier. No-op when unchanged. Shadow programs rebuild once per scene and the
+   * program anchors of the old tier are dropped (their variants can never draw again).
+   * auto: true when perf.js lowers quality on its own (listeners can tell it from a player choice).
+   */
+  setQuality(q, { auto = false } = {}) {
+    if (!QUALITY_PRESETS[q] || q === this.quality) return;
+    const previous = this.quality;
     this.quality = q;
     const preset = QUALITY_PRESETS[q];
     this.renderer.shadowMap.enabled = preset.shadows;
+    if (preset.shadowType) this.renderer.shadowMap.type = SHADOW_TYPES[preset.shadowType];
     if (this.scene) this._syncShadowPrograms(this.scene);
     this.bloomPass.setResScale(preset.bloomScale);
     this.tiltShiftPass.setTaps(preset.tiltTaps);
     this.overlayPass.shatter.samples = preset.shatterMsaa;
+    clearAnchors();
     this._resizeDirty = true;
     this._resize();
+    for (const fn of [...this._qualityListeners]) fn(q, { auto, previous });
+  }
+
+  /** fn(quality, { auto, previous }) after every change. Returns an unsubscribe function. */
+  onQualityChange(fn) {
+    this._qualityListeners.add(fn);
+    return () => this._qualityListeners.delete(fn);
   }
 
   _measure() {
@@ -201,11 +492,13 @@ export class Engine {
     const w = Math.max(1, c.clientWidth || window.innerWidth || 1);
     const h = Math.max(1, c.clientHeight || window.innerHeight || 1);
     const dpr = window.devicePixelRatio || 1;
-    const cap = QUALITY_PRESETS[this.quality].pixelRatioCap;
+    const { pixelRatioCap, pixelBudget } = QUALITY_PRESETS[this.quality];
     this.size.width = w;
     this.size.height = h;
     this.size.aspect = w / h;
-    this.pixelRatio = Math.max(0.25, Math.min(dpr, cap, MAX_PHYSICAL_HEIGHT / h));
+    // Cap the device ratio per tier, the physical height, and the total pixel count (HiDPI laptops
+    // otherwise render ~3.7 MP through five full-resolution post passes; POC review R7).
+    this.pixelRatio = Math.max(0.25, Math.min(dpr, pixelRatioCap, MAX_PHYSICAL_HEIGHT / h, Math.sqrt(pixelBudget / (w * h))));
   }
 
   _resize() {
@@ -262,6 +555,7 @@ export class Engine {
     this._raf = requestAnimationFrame(this._frame);
     const raw = Math.max(0, (now - this._lastNow) / 1000);
     this._lastNow = now;
+    this.frameMs = raw * 1000;
     const rdt = Math.min(raw, MAX_REAL_DT);
     this.realDt = rdt;
     this.realTime += rdt;
@@ -300,6 +594,12 @@ export class Engine {
 
   /** Render one frame of the current view through the post chain (the loop calls this). */
   render() {
+    this._beginFrameInfo();
+    this._render();
+    this._endFrameInfo();
+  }
+
+  _render() {
     const renderer = this.renderer;
     this.gradePass.material.uniforms.uTime.value = this.realTime;
     const tr = this._tr;
@@ -342,6 +642,7 @@ export class Engine {
 
   /** Camera shake in world units along the camera's screen axes; decays over `duration` seconds. */
   shake(intensity = 0.12, duration = 0.3) {
+    if (this.reducedMotion) return;
     const s = this._shake;
     const k = s.dur > 0 ? Math.max(0, 1 - s.t / s.dur) : 0;
     const current = s.amp * k * k;
@@ -373,6 +674,7 @@ export class Engine {
 
   /** Full-screen additive flash that decays over `duration` seconds. */
   flash(color = '#ffffff', duration = 0.25, strength = 0.8) {
+    if (this.reducedMotion) strength *= 0.35;
     const f = this._flash;
     const k = f.dur > 0 ? Math.max(0, 1 - f.t / f.dur) : 0;
     if (strength < f.strength * k * k) return;
@@ -404,6 +706,7 @@ export class Engine {
    * Full-screen transition. Resolves when the new view is fully revealed; rejects (after still
    * revealing) if onMidpoint throws/rejects. Calls made while one is running are queued.
    *   'shatter': `duration` is the shatter-to-black time; reveal adds max(0.3, 0.35 * duration).
+   *              With prefers-reduced-motion it plays as a black 'fade' of the same total length.
    *   'fade' / 'iris': `duration` is the whole transition (half out, half in).
    * Extra options: color (fade/iris cover, shatter flash tint), onMidpoint (may return a promise),
    *   reveal ('fade' | 'iris', shatter only), revealDuration, center ({x, y} CSS px: iris centre /
@@ -411,6 +714,12 @@ export class Engine {
    */
   transition(type, { duration = 1.0, color, onMidpoint, ...rest } = {}) {
     if (!TRANSITION_TYPES.includes(type)) return Promise.reject(new Error(`Unknown transition "${type}"`));
+    if (type === 'shatter' && this.reducedMotion) {
+      // Same total length (cover + reveal), no flying glass.
+      type = 'fade';
+      duration += Math.max(0.3, duration * 0.35);
+      color = '#000000';
+    }
     return new Promise((resolve, reject) => {
       this._trQueue.push({ type, opts: { duration: Math.max(0.05, duration), color, onMidpoint, ...rest }, resolve, reject });
       if (!this._tr) this._startNextTransition();

@@ -3,17 +3,19 @@
 //   node build.mjs          -> minified build
 //   node build.mjs --dev    -> readable build (no minify), faster to debug
 //
-// Outputs
-//   dist/index.html          full standalone document (open directly in a browser)
-//   dist/artifact.html       same page as a fragment (no doctype/html/head/body),
-//                            for publishing as a claude.ai Artifact
-//   dist/tools/<name>.html   one page per src/tools/<name>.js preview entry
+//   node build.mjs --only main / --only preview-engine   one entry
 //
-// three.js is NOT bundled: every `import ... from 'three'` is rewritten to the
-// pinned jsdelivr ES module URL below, so the page stays small and loads three
-// from an allowed CDN. `three/addons/...` imports ARE bundled (they in turn
-// import 'three', which resolves to the same URL). tools/play.mjs serves the
-// local node_modules copy for that URL so headless tests work offline.
+// Outputs
+//   dist/index.html          full standalone document with three.js bundled in, so it also
+//                            opens offline straight from disk (POC review R24)
+//   dist/artifact.html       the page as a fragment (no doctype/html/head/body) for publishing
+//                            as a claude.ai Artifact; loads three.js from the pinned CDN
+//   dist/tools/<name>.html   one page per src/tools/<name>.js preview entry (three.js from the CDN)
+//
+// CDN builds rewrite every `import ... from 'three'` to the pinned jsdelivr ES module URL below,
+// so those pages stay small. `three/addons/...` imports are always bundled (they in turn import
+// 'three', which resolves the same way). tools/play.mjs serves the local node_modules copy for
+// that URL so headless tests work offline. Every page must stay under 16 MB.
 
 import * as esbuild from 'esbuild';
 import fs from 'node:fs';
@@ -25,6 +27,7 @@ export const THREE_VERSION = '0.170.0';
 export const THREE_URL = `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.min.js`;
 
 const dev = process.argv.includes('--dev');
+const MAX_BYTES = 16 * 1024 * 1024;
 const only = (() => {
   const i = process.argv.indexOf('--only');
   return i >= 0 ? process.argv[i + 1] : null; // e.g. --only main  or  --only preview-art
@@ -66,7 +69,7 @@ function artifactFragment(js) {
   return `${head.trim()}\n${body.trim()}\n`;
 }
 
-async function bundle(entry) {
+async function bundle(entry, { inlineThree = false } = {}) {
   const result = await esbuild.build({
     entryPoints: [entry],
     bundle: true,
@@ -76,11 +79,16 @@ async function bundle(entry) {
     sourcemap: false,
     write: false,
     legalComments: 'none',
-    plugins: [externalThree],
+    plugins: inlineThree ? [] : [externalThree],
     logLevel: 'silent',
     define: { __DEV__: dev ? 'true' : 'false' },
   });
   return result.outputFiles[0].text;
+}
+
+function write(file, html) {
+  if (Buffer.byteLength(html) > MAX_BYTES) throw new Error(`${path.relative(ROOT, file)} is ${(Buffer.byteLength(html) / 1048576).toFixed(1)} MB (limit 16 MB)`);
+  fs.writeFileSync(file, html);
 }
 
 async function main() {
@@ -89,10 +97,11 @@ async function main() {
   const jobs = [];
   if (!only || only === 'main') {
     jobs.push((async () => {
-      const js = await bundle(path.join(ROOT, 'src/main.js'));
-      fs.writeFileSync(path.join(ROOT, 'dist/index.html'), fullDocument(js, { title: 'Voidpath' }));
-      fs.writeFileSync(path.join(ROOT, 'dist/artifact.html'), artifactFragment(js));
-      return `main (${(js.length / 1024).toFixed(0)} KB)`;
+      const entry = path.join(ROOT, 'src/main.js');
+      const [js, standalone] = await Promise.all([bundle(entry), bundle(entry, { inlineThree: true })]);
+      write(path.join(ROOT, 'dist/index.html'), fullDocument(standalone, { title: 'Voidpath' }));
+      write(path.join(ROOT, 'dist/artifact.html'), artifactFragment(js));
+      return `main (${(js.length / 1024).toFixed(0)} KB; standalone with three.js ${(standalone.length / 1024).toFixed(0)} KB)`;
     })());
   }
   const toolDir = path.join(ROOT, 'src/tools');
@@ -102,7 +111,7 @@ async function main() {
     if (only && only !== name) continue;
     jobs.push((async () => {
       const js = await bundle(path.join(toolDir, f));
-      fs.writeFileSync(path.join(ROOT, `dist/tools/${name}.html`), fullDocument(js, { title: `Voidpath: ${name}` }));
+      write(path.join(ROOT, `dist/tools/${name}.html`), fullDocument(js, { title: `Voidpath: ${name}` }));
       return name;
     })());
   }

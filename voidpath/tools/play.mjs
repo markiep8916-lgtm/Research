@@ -11,6 +11,7 @@
 //     --size 1280x720     viewport (default 1280x720)
 //     --mobile            emulate a touch phone (390x844, hasTouch, isMobile, DPR 2)
 //     --dpr <n>           device scale factor (default 1)
+//     --reduced-motion    emulate prefers-reduced-motion: reduce
 //     --timeout <ms>      overall timeout (default 120000)
 //     --strict            exit 1 if any page error or console.error occurred
 //     --full-page         full-page screenshots (useful for long art preview pages)
@@ -43,19 +44,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-function loadPlaywright() {
-  const req = createRequire(import.meta.url);
-  try { return req('playwright'); } catch {}
-  for (const p of ['/opt/node22/lib/node_modules/', '/usr/local/lib/node_modules/', '/usr/lib/node_modules/']) {
-    try { return createRequire(p)('playwright'); } catch {}
-  }
-  throw new Error('playwright not found (expected a global install)');
-}
+import { fileURLToPath } from 'node:url';
+import { ROOT, pageUrlOf, launchBrowser, openPage } from './browser.mjs';
 
 const args = process.argv.slice(2);
 if (!args.length || args[0] === '--help') {
@@ -70,12 +60,8 @@ const opt = (name, dflt) => {
 const flag = (name) => args.includes(name);
 
 const pageArg = args[0];
-const isUrl = /^https?:|^file:/.test(pageArg);
-// keep a ?query / #hash out of pathToFileURL (it would escape them into the file name)
-const pageSuffix = (pageArg.match(/[?#].*$/) || [''])[0];
-const pagePath = pageArg.slice(0, pageArg.length - pageSuffix.length);
-const pageUrl = isUrl ? pageArg : pathToFileURL(path.resolve(process.cwd(), pagePath)).href + pageSuffix;
-const pageName = path.basename(pagePath).replace(/\.html?$/, '');
+const pageUrl = pageUrlOf(pageArg);
+const pageName = path.basename(pageArg.replace(/[?#].*$/, '')).replace(/\.html?$/, '');
 const outDir = path.resolve(process.cwd(), opt('--out', path.join(ROOT, 'shots', pageName)));
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -83,13 +69,10 @@ let steps = [{ wait: 2500 }, { shot: 'page' }];
 if (opt('--steps')) steps = JSON.parse(fs.readFileSync(opt('--steps'), 'utf8'));
 if (opt('--steps-json')) steps = JSON.parse(opt('--steps-json'));
 
-const [vw, vh] = (opt('--size', '1280x720')).split('x').map(Number);
+const size = (opt('--size', '1280x720')).split('x').map(Number);
 const mobile = flag('--mobile');
 const timeoutMs = Number(opt('--timeout', 120000));
 const fullPage = flag('--full-page');
-
-const { chromium } = loadPlaywright();
-const threeLocal = path.join(ROOT, 'node_modules/three/build/three.module.min.js');
 
 const report = { page: pageUrl, console: [], errors: [], logs: [], shots: [], fps: [] };
 const killer = setTimeout(() => {
@@ -99,31 +82,17 @@ const killer = setTimeout(() => {
   process.exit(2);
 }, timeoutMs);
 
-const browser = await chromium.launch({
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-rasterization', '--autoplay-policy=no-user-gesture-required'],
+const browser = await launchBrowser();
+const dpr = opt('--dpr') != null ? Number(opt('--dpr')) : undefined;
+const { page, report: pageReport } = await openPage(browser, pageUrl, {
+  mobile, size, dpr, reducedMotion: flag('--reduced-motion'),
+  onConsole: (entry) => {
+    if (entry.type === 'error' || entry.type === 'warning') console.log(`[console.${entry.type}] ${entry.text}`);
+  },
+  onError: (msg) => console.log(`[pageerror] ${msg}`),
 });
-const context = await browser.newContext(mobile
-  ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: Number(opt('--dpr', 2)), isMobile: true, hasTouch: true }
-  : { viewport: { width: vw, height: vh }, deviceScaleFactor: Number(opt('--dpr', 1)) });
-
-await context.route(/cdn\.jsdelivr\.net\/npm\/three@[^/]+\/build\/three\.module(\.min)?\.js/, (route) =>
-  route.fulfill({ status: 200, contentType: 'application/javascript', body: fs.readFileSync(threeLocal) }));
-// Google Fonts may be unreachable offline; let them fail quietly.
-await context.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
-
-const page = await context.newPage();
-page.on('console', (m) => {
-  const entry = { type: m.type(), text: m.text() };
-  if (/Failed to load resource/.test(entry.text) && /fonts|ERR_FAILED/.test(entry.text)) return;
-  report.console.push(entry);
-  if (m.type() === 'error' || m.type() === 'warning') console.log(`[console.${m.type()}] ${m.text()}`);
-});
-page.on('pageerror', (e) => {
-  report.errors.push(String(e && e.stack || e));
-  console.log(`[pageerror] ${e && e.stack || e}`);
-});
-
-await page.goto(pageUrl, { waitUntil: 'load' });
+report.console = pageReport.console;
+report.errors = pageReport.errors;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const truthy = async (expr) => !!(await page.evaluate(`(async () => { return (${expr}); })()`));
@@ -140,7 +109,7 @@ async function step(s, id) {
   else if ('type' in s) await page.keyboard.type(s.type, { delay: 40 });
   else if ('shot' in s) {
     const file = path.join(outDir, `${s.shot}.png`);
-    const o = { path: file, fullPage };
+    const o = { path: file, fullPage, timeout: 120000 }; // SwiftShader under load can take a while
     if (s.clip) o.clip = { x: s.clip[0], y: s.clip[1], width: s.clip[2], height: s.clip[3] };
     await page.screenshot(o);
     report.shots.push(file);
