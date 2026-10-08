@@ -5979,15 +5979,15 @@ var TRACKS = {
   choir: {
     key: "A sus",
     bpm: 56,
-    gain: 1,
+    gain: 1.08,
     delay: 1.5,
     motifs: ["choir"],
     choirSfx: [["A2", "E3", "B3", "D4"], ["D3", "F#3", "B3", "E4"], ["E3", "A3", "B3", "F#4"], ["A2", "D3", "E3", "B3"]],
     voices: {
-      pad: { synth: "choir", vowel: "oo", attack: 4, release: 5, level: 0.34, vib: 6 },
-      choir: { vowel: "ah", attack: 2.4, release: 3.2, level: 0.15, vib: 8 },
-      choir2: { vowel: "oh", attack: 2.8, release: 3.6, level: 0.17, vib: 7 },
-      choir3: { vowel: "ee", attack: 1.8, release: 2.8, level: 0.08, vib: 10 },
+      pad: { synth: "choir", vowel: "oo", attack: 4, release: 5, level: 0.3, vib: 6 },
+      choir: { vowel: "ah", attack: 2.4, release: 3.2, level: 0.24, vib: 8 },
+      choir2: { vowel: "oh", attack: 2.8, release: 3.6, level: 0.24, vib: 7 },
+      choir3: { vowel: "ee", attack: 1.8, release: 2.8, level: 0.13, vib: 10 },
       bass: { synth: "sub", level: 0.24, gate: 1, attack: 2.5, decay: 4, harm: 0.15 },
       bell: { ratio: 3.5, index: 0.9, decay: 5, level: 0.06 }
     },
@@ -6051,7 +6051,7 @@ var TRACKS = {
       bass: { synth: "strings", level: 0.19, attack: 0.012, release: 0.07, gate: 0.55, cutoff: 1100, bow: 0.5, vib: 0 },
       bass2: { synth: "strings", level: 0.15, attack: 0.09, release: 0.35, cutoff: 1400, vib: 12, bow: 0.25 },
       pad: { synth: "strings", oct: 12, attack: 0.9, release: 1.4, level: 0.045, cutoff: 2400, vib: 9 },
-      lead: { layers: [["square", 0, 1], ["square", 7, 0.6]], cutoff: 3600, base: 2600, hp: 700, level: 0.07, attack: 4e-3, release: 0.05, vib: 0 },
+      lead: { layers: [["square", 0, 1], ["square", 7, 0.6]], cutoff: 3600, base: 2600, hp: 700, level: 0.1, attack: 4e-3, release: 0.05, vib: 0 },
       choir: { vowel: "oo", attack: 0.5, release: 1.6, level: 0.22 },
       snare: { f: 2900, tone: 250, d: 0.15 },
       kick: { f0: 105, f1: 42, sweep: 0.14, d: 0.55, vol: 0.85, click: 0.08 },
@@ -6138,7 +6138,7 @@ var TRACKS = {
       bass: { cutoff: 1400, level: 0.3, q: 4, gate: 0.7 },
       stab: { level: 0.22, oct: 12, cutoff: 3400 },
       pad: { cutoff: 1100, attack: 0.25, release: 0.6, level: 0.08 },
-      arp: { wave: "pulse", decay: 0.09, level: 0.07, oct: 24, cutoff: 3800 },
+      arp: { wave: "pulse", decay: 0.09, level: 0.1, oct: 24, cutoff: 3800 },
       swell: { level: 0.22, tonal: 0.35, from: 300, to: 7e3 },
       kick: { vol: 1, punch: 0.4, d: 0.3 },
       snare: { tone: 190, d: 0.22, f: 2e3 }
@@ -51939,11 +51939,11 @@ function chroma2(r, y0, y1, d, k = 0.6) {
   }
   for (let m = 0; m < marks.length; m += 3) r.put(marks[m], marks[m + 1], marks[m + 2], k, true);
 }
-function scan(r, y0, y1, period, k = 0.45, offset = 0, mix2 = 0.45) {
+function scan(r, y0, y1, period, k = 0.45, mix2 = 0.45) {
   const { w, rgb, glw, flg } = r;
   const tint = G_CYAN2[3];
   for (let Y = Math.max(0, y0); Y < Math.min(r.h, y1); Y++) {
-    const keep = (Y + offset) % period === 0;
+    const keep = Y % period === 0;
     for (let X = 0; X < w; X++) {
       const i = Y * w + X;
       if (!(flg[i] & OPAQUE2)) continue;
@@ -52100,7 +52100,7 @@ function drawWraith(r, P2) {
   for (const [y, h, dx] of P2.tears || []) tear2(r, y, h, dx);
   if (P2.chroma) chroma2(r, P2.chroma[0], P2.chroma[1], P2.chroma[2], 0.55);
   if (P2.scan) scan(r, 0, r.h, P2.scan, 0.5);
-  else scan(r, (P2.fade ?? 80) + (P2.ty || 0) + (P2.bob || 0), r.h, 2, 0.3, 0, 0.3);
+  else scan(r, 80 + (P2.ty || 0) + (P2.bob || 0), r.h, 2, 0.3, 0.3);
 }
 var WRAITH_SLUMP = {
   near: { sh: [38, 47], el: [43, 60], hand: [46, 74], spread: 16, curl: 60 },
