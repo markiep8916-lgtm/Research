@@ -2906,7 +2906,9 @@ full API; read it before calling into that file.
   aborted).
 - `travel.arrive(map, spawn, { transition, scene, kind, duration, caption, wait, onCover })`;
   `transition: 'none'` exists. The Moth flight runs only when map `moth` and script `travel.flight`
-  are registered, and lasts at least 3 s.
+  are registered, and lasts at least 3 s. A destination's `isNew` (Starchart NEW tag and the table's
+  amber beacon) is false while the party stands on its map; `dest:<id>` is set only by `travel.go`,
+  so the prologue should set `dest:halcyon` itself if the Halcyon must never read NEW.
 - `story` extras: `complete(id)` (code only; scripts have no `cs.complete`), `partyTalks()`,
   `ObjectiveDef.when` (optional: a side objective shows in the journal while its `when` holds and it
   is not done). To retire a finished side objective from a script, give it `when: '!<flag>'` and set
@@ -3031,7 +3033,11 @@ full API; read it before calling into that file.
 - Touch: during a script the player has already completed, the B button shows in the `dialog`
   context so a finger can hold it to skip (`input.setSkippable`, G1).
 - Headless SwiftShader runs the game at 0.3-2 fps under load: scenarios must `waitFor` state, hold
-  keys in `until` loops, and never assume a fixed number of frames per second.
+  keys in `until` loops, and never assume a fixed number of frames per second. Boss `intro` lines,
+  phase `say` lines and tips wait in the battle dialog strip for Confirm (they auto-advance only under
+  `debug.autoplay`), the results panel and THE END wait for Confirm, and `debug.autoplay(...)` stays
+  on across battles until `debug.autoplay(false)`: press Enter while `.vb-say.is-on.is-done`,
+  `state().battle.results` or `.vp-end-p.is-on` shows.
 - `dev_box` (test content) now also has a `fabricator` shop console (`dev_box` Sky Deck, id
   `fabricator`) and a Starchart table (id `starchart`, viewpoint `chart`) to exercise those
   interactable kinds from the field.

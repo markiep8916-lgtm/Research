@@ -112,7 +112,8 @@ const CSS = `
   .vp-menu-tab.is-cur, .vp-menu-tab.is-sel { box-shadow: inset 0 -2px 0 var(--vp-amber); }
   .vp-menu-tab.is-cur { box-shadow: inset 0 -2px 0 var(--vp-cyan); background: rgba(127,227,255,.07); }
   .vp-menu-body { padding: 14px 12px; }
-  .vp-menu-foot { padding: 8px 14px; min-height: 42px; }
+  .vp-menu-foot { padding: 8px 14px; min-height: 42px; flex-wrap: wrap; row-gap: 6px; }
+  .vp-menu-meta { gap: 16px; }
   .vp-menu-foot.is-touch .vp-hints { display: none; }
   .vp-sbar .vp-num { min-width: 76px; font-size: 15px; }
 }

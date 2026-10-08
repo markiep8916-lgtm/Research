@@ -48,9 +48,11 @@ export const travel = {
     const here = ctx.game.states.explore.mapId;
     return REG.destinations.filter((d) => story.test(d.visible)).map((d) => {
       const open = story.test(d.unlock);
+      const current = d.map === here;
+      // the destination the party stands at is never NEW (the Starchart prop's beacon agrees)
       return {
         id: d.id, name: d.name, subtitle: d.subtitle, desc: d.desc, locked: !open, lockedText: d.lockedText,
-        warn: d.warn, current: d.map === here, isNew: open && !story.flag(`dest:${d.id}`),
+        warn: d.warn, current, isNew: open && !current && !story.flag(`dest:${d.id}`),
       };
     });
   },

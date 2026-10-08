@@ -849,7 +849,7 @@ class Cs {
         return;
       }
       audio.music('sting_chapter');
-      audio.sfx('card');
+      // ui.cards.chapter plays the 'card' sfx itself when the title lands, in time with the sting
       const shown = ui.cards.chapter({ kicker: c.kicker, title: c.title, traveler: c.traveler, ...(r._quick(s) ? { ms: 300 } : {}) });
       // the chapter, its traveler and the save requests change under the card's black
       await delay(r._quick(s) ? 0 : 900);
