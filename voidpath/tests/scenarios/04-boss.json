@@ -82,7 +82,7 @@
   {"until": "S().flags['story:prologue_done']", "max": 400, "do": [{"if": "S().ui.dialog", "then": [{"key": "Enter"}]}, {"wait": 1000}]},
   {"eval": "__VP.debug.skip(false)"},
   {"waitFor": "!!document.querySelector('.vp-chap.is-on')", "timeout": 400000},
-  {"wait": 600},
+  {"wait": 2400},
   {"shot": "07-chapter-one-card"},
   {"waitFor": "S().chapter === 'ch1' && S().cutscene === null && !S().transitioning && !S().ui.blocking", "timeout": 600000},
   {"waitFor": "S().flags['story:prologue_done'] && S().flags['story:halcyon_fragment'] && S().flags['unlock:driftmarket'] && S().objective === 'ch1.go_driftmarket' && S().leader === 'nyx'"},
