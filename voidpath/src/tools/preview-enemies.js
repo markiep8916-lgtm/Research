@@ -47,7 +47,9 @@ injectCSS('preview-enemies', `
   .pv .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
   .pv .icon { display: flex; align-items: flex-end; gap: 8px; padding: 8px; background: var(--vp-panel); border: 1px solid var(--vp-line-dim); }
   .pv .icon span { font: 10px var(--vp-font-pixel); color: var(--vp-ink-dim); }
-  .labels { position: absolute; left: 0; right: 0; top: 432px; display: flex; justify-content: space-around; font: 11px var(--vp-font-pixel); color: var(--vp-ink-dim); pointer-events: none; }
+  .labels { position: absolute; left: 0; right: 0; top: 432px; height: 0; font: 11px var(--vp-font-pixel); color: var(--vp-ink-dim); pointer-events: none; }
+  .labels span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; }
+  body.is-mobile .labels span { white-space: normal; max-width: 120px; }
   body.is-mobile #app { width: 390px; }
   body.is-mobile #ui-root { padding: 8px 10px 40px; }
   body.is-mobile .pv .icons { grid-template-columns: 1fr 1fr; }
@@ -266,7 +268,11 @@ stripArts.forEach((art, k) => {
   actors.push({ sheet, anim, textures: [map, normalMap, emissiveMap], t: 0, frame: -1 });
 });
 
-const labels = el('div', { class: 'labels' }, stripArts.map((a) => el('span', { text: `${a}${a === compare ? ' (compare)' : ''} (${stripAnim})` })));
+// each label sits under its own sprite (projected foot point)
+const labels = el('div', { class: 'labels' }, stripArts.map((a, k) => {
+  const x = (new THREE.Vector3(xs[k], 0, 0).project(camera).x + 1) / 2 * W;
+  return el('span', { text: `${a}${a === compare ? ' (compare)' : ''} (${stripAnim})`, style: `left:${x.toFixed(0)}px` });
+}));
 document.getElementById('app').appendChild(labels);
 
 const composer = new EffectComposer(renderer);

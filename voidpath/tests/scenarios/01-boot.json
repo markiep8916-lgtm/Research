@@ -17,7 +17,7 @@
   {"waitFor": "S().music === 'explore' && S().explore.area === 'cryo' && !S().ui.blocking"},
   {"wait": 1200},
   {"shot": "04-cryo-deck"},
-  {"until": "S().stats.steps > 1", "max": 12, "do": [{"hold": "ArrowDown", "ms": 600}]},
+  {"until": "S().stats.steps > 1", "max": 8, "do": [{"hold": "ArrowDown", "ms": 2500}]},
   {"waitFor": "S().explore.z > 20.6"},
   {"wait": 600},
   {"shot": "05-first-steps"},

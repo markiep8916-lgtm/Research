@@ -98,11 +98,6 @@ const CSS = `
 .vp-tc-mute.is-muted .vp-snd-off { display: inline; }
 .vp-tc-mute.is-muted { color: var(--vp-ink-faint); }
 @media (max-width: 380px) { .vp-tc-a { width: 66px; height: 66px; } .vp-tc-b { right: calc(96px + var(--vp-safe-right)); } }
-/* short landscape screens: Boost +/- sit side by side just above A, clear of the sound button */
-@media (max-height: 480px) {
-  .vp-tc-plus, .vp-tc-minus { bottom: calc(176px + var(--vp-safe-bottom)); }
-  .vp-tc-minus { right: calc(86px + var(--vp-safe-right)); }
-}
 `;
 
 const ICON_MENU = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h11"/></svg>';

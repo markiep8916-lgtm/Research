@@ -237,7 +237,7 @@ export class CutsceneRunner {
     const map = args.map ?? this._explore()?.mapId;
     s.depth++;
     try {
-      const value = await fn(new Cs(this, s, id, args), args);
+      const value = await fn(new Cs(this, s, id, args, named), args);
       if (s.aborted) throw new AbortError();
       if (named) s.played.push(id);
       if (args.trigger?.once) s.flags.push(`seen:${map}:${args.trigger.id}`);
@@ -478,11 +478,15 @@ export class CutsceneRunner {
     return out;
   }
 
-  /** Staging check (4.2): a speaking traveler must be on screen unless the line is offscreen. */
-  _checkSpeaker(s, line) {
+  /**
+   * Staging check (4.2): a speaking traveler must be on screen unless the line is offscreen. Inline
+   * lines on a `poc: true` map are the legacy POC talk (3.5, Wave S only) and are not checked.
+   */
+  _checkSpeaker(s, line, script) {
     const id = PARTY_SPEAKERS[line.speaker];
     const ex = this._explore();
     if (!id || line.offscreen || this.ctx.game.name !== 'explore' || !ex?.world) return;
+    if (!script.named && ex.world.map?.poc) return;
     let at = null;
     if (id === gameState.leader) {
       at = s.proxy ? (s.proxy.visible ? s.proxy : null) : ex.player;
@@ -491,7 +495,7 @@ export class CutsceneRunner {
       at = a && a.visible ? a : null;
     }
     if (!at || !this.ctx.engine.projectToScreen({ x: at.x, y: 0.9, z: at.z }).visible) {
-      console.error(`cutscenes: ${line.speaker} speaks in "${s.id}" but is not on screen (gather the party or mark the line offscreen)`);
+      console.error(`cutscenes: ${line.speaker} speaks in "${script.id}" but is not on screen (gather the party or mark the line offscreen)`);
     }
   }
 
@@ -509,13 +513,13 @@ export class CutsceneRunner {
     ex.world.setScreens(mood?.screens || (s.screens ? s.screens[0] : null), mood?.screens ? undefined : s.screens?.[1]);
   }
 
-  async _say(s, raw) {
+  async _say(s, raw, script) {
     const lines = raw.map((l) => this._line(l));
     let speaker = null;
     for (const l of lines) {
       if (!isObj(l)) continue;
       speaker = l.speaker;
-      this._checkSpeaker(s, l);
+      this._checkSpeaker(s, l, script);
       if (speaker) this._touchSpeaker(speaker);
     }
     if (s.instant) return;
@@ -592,11 +596,12 @@ export class CutsceneRunner {
 
 /** The `cs` API handed to a script (4.3). One per script call; nested scripts get their own. */
 class Cs {
-  constructor(runner, session, id, args) {
+  constructor(runner, session, id, args, named) {
     this._r = runner;
     this._s = session;
     this.id = id;
     this.args = args;
+    this._named = named;
     const r = runner, s = session;
     const ex = () => r._explore();
     this.camera = {
@@ -629,7 +634,7 @@ class Cs {
     const lines = typeof a === 'string' && typeof b === 'string'
       ? [{ speaker: a, text: b, ...opts }]
       : [].concat(a ?? []);
-    return this._do(() => this._r._say(this._s, lines));
+    return this._do(() => this._r._say(this._s, lines, { id: this.id, named: this._named }));
   }
 
   narrate(text) {

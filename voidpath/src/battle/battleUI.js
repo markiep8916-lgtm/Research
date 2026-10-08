@@ -329,6 +329,10 @@ const CSS = `
 .vb-say.is-on { opacity: 1; transform: none; pointer-events: auto; }
 .vb-root.is-ending .vb-say { bottom: calc(24px + var(--vp-safe-bottom)); }
 .vb-say.no-pt { grid-template-columns: minmax(0, 1fr); padding-left: 22px; }
+/* wide screens: bottom left, beside the status panel, so it never covers the party's sprites */
+@media (min-width: 1000px) {
+  .vb-root:not(.is-compact):not(.is-short) .vb-say { right: auto; left: calc(14px + var(--vp-safe-left)); bottom: calc(12px + var(--vp-safe-bottom)); width: min(720px, calc(100% - 486px)); }
+}
 .vb-say .pt { position: relative; width: 80px; height: 80px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--acc) 60%, transparent);
   background: linear-gradient(160deg, color-mix(in srgb, var(--acc) 30%, #0a1020), #070b16 75%); }
 .vb-say .pt img { position: absolute; width: 160px; height: 160px; left: -44px; top: -20px; }
@@ -369,7 +373,7 @@ const CSS = `
 .vb-cut .pt { position: absolute; left: 14%; top: 50%; width: 160px; height: 160px; margin-top: -92px; animation: vb-cut-pt var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards;
   filter: drop-shadow(0 0 18px color-mix(in srgb, var(--acc) 80%, transparent)); }
 .vb-cut .pt img { width: 160px; height: 160px; }
-.vb-cut .nm { position: absolute; left: calc(14% + 196px); right: 4%; top: 50%; margin-top: -40px; white-space: nowrap; animation: vb-cut-nm var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards; }
+.vb-cut .nm { position: absolute; left: calc(14% + 212px); right: 4%; top: 50%; margin-top: -40px; white-space: nowrap; animation: vb-cut-nm var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards; }
 .vb-cut .nm small { display: block; font: 700 14px/1 var(--vp-font-display); letter-spacing: .5em; color: var(--acc); margin-bottom: 10px; text-shadow: 0 0 10px #000; }
 .vb-cut .nm b { display: block; font: 800 italic 54px/1 var(--vp-font-display); letter-spacing: .06em; color: #fff;
   text-shadow: 3px 3px 0 color-mix(in srgb, var(--acc) 40%, #05070d), 0 0 22px color-mix(in srgb, var(--acc) 80%, transparent); }
@@ -450,7 +454,11 @@ const CSS = `
 .vb-root.is-compact .vb-pt { width: 32px; height: 32px; }
 .vb-root.is-compact .vb-pt img { width: 64px; height: 64px; left: -18px; top: -8px; }
 .vb-root.is-compact .vb-name { font-size: 12px; letter-spacing: .1em; }
-.vb-root.is-compact .vb-buffs { display: none; }
+.vb-root.is-compact .vb-l1 { gap: 5px; }
+/* phones keep ailments (sleep, jam, marked) as bare icons; stat stages wait for the wider layouts */
+.vb-root.is-compact .vb-buffs, .vb-root.is-short .vb-buffs { gap: 2px; flex: none; }
+.vb-root.is-compact .vb-buff:not(.ail), .vb-root.is-short .vb-buff:not(.ail) { display: none; }
+.vb-root.is-compact .vb-buff.ail, .vb-root.is-short .vb-buff.ail { font-size: 0; padding: 1px; gap: 0; }
 .vb-root.is-compact .vb-bp img { width: 11px; height: 11px; }
 .vb-root.is-compact .vb-bars { grid-template-columns: 1fr; gap: 3px; }
 .vb-root.is-compact .vb-st b { font-size: 14px; min-width: 30px; }
@@ -491,7 +499,7 @@ const CSS = `
 .vb-root.is-compact .vb-cut .band { height: 170px; margin-top: -85px; }
 .vb-root.is-compact .vb-cut .pt { left: 4%; width: 120px; height: 120px; margin-top: -76px; }
 .vb-root.is-compact .vb-cut .pt img { width: 120px; height: 120px; }
-.vb-root.is-compact .vb-cut .nm { left: calc(4% + 128px); margin-top: -30px; }
+.vb-root.is-compact .vb-cut .nm { left: calc(4% + 166px); right: 3%; margin-top: -30px; }
 .vb-root.is-compact .vb-cut .nm b { font-size: 28px; white-space: normal; }
 .vb-root.is-compact .vb-cut .nm small { font-size: 11px; letter-spacing: .3em; }
 .vb-root.is-compact .vb-cut .nm i { font-size: 12px; white-space: normal; }
@@ -506,6 +514,10 @@ const CSS = `
   .vp-touch[data-ctx="battle"] .vp-tc-minus { right: calc(22px + var(--vp-safe-right)); bottom: calc(var(--vb-panel, 150px) + 104px + var(--vp-safe-bottom)); width: 46px; height: 46px; }
   /* the results panel covers them (tap the panel to continue) */
   .vb-ended .vp-touch[data-ctx="battle"] .vp-tc-btn:not(.vp-tc-mute) { opacity: 0; pointer-events: none; transition: opacity .3s; }
+  /* the dialog strip: A / B (advance) lift above it, Boost steps aside */
+  .vb-saying .vp-touch[data-ctx="battle"] .vp-tc-a { bottom: calc(var(--vb-panel, 150px) + var(--vb-say-h, 80px) + 30px + var(--vp-safe-bottom)); }
+  .vb-saying .vp-touch[data-ctx="battle"] .vp-tc-b { bottom: calc(var(--vb-panel, 150px) + var(--vb-say-h, 80px) + 20px + var(--vp-safe-bottom)); }
+  .vb-saying .vp-touch[data-ctx="battle"] .vp-tc-plus, .vb-saying .vp-touch[data-ctx="battle"] .vp-tc-minus { opacity: 0; pointer-events: none; }
 }
 
 /* short landscape (phones on their side): the status panel becomes one row of four cards */
@@ -519,7 +531,6 @@ const CSS = `
 .vb-root.is-short .vb-pt { width: 28px; height: 28px; }
 .vb-root.is-short .vb-pt img { width: 56px; height: 56px; left: -16px; top: -7px; }
 .vb-root.is-short .vb-name { font-size: 11px; letter-spacing: .08em; }
-.vb-root.is-short .vb-buffs { display: none; }
 .vb-root.is-short .vb-bp img { width: 10px; height: 10px; }
 .vb-root.is-short .vb-bars { grid-template-columns: 1fr; gap: 2px; }
 .vb-root.is-short .vb-st b { font-size: 12px; min-width: 26px; }
@@ -1215,9 +1226,11 @@ export class BattleUI {
 
   _nextSay() {
     const line = this._sayQueue.shift();
+    const doc = document.documentElement;
     if (!line) {
       this.sayState = null;
       this.say_.classList.remove('is-on', 'is-done');
+      doc.classList.remove('vb-saying');
       return;
     }
     const name = line.speaker ? String(line.speaker) : '';
@@ -1247,6 +1260,9 @@ export class BattleUI {
     this.say_.classList.add('is-on');
     this.audio?.sfx('talk');
     this._paintSay();
+    // phones: the touch A / B buttons lift above the strip while it shows (see the compact CSS)
+    if (this.compact) doc.style.setProperty('--vb-say-h', `${Math.round(this.say_.offsetHeight * this.zoom)}px`);
+    doc.classList.add('vb-saying');
   }
 
   _paintSay() {
@@ -1501,6 +1517,7 @@ export class BattleUI {
 
   _setHelp(h) {
     this.help.classList.toggle('is-on', !!h);
+    this._helpBottom = null;
     if (!h) return;
     this.helpText.textContent = '';
     if (h.title) this.helpText.appendChild(el('b', { class: h.weak ? 'weak' : '', text: h.title }));
@@ -1856,6 +1873,7 @@ export class BattleUI {
     this._topH = 0;
     this._menuSize = null;
     this._curMin = null;
+    this._helpBottom = null;
     for (const v of this.view.values()) v.foeW = 0;
   }
 
@@ -2001,10 +2019,15 @@ export class BattleUI {
       v.rectW = r.w;
       v.rectH = r.h;
     }
+    // phones stack the help box under the turn bar: plates stay below it (measured once per help change)
+    let topMin = (this._topH || 54) + 24;
+    if (this.compact && this.help.classList.contains('is-on')) {
+      this._helpBottom ??= this.top.offsetTop + this.top.offsetHeight + 8;
+      topMin = Math.max(topMin, this._helpBottom);
+    }
     // a plate that would cover another foe (a back-row foe's plate over a front-row sprite) slides to
     // its left when that keeps it near its own foe (never far right, toward the party); else it nudges
     // right just past the other foe, or sits above its own foe's head (adds beside a big boss)
-    const topMin = (this._topH || 54) + 24;
     for (const p of plates) {
       const w = p.v.foeW, h = p.v.foeH;
       const hits = (x, y) => plates.find((o) => {
@@ -2111,7 +2134,8 @@ export class BattleUI {
     for (const a of this.root.getAnimations?.({ subtree: true }) || []) a.cancel();
     this.root.remove();
     document.documentElement.style.removeProperty('--vb-panel');
-    document.documentElement.classList.remove('vb-ended');
+    document.documentElement.classList.remove('vb-ended', 'vb-saying');
+    document.documentElement.style.removeProperty('--vb-say-h');
   }
 }
 

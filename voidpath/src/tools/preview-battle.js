@@ -36,6 +36,7 @@ import { registerActionFx, getActionFx } from '../battle/actionfx.js';
 import { registerAll, REG } from '../content/index.js';
 import devArenas from '../content/dev/arena.js';
 import devFx from '../content/dev/fx.js';
+import { updateVfx } from '../core/vfx.js';
 import { isTouchDevice, makeRng } from '../core/util.js';
 
 // ---------------------------------------------------------------- options
@@ -150,7 +151,7 @@ if (!hasEnemyArt('dev_colossus')) {
     },
     points: { center: [128, 96], muzzle: [128, 96], top: [128, 12], core: [128, 96] },
     icon: { x: 128, y: 40, scale: 0.42 },
-    fitBox: [92, 56, 72, 92],   // the torso and core: head, arms and thrusters may bleed off-frame
+    fitBox: [100, 70, 56, 56],  // the glowing core: hull, head, arms and thruster may bleed off-frame
   });
 }
 
@@ -210,7 +211,8 @@ class Fixture {
 
   update(dt, t) {
     const sdt = dt * this.timeScale;
-    this.stage.update(sdt, t);
+    updateVfx(sdt, t);
+    this.stage.update(sdt);
     this.ui.update();
   }
 

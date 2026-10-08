@@ -7,8 +7,8 @@
 // Tips (TECH_PLAN 7.7): every event played adds its keys (the event type, 'status:<stat>', 'cue:<name>',
 // 'bp3', plus 'begin' and 'playerTurn'); before the next command menu the first unseen tip whose key
 // matched is shown in the dialog strip and its flag set (encounter tips override ctx.content.tips).
-// Battle speed comes from the UI setting 'battleSpeed' (1 / 1.5 / 2). While an enemy acts, holding
-// confirm plays the turn faster.
+// Battle speed comes from ctx.settings.battleSpeed (else the UI setting; 1 / 1.5 / 2). While an enemy
+// acts, holding confirm plays the turn faster.
 
 import { BattleModel } from './model.js';
 import { ENCOUNTERS, SKILLS } from './data.js';
@@ -94,7 +94,7 @@ export class BattleState {
     });
     this.ui.autoAdvance = this.autoplay;
     this.director = new Director({ stage: this.stage, ui: this.ui, audio, engine });
-    this.director.speed = battleSpeed(ui?.getSetting?.('battleSpeed'));
+    this.director.speed = battleSpeed(this.ctx.settings?.battleSpeed ?? ui?.getSetting?.('battleSpeed'));
     this.director.onEvent = (e) => {
       for (const k of tipKeys(e)) this._noteTip(k);
       this.onEvent?.(e);
@@ -142,7 +142,7 @@ export class BattleState {
     const fast = this._enemyTurn && this.ctx.input?.down('confirm') ? FAST : 1;
     const sdt = dt * fast * this.timeScale * this.director.speed;
     updateVfx(sdt, t);
-    this.stage.update(sdt, t);
+    this.stage.update(sdt);
     this._applyFx();
     this.ui.update();
   }

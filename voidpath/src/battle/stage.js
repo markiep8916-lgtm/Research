@@ -22,9 +22,12 @@ import { buildEnemySprite } from '../art/enemies.js';
 import { ENEMIES } from './data.js';
 import { buildArena } from './arena.js';
 import { Effects } from './effects.js';
+import { release } from '../core/programs.js';
 import { damp, ease } from '../core/util.js';
 
 const FOV = 30;
+// highest screen fraction a fitBox core may reach (just under the turn bar)
+const CORE_TOP = { compact: 0.12, wide: 0.1 };
 const PITCH = THREE.MathUtils.degToRad(26);
 const TILT = 0.36;                 // sprites lean back a little less than the camera pitch
 const COS_T = Math.cos(TILT), SIN_T = Math.sin(TILT);
@@ -347,14 +350,20 @@ export class BattleStage {
     }
   }
 
-  /** Fits camera distance + view offset so every combatant sits inside the UI-free band. */
+  /**
+   * Fits camera distance + view offset so every combatant sits inside the UI-free band. An enemy art
+   * with a fitBox only needs that core rect on screen: it may rise above the band (up to CORE_TOP, the
+   * top bar's edge) and the rest of the art bleeds past the frame, so a huge boss does not shrink the
+   * party on phones.
+   */
   _fit(snap = true) {
     const aspect = this.engine.size.aspect;
     const short = !this.compact && this.engine.size.height < 520;
     const [top, bottom] = this.compact ? [0.17, 0.53] : short ? [0.16, 0.8] : [0.15, 0.71];
+    const coreTop = this.compact ? CORE_TOP.compact : CORE_TOP.wide;
     const hr = bottom - top;
     const cf = (top + bottom) / 2;
-    const pts = [];
+    const pts = [], cores = [];
     _box.makeEmpty();
     for (const a of this.actors.values()) {
       if (a.side === 'enemy' && !a.alive) continue;
@@ -362,30 +371,55 @@ export class BattleStage {
       const yTop = ((fh - f.y0) / 32) * s, yBot = a.sheet.fitBox ? ((fh - 1 - f.y1) / 32) * s : 0;
       const x = a.home.x + ((f.x0 + f.x1 + 1) / 2 - a.sheet.frameW / 2) / 32 * s;
       const hw = a.side === 'party' ? a.halfW : ((f.x1 - f.x0 + 1) / 64) * s;
+      const list = a.side === 'enemy' && a.sheet.fitBox ? cores : pts;
       for (const y of [yBot, yTop]) {
-        pts.push(new THREE.Vector3(x - hw, y * COS_T, a.home.z - y * SIN_T), new THREE.Vector3(x + hw, y * COS_T, a.home.z - y * SIN_T));
+        list.push(new THREE.Vector3(x - hw, y * COS_T, a.home.z - y * SIN_T), new THREE.Vector3(x + hw, y * COS_T, a.home.z - y * SIN_T));
       }
     }
     for (const p of pts) _box.expandByPoint(p);
+    for (const p of cores) _box.expandByPoint(p);
     const target = _box.getCenter(new THREE.Vector3());
     const tanV = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     const tanH = tanV * aspect;
     _qi.copy(this._camQuat).invert();
-    // NDC extents of all points at distance D: the spans must fit, then a view offset centres them
+    // NDC extents at distance D: the band's spans must fit, then a view offset places them (centred in
+    // the band when it can). fitBox cores share the horizontal span; vertically they only have to stay
+    // between coreTop and the band bottom, which may push the party lower in the band.
     const ext = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    const core = { y0: 0, y1: 0 };
+    let place = cf;
+    const project = (p, D) => {
+      _w.copy(p).sub(target).addScaledVector(this._camDir, -D).applyQuaternion(_qi);
+      const z = Math.max(0.05, -_w.z);
+      return _w.set(_w.x / (z * tanH), _w.y / (z * tanV), 0);
+    };
     const measure = (D) => {
-      ext.x0 = ext.y0 = Infinity;
-      ext.x1 = ext.y1 = -Infinity;
+      ext.x0 = ext.y0 = core.y0 = Infinity;
+      ext.x1 = ext.y1 = core.y1 = -Infinity;
       for (const p of pts) {
-        _w.copy(p).sub(target).addScaledVector(this._camDir, -D).applyQuaternion(_qi);
-        const z = Math.max(0.05, -_w.z);
-        const nx = _w.x / (z * tanH), ny = _w.y / (z * tanV);
-        if (nx < ext.x0) ext.x0 = nx;
-        if (nx > ext.x1) ext.x1 = nx;
-        if (ny < ext.y0) ext.y0 = ny;
-        if (ny > ext.y1) ext.y1 = ny;
+        const n = project(p, D);
+        if (n.x < ext.x0) ext.x0 = n.x;
+        if (n.x > ext.x1) ext.x1 = n.x;
+        if (n.y < ext.y0) ext.y0 = n.y;
+        if (n.y > ext.y1) ext.y1 = n.y;
       }
-      return ext.x1 - ext.x0 <= (this.compact ? 1.62 : 1.8) && ext.y1 - ext.y0 <= 2 * hr * 0.97;
+      for (const p of cores) {
+        const n = project(p, D);
+        if (n.x < ext.x0) ext.x0 = n.x;
+        if (n.x > ext.x1) ext.x1 = n.x;
+        if (n.y < core.y0) core.y0 = n.y;
+        if (n.y > core.y1) core.y1 = n.y;
+      }
+      if (!pts.length) { ext.y0 = core.y0; ext.y1 = core.y1; }
+      if (ext.x1 - ext.x0 > (this.compact ? 1.62 : 1.8) || ext.y1 - ext.y0 > 2 * hr * 0.97) return false;
+      place = cf;
+      if (!cores.length) return true;
+      // screen fraction of NDC y: place - (y - mid) / 2
+      const mid = (ext.y0 + ext.y1) / 2, h = (ext.y1 - ext.y0) / 2;
+      const lo = Math.max(top + h / 2, coreTop + (core.y1 - mid) / 2);
+      const hi = Math.min(bottom - h / 2, bottom - (mid - core.y0) / 2);
+      place = Math.min(hi, Math.max(lo, cf));
+      return lo <= hi;
     };
     let lo = 4, hi = 160;
     for (let i = 0; i < 26; i++) {
@@ -393,8 +427,8 @@ export class BattleStage {
       if (measure(mid)) hi = mid; else lo = mid;
     }
     measure(hi);
-    this._goal = { target, dist: hi, offX: (ext.x0 + ext.x1) / 4, offY: 0.5 - cf - (ext.y0 + ext.y1) / 4 };
-    this.fx = { focusY: 1 - cf, band: hr * 0.42, falloff: this.compact ? 0.2 : 0.24 };
+    this._goal = { target, dist: hi, offX: (ext.x0 + ext.x1) / 4, offY: 0.5 - place - (ext.y0 + ext.y1) / 4 };
+    this.fx = { focusY: 1 - place, band: hr * 0.42, falloff: this.compact ? 0.2 : 0.24 };
     if (snap) this._applyFit(1);
   }
 
@@ -437,7 +471,7 @@ export class BattleStage {
 
   // ------------------------------------------------------------------ per frame
 
-  update(dt, t) {
+  update(dt) {
     this.time += dt;
     if (Math.abs(this.engine.size.aspect - this.aspect) > 1e-3) this.layout();
     this.timeline.update(dt);
@@ -458,6 +492,8 @@ export class BattleStage {
   warm() {
     const r = this.engine.renderer;
     for (const a of this.actors.values()) this._warmActor(a);
+    // empty particle pools are hidden; show them for the compile so the first burst links nothing
+    for (const pool of this.particles.pools) pool.points.visible = true;
     this._updateCamera(0, 0);
     this.effects.warm(r);
     this._warmFrames = 3;
@@ -635,11 +671,13 @@ export class BattleStage {
     const p = a.object3d.position;
     const fh = a.sheet.frameH, s = a.scale;
     const x = p.x + (a.sprite.flipX ? -a.artCx : a.artCx), hw = a.halfW;
+    // a sunk foe (submerged, rising in) keeps its plate and hit box where it stands
+    const y = p.y + a.sink * a.height * COS_T;
     const lo = ((fh - 1 - a.art2d.y1) / 32) * s, hi = ((fh - a.art2d.y0) / 32) * s;
-    _corners[0].set(x - hw, p.y + lo * COS_T, p.z - lo * SIN_T);
-    _corners[1].set(x + hw, p.y + lo * COS_T, p.z - lo * SIN_T);
-    _corners[2].set(x - hw, p.y + hi * COS_T, p.z - hi * SIN_T);
-    _corners[3].set(x + hw, p.y + hi * COS_T, p.z - hi * SIN_T);
+    _corners[0].set(x - hw, y + lo * COS_T, p.z - lo * SIN_T);
+    _corners[1].set(x + hw, y + lo * COS_T, p.z - lo * SIN_T);
+    _corners[2].set(x - hw, y + hi * COS_T, p.z - hi * SIN_T);
+    _corners[3].set(x + hw, y + hi * COS_T, p.z - hi * SIN_T);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const c of _corners) {
       this.engine.projectToScreen(c, _scr);
@@ -669,7 +707,12 @@ export class BattleStage {
     this.actors.clear();
     for (const e of this.emitters) e.remove();
     this.effects.dispose();
-    this.particles.dispose();
+    // Particles.dispose() would dispose its materials and free their programs: release them instead
+    for (const pool of this.particles.pools) {
+      pool.points.removeFromParent();
+      pool.geo.dispose();
+      release(pool.mat);
+    }
     this.arena.dispose();
     this.scene.clear();
   }

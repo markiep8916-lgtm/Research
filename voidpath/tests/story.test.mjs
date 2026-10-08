@@ -345,7 +345,7 @@ test('cs.scene forces a leader for the script and restores it; cs.setLeader is p
   assert.equal(gameState.leader, 'sera');
 });
 
-test('a party speaker who is not on screen is reported unless gathered or offscreen', async (t) => {
+test('a party speaker who is not on screen is reported unless gathered, offscreen or a legacy POC line', async (t) => {
   const ctx = fresh();
   const err = t.mock.method(console, 'error', () => {});
   scripts['st.stage'] = async (cs) => {
@@ -361,6 +361,15 @@ test('a party speaker who is not on screen is reported unless gathered or offscr
   assert.equal(ctx.explore.world.npc('party:sera'), null, 'stepped-out members leave with the script');
   assert.equal(ctx.explore.player.actor.object3d.visible, true, 'the leader stand-in hands back to the Player');
   assert.deepEqual([ctx.explore.player.x, ctx.explore.player.z], [2, 2]);
+
+  // legacy inline lines on a `poc: true` map are exempt; registered scripts there are not
+  ctx.explore.world.map = { ...ctx.explore.world.map, poc: true };
+  await run(ctx, (cs) => cs.say('NYX', 'Legacy POC line.'));
+  assert.equal(err.mock.callCount(), 1);
+  scripts['st.stage_poc'] = (cs) => cs.say('NYX', 'Still checked.');
+  await run(ctx, 'st.stage_poc');
+  assert.equal(err.mock.callCount(), 2);
+  assert.match(err.mock.calls[1].arguments[0], /NYX speaks in "st.stage_poc"/);
 });
 
 test('cs.battle resolves only after the field has faded back in', async () => {
