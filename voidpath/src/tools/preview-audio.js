@@ -51,7 +51,6 @@ html, body { height: auto !important; overflow: auto !important; touch-action: a
 .ab .chip.good { border-color: rgba(111, 240, 166, .5); }
 .ab label { font-size: 12px; color: var(--vp-ink-dim); display: inline-flex; gap: 6px; align-items: center; }
 .ab .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(286px, 1fr)); }
-.ab .grid.wide { grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); }
 .ab .card { background: var(--vp-panel); border: 1px solid var(--vp-line-dim); border-radius: 4px; padding: 9px 10px 10px; }
 .ab .card.fail { border-color: var(--vp-danger); box-shadow: 0 0 0 1px rgba(255, 90, 106, .35) inset; }
 .ab .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
@@ -66,7 +65,7 @@ html, body { height: auto !important; overflow: auto !important; touch-action: a
 .ab .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--vp-ink-dim); margin: 0 0 8px; }
 .ab .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .ab .meta { font-size: 11px; color: var(--vp-ink-faint); margin-top: 6px; }
-@media (max-width: 620px) { .ab .grid.wide { grid-template-columns: 1fr; } .ab h1 { font-size: 20px; } .ab canvas.roll { height: 120px; } }
+@media (max-width: 620px) { .ab h1 { font-size: 20px; } .ab canvas.roll { height: 120px; } .ab .stats { white-space: normal; } }
 `);
 
 // ------------------------------------------------------------------ analysis

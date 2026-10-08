@@ -698,7 +698,7 @@ const SFX = {
     tone(r, o, t + 0.05, { type: 'triangle', f: 1500 * p, f1: 1700 * p, glide: 0.04, a: 0.001, d: 0.08, vol: 0.16 });
     noise(r, o, t, { type: 'highpass', f: 5000, d: 0.006, vol: 0.12 });
   } },
-  splash: { gain: 0.7, wet: 0.3, vary: 0.05, play(r, o, t, p) {
+  splash: { gain: 0.6, wet: 0.3, vary: 0.05, play(r, o, t, p) {
     // a burst of water falling in pitch, a dull thump under it, then droplets plinking
     noise(r, o, t, { f: 2400 * p, f1: 700 * p, glide: 0.25, q: 0.9, a: 0.004, d: 0.35, vol: 0.55 });
     noise(r, o, t, { type: 'highpass', f: 3500, a: 0.002, d: 0.18, vol: 0.25 });
@@ -716,7 +716,7 @@ const SFX = {
     bell(r, o, t + 0.2, { f: 410 * p, ratio: 1.41, index: 2.2, idxDecay: 0.04, d: 0.35, vol: 0.08 });
     noise(r, o, t + 0.24, { f: 3800, f1: 2200, glide: 0.6, q: 0.8, a: 0.06, hold: 0.15, d: 0.5, vol: 0.18 });
   } },
-  laser_on: { gain: 0.55, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+  laser_on: { gain: 0.95, wet: 0.2, vary: 0.02, play(r, o, t, p) {
     // a grid powers up: a buzzing hum swells in, a bright zap as the beams strike across
     for (const [f, v] of [[118, 0.26], [119.5, 0.22]]) {
       tone(r, o, t, { type: 'sawtooth', f: f * 0.6 * p, f1: f * p, glide: 0.25, bp: 1100, bpQ: 1.2, a: 0.18, hold: 0.25, d: 0.25, vol: v, trem: 32, tremDepth: 0.5 });
@@ -739,7 +739,7 @@ const SFX = {
     noise(r, o, t, { f: 3000, f1: 9000, glide: 0.5, q: 3, a: 0.3, d: 0.4, vol: 0.1 });
     for (let i = 0; i < 5; i++) tone(r, o, t + 0.45 + i * 0.05, { type: 'square', f: rand(2400, 4800) * p, lp: 6000, a: 0.001, d: 0.03, vol: 0.03 });
   } },
-  transform: { gain: 0.5, wet: 0.5, echo: 0.15, vary: 0, play(r, o, t) {
+  transform: { gain: 0.28, wet: 0.5, echo: 0.15, vary: 0, play(r, o, t) {
     // a boss changes shape: a long dark riser, then a boom with a cracked, tritone-heavy bell chord
     for (const [f, v] of [[41, 0.22], [41.6, 0.2]]) {
       tone(r, o, t, { type: 'sawtooth', f, f1: f * 4, glide: 1.0, lp: 300, lp1: 2400, lpGlide: 1.0, a: 0.9, d: 0.08, vol: v });
@@ -760,7 +760,7 @@ const SFX = {
     noise(r, o, s, { type: 'lowpass', f: 1200, d: 0.12, vol: 0.35 });
     for (let i = 0; i < 6; i++) bell(r, o, s + 0.05 + i * 0.06, { f: rand(1800, 3600) * p, ratio: 3.5, index: 0.6, d: 0.35, vol: 0.06 });
   } },
-  submerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t, p) {
+  submerge: { gain: 0.5, wet: 0.4, vary: 0.03, play(r, o, t, p) {
     // sinking into the ice: a crack, a deep falling whoosh, a muffled boom under the floor
     noise(r, o, t, { type: 'highpass', f: 3000, d: 0.03, vol: 0.4 });
     [3400, 4800].forEach((f, i) => tone(r, o, t + i * 0.012, { f: f * p, a: 0.001, d: 0.06, vol: 0.12 }));
@@ -768,7 +768,7 @@ const SFX = {
     tone(r, o, t + 0.02, { f: 150 * p, f1: 38, glide: 0.7, a: 0.02, d: 0.85, vol: 0.5 });
     tone(r, o, t + 0.6, { f: 70, f1: 34, glide: 0.2, a: 0.004, d: 0.5, vol: 0.45 });
   } },
-  emerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t) {
+  emerge: { gain: 0.42, wet: 0.4, vary: 0.03, play(r, o, t) {
     // bursting back out: a rumble rising under the floor, a boom, the ice shattering
     noise(r, o, t, { type: 'lowpass', f: 250, f1: 2500, glide: 0.45, q: 1.2, a: 0.4, d: 0.08, vol: 0.5 });
     tone(r, o, t, { f: 40, f1: 110, glide: 0.45, a: 0.4, d: 0.06, vol: 0.4 });
@@ -777,13 +777,13 @@ const SFX = {
     noise(r, o, s, { type: 'highpass', f: 2000, d: 0.05, vol: 0.5 });
     for (let i = 0; i < 6; i++) noise(r, o, s + i * 0.03 + rand(0, 0.02), { f: rand(2500, 7500), q: rand(4, 9), d: rand(0.05, 0.15), vol: 0.3 });
   } },
-  sleep: { gain: 0.6, wet: 0.45, echo: 0.2, vary: 0.01, play(r, o, t, p) {
+  sleep: { gain: 0.75, wet: 0.45, echo: 0.2, vary: 0.01, play(r, o, t, p) {
     // drowsy: three soft falling chimes (F E D, the lullaby's descent) over a breath of air
     [[1396.9, 0], [1318.5, 0.16], [1174.7, 0.32]].forEach(([f, dt]) => bell(r, o, t + dt, { f: f * p, ratio: 2, index: 0.5, a: 0.01, d: 0.8, vol: 0.18 }));
     noise(r, o, t, { f: 1800, f1: 900, glide: 0.6, q: 2, a: 0.2, d: 0.5, vol: 0.06 });
     tone(r, o, t, { type: 'triangle', f: 349.2 * p, a: 0.2, d: 0.9, vol: 0.08 });
   } },
-  wake: { gain: 0.6, wet: 0.3, vary: 0.02, play(r, o, t, p) {
+  wake: { gain: 0.75, wet: 0.3, vary: 0.02, play(r, o, t, p) {
     // snapped awake: a tap and a quick bright upward pair
     noise(r, o, t, { type: 'highpass', f: 5000, d: 0.01, vol: 0.2 });
     tone(r, o, t, { type: 'triangle', f: 880 * p, f1: 1320 * p, glide: 0.05, a: 0.002, d: 0.12, vol: 0.28 });
@@ -797,7 +797,7 @@ const SFX = {
     bell(r, o, t + 0.14, { f: 3520 * p, ratio: 2.76, index: 1.0, d: 0.6, vol: 0.22 });
     noise(r, o, t + 0.06, { type: 'highpass', f: 7000, d: 0.02, vol: 0.1 });
   } },
-  sell: { gain: 0.6, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+  sell: { gain: 1.05, wet: 0.2, vary: 0.02, play(r, o, t, p) {
     // coins counted out onto the counter
     [0, 0.07, 0.12, 0.2].forEach((dt, i) => bell(r, o, t + dt, { f: (3100 - i * 260) * rand(0.97, 1.03) * p, ratio: 2.76, index: 1.1, idxDecay: 0.05, d: 0.25, vol: 0.14 }));
     noise(r, o, t + 0.22, { type: 'lowpass', f: 900, d: 0.04, vol: 0.25 });
@@ -817,19 +817,19 @@ const SFX = {
     noise(r, o, t, { f: 300, f1: 2500, glide: 1.2, q: 0.7, a: 0.7, hold: 0.3, d: 0.6, vol: 0.4 });
     noise(r, o, t + 0.9, { f: 3000, f1: 800, glide: 0.8, q: 1, a: 0.1, d: 0.6, vol: 0.2 });
   } },
-  rumble: { gain: 0.8, wet: 0.25, vary: 0.04, play(r, o, t, p) {
+  rumble: { gain: 0.34, wet: 0.25, vary: 0.04, play(r, o, t, p) {
     // the deck shudders: a low growl that rolls in and out, loose debris rattling
     noise(r, o, t, { type: 'lowpass', f: 160 * p, q: 1.5, a: 0.25, hold: 0.9, d: 0.9, vol: 0.9, drive: true });
     tone(r, o, t, { f: 38 * p, a: 0.3, hold: 0.8, d: 0.9, vol: 0.5, trem: 7, tremDepth: 0.7 });
     noise(r, o, t + 0.15, { f: 600, q: 3, a: 0.05, d: 0.3, vol: 0.08 });
     noise(r, o, t + 0.7, { f: 900, q: 4, a: 0.02, d: 0.2, vol: 0.07 });
   } },
-  choir: { gain: 0.5, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
+  choir: { gain: 0.36, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
     // WARDEN's per-box voice: a soft 'oo' chord from its F minor song breathes in and fades
     const chord = CHOIR_SFX[Math.floor(Math.random() * CHOIR_SFX.length)].map(noteMidi);
     choirVoice(r, o, t, chord, 0.45, 1, { attack: 0.25, release: 1.6, level: 0.5, oct: 12 * Math.log2(p) });
   } },
-  glitch: { gain: 0.5, wet: 0.15, vary: 0.05, play(r, o, t, p) {
+  glitch: { gain: 0.62, wet: 0.15, vary: 0.05, play(r, o, t, p) {
     // a data stutter: chopped square blips at random pitches over bursts of noise, then a falling tail
     for (let i = 0; i < 7; i++) {
       const dt = i * 0.045 + rand(0, 0.015);
@@ -856,7 +856,7 @@ const SFX = {
     noise(r, o, t, { type: 'highpass', f: 6000, a: 0.002, d: 0.5, vol: 0.06 });
     for (const [f, dt] of [[1174.7, 0], [1760, 0.03], [2637, 0.06]]) bell(r, o, t + dt, { f, ratio: 3.5, index: 0.6, d: 1.8, vol: 0.1 });
   } },
-  alarm: { gain: 0.45, wet: 0.35, echo: 0.1, vary: 0, play(r, o, t, p) {
+  alarm: { gain: 0.9, wet: 0.35, echo: 0.1, vary: 0, play(r, o, t, p) {
     // a ship klaxon: two falling whoops
     for (const dt of [0, 0.7]) {
       for (const [type, det, v] of [['square', 0, 0.2], ['sawtooth', 8, 0.14]]) {
@@ -878,7 +878,7 @@ const SFX = {
     tone(r, o, t + 0.02, { type: 'triangle', f: 990 * p, f1: 1320 * p, glide: 0.06, a: 0.002, d: 0.12, vol: 0.18 });
     noise(r, o, t + 0.02, { type: 'highpass', f: 4000, a: 0.02, d: 0.15, vol: 0.05 });
   } },
-  awaken: { gain: 0.38, wet: 0.45, echo: 0.2, vary: 0, play(r, o, t, p) {
+  awaken: { gain: 0.3, wet: 0.45, echo: 0.2, vary: 0, play(r, o, t, p) {
     // an ultimate awakens: a fast riser, then a bright D major brass chord with rising bells and a crash
     noise(r, o, t, { f: 400, f1: 7000, glide: 0.4, q: 1.4, a: 0.38, d: 0.05, vol: 0.4 });
     tone(r, o, t, { type: 'sawtooth', f: 147 * p, f1: 587 * p, glide: 0.4, lp: 800, lp1: 4000, lpGlide: 0.4, a: 0.36, d: 0.06, vol: 0.12 });
@@ -1112,7 +1112,7 @@ function choirVoice(r, out, t, notes, dur, vel, o) {
   v.connect(out);
   const src = gainNode(ctx, 1);
   for (const [f, g] of VOWELS[o.vowel] || VOWELS.oo) {
-    src.connect(filterNode(ctx, 'bandpass', f, o.formantQ ?? 5)).connect(gainNode(ctx, g * 3.2)).connect(v);
+    src.connect(filterNode(ctx, 'bandpass', f, o.formantQ ?? 5)).connect(gainNode(ctx, g * 1.6)).connect(v);
   }
   const lfos = [4.6, 5.3].map((rate) => {
     const lfo = oscNode(r, 'sine', rate * (0.95 + Math.random() * 0.1));
@@ -1506,7 +1506,7 @@ const WARDEN_A = {
   tune: ['Ab4 - C5', 'F5 - Eb5', 'Db5 Eb5 Db5', 'C5 - -', 'Bb4 - Db5', 'G5 - F5', 'Eb5 Db5 Eb5', 'F5 - -'],
 };
 const WARDEN_B = {
-  chords: ['Db2: F3 Ab3 C4', 'Bb1: F3 Ab3 Db4', 'Ab1: Eb3 Ab3 C4', 'C2: E3 G3 C4', 'F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4',
+  chords: ['Db2: F3 Ab3 C4', 'Bb1: F3 Bb3 Db4', 'Ab1: Eb3 Ab3 C4', 'C2: E3 G3 C4', 'F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4',
     ['Bb1: F3 Bb3 Db4', 'Bb1: F3 Bb3 Db4', 'C2: E3 G3 C4'], 'F2: F3 Ab3 C4'],
   tune: ['C5 - Ab5', 'G5 - F5', 'Bb5 - Ab5', 'G5 - -', 'Ab4 - C5', 'F5 - Eb5', 'Db5 C5 G4', 'F4 - -'],
 };
@@ -1523,8 +1523,8 @@ const DRIFT_A = {
 
 // Shoals, C# minor: glass-bell melody over m9 / maj7 colours.
 const SHOALS_A = {
-  chords: ['C#2: E3 G#3 B3 D#4', 'A1: E3 G#3 C#4 E4', 'F#1: E3 A3 C#4 G#4', ['G#1: D#3 G#3 C#4', 'G#1: D#3 G#3 B#3'],
-    'C#2: E3 G#3 B3 D#4', 'A1: E3 A3 C#4 D#4', 'E2: D#3 G#3 B3 E4', 'B1: D#3 F#3 B3 C#4'],
+  chords: ['C#2: E3 G#3 B3 D#4', 'A1: E3 G#3 C#4 E4', 'F#1: E3 A3 C#4', ['G#1: D#3 G#3 C#4', 'G#1: D#3 G#3 B#3'],
+    'C#2: E3 G#3 B3', 'A1: E3 A3 C#4 D#4', 'E2: E3 G#3 B3', 'B1: D#3 F#3 B3 C#4'],
   tune: ['G#5 - - - B5 - D#6 -', 'C#6 - - - - - B5 -', 'A5 - - - G#5 - E5 -', 'D#5 - - - - - - -',
     'G#5 - - - B5 - E6 -', 'D#6 - - - C#6 - - -', 'B5 - - - G#5 - D#5 -', 'F#5 - - - - - - -'],
 };
@@ -1702,7 +1702,7 @@ export const TRACKS = {
   boss: {
     key: 'D minor',
     bpm: 160,
-    gain: 0.6,
+    gain: 0.49,
     delay: 0.75,
     voices: {
       lead: { cutoff: 2600, level: 0.2, vib: 22, q: 2.2 },
@@ -1785,7 +1785,7 @@ export const TRACKS = {
   victory: {
     key: 'C major',
     bpm: 116,
-    gain: 0.82,
+    gain: 1.01,
     delay: 0.75,
     voices: {
       lead: { cutoff: 3800, level: 0.2, vib: 14 },
@@ -1843,11 +1843,11 @@ export const TRACKS = {
     key: 'G Mixolydian',
     bpm: 92,
     meter: '6/8',
-    gain: 0.86,
+    gain: 0.93,
     delay: 0.5,
     motifs: ['ringborn'],
     voices: {
-      lead: { synth: 'harp', decay: 1.1, level: 0.26, cutoff: 4200 },
+      lead: { synth: 'harp', decay: 1.1, level: 0.3, cutoff: 4200 },
       bell: { decay: 1.8, level: 0.16, ratio: 3, index: 1.1 },
       harp: { decay: 0.8, level: 0.09 },
       pad: { cutoff: 900, attack: 0.6, release: 1.2, level: 0.06 },
@@ -1905,17 +1905,18 @@ export const TRACKS = {
   shoals: {
     key: 'C# minor',
     bpm: 70,
-    gain: 0.95,
+    gain: 1.3,
     delay: 0.75,
     voices: {
       bell: { ratio: 3.5, index: 1.6, decay: 3.2, level: 0.17 },
-      bell2: { ratio: 5, index: 0.8, decay: 1.4, level: 0.06 },
+      bell2: { ratio: 5, index: 0.8, decay: 1.4, level: 0.09 },
       lead: { layers: [['sine', 0, 1], ['triangle', 5, 0.25]], cutoff: 2400, level: 0.13, vib: 22, vibRate: 4.2, attack: 0.25, release: 0.6, glide: 0.35 },
-      bass: { synth: 'sub', level: 0.42, gate: 0.25, decay: 0.7, harm: 0.35 },
+      lead2: { layers: [['sine', 0, 1], ['triangle', 5, 0.25]], cutoff: 2000, level: 0.065, vib: 18, vibRate: 4.2, attack: 0.6, release: 1, glide: 0.35 },
+      bass: { synth: 'sub', level: 0.5, gate: 0.5, decay: 1.2, harm: 0.35 },
       pad: { cutoff: 1500, attack: 2.2, release: 3, level: 0.1, air: 0.06, drift: 0.6 },
-      arp: { wave: 'sine', decay: 0.3, level: 0.05, oct: 24 },
+      arp: { wave: 'sine', decay: 0.3, level: 0.08, oct: 24 },
     },
-    sends: { bell: { wet: 0.7, echo: 0.4 }, bell2: { wet: 0.6, echo: 0.5, pan: 0.35 }, lead: { wet: 0.55, echo: 0.3 }, arp: { wet: 0.5, echo: 0.6 } },
+    sends: { bell: { wet: 0.7, echo: 0.4 }, bell2: { wet: 0.6, echo: 0.5, pan: 0.35 }, lead: { wet: 0.55, echo: 0.3 }, lead2: { wet: 0.6, echo: 0.2, pan: -0.2 }, arp: { wet: 0.5, echo: 0.6 } },
     loop: ['A', 'B', 'C', 'A2'],
     parts: {
       A: {
@@ -1942,7 +1943,7 @@ export const TRACKS = {
         bars: 8,
         chords: SHOALS_A.chords,
         bell: SHOALS_A.tune,
-        lead: ['E5 - - - - - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'C#5 - - - ~B#4 - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'B4 - - - - - - -', 'D#5 - - - - - - -'],
+        lead2: ['B4 - - - - - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'C#5 - - - ~B#4 - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'B4 - - - - - - -', 'D#5 - - - - - - -'],
         arp: '3 1 2 0 3 2 1 2',
         bass: 'R! . R? . R . R? .',
       },
@@ -1955,15 +1956,15 @@ export const TRACKS = {
   meridian: {
     key: 'F# Phrygian',
     bpm: 60,
-    gain: 1,
+    gain: 0.85,
     delay: 1.5,
     motifs: ['ringborn'],
     voices: {
       pad: { cutoff: 520, attack: 3, release: 4, level: 0.16, drift: 0.5, air: 0.035 },
       bass: { soft: true, level: 0.3 },
-      bell: { ratio: 2.76, index: 1.8, decay: 4.5, level: 0.17 },
+      bell: { ratio: 2.76, index: 1.8, decay: 4.5, level: 0.26 },
       bell2: { ratio: 1.41, index: 3.4, decay: 6, level: 0.09 },
-      arp: { wave: 'sine', decay: 0.5, level: 0.05 },
+      arp: { wave: 'sine', decay: 0.5, level: 0.08 },
     },
     sends: { pad: { wet: 0.5 }, bell: { wet: 0.7, echo: 0.35 }, bell2: { wet: 0.9, echo: 0.2, pan: -0.4 }, arp: { wet: 0.6, echo: 0.6, pan: 0.35 } },
     loop: ['A', 'B', 'C', 'D'],
@@ -1972,7 +1973,7 @@ export const TRACKS = {
         bars: 8,
         chords: [FSM, FSM, FSM, FSM, FSM, G_FS, FSM, FSM],
         bell: ['', '', '', '', 'E5 - - - . . A5 -', '. . . . G5 - - -', '', ''],
-        bell2: ['', '', '. . F#2 - - - - -', '', '', '', 'C3 - - - - - - -', ''],
+        bell2: ['', '', '. . F#2 - - - - -', '', '', '', 'B2 - - - - - - -', ''],
         arp: ['C#6 . C#6 .', ''],
         bass: 'O - - -',
       },
@@ -1980,14 +1981,14 @@ export const TRACKS = {
         bars: 8,
         chords: [FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, FSM, FSM],
         bell: ['E5 - - - . . A5 -', '. . . . G5 - - -', 'E5 - - - - - . .', '. . D5 - - - . .', 'B4 - - - - - - -', '. . . . . . A4 -', '', ''],
-        bell2: ['', '', '', 'G2 - - - - - - -', '', '', '. . . . F#2 - - -', ''],
+        bell2: ['', '', '', 'D3 - - - - - - -', '', '', '. . . . F#2 - - -', ''],
         bass: 'O - - -',
       },
       C: {
         bars: 8,
         chords: [D_FS, D_FS, EM_FS, EM_FS, G_FS, G_FS, FSM, FSM],
-        bell: ['', '. . . . F#5 - - -', '', 'B4 - - - . . . .', '', '. . . . D5 - - -', '', ''],
-        bell2: ['A2 - - - - - - -', '', '. . . . . . E3 -', '', 'G2 - - - - - - -', '. . . . B2 - - -', '', 'C#3 - - - - - - -'],
+        bell: ['', '. . . . F#5 - - -', '', 'B4 - - - . . . .', '', '. . . . B4 - - -', '', ''],
+        bell2: ['A2 - - - - - - -', '', '. . . . . . E3 -', '', 'B2 - - - - - - -', '. . . . D3 - - -', '', 'C#3 - - - - - - -'],
         arp: 'C#6 . C#6 .',
         bass: 'O - - -',
       },
@@ -1995,7 +1996,7 @@ export const TRACKS = {
         bars: 8,
         chords: [FSM, FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, G_FS],
         bell: ['. . . . E4 - - -', 'A4 - - - . . . .', 'G4 - - - . . E4 -', '', 'D4 - - - - - . .', 'B3 - - - - - - -', '. . A3 - - - - -', ''],
-        bell2: ['', '', '', '. . . . . . A2 -', '', '', '', 'G2 - - - - - - -'],
+        bell2: ['', '', '', '. . . . . . A2 -', '', '', '', 'D3 - - - - - - -'],
         arp: ['C#6 . . .', ''],
         bass: 'O - - -',
       },
@@ -2008,11 +2009,11 @@ export const TRACKS = {
     key: 'F major',
     bpm: 76,
     meter: '3/4',
-    gain: 1,
+    gain: 1.12,
     delay: 1,
     motifs: ['lullaby'],
     voices: {
-      bell: { synth: 'box', oct: 12, level: 0.22, decay: 2.2 },
+      bell: { synth: 'box', oct: 12, level: 0.26, decay: 2.2 },
       harp: { synth: 'box', oct: 12, level: 0.085, decay: 1.3 },
       harp2: { decay: 1.8, level: 0.11 },
       bell2: { decay: 2.4, level: 0.09, ratio: 3, index: 0.7 },
@@ -2042,8 +2043,8 @@ export const TRACKS = {
     delay: 1,
     motifs: ['warden'],
     voices: {
-      pad: { synth: 'choir', vowel: 'oo', attack: 1.6, release: 2.6, level: 0.42 },
-      bell: { synth: 'box', oct: 12, level: 0.2, decay: 2.6, droop: 12, beat: 5 },
+      pad: { synth: 'choir', vowel: 'oo', attack: 1.6, release: 2.6, level: 0.24 },
+      bell: { synth: 'box', oct: 12, level: 0.24, decay: 2.6, droop: 12, beat: 5 },
       harp: { synth: 'box', oct: 12, level: 0.075, decay: 1.6, droop: 12, beat: 5 },
       choir: { vowel: 'oo', attack: 0.35, release: 1.4, level: 0.34 },
       bass: { synth: 'sub', level: 0.3, gate: 0.85, decay: 1.8, attack: 0.08 },
@@ -2055,9 +2056,9 @@ export const TRACKS = {
     parts: {
       I: { bars: 2, chords: ['F2: F3 Ab3 C4'], bell2: ['F3 - -', ''], bass: 'R - -', harp: ['', '. . . . 2 1'] },
       A: { bars: 8, chords: WARDEN_A.chords, bell: WARDEN_A.tune, harp: '. . 1 . 2 .', bass: 'R - -' },
-      B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: '. . 1 . 2 .', bass: 'R - -', bell2: ['Db3 - -', '', '', 'C3 - -', '', '', '', ''] },
+      B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: '. . 1 . 2 .', bass: 'R - -', bell2: ['Ab2 - -', '', '', 'C3 - -', '', '', '', ''] },
       A2: { bars: 8, chords: WARDEN_A.chords, choir: WARDEN_A.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: firstOnly(8, 'F3 - -') },
-      B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: ['Db3 - -', '', '', 'C3 - -', '', '', '', ''] },
+      B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: ['Ab2 - -', '', '', 'C3 - -', '', '', '', ''] },
     },
   },
 
@@ -2066,7 +2067,7 @@ export const TRACKS = {
   sting_chapter: {
     key: 'D major',
     bpm: 104,
-    gain: 0.8,
+    gain: 0.92,
     delay: 0.75,
     once: true,
     voices: {
@@ -2344,11 +2345,17 @@ export const audio = {
 
   /** Requested track name (or null). */
   get track() { return S.want; },
+  /** Debug: the sting playing right now (or null). */
+  get sting() {
+    const now = S.ctx ? S.ctx.currentTime : 0;
+    const rt = S.stings.find((x) => x.stopAt > now);
+    return rt ? rt.name : null;
+  },
   get context() { return S.ctx; },
   get ready() { return !!S.rig; },
   /** Debug: current music position { track, part, bar } or null. */
   position() {
     const rt = S.cur;
-    return rt ? { track: rt.name, part: partAt(rt), bar: Math.floor(rt.step / 16) + 1, time: S.ctx.currentTime } : null;
+    return rt ? { track: rt.name, part: partAt(rt), bar: Math.floor(rt.step / rt.c.barSteps) + 1, time: S.ctx.currentTime } : null;
   },
 };
