@@ -23,8 +23,6 @@
 //   actorPos(id) -> { x, z } | null
 // export function prewarmMap(mapId) -> Promise    paints the map's location art plus the art of every
 //                                                 prop it builds (built-in types too), one job per task
-// export function prewarmWorld() -> Promise       POC boot prewarm (every built-in texture), until G1
-// export const VIEWPOINTS                         halcyon viewpoints (POC export kept for main.js)
 
 import * as THREE from 'three';
 import { updateVfx } from '../core/vfx.js';
@@ -36,20 +34,14 @@ import { ZONE_RATE_DEFAULT } from '../content/balance.js';
 import { CHAPTER_START } from '../content/chapters.js';
 import { REG, getMap, locationOfMap } from '../content/registry.js';
 import { prewarmLocation, paintJob, parseArtKey } from '../content/prewarm.js';
-import { buildEnemyIcon, buildEnemySprite } from '../art/enemies.js';
-import { buildFieldSprite, buildNpcSprite } from '../art/characters.js';
-import { TEXTURE_NAMES, buildTexture } from '../art/tiles.js';
+import { buildEnemyIcon } from '../art/enemies.js';
 import { setDefaultState } from './cond.js';
 import { normalizeTalk } from './mapdef.js';
 import { World, propEntries } from './world.js';
 import { propArt } from './props.js';
 import { FieldCamera } from './camera.js';
 import { Lighting } from './lighting.js';
-import { worldTexture } from './paint.js';
 import { Player } from './player.js';
-import halcyon from '../content/prologue/maps/halcyon.js';
-
-export const VIEWPOINTS = halcyon.viewpoints;
 
 const DEFAULT_MAP = CHAPTER_START.prologue.map;
 const DEFAULT_SPAWN = CHAPTER_START.prologue.spawn;
@@ -70,24 +62,6 @@ const hazard = (s, sigma) => (s * s) / (2 * sigma * sigma);
 
 // Errors inside async interactions surface in #vp-fatal instead of vanishing.
 const surface = (e) => setTimeout(() => { throw e; });
-
-/**
- * POC boot prewarm: every built-in texture, the world's painted textures, the leader, BOLT, HALCYON
- * and the Sentinel. main.js still calls it until S2a moves boot to prewarmLocation (11.5).
- */
-export function prewarmWorld() {
-  const jobs = [
-    ...TEXTURE_NAMES.map((n) => () => buildTexture(n)),
-    ...['metal_side', 'med_front', 'med_cross', 'chair', 'seat'].map((n) => () => worldTexture(n)),
-    () => buildFieldSprite('kade'),
-    () => buildNpcSprite('bolt'),
-    () => buildNpcSprite('holo'),
-    () => buildEnemySprite('sentinel'),
-  ];
-  return jobs.reduce((chain, job) => chain.then(() => new Promise((resolve) => {
-    setTimeout(() => { job(); resolve(); }, 0);
-  })), Promise.resolve());
-}
 
 /**
  * Paint what a map needs behind a cover: its location's art (legend, registered props, NPCs, bosses,

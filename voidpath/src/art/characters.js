@@ -1312,7 +1312,8 @@ const NPC_ALIAS = { halcyon: 'holo' };
  * Register a character (TECH_PLAN 3.12). CharDef = the CHARS format { mats, build, style, hair,
  * over, hooks } with optional `base: 'nyx'` (inherit everything, override what is given), `locks`
  * (capsule hair per view instead of `hair` templates), `poses` (default all POSES), `portrait`
- * ({ bust(f), collar(f), behind?, after?, over }), `hairLocks` / `hairline` (portrait hair) and
+ * ({ bust(f), collar(f), behind?, after?, over }, merged over the base's: `{ after: null }` drops
+ * SERA's halo, `{ over: [] }` KADE's visor), `hairLocks` / `hairline` (portrait hair) and
  * `expressions` ({ name: [[row, col, chars], ...] } edits of the portrait face); or
  * { custom: { field(view, kind, i, blink) -> Painter | canvas, portrait(expr) -> Painter | canvas } }.
  * Re-registering an id repaints its art on next use.
@@ -1353,7 +1354,7 @@ function resolveChar(id, depth = 0) {
       locks: def.locks || (from ? from.locks || FIELD_LOCKS[from.id] || null : null),
       over: def.over || (from ? from.over : {}),
       hooks: { ...(from ? from.hooks : {}), ...def.hooks },
-      portrait: def.portrait || (from ? from.portrait || PORTRAIT[from.id] : null),
+      portrait: from || def.portrait ? { ...(from ? from.portrait || PORTRAIT[from.id] : GENERIC_PORTRAIT), ...def.portrait } : null,
       hairLocks: def.hairLocks || (from ? from.hairLocks || HAIR_LOCKS[from.id] : null),
       hairline: def.hairline ?? (from ? from.hairline ?? HAIRLINE[from.id] : 6.4),
       expressions: { ...(from ? from.expressions : {}), ...def.expressions },

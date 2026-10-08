@@ -12,8 +12,13 @@
 // export function inlineLines(map) -> string[]   ids of entries that still hold inline (legacy) lines
 // export function mapSize(map) -> { w, h }
 //
+// MapDef extras beyond TECH_PLAN 3.1: mood (area mood default), npcs/chests/bosses `talk` (TalkSpec),
+// bosses `name` / `radius`, chests `propFields`, med interactables `prompt` / `restoreLabel`, lights and
+// ambient entries `when`, area.focus.whileBoss (true or a boss id). TalkSpec entries may hold inline
+// `lines` (legacy POC lines, poc maps and dev only).
+//
 // CellSpec
-//   { t: 'wall',   tex, side?, cap?, low?, height? }
+//   { t: 'wall',   tex, side?, cap?, low?, height?, upper? }
 //   { t: 'window', tex, backdrop? }                       horizontal pairs in a wall row: floor south, void north
 //   { t: 'door',   tex, lockedTex?, floor?, lock?: { flag, item?, id, label?, toast?, talk? } }   pairs
 //   { t: 'floor',  tex, mix?: [[tex, chance]], grime?, stripe?, gate?, roughness?, metalness?, emissive? }

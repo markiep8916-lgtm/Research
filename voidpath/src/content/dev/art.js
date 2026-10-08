@@ -52,6 +52,7 @@ export default {
         acc: ['#5c1220', '#9a1b30', '#d82d45', '#ff5d6c'],
       },
       hooks: { front: null },
+      portrait: { after: null },
     },
     // a security officer: Kade's build, black hair, crimson uniform, no visor or scarf tail
     dev_officer: {
@@ -63,6 +64,7 @@ export default {
       },
       over: {},
       hooks: { behind: null },
+      portrait: { over: [] },
     },
     dev_drone: {
       custom: { field: droneFrame, portrait: dronePortrait },
