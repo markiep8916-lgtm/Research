@@ -2782,4 +2782,269 @@ If time runs short, cut in this order:
 
 ## Wave S deviations
 
-(Gate G1 appends contract deviations found during Wave S here.)
+Where the code differs from the sections above after Wave S (S1a-S5, W) and gate G1. Where this list
+and the plan disagree, this list wins. The header comment of each file named here documents its
+full API; read it before calling into that file.
+
+### Content registration and lints (2.x, 10.3)
+
+- `registerAll()` lives in `content/index.js` and `registerAllData()` in `content/data.js` (both
+  re-export the registry API); `registry.js` itself only has `registerData`, `registerLocation`,
+  `finishRegistration`, `getMap`, `locationOfMap`, `locationOfArt`, `ownerOf`, `createRegistry`.
+- `getMap` merges `extends`: arrays append in chapter order; plain objects (`spawns`, `anchors`,
+  `viewpoints`, `legend`, ...) merge shallowly; `talk: { id: [entries] }` is prepended to the
+  TalkSpec of the NPC **or interactable** with that id and also lands in `map.talk[id]`. BOLT (a
+  companion, no NpcDef) speaks `map.talk.bolt` entries first, then `REG.companions.bolt.talk`: hub
+  lines for BOLT go in `extends.halcyon.talk.bolt` (and the same for any map's companion talk).
+- Content you write is unchanged, but the registry stores `REG.preload[map]` as `[{ key, loc }]`,
+  `REG.extends[map]` as `[{ loc, chapter, ext }]`, and stamps `loc` on `REG.scenes[i]` and
+  `REG.destinations[i]`. `scenes` entries may carry a numeric `order` to fix play order inside a
+  chapter across locations (dry run and transcripts).
+- Lint scope (`tests/content.test.mjs`, `tools/contentlint.mjs`): a "story trigger" (needs a
+  `story:` or `chapter` term in `when`) is a `once` trigger or any trigger that runs a scene script.
+  Unbounded `extends` `lights`/`ambient` entries are warnings, not errors. Script ids must start with
+  `<loc>.` (prologue may also own `travel.flight`). Encounter and zone ids use the 2.7 prefixes; the
+  `warden` folder uses `heart_`. Maps with `poc: true` and the `dev` location are exempt from the
+  bounded-`when` and inline-lines rules.
+- Script dry run (`npm run scriptcheck`): budgets are checked per stretch between `cs.battle` calls;
+  boxes of a nested `cs.run` count toward the caller's stretch; a `cs.choice` prompt counts as one
+  box; `cs.wait` adds its seconds. Scripts that no `scenes` entry lists are run once afterwards for
+  the per-box checks only, so list every story beat and every Party Talk in `scenes` (Party Talks get
+  the 10-box cap only when listed) and keep talk, terminal and hub scripts out. KADE, NYX, ORION,
+  SERA, BOLT, HALCYON and WARDEN count as registered speakers even before `common/story.js`
+  registers them. Expressions outside `neutral smile sad determined surprised` (plus BOLT's
+  `happy worried determined`, HALCYON's `calm flicker` and a speaker's own `expressions` list) are
+  reported, not failed.
+- The CSS class `.vp-perf-stats` belongs to the `?stats=1` overlay; do not reuse it.
+
+### Maps and the field (3.x)
+
+- The shims are gone: import the Halcyon map from `src/content/prologue/maps/halcyon.js`;
+  `world/script.js` (POC lines) is deleted, so the prologue's lines exist only as inline `talk` on
+  `halcyon.js` (`poc: true`) until C1 replaces them with scripts. Inline lines on a `poc: true` map
+  skip the 4.2 staging check; once converted to scripts, gather the speakers or mark lines
+  `{ offscreen: true }` (`halcyon`'s BOLT intro has a NYX line, its HALCYON intro an ORION line).
+- `halcyon.js` in Wave S: field boss `sentinel` uses encounter `boss_sentinel` and areas use the POC
+  zones `corridor` / `engineering` (C1 renames them to `pro_boss_sentinel`, `pro_corridor`,
+  `pro_engineering`, `pro_late`); the BOLT NPC has `when: '!story:kade_awake'` so the companion can
+  take over; anchors `hub_stall`, `hub_planters`, `hub_voss_post`, `hub_halcyon`, `memorial` are
+  placeholders C1 may move. There is no exit from `halcyon` to `dev_box`.
+- MapDef extras (header of `world/mapdef.js`): `map.mood` (default area mood); door CellSpec
+  `lockedTex` and `floor`, `lock: { flag, item?, id, label?, toast?, talk? }` (`talk` runs while
+  locked); floor `roughness`, `metalness`, `emissive`; wall `upper`; pit `emissive`; water `bed`
+  (default texture `water_bed`); chests `talk` (runs after opening) and `propFields`; bosses `talk`,
+  `name`, `radius`; `med` interactables `prompt` and `restoreLabel`; `when` on `lights` and `ambient`
+  entries; `area.focus.whileBoss` may be a boss id.
+- `validateMap` also fails a door in a cutaway wall (rooms only to its north) without a divider on
+  its row (door leaves are full height). Once `setChapterOrder` has run (importing
+  `content/chapters.js` does it), an unknown chapter id in a condition throws at compile time.
+- The World builds props for chests (`{ t: chest.prop || 'chest', id }`), for interactables with a
+  `prop` or of kind `switch` (`switch.panel`), `shard` (`shard`) or `starchart` (`starchart`), with
+  `propFields` merged, and for gates (`{ t: gate.prop || 'gate.laser', id, x, z, w, d, cells }`).
+  Only chests, gates and `switch`/`shard`/`starchart` interactables pass their `id`: to reach a
+  registered prop with `cs.prop(id)` / `W.living(id)`, put it in `map.props` with an `id`. Builders
+  never call `W.addInteractable` for these entries (the World registers every interactable). A
+  LivingProp's `update(dt, t)` is called by the World automatically (`buildProp` registers it).
+- Props with `when` are built into their own group with their own colliders and emitters and are
+  shown or hidden by `syncFlags`. A texture a builder shares between Worlds must set
+  `texture.userData.shared = true`, or `World.dispose` disposes it and it re-uploads on the next map.
+- Only map NPCs (`map.npcs`) get a collider; `cs.spawn` actors, companions, stepped-out party members
+  and the leader stand-in never block the Player. Field bosses are NpcActors with sprite
+  `'enemy:<art>'`, listed in `world.npcs` under their id, so scripts address them like NPCs.
+- Companions (`REG.companions`, `{ sprite, name, talk, follow }`) appear on maps with
+  `companions !== false` that are not `scene` or `transit` (so `moth`, `exterior` and `dreams` need no
+  flag); set `companions: false` on any other map BOLT must stay away from.
+- `visited:<map>` and `area:<map>:<area>` are written straight into `gameState.flags` (no
+  `story.set`, so no `onChange` for area flags). A non-`once` `flag` trigger re-fires on every map
+  build while its condition holds (its edge state resets on arrival): use `once: true` (or a
+  `when` that turns false) for anything that must run once.
+- Med-Station choices are Restore (`restoreLabel`), Save (the saves UI), Party Talk (only when one
+  is available; the prompt gets a `!` badge) and Leave; Party Talk runs `cs.run(script, { ptalk })`.
+  A `leader`-gated interactable used by another leader runs `common.leader_hint` with
+  `{ member, interactable }` if registered, else the line "*NAME* could handle this."
+- Encounters: rate `REG.zoneRates[zone]`, else the POC rate for the POC zones `corridor` and
+  `engineering`, else `ZONE_RATE_DEFAULT`. Hazard x the lowest party `mods.encounterRate`, x 0.6 on
+  the Low setting. Skip weak (default on): a zone whose highest enemy `level` is at least 5 below the
+  party's average level rolls nothing, so every EnemyDef needs `level` (`statLine` sets it). Areas
+  with `puzzle: true` and `scene`/`transit` maps roll nothing.
+- Field sheets are 48x48 frames (the 32-px figure centred, 8 px padding): an NPC/party SpriteActor
+  quad is 1.5 units wide; figure size and pivot are unchanged. Custom character painters
+  (`custom.field`) may return 32- or 48-wide frames (centred into 48x48).
+- Poses are sheet anims `<pose>_down` / `<pose>_side` (side flips for left); `cs.anim(id, 'kneel')`
+  and NpcDef/`cs.spawn` `pose: 'kneel'` take the pose name. `NpcActor.play(pose)` holds it until the
+  next walk or `play(null)`.
+- BOLT and HALCYON accept the party expression names without a warning (bolt: smile->happy,
+  sad->worried, surprised->worried; holo: smile/sad->calm, determined->neutral,
+  surprised->flicker). `'halcyon'` is an alias of the `holo` sheet and portrait.
+- A CharDef's `portrait` slots `{ bust, collar, behind?, after?, over }` merge over its `base`'s
+  (`{ after: null }` drops Sera's halo, `{ over: [] }` Kade's visor).
+- Emotes: kinds `! ? ... note heart anger sweat idea zzz` (`EMOTE_KINDS` in `world/emotes.js`);
+  `cs.emote(id, kind)` takes an actor id or `'leader'`. Bubbles are unlit `THREE.Sprite`s.
+- `registerTexture(name, def)` also accepts `{ w, h, image: () => ({ map, emissive?, normal? }) }`
+  (canvas painters); `registerPreset(name, ...layers)` accepts `shape` and `blend` as strings
+  (`'plus'`, `'add'`); `registerProp(type, { build(W, p), textures, sprites })`. Helpers for lints:
+  `hasTexture`, `hasCharacter`, `hasPreset`, `hasProp`, `hasEnemyArt`.
+- `world/sky.js`: where a map has a `sky`, its `underlay` stops at the sky edge and fades, so a pit
+  near that edge blends into the vista. `debug.visualLint(viewpoint)` (now async: it teleports to the
+  viewpoint and renders two frames first) counts as lights only non-`decorative` `map.lights`
+  entries with chroma > 0.12 whose position is in view (so put at least 3 coloured lights in every
+  viewpoint's frame).
+
+### Story, cutscenes and flow (4.x, 6.x)
+
+- `cs.say` lines on a `poc: true` map are exempt from the staging check only when inline (not a
+  registered script). Staging errors name the innermost script.
+- `cs.battle(enc, { allowDefeat, canFlee, seed })` passes `script: <outermost script id>` to
+  `game.startBattle`. After a lost battle, Retry runs that **outermost** script in instant mode up to
+  its first `cs.battle`: keep the pre-fight part of a scripted fight in the same outermost script.
+- `cs.ending()` resolves `'ione'` (Return to Ione: the script continues on the current map and
+  should move the party to the shore) or `'title'` (the title fade has begun and the script is
+  aborted).
+- `travel.arrive(map, spawn, { transition, scene, kind, duration, caption, wait, onCover })`;
+  `transition: 'none'` exists. The Moth flight runs only when map `moth` and script `travel.flight`
+  are registered, and lasts at least 3 s.
+- `story` extras: `complete(id)` (code only; scripts have no `cs.complete`), `partyTalks()`,
+  `ObjectiveDef.when` (optional: a side objective shows in the journal while its `when` holds and it
+  is not done). To retire a finished side objective from a script, give it `when: '!<flag>'` and set
+  that flag.
+- `jumpTo` always sets the checkpoint at its arrival; `jumpTo('ch1' ... 'finale')` lands on the
+  chapter's `CHAPTER_START` spawn, and a missing map (ch4's `spire:antechamber` until C5) falls back to
+  `halcyon:bridge_starchart` with a `console.warn`. `buildJumpState` throws on an unknown target.
+- Settings live in `ctx.settings = { encounters, skipWeak, battleSpeed }` and `ui.getSetting(id)`;
+  Difficulty calls `setDifficulty('story' | 'normal')` (`battle/model.js`).
+- Saves (`core/save.js`): v0 = the POC gameState; migration renames `crate_<id>` ->
+  `chest:halcyon:<id>`, `bridge_unlocked` -> `story:bridge_unlocked`, `talked_bolt` ->
+  `talk:halcyon:bolt`, drops `rested`, and adds `defeated:pro_boss_sentinel` to `boss_defeated`.
+  `deserialize` returns `{ pos, checkpoint }` (`pos` may be `{ map, spawn }` for a dock fallback) or
+  `null` without touching gameState. `latestSlot()` skips damaged slots.
+
+### Battle rules (5.x, 7.1-7.3)
+
+- AI: `ai` defaults to `'sentinel'` only for a boss **without** `script`; every other enemy is
+  `'basic'`. Give a scriptless boss that should use gates and summons `ai: 'basic'`. A
+  `lockOn`/`charge` whose `fires` id is not one of its actions reports `console.error`; set
+  `cooldown` on telegraphing actions to avoid spam.
+- Durations: action `untargetable: N`, `api.setUntargetable(id, on, { rounds })` and
+  `api.setResist(id, map, { rounds })` last the rest of the current round **plus N more** (a foe that
+  dives in round R with `untargetable: 1` surfaces at the start of round R+2).
+- `api.setResist` values are **damage multipliers** (`{ cryo: 0.5 }` = half damage); `EnemyDef.resist`
+  and gear `resist` are reductions (damage x (1 - value)). `setResist` emits cue `resist` with
+  `value` = the map (`null` when it wears off).
+- `charge` fires in the charger's last slot of the first round at or after `round + chargeRounds`;
+  while a lock-on or charge is pending, further `lockOn`/`charge` actions are not picked. Break
+  messages: "<name>'s charge was disrupted!" / "<name>'s lock-on was disrupted!".
+- New rule (beat guard): a lethal blow on an enemy that still has an unfired `phases` entry or
+  script threshold leaves it at 1 HP so the beat plays (awakenings, the overclock). Not for POC
+  enemies; `forceVictory` bypasses it.
+- Boss-script hooks without an enemy argument (`onBegin`, `onRoundStart`, `onPartyAction`, `onHit`)
+  run once per distinct script id among living enemies; the others per enemy. `onRoundStart` also
+  runs for round 1 (after `onBegin`). `api.mem` is one object per script id per battle. A throwing
+  hook is caught (`console.error`); hook nesting is capped at depth 4.
+- `api.say(speaker, text, { portrait, expr })`: with `expr` and no `portrait`, the portrait is
+  `<lower-case speaker>:<expr>`; pass `portrait` when the portrait id differs from the speaker name
+  (`MOTHER-7` -> `portrait: 'mother7'`). Without `expr`/`portrait` the battle strip uses the
+  speaker's registered portrait or sigil.
+- Enemy `heal` actions: `heal: fraction` heals that fraction of the target's max HP, else a MAG-based
+  amount from `power`; enemy targets `'ally'` / `'allies'` exist; a heal is picked only when an enemy
+  is hurt. New EnemyDef `untargetableStyle` (and action `style`) choose `'submerge'` / `'phase'` /
+  `'shield'`; `shieldGain` defaults to `BOSS_SHIELD_GAIN` for bosses, 0 otherwise.
+- `marked`: single-target enemy picks prefer the marked member after taunt (also the lock-on
+  fallback). `effect.cleanse: true` removes sleep, jam, marked and negative stages; an array removes
+  only the listed statuses. Damage items: fixed damage (no roll, no crit), the action event carries
+  `damageType` and `hits: 1`.
+- `weaknessPool` cycles in order starting from the set equal to `weaknesses`; a shift resets
+  `revealed` and its `weakShift` event follows the `recover` event. Summons are named
+  "<Name> A/B/..." by how many of that kind the battle holds. A transform keeps action cooldowns and
+  script thresholds; the new kind's `phases` start fresh.
+- Ultimates cost `BATTLE_RULES.ultimateBp` BP and always resolve at Boost 3; `getMenu` marks them
+  `ultimate: true` with reason `'Needs N BP'` / `'Used'`; a jammed member's skills get `'Jammed'`.
+  `api.grantUltimate` emits `learn` only when the member is in the battle. Ultimate fx ids are
+  `ult.oathblade`, `ult.ringfire_barrage`, `ult.singularity`, `ult.lifebloom` (built in).
+- Gear-personality lint: effect signatures must be unique **within a slot pool** (tier 3-4 weapons in
+  one pool, non-keepsake accessories in another); each such item carries exactly one effect.
+- `balance.js`: `overrides = { party, enemies, rules, zoneRate }`; `overrides.party[id].base/.growth`
+  merge into `PARTY_DEFS` in place; enemy overrides deep-merge (`stats` per stat). Archetypes:
+  `swarm standard brute caster armored boss elite`.
+- Shops (`core/shop.js`): `buy` refuses key items, unpriced items and stacks over 99; `sell` refuses
+  key items, unpriced items (keepsakes) and worn-only gear; `shopStock` counts `owned` = held + worn.
+  `useItemOutOfBattle`: `allies` items heal every living member.
+
+### Battle presentation (7.4-7.7)
+
+- `stage.transform(id, kind)` takes an ENEMIES kind (its `tint`, `stage.scale`, `stage.hover` apply;
+  art = `EnemyDef.art ?? kind`) or a bare art id. `EnemyDef.stage = { slot, scale, hover, spawn }`,
+  `spawn: 'holo' | 'rise'` (summon entrance, default `'holo'`).
+- `ui.setUntargetable(id, on, style)`: tags SUBMERGED / PHASED / SHIELDED.
+  `ui.ultimateCut(memberId, skillName, { awakening })`; the awakening variant plays from a `learn`
+  event with `ultimate: true`, and the line before it comes from the preceding `say` event.
+- Boss defeat fx lookup: `${EnemyDef.script}.defeat`, `${kind}.defeat`, `${art}.defeat`, then
+  `${kind.split('_')[0]}.defeat`, first registered wins. A foe with a defeat fx stays on stage after
+  its KO until the victory, which dissolves remaining adds, plays the fx, then the victory pose.
+- Lock / charge `fires` come from the action def's `fires` (lock-on default `annihilator_beam`). A
+  scripted `api.telegraph` with no pending lock-on/charge makes a threat whose `fires` is the `then`
+  of that enemy's next action; with no `then` it clears after that action.
+- `fitBox`: the core rect may rise above the fit band (up to 12% from the top on phones, 10% wide);
+  frame only the glowing core of huge bosses. With no `fitBox` the POC fit is unchanged.
+- Battle dialog strip: above the party panel on phones, short landscape and below 1000 px; on wide
+  screens it sits bottom-left beside the party panel.
+- Tips: `encounter.tips: [{ on, lines, flag? }]` override `REG.tips[key] = { lines, flag? }`; the
+  flag defaults to `tut:<key>` and is set in `gameState.flags` when shown. Keys: the event type,
+  `status:<stat>`, `cue:<name>`, `bp3`, plus `begin` and `playerTurn`.
+- `encounter.phaseMusic[<transform kind>]` switches the track on a `transform` event; battle music
+  starts two frames after the battle enters.
+- `buildArena(scene, name, { quality })`: an unknown arena warns, records `missingArt` and builds
+  `corridor`. Arena lights only through `kit.pointLight`, `kit.dirLight`, `kit.spotLight` and
+  `kit.lamp(..., { light })` (pooled per quality, 7.5). `actionfx.js` exports `playWaves(d, act,
+  { spacing, before })`; `d` also has `sfx(name, opts)`, `actor(id)`, `pos(id, point)`.
+- The `dev_colossus` test art and the fixture speaker styles exist only in `preview-battle.js`.
+- Sfx names requested by the Director that C9 must add: `summon transform submerge emerge glitch
+  sleep awaken` (silent until then).
+
+### UI (8.x)
+
+- `ui.hooks.mapData()` shape: header of `src/ui/map.js` (`{ map, leader, objective: { text, target },
+  flags, visited?, area?, test?, mapName? }`); the Map tab pans on phones and big maps.
+- `ui.cards.chapter / logo({ hold })`, `ui.cards.end({ text, ms })`, `ui.screens.complete({
+  continueLabel })`, `ui.hud.setPrompt(label, icon | { icon, badge })`, `ui.hud.setArea(name)`.
+  Objective toasts and the location banner accept `*emphasis*`. Chapter cards cannot be skipped by
+  Confirm.
+- Credits: `REG.credits` lines render as given; `ui.cards.credits` appends the closing line
+  "Everything you saw and heard was generated by code." itself; THE END is `ui.cards.end()`. Do not
+  put either in `REG.credits`.
+- A dialog line takes `portrait: 'sera:sad'` or `expr: 'sad'`. Register WARDEN with
+  `{ sigil: 'warden_sigil', accent: '#ffd27a', textSpeed: 0.6, sfx: 'choir', mood: 'warden' }`.
+- `ui.setHooks` immediately reports every stored game setting once (so settings apply at boot).
+- Title `onContinue` refuses (title stays) when no readable save exists; game over "Load journey"
+  keeps the screen until a journey actually loads (G1).
+
+### Debug and tools (10.x)
+
+- `debug.runScript(idOrFn, args)` also runs an inline `async (cs) => {}`; `debug.startBattle` returns
+  `true`/`false` and does not wait; `debug.jumpTo` arrives with kind `goto` (or `load` with
+  `{ play: true })` under a 0.4 s fade.
+- `ctx.prewarm = { location(loc), evict(loc), arrived(loc), trim() }`: every arrival sets
+  `artCache.current` and trims, and so does every battle end (G1, 11.5).
+- Touch: during a script the player has already completed, the B button shows in the `dialog`
+  context so a finger can hold it to skip (`input.setSkippable`, G1).
+- Headless SwiftShader runs the game at 0.3-2 fps under load: scenarios must `waitFor` state, hold
+  keys in `until` loops, and never assume a fixed number of frames per second.
+- `dev_box` (test content) now also has a `fabricator` shop console (`dev_box` Sky Deck, id
+  `fabricator`) and a Starchart table (id `starchart`, viewpoint `chart`) to exercise those
+  interactable kinds from the field.
+
+### WRITING.md decisions that change this plan
+
+- The ch4 card plays on the Halcyon bridge: `vault.echo`'s aftermath runs `cs.goto('halcyon',
+  'bridge')`, shows the Ione node at the Starchart, then `cs.card('finale')` (4.1's "vault core" row
+  is superseded; 12.5 and 7.9 hold).
+- Kade's "Then we make somewhere." is split: "Then..." before the Voss fight (Voss cuts him off), the
+  full line at the overclock right before the awakening.
+- The finale's two Party Talks (`fin.kade_orion`, `fin.nyx_sera`, scripts `heart.pt_*`) and the
+  finale's `extends.driftmarket.talk` lines belong to `heart` (C7); post-game Driftmarket lines to
+  `epilogue` (C8).
+- Budgets: `shoals.maw` 16 boxes / 120 s (its post-battle stretch counts the nested
+  `driftmarket.return`); `dreams.crown` is one script (approach, battle, resolution) at 18 / 240 s;
+  `epilogue.main` 150 s.
+- Proposed cross-owner ids are in WRITING.md: trigger ids, `extends` ids and local flags in section 5
+  (scene inventory), Driftmarket NPC ids and looks in section 7, objective ids in section 9; use them
+  as written so references line up.

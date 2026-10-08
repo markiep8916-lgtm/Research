@@ -323,7 +323,7 @@ export class ExploreState {
     const { ui, story } = this.ctx;
     const map = this.world.map;
     const obj = story && story.objective ? REG.objectives[story.objective] : null;
-    if (this.area) ui.areaName = this.area.name;
+    if (this.area) ui.hud.setArea(this.area.name);
     this._bannerArea = this.area;
     this._bannerT = this.ctx.engine.realTime;
     ui.hud.showLocation(map.name, map.region || '', obj ? obj.text : null);
@@ -474,7 +474,7 @@ export class ExploreState {
       return;
     }
     this.area = a;
-    this.ctx.ui.areaName = a.name;     // R6: the menu header follows the area even without a banner
+    this.ctx.ui.hud.setArea(a.name);   // R6: the menu header follows the area even without a banner
     const flag = `area:${this.mapId}:${a.id}`;
     if (!this.ctx.state.flags[flag]) this.ctx.state.flags[flag] = true;
     const mood = this._mood(a);

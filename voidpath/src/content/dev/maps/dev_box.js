@@ -4,7 +4,8 @@
 // Test Hall (west): a water channel drained by a valve, a chest, a Med-Station, a pod whose status
 // follows the grid switch, a screen prop, a leader-gated lockbox (Nyx) and an NPC walking a path.
 // Sky Deck (east): open to the north (the camera-anchored sky shows beyond the far edge), a laser
-// gate with its switch and a linked guide strip, a pit over the underlay, a shard and a lift pair.
+// gate with its switch and a linked guide strip, a pit over the underlay, a shard, a lift pair, a
+// fabricator shop console and a Starchart table.
 // The two rooms are joined by door exits (same-map arrivals under a fade).
 
 const hallMood = {
@@ -150,6 +151,9 @@ export default {
     { id: 'crystal', kind: 'shard', x: 36.0, z: 4.5, flag: 'shard:dev_box:crystal', script: 'dev.shard' },
     { id: 'lift_up', kind: 'lift', x: 36.5, z: 18.9, r: 0.5, reach: 0.9, to: 'lift_top', label: 'Ride up' },
     { id: 'lift_down', kind: 'lift', x: 36.5, z: 10.1, r: 0.5, reach: 0.9, to: 'lift_bottom', label: 'Ride down' },
+    // G1: the shop and Starchart interactable kinds, opened from the field (ExploreState -> cs.shop / cs.travel)
+    { id: 'fabricator', kind: 'shop', x: 24.0, z: 1.1, box: [23.4, 0.3, 24.6, 1.1], shop: 'fabricator', label: 'Fabricator' },
+    { id: 'starchart', kind: 'starchart', x: 26.5, z: 9.5 },
   ],
   gates: [
     { id: 'grid', rect: [22, 12, 38, 12], open: 'sw:dev_box:grid', prop: 'gate.laser' },
@@ -162,5 +166,6 @@ export default {
     pit: { x: 30.0, z: 9.8, facing: 'up' },
     sky: { x: 30.5, z: 2.4, facing: 'up' },
     lift: { x: 36.5, z: 18.9, facing: 'down' },
+    chart: { x: 26.5, z: 11.0, facing: 'up' },
   },
 };

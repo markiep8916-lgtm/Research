@@ -308,6 +308,7 @@ export class Game {
     if (this._battle !== b) return;
     this._battle = null;
     this.inBattle = false;
+    this.ctx.prewarm?.trim?.();   // the battle's art is released: trim the cache to its budget (11.5)
     this.ctx.ui.menuEnabled = !this.ctx.cutscenes.active;
     if (!this.ctx.cutscenes.active) this.ctx.ui.hud.setVisible(true);
     b.resolve(result);
@@ -378,7 +379,8 @@ export class Game {
     ui.screens.gameOver({
       onRetry: () => this.retry(),
       ...(phase && b.transformed ? { onRetryPhase: () => this._retryPhase(phase.encounter) } : {}),
-      onLoad: () => this.loadMenu().then((ok) => { if (!ok) this._gameOver(); }),
+      // the screen stays up while the picker is open and closes once a journey loaded (S5 contract)
+      onLoad: () => this.loadMenu(),
       onTitle: () => this.toTitle(),
     });
   }

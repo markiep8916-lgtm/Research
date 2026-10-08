@@ -5,12 +5,13 @@
 //
 //   sfx voices ----> sfx.dry ----------------------------\
 //                \-> sfx.wet / sfx.echo --\               \
-//   music strips --> music.dry -----------+----------------+--> master -> highpass -> limiter -> destination
-//                \-> music.wet / .echo --> reverb (2.2 s convolution) / ping-pong delay (tempo-synced) --/
+//   track strips --> bed (duck) --> music.dry ------------+--> master -> highpass -> limiter -> destination
+//   sting strips -------------/ \-> music.wet / .echo --> reverb (2.2 s convolution) / ping-pong delay --/
 //
 // Synthesis functions take (rig, time) so the same code renders live (AudioContext) and offline
 // (OfflineAudioContext, used by the preview bench to measure peaks/RMS). The `audio` singleton
-// at the bottom is the game-facing API from CONTRACTS.md.
+// at the bottom is the game-facing API from CONTRACTS.md and TECH_PLAN 9. Nothing touches WebAudio
+// at module level, so `compileTrack`, `TRACKS` and `MOTIFS` import in node (tests/audio.test.mjs).
 
 import { clamp, makeRng } from './util.js';
 
@@ -22,6 +23,8 @@ const MUSIC_TRIM = 0.62;
 const VERB_RETURN = 0.55;
 const ECHO_RETURN = 0.42;
 const FADE = 0.8; // music crossfade seconds
+const DUCK = 0.16; // bed level under a sting (about -16 dB)
+const STING_TAIL = 4; // seconds a finished sting keeps its strips for the reverb tail
 const LOOKAHEAD = 0.12; // seconds of music scheduled ahead of the audio clock
 const TICK_MS = 25;
 
@@ -224,6 +227,9 @@ export function createRig(ctx, destination = ctx.destination, { volume = DEFAULT
   };
   r.sfx = bus();
   r.music = bus();
+  // Looping tracks play into the bed so a sting can duck them; stings go straight to r.music.
+  r.bed = {};
+  for (const k of ['dry', 'wet', 'echo']) (r.bed[k] = gainNode(ctx, 1)).connect(r.music[k]);
 
   const nb = ctx.createBuffer(1, sr * 2, sr);
   nb.copyToChannel(noiseData(sr), 0);
@@ -255,6 +261,17 @@ export function createRig(ctx, destination = ctx.destination, { volume = DEFAULT
   };
   r.setDelay = (seconds, when = ctx.currentTime) => {
     for (const d of r.delays) d.delayTime.setTargetAtTime(clamp(seconds, 0.05, 1.9), when, 0.15);
+  };
+  /** Duck the bed from `when` until `until`, then bring it back over 1.4 s. A later call re-plans it. */
+  r.duck = (when, until) => {
+    for (const g of Object.values(r.bed)) {
+      const p = g.gain;
+      p.cancelScheduledValues(when);
+      p.setValueAtTime(p.value, when);
+      p.linearRampToValueAtTime(DUCK, when + 0.3);
+      p.setValueAtTime(DUCK, Math.max(when + 0.3, until - 0.4));
+      p.linearRampToValueAtTime(1, until + 1.4);
+    }
   };
   r.setLevels(volume, muted, 0, 0.001);
   return r;
@@ -370,8 +387,9 @@ function snare(r, out, t, vel = 1, o = {}) {
   tone(r, out, t, { type: 'triangle', f: o.tone ?? 210, f1: (o.tone ?? 210) * 0.8, glide: 0.05, a: 0.001, d: 0.1, vol: vel * 0.42 });
 }
 
-function hat(r, out, t, vel = 1, open = false) {
-  noise(r, out, t, { type: 'highpass', f: 7600, q: 0.8, a: 0.001, d: open ? 0.32 : 0.05, vol: vel * 0.32 });
+/** Hi-hat; o.f / o.d retune it (a lower, shorter hat makes a shaker). */
+function hat(r, out, t, vel = 1, open = false, o = {}) {
+  noise(r, out, t, { type: 'highpass', f: o.f ?? 7600, q: 0.8, a: 0.001, d: open ? 0.32 : o.d ?? 0.05, vol: vel * 0.32 });
 }
 
 function crash(r, out, t, vel = 1) {
@@ -417,6 +435,8 @@ function brass(r, out, t, freqs, o = {}) {
 // Layers follow transient + body + tail.
 
 const C6 = 1046.5;
+// WARDEN's per-box 'choir' sfx sings one of these chords of its F minor song (Fm, Db, Ab, Bbm).
+const CHOIR_SFX = [['F3', 'Ab3', 'C4', 'F4'], ['Db3', 'Ab3', 'C4', 'F4'], ['Ab2', 'Eb3', 'Ab3', 'C4'], ['Bb2', 'F3', 'Db4', 'F4']];
 const SFX = {
   cursor: { gain: 0.36, wet: 0.08, vary: 0.03, play(r, o, t, p) {
     tone(r, o, t, { f: 2350 * p, f1: 2150 * p, glide: 0.03, a: 0.001, d: 0.05, vol: 0.3 });
@@ -671,6 +691,209 @@ const SFX = {
       bell(r, o, t + dt, { f, ratio: 2, index: 0.7, d: i === 4 ? 2.2 : 1.2, vol: 0.28 });
     });
   } },
+  // ---- field, story and battle additions (TECH_PLAN 9)
+  emote: { gain: 0.5, wet: 0.12, vary: 0.04, play(r, o, t, p) {
+    // a bubble pops up over a head: a quick rising blip with a soft click
+    tone(r, o, t, { f: 700 * p, f1: 1500 * p, glide: 0.05, a: 0.002, d: 0.09, vol: 0.32 });
+    tone(r, o, t + 0.05, { type: 'triangle', f: 1500 * p, f1: 1700 * p, glide: 0.04, a: 0.001, d: 0.08, vol: 0.16 });
+    noise(r, o, t, { type: 'highpass', f: 5000, d: 0.006, vol: 0.12 });
+  } },
+  splash: { gain: 0.7, wet: 0.3, vary: 0.05, play(r, o, t, p) {
+    // a burst of water falling in pitch, a dull thump under it, then droplets plinking
+    noise(r, o, t, { f: 2400 * p, f1: 700 * p, glide: 0.25, q: 0.9, a: 0.004, d: 0.35, vol: 0.55 });
+    noise(r, o, t, { type: 'highpass', f: 3500, a: 0.002, d: 0.18, vol: 0.25 });
+    tone(r, o, t, { f: 110 * p, f1: 55, glide: 0.08, a: 0.002, d: 0.16, vol: 0.4 });
+    for (let i = 0; i < 6; i++) {
+      const f = rand(900, 2400) * p;
+      tone(r, o, t + 0.08 + i * rand(0.04, 0.08), { f, f1: f * 1.6, glide: 0.03, a: 0.001, d: 0.06, vol: rand(0.06, 0.12) });
+    }
+  } },
+  valve: { gain: 0.6, wet: 0.25, vary: 0.04, play(r, o, t, p) {
+    // a heavy wheel or lever: ratchet teeth, a clunk as it seats, then gas or water hissing through
+    for (let i = 0; i < 4; i++) noise(r, o, t + i * 0.045, { f: 2600 * p, q: 6, a: 0.001, d: 0.025, vol: 0.32 });
+    tone(r, o, t + 0.2, { f: 140 * p, f1: 62, glide: 0.06, a: 0.001, d: 0.16, vol: 0.55 });
+    noise(r, o, t + 0.2, { type: 'lowpass', f: 900, d: 0.06, vol: 0.4 });
+    bell(r, o, t + 0.2, { f: 410 * p, ratio: 1.41, index: 2.2, idxDecay: 0.04, d: 0.35, vol: 0.08 });
+    noise(r, o, t + 0.24, { f: 3800, f1: 2200, glide: 0.6, q: 0.8, a: 0.06, hold: 0.15, d: 0.5, vol: 0.18 });
+  } },
+  laser_on: { gain: 0.55, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+    // a grid powers up: a buzzing hum swells in, a bright zap as the beams strike across
+    for (const [f, v] of [[118, 0.26], [119.5, 0.22]]) {
+      tone(r, o, t, { type: 'sawtooth', f: f * 0.6 * p, f1: f * p, glide: 0.25, bp: 1100, bpQ: 1.2, a: 0.18, hold: 0.25, d: 0.25, vol: v, trem: 32, tremDepth: 0.5 });
+    }
+    tone(r, o, t + 0.16, { type: 'square', f: 2600 * p, f1: 900 * p, glide: 0.09, lp: 5000, a: 0.001, d: 0.12, vol: 0.14 });
+    noise(r, o, t + 0.16, { type: 'highpass', f: 4500, a: 0.001, d: 0.08, vol: 0.2 });
+  } },
+  laser_off: { gain: 0.55, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+    // a grid drops: a relay click, the hum sagging and fizzling out
+    noise(r, o, t, { type: 'highpass', f: 5000, d: 0.01, vol: 0.3 });
+    for (const [f, v] of [[118, 0.26], [119.5, 0.22]]) {
+      tone(r, o, t, { type: 'sawtooth', f: f * p, f1: f * 0.35 * p, glide: 0.4, lp: 2400, lp1: 300, lpGlide: 0.4, a: 0.003, d: 0.45, vol: v, trem: 26, tremDepth: 0.6 });
+    }
+    tone(r, o, t, { f: 1600 * p, f1: 500 * p, glide: 0.2, a: 0.001, d: 0.2, vol: 0.06 });
+  } },
+  shard: { gain: 0.6, wet: 0.5, echo: 0.3, vary: 0, play(r, o, t, p) {
+    // a memory shard: a glassy E major 7 arpeggio over a warm swell, then a soft data shimmer
+    for (const f of [440, 659.3]) tone(r, o, t, { type: 'triangle', f: f * p, a: 0.3, hold: 0.2, d: 1.0, vol: 0.07 });
+    [1318.5, 1661.2, 1975.5, 2489, 2637].forEach((f, i) => bell(r, o, t + 0.05 + i * 0.07, { f: f * p, ratio: 3.5, index: 0.9, d: 1.0, vol: 0.15 }));
+    noise(r, o, t, { f: 3000, f1: 9000, glide: 0.5, q: 3, a: 0.3, d: 0.4, vol: 0.1 });
+    for (let i = 0; i < 5; i++) tone(r, o, t + 0.45 + i * 0.05, { type: 'square', f: rand(2400, 4800) * p, lp: 6000, a: 0.001, d: 0.03, vol: 0.03 });
+  } },
+  transform: { gain: 0.5, wet: 0.5, echo: 0.15, vary: 0, play(r, o, t) {
+    // a boss changes shape: a long dark riser, then a boom with a cracked, tritone-heavy bell chord
+    for (const [f, v] of [[41, 0.22], [41.6, 0.2]]) {
+      tone(r, o, t, { type: 'sawtooth', f, f1: f * 4, glide: 1.0, lp: 300, lp1: 2400, lpGlide: 1.0, a: 0.9, d: 0.08, vol: v });
+    }
+    noise(r, o, t, { f: 300, f1: 6000, glide: 1.0, q: 1.5, a: 0.95, d: 0.06, vol: 0.4 });
+    const s = t + 1.05;
+    kick(r, o, s, 1, { f0: 110, f1: 28, sweep: 0.35, d: 1.2, vol: 1 });
+    crash(r, o, s, 0.8);
+    for (const f of [110, 155.6, 233.1, 329.6]) bell(r, o, s, { f, ratio: 1.41, index: 3, idxDecay: 0.2, d: 2.2, vol: 0.12 });
+    brass(r, o, s, [55, 82.4, 110, 155.6], { vol: 0.5, hold: 0.3, d: 0.9, cutoff: 2400, sustainCut: 900 });
+  } },
+  summon: { gain: 0.6, wet: 0.4, echo: 0.15, vary: 0.02, play(r, o, t, p) {
+    // a rift opens: a swirling up-sweep, a soft whump as something arrives, sparks settling
+    noise(r, o, t, { f: 400, f1: 3500, glide: 0.45, q: 4, a: 0.35, d: 0.15, vol: 0.4 });
+    tone(r, o, t, { type: 'triangle', f: 300 * p, f1: 900 * p, glide: 0.45, a: 0.3, d: 0.1, vol: 0.14, trem: 14, tremDepth: 0.6 });
+    const s = t + 0.45;
+    tone(r, o, s, { f: 180 * p, f1: 60, glide: 0.18, a: 0.002, d: 0.3, vol: 0.6 });
+    noise(r, o, s, { type: 'lowpass', f: 1200, d: 0.12, vol: 0.35 });
+    for (let i = 0; i < 6; i++) bell(r, o, s + 0.05 + i * 0.06, { f: rand(1800, 3600) * p, ratio: 3.5, index: 0.6, d: 0.35, vol: 0.06 });
+  } },
+  submerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t, p) {
+    // sinking into the ice: a crack, a deep falling whoosh, a muffled boom under the floor
+    noise(r, o, t, { type: 'highpass', f: 3000, d: 0.03, vol: 0.4 });
+    [3400, 4800].forEach((f, i) => tone(r, o, t + i * 0.012, { f: f * p, a: 0.001, d: 0.06, vol: 0.12 }));
+    noise(r, o, t + 0.02, { type: 'lowpass', f: 2200, f1: 260, glide: 0.7, q: 1.2, a: 0.03, d: 0.75, vol: 0.55 });
+    tone(r, o, t + 0.02, { f: 150 * p, f1: 38, glide: 0.7, a: 0.02, d: 0.85, vol: 0.5 });
+    tone(r, o, t + 0.6, { f: 70, f1: 34, glide: 0.2, a: 0.004, d: 0.5, vol: 0.45 });
+  } },
+  emerge: { gain: 0.6, wet: 0.4, vary: 0.03, play(r, o, t) {
+    // bursting back out: a rumble rising under the floor, a boom, the ice shattering
+    noise(r, o, t, { type: 'lowpass', f: 250, f1: 2500, glide: 0.45, q: 1.2, a: 0.4, d: 0.08, vol: 0.5 });
+    tone(r, o, t, { f: 40, f1: 110, glide: 0.45, a: 0.4, d: 0.06, vol: 0.4 });
+    const s = t + 0.45;
+    kick(r, o, s, 0.9, { f0: 130, f1: 34, sweep: 0.2, d: 0.6 });
+    noise(r, o, s, { type: 'highpass', f: 2000, d: 0.05, vol: 0.5 });
+    for (let i = 0; i < 6; i++) noise(r, o, s + i * 0.03 + rand(0, 0.02), { f: rand(2500, 7500), q: rand(4, 9), d: rand(0.05, 0.15), vol: 0.3 });
+  } },
+  sleep: { gain: 0.6, wet: 0.45, echo: 0.2, vary: 0.01, play(r, o, t, p) {
+    // drowsy: three soft falling chimes (F E D, the lullaby's descent) over a breath of air
+    [[1396.9, 0], [1318.5, 0.16], [1174.7, 0.32]].forEach(([f, dt]) => bell(r, o, t + dt, { f: f * p, ratio: 2, index: 0.5, a: 0.01, d: 0.8, vol: 0.18 }));
+    noise(r, o, t, { f: 1800, f1: 900, glide: 0.6, q: 2, a: 0.2, d: 0.5, vol: 0.06 });
+    tone(r, o, t, { type: 'triangle', f: 349.2 * p, a: 0.2, d: 0.9, vol: 0.08 });
+  } },
+  wake: { gain: 0.6, wet: 0.3, vary: 0.02, play(r, o, t, p) {
+    // snapped awake: a tap and a quick bright upward pair
+    noise(r, o, t, { type: 'highpass', f: 5000, d: 0.01, vol: 0.2 });
+    tone(r, o, t, { type: 'triangle', f: 880 * p, f1: 1320 * p, glide: 0.05, a: 0.002, d: 0.12, vol: 0.28 });
+    bell(r, o, t + 0.06, { f: 1760 * p, ratio: 2, index: 0.9, d: 0.45, vol: 0.2 });
+  } },
+  buy: { gain: 0.6, wet: 0.2, echo: 0.08, vary: 0.01, play(r, o, t, p) {
+    // a Ringborn till: a drawer thunk, then two bright coins
+    noise(r, o, t, { type: 'lowpass', f: 700, d: 0.05, vol: 0.35 });
+    tone(r, o, t, { f: 160 * p, f1: 90, glide: 0.04, a: 0.001, d: 0.07, vol: 0.3 });
+    bell(r, o, t + 0.06, { f: 2637 * p, ratio: 2.76, index: 1.2, d: 0.45, vol: 0.2 });
+    bell(r, o, t + 0.14, { f: 3520 * p, ratio: 2.76, index: 1.0, d: 0.6, vol: 0.22 });
+    noise(r, o, t + 0.06, { type: 'highpass', f: 7000, d: 0.02, vol: 0.1 });
+  } },
+  sell: { gain: 0.6, wet: 0.2, vary: 0.02, play(r, o, t, p) {
+    // coins counted out onto the counter
+    [0, 0.07, 0.12, 0.2].forEach((dt, i) => bell(r, o, t + dt, { f: (3100 - i * 260) * rand(0.97, 1.03) * p, ratio: 2.76, index: 1.1, idxDecay: 0.05, d: 0.25, vol: 0.14 }));
+    noise(r, o, t + 0.22, { type: 'lowpass', f: 900, d: 0.04, vol: 0.25 });
+  } },
+  equip: { gain: 0.55, wet: 0.15, vary: 0.03, play(r, o, t, p) {
+    // gear locks in: a short metal slide, a latch and a ring
+    noise(r, o, t, { f: 2500 * p, f1: 5000 * p, glide: 0.08, q: 2, a: 0.03, d: 0.05, vol: 0.25 });
+    noise(r, o, t + 0.09, { type: 'highpass', f: 3500, d: 0.012, vol: 0.4 });
+    tone(r, o, t + 0.09, { f: 240 * p, f1: 120, glide: 0.04, a: 0.001, d: 0.08, vol: 0.4 });
+    bell(r, o, t + 0.09, { f: 1250 * p, ratio: 1.41, index: 1.6, idxDecay: 0.05, d: 0.35, vol: 0.12 });
+  } },
+  travel: { gain: 0.55, wet: 0.3, vary: 0.01, play(r, o, t, p) {
+    // the Moth's engines spool up and she pulls away
+    for (const [f, v] of [[55, 0.2], [55.8, 0.18]]) {
+      tone(r, o, t, { type: 'sawtooth', f: f * p, f1: f * 2 * p, glide: 1.2, lp: 200, lp1: 1400, lpGlide: 1.2, a: 0.5, hold: 0.5, d: 0.6, vol: v });
+    }
+    noise(r, o, t, { f: 300, f1: 2500, glide: 1.2, q: 0.7, a: 0.7, hold: 0.3, d: 0.6, vol: 0.4 });
+    noise(r, o, t + 0.9, { f: 3000, f1: 800, glide: 0.8, q: 1, a: 0.1, d: 0.6, vol: 0.2 });
+  } },
+  rumble: { gain: 0.8, wet: 0.25, vary: 0.04, play(r, o, t, p) {
+    // the deck shudders: a low growl that rolls in and out, loose debris rattling
+    noise(r, o, t, { type: 'lowpass', f: 160 * p, q: 1.5, a: 0.25, hold: 0.9, d: 0.9, vol: 0.9, drive: true });
+    tone(r, o, t, { f: 38 * p, a: 0.3, hold: 0.8, d: 0.9, vol: 0.5, trem: 7, tremDepth: 0.7 });
+    noise(r, o, t + 0.15, { f: 600, q: 3, a: 0.05, d: 0.3, vol: 0.08 });
+    noise(r, o, t + 0.7, { f: 900, q: 4, a: 0.02, d: 0.2, vol: 0.07 });
+  } },
+  choir: { gain: 0.5, wet: 0.6, echo: 0.1, vary: 0, play(r, o, t, p) {
+    // WARDEN's per-box voice: a soft 'oo' chord from its F minor song breathes in and fades
+    const chord = CHOIR_SFX[Math.floor(Math.random() * CHOIR_SFX.length)].map(noteMidi);
+    choirVoice(r, o, t, chord, 0.45, 1, { attack: 0.25, release: 1.6, level: 0.5, oct: 12 * Math.log2(p) });
+  } },
+  glitch: { gain: 0.5, wet: 0.15, vary: 0.05, play(r, o, t, p) {
+    // a data stutter: chopped square blips at random pitches over bursts of noise, then a falling tail
+    for (let i = 0; i < 7; i++) {
+      const dt = i * 0.045 + rand(0, 0.015);
+      tone(r, o, t + dt, { type: 'square', f: rand(180, 2400) * p, lp: 6000, a: 0.001, hold: 0.02, d: 0.02, vol: rand(0.12, 0.22) });
+      if (i % 2) noise(r, o, t + dt, { f: rand(1500, 6000), q: 2, a: 0.001, hold: 0.02, d: 0.01, vol: 0.25 });
+    }
+    tone(r, o, t + 0.33, { type: 'sawtooth', f: 900 * p, f1: 120 * p, glide: 0.12, lp: 3000, a: 0.001, d: 0.12, vol: 0.12 });
+  } },
+  page: { gain: 0.45, wet: 0.12, vary: 0.05, play(r, o, t, p) {
+    // a page turns: a short papery swish and a soft tap
+    noise(r, o, t, { f: 2200 * p, f1: 5200 * p, glide: 0.12, q: 1.2, a: 0.05, d: 0.12, vol: 0.32 });
+    noise(r, o, t + 0.13, { type: 'lowpass', f: 1400, d: 0.03, vol: 0.18 });
+  } },
+  unlock: { gain: 0.55, wet: 0.18, vary: 0.02, play(r, o, t, p) {
+    // a lock releases: two quick clicks, a latch drawn back, a small rising tone
+    noise(r, o, t, { f: 3200 * p, q: 5, d: 0.02, vol: 0.4 });
+    noise(r, o, t + 0.06, { f: 2600 * p, q: 5, d: 0.02, vol: 0.35 });
+    tone(r, o, t + 0.1, { f: 180 * p, f1: 110, glide: 0.05, a: 0.001, d: 0.1, vol: 0.4 });
+    noise(r, o, t + 0.1, { f: 900, f1: 2200, glide: 0.12, q: 2, a: 0.03, d: 0.08, vol: 0.18 });
+    tone(r, o, t + 0.16, { type: 'triangle', f: 880 * p, f1: 1320 * p, glide: 0.08, a: 0.003, d: 0.18, vol: 0.16 });
+  } },
+  card: { gain: 0.5, wet: 0.5, echo: 0.2, vary: 0, play(r, o, t) {
+    // the chapter title lands: a soft glassy 'shing' in the sting's D add9
+    noise(r, o, t, { type: 'highpass', f: 6000, a: 0.002, d: 0.5, vol: 0.06 });
+    for (const [f, dt] of [[1174.7, 0], [1760, 0.03], [2637, 0.06]]) bell(r, o, t + dt, { f, ratio: 3.5, index: 0.6, d: 1.8, vol: 0.1 });
+  } },
+  alarm: { gain: 0.45, wet: 0.35, echo: 0.1, vary: 0, play(r, o, t, p) {
+    // a ship klaxon: two falling whoops
+    for (const dt of [0, 0.7]) {
+      for (const [type, det, v] of [['square', 0, 0.2], ['sawtooth', 8, 0.14]]) {
+        tone(r, o, t + dt, { type, detune: det, f: 740 * p, f1: 520 * p, glide: 0.5, bp: 1200, bpQ: 1.5, a: 0.02, hold: 0.42, d: 0.12, vol: v });
+      }
+    }
+  } },
+  lift: { gain: 0.6, wet: 0.35, vary: 0.01, play(r, o, t, p) {
+    // a light lift: a rising hum with a soft whoosh, a two-note chime at the top
+    tone(r, o, t, { f: 196 * p, f1: 392 * p, glide: 1.1, a: 0.3, hold: 0.5, d: 0.5, vol: 0.18, trem: 11, tremDepth: 0.4 });
+    tone(r, o, t, { type: 'triangle', f: 294 * p, f1: 588 * p, glide: 1.1, a: 0.3, hold: 0.5, d: 0.5, vol: 0.1 });
+    noise(r, o, t, { f: 500, f1: 3000, glide: 1.1, q: 1, a: 0.6, d: 0.5, vol: 0.2 });
+    bell(r, o, t + 1.05, { f: 1568 * p, ratio: 2, index: 0.8, d: 1.0, vol: 0.18 });
+    bell(r, o, t + 1.12, { f: 2349.3 * p, ratio: 2, index: 0.6, d: 1.0, vol: 0.12 });
+  } },
+  pod_flip: { gain: 0.45, wet: 0.2, vary: 0.06, play(r, o, t, p) {
+    // a stasis pod's status lamp changes: a relay tick and a short soft chirp
+    noise(r, o, t, { f: 2800 * p, q: 4, d: 0.015, vol: 0.3 });
+    tone(r, o, t + 0.02, { type: 'triangle', f: 990 * p, f1: 1320 * p, glide: 0.06, a: 0.002, d: 0.12, vol: 0.18 });
+    noise(r, o, t + 0.02, { type: 'highpass', f: 4000, a: 0.02, d: 0.15, vol: 0.05 });
+  } },
+  awaken: { gain: 0.38, wet: 0.45, echo: 0.2, vary: 0, play(r, o, t, p) {
+    // an ultimate awakens: a fast riser, then a bright D major brass chord with rising bells and a crash
+    noise(r, o, t, { f: 400, f1: 7000, glide: 0.4, q: 1.4, a: 0.38, d: 0.05, vol: 0.4 });
+    tone(r, o, t, { type: 'sawtooth', f: 147 * p, f1: 587 * p, glide: 0.4, lp: 800, lp1: 4000, lpGlide: 0.4, a: 0.36, d: 0.06, vol: 0.12 });
+    const s = t + 0.42;
+    brass(r, o, s, [146.8, 220, 293.7, 370, 440, 587.3].map((f) => f * p), { vol: 0.62, hold: 0.45, d: 0.9, cutoff: 4400, sustainCut: 1500 });
+    kick(r, o, s, 0.9, { f0: 130, f1: 36, sweep: 0.2, d: 0.7 });
+    crash(r, o, s, 0.9);
+    for (const [f, dt] of [[1174.7, 0], [1480, 0.08], [1760, 0.16], [2349.3, 0.24]]) bell(r, o, s + dt, { f: f * p, ratio: 2, index: 0.8, d: 1.2, vol: 0.12 });
+  } },
+  skip: { gain: 0.45, wet: 0.1, vary: 0.02, play(r, o, t, p) {
+    // fast-forward: a quick downward swish and a tick
+    noise(r, o, t, { f: 6000 * p, f1: 900 * p, glide: 0.16, q: 1.4, a: 0.02, d: 0.14, vol: 0.32 });
+    tone(r, o, t, { type: 'triangle', f: 1400 * p, f1: 500 * p, glide: 0.12, a: 0.001, d: 0.12, vol: 0.12 });
+    noise(r, o, t + 0.17, { type: 'highpass', f: 5000, d: 0.008, vol: 0.2 });
+  } },
 };
 
 export const SFX_NAMES = Object.keys(SFX);
@@ -719,7 +942,7 @@ function padVoice(r, out, t, notes, dur, vel, o) {
     v.gain.setValueAtTime(peak, end);
     v.gain.setTargetAtTime(0, end, rel / 5);
     for (const m of notes) {
-      const osc = oscNode(r, 'sawtooth', mtof(m + (o.oct ?? 0)));
+      const osc = oscNode(r, o.wave ?? 'sawtooth', mtof(m + (o.oct ?? 0)));
       osc.detune.value = side * (6 + Math.random() * 4);
       osc.connect(lp);
       osc.start(t);
@@ -825,7 +1048,7 @@ function harpVoice(r, out, t, m, dur, vel, o) {
   const f = mtof(m + (o.oct ?? 0));
   const d = o.decay ?? 1.4;
   const lvl = vel * (o.level ?? 0.2);
-  tone(r, out, t, { type: 'triangle', f, lp: 3200, lp1: 800, lpGlide: d * 0.5, a: 0.002, d, vol: lvl });
+  tone(r, out, t, { type: 'triangle', f, lp: o.cutoff ?? 3200, lp1: 800, lpGlide: d * 0.5, a: 0.002, d, vol: lvl });
   tone(r, out, t, { f: f * 2, a: 0.001, d: d * 0.35, vol: lvl * 0.3 });
 }
 
@@ -845,6 +1068,134 @@ function stabVoice(r, out, t, notes, dur, vel, o) {
   });
 }
 
+/**
+ * Music box: a sine tine with a slowly beating twin, a faint octave, the tine's quick inharmonic ping and a
+ * mechanical tick. High tines ring shorter. o.droop (cents) sags each note like a box winding down.
+ */
+function boxVoice(r, out, t, m, dur, vel, o) {
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.2);
+  const d = (o.decay ?? 1.8) * clamp(Math.sqrt(1000 / f), 0.55, 1.3);
+  const f1 = o.droop ? f * 2 ** (-o.droop / 1200) : f;
+  const twin = 1 + (o.beat ?? 3.5) / 1000;
+  tone(r, out, t, { f, f1, glide: d, a: 0.002, d, vol: lvl });
+  tone(r, out, t, { f: f * twin, f1: f1 * twin, glide: d, a: 0.002, d: d * 0.8, vol: lvl * 0.45 });
+  tone(r, out, t, { f: f * 2, a: 0.001, d: d * 0.3, vol: lvl * 0.12 });
+  tone(r, out, t, { f: f * 5.93, a: 0.0005, d: 0.07, vol: lvl * 0.3 });
+  noise(r, out, t, { type: 'highpass', f: 5200, d: 0.006, vol: lvl * 0.35 });
+}
+
+// Formant centres (Hz) and gains of the first three formants, per vowel.
+const VOWELS = {
+  oo: [[320, 1], [800, 0.3], [2500, 0.06]],
+  oh: [[460, 1], [820, 0.45], [2700, 0.08]],
+  ah: [[760, 1], [1150, 0.55], [2800, 0.14]],
+  ee: [[300, 1], [2200, 0.35], [3000, 0.14]],
+};
+
+/**
+ * Choir: two slightly detuned saw "singers" per note, each pair on its own slow vibrato, through a
+ * three-formant vowel filter (o.vowel: oo / oh / ah / ee). Swells in over o.attack.
+ */
+function choirVoice(r, out, t, notes, dur, vel, o) {
+  const ctx = r.ctx;
+  const a = Math.min(o.attack ?? 0.5, dur * 0.8);
+  const rel = o.release ?? 1.2;
+  const end = t + dur;
+  const stop = end + rel * 1.3;
+  const peak = (vel * (o.level ?? 0.5)) / Math.sqrt(notes.length);
+  const v = gainNode(ctx, 0);
+  v.gain.setValueAtTime(0, t);
+  v.gain.linearRampToValueAtTime(peak, t + a);
+  v.gain.setValueAtTime(peak, end);
+  v.gain.setTargetAtTime(0, end, rel / 5);
+  v.connect(out);
+  const src = gainNode(ctx, 1);
+  for (const [f, g] of VOWELS[o.vowel] || VOWELS.oo) {
+    src.connect(filterNode(ctx, 'bandpass', f, o.formantQ ?? 5)).connect(gainNode(ctx, g * 3.2)).connect(v);
+  }
+  const lfos = [4.6, 5.3].map((rate) => {
+    const lfo = oscNode(r, 'sine', rate * (0.95 + Math.random() * 0.1));
+    const depth = gainNode(ctx, o.vib ?? 9);
+    lfo.connect(depth);
+    lfo.start(t);
+    lfo.stop(stop);
+    return depth;
+  });
+  for (const m of notes) {
+    const f = mtof(m + (o.oct ?? 0));
+    [-7, 6].forEach((det, k) => {
+      const osc = oscNode(r, 'sawtooth', f);
+      osc.detune.value = det + (Math.random() - 0.5) * 4;
+      lfos[k].connect(osc.detune);
+      osc.connect(src);
+      osc.start(t);
+      osc.stop(stop);
+    });
+  }
+}
+
+/** Sub pulse: a sine that drops onto its pitch (a soft thump) with a faint octave so small speakers hear it. */
+function subVoice(r, out, t, m, dur, vel, o) {
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.4);
+  const hold = Math.max(0, dur * (o.gate ?? 0.5) - 0.02);
+  const d = o.decay ?? 0.9;
+  tone(r, out, t, { f: f * 1.5, f1: f, glide: 0.07, a: o.attack ?? 0.012, hold, d, vol: lvl });
+  tone(r, out, t, { type: 'triangle', f: f * 2, lp: 500, a: 0.02, hold, d: d * 0.6, vol: lvl * (o.harm ?? 0.25) });
+}
+
+/** Rising gain for a swell: from silence to `peak` at `end`, then cut. */
+function rise(p, t, end, peak) {
+  p.setValueAtTime(0.0001, t);
+  p.exponentialRampToValueAtTime(Math.max(0.0002, peak), end - 0.01);
+  p.linearRampToValueAtTime(0, end + 0.05);
+}
+
+/**
+ * Swell: a reverse-cymbal riser over the whole note (noise sweeping o.from -> o.to Hz), plus the chord
+ * fading in on saws through an opening filter (o.tonal 0-1); cut dead at the end, ready for a strike.
+ */
+function swellVoice(r, out, t, notes, dur, vel, o) {
+  const ctx = r.ctx;
+  const end = t + dur;
+  const lvl = vel * (o.level ?? 0.3);
+  const src = noiseSource(r, t);
+  const bp = filterNode(ctx, 'bandpass', o.from ?? 500, o.q ?? 0.8);
+  sweep(bp.frequency, t, o.from ?? 500, o.to ?? 8000, dur);
+  const v = gainNode(ctx, 0);
+  src.connect(bp).connect(v).connect(out);
+  rise(v.gain, t, end, lvl);
+  src.stop(end + 0.1);
+  if (!o.tonal) return;
+  const lp = filterNode(ctx, 'lowpass', 300, 0.8);
+  sweep(lp.frequency, t, 300, 4000, dur);
+  const g = gainNode(ctx, 0);
+  lp.connect(g).connect(out);
+  rise(g.gain, t, end, (lvl * o.tonal) / Math.sqrt(notes.length));
+  for (const m of notes) {
+    const osc = oscNode(r, 'sawtooth', mtof(m + (o.oct ?? 0)));
+    osc.connect(lp);
+    osc.start(t);
+    osc.stop(end + 0.1);
+  }
+}
+
+// Every pitched synth by name; a line may borrow another line's synth with voices.<line>.synth.
+// Chord synths take every note of the event at once; the others play each note on its own.
+const SYNTHS = {
+  pad: padVoice, lead: leadVoice, bell: bellVoice, bass: bassVoice, arp: pluckVoice, harp: harpVoice,
+  stab: stabVoice, box: boxVoice, choir: choirVoice, sub: subVoice, swell: swellVoice,
+};
+const CHORD_SYNTHS = new Set(['pad', 'stab', 'choir', 'swell']);
+
+function playNote(r, out, t, e, dur, vo) {
+  const kind = vo.synth || e.b;
+  const fn = SYNTHS[kind];
+  if (CHORD_SYNTHS.has(kind)) fn(r, out, t, [].concat(e.m), dur, e.v, vo);
+  else for (const m of [].concat(e.m)) fn(r, out, t, m, dur, e.v, vo, e.from);
+}
+
 const TOM_PITCH = { h: 165, m: 125, l: 92, x: 125, X: 125, o: 125 };
 
 // ------------------------------------------------------------------ channel strips
@@ -852,6 +1203,7 @@ const TOM_PITCH = { h: 165, m: 125, l: 92, x: 125, X: 125, o: 125 };
 const STRIPS = {
   pad: [1, 0, 0.35, 0], bell: [1, 0.12, 0.45, 0.3], lead: [1, 0, 0.22, 0.12], bass: [1, 0, 0.02, 0],
   arp: [1, -0.25, 0.2, 0.34], harp: [1, -0.18, 0.4, 0.2], stab: [1, 0.08, 0.2, 0.05],
+  choir: [1, 0, 0.45, 0.06], swell: [1, 0, 0.3, 0.05],
   kick: [1, 0, 0.03, 0], snare: [1, 0.03, 0.2, 0], hat: [1, 0.24, 0.06, 0], crash: [1, -0.2, 0.22, 0], tom: [1, -0.05, 0.18, 0],
 };
 
@@ -870,21 +1222,42 @@ function makeStrip(rt, name, base) {
 }
 
 // ------------------------------------------------------------------ pattern compiler
+// A track is { key, bpm, meter, gain, delay, voices, mix, sends, intro?, loop, parts, once?, motifs? }.
+//   meter: '4/4' (default), '3/4', '6/8', '7/8'... A bar holds beats * 16 / unit sixteenth steps (4/4: 16,
+//   3/4 and 6/8: 12, 7/8: 14). bpm counts quarter notes, or dotted quarters in compound metres (6/8, 9/8, 12/8).
+//   delay: echo time in beats. once: a sting, played one time over the ducked current track.
+//   voices.<line>: synth options; voices.<line>.synth borrows another synth (a 'bell' line on the music box).
 // A part is { bars, chords, <instrument>: pattern | pattern[] (one per bar, cycled) }.
 // A numbered line ('lead2', 'bell2') is an extra voice of the base instrument with its own channel strip.
-// Pattern = whitespace tokens, 1/2/4/8/16 per bar. '.' rest, '-' extend previous note.
-//   melodic (lead, bell, bass): note names 'E5', '~G5' glides from the previous note, 'E5!' accent;
-//   bass also: R root, O octave, F fifth, f fifth below, b flat 2nd, t tritone, L octave down (of the chord's bass note);
-//   arp / harp: digits index the chord voicing (4 notes: 4 = first note + 12 ...); stab: x / X;
+// Pattern = whitespace tokens; their count must divide the bar's steps (4/4: 1 2 4 8 16; 3/4 and 6/8:
+// 1 2 3 4 6 12). '.' rest, '-' extend the previous note.
+//   melodic (lead, bell, bass, choir): note names 'E5', '~G5' glides from the previous note, 'E5!' accent,
+//   'E5?' ghost; bass also: R root, O octave, F fifth, f fifth below, b flat 2nd, t tritone, L octave down
+//   (of the chord's bass note);
+//   arp / harp: digits index the chord voicing (4 notes: 4 = first note + 12 ...), or note names;
+//   stab, swell: x / X play the chord; choir: x / X sing the chord, or note names;
 //   drums (kick snare hat ohat crash tom): X accent, x normal, o ghost; tom also h / m / l pitch.
-// Chord = 'BASS: voicing notes', or [chord, chord] for two half-bar chords.
+// Chord = 'BASS: voicing notes', or an array of chords splitting the bar evenly.
 
 const DRUMS = new Set(['kick', 'snare', 'hat', 'ohat', 'crash', 'tom']);
+const CHORD_LINES = new Set(['stab', 'swell', 'choir']);
 const BASS_TOK = { R: 0, O: 12, F: 7, f: -5, b: 1, t: 6, L: -12 };
 
-function parseChord(s) {
-  const [root, rest] = s.split(':');
-  return { root: noteMidi(root.trim()), notes: rest.trim().split(/\s+/).map(noteMidi) };
+/** Steps per bar and seconds per step of a track's metre. */
+function meterOf(def, name) {
+  const m = /^(\d+)\/(4|8)$/.exec(def.meter || '4/4');
+  if (!m || Number(m[1]) < 1) throw new Error(`${name}: bad meter "${def.meter}"`);
+  const beats = Number(m[1]);
+  const unit = Number(m[2]);
+  const compound = unit === 8 && beats % 3 === 0;
+  return { barSteps: (beats * 16) / unit, stepDur: (compound ? 10 : 15) / def.bpm };
+}
+
+function parseChord(s, where) {
+  const [root, rest] = typeof s === 'string' ? s.split(':') : [];
+  const c = rest == null ? null : { root: noteMidi(root.trim()), notes: rest.trim().split(/\s+/).map(noteMidi) };
+  if (!c || Number.isNaN(c.root) || !c.notes.length || c.notes.some(Number.isNaN)) throw new Error(`bad chord "${s}" ${where}`);
+  return c;
 }
 
 function makeEvent(inst, base, tok, chord, len, prev, where) {
@@ -897,33 +1270,38 @@ function makeEvent(inst, base, tok, chord, len, prev, where) {
   let v = 0.82;
   const glide = s[0] === '~';
   if (glide) s = s.slice(1);
-  if (s.endsWith('!')) { v = 1; s = s.slice(0, -1); }
-  if (base === 'stab') return { i: inst, b: base, m: chord.notes, len, v: s === 'X' ? 1 : 0.78 };
-  let m;
-  if (base === 'arp' || base === 'harp') {
+  if (s.endsWith('!')) { v = 1; s = s.slice(0, -1); } else if (s.endsWith('?')) { v = 0.55; s = s.slice(0, -1); }
+  if (CHORD_LINES.has(base) && (s === 'x' || s === 'X')) {
+    if (!chord) throw new Error(`"${tok}" without a chord ${where}`);
+    return { i: inst, b: base, m: chord.notes, len, v: s === 'X' ? 1 : 0.78 };
+  }
+  let m = NaN;
+  if ((base === 'arp' || base === 'harp') && /^\d+$/.test(s)) {
     const idx = Number(s);
     const n = chord ? chord.notes.length : 0;
-    m = n ? chord.notes[idx % n] + 12 * Math.floor(idx / n) : NaN;
+    if (n) m = chord.notes[idx % n] + 12 * Math.floor(idx / n);
   } else if (base === 'bass' && s in BASS_TOK) {
-    m = chord ? chord.root + BASS_TOK[s] : NaN;
-  } else m = noteMidi(s);
+    if (chord) m = chord.root + BASS_TOK[s];
+  } else if (base !== 'stab' && base !== 'swell') m = noteMidi(s);
   if (Number.isNaN(m)) throw new Error(`bad token "${tok}" ${where}`);
   return { i: inst, b: base, m, len, v, from: glide && prev ? prev.m : null };
 }
 
-function compilePart(part, label) {
-  const n = part.bars * 16;
+function compilePart(part, label, barSteps) {
+  if (!part || !Number.isInteger(part.bars) || part.bars < 1) throw new Error(`${label}: bars must be a whole number`);
+  const n = part.bars * barSteps;
   const steps = Array.from({ length: n }, () => []);
   const chordAt = new Array(n).fill(null);
   let prevStr = null;
   let prevPad = null;
   for (let b = 0; b < part.bars && part.chords; b++) {
     const entry = part.chords[b % part.chords.length];
-    const halves = Array.isArray(entry) ? entry : [entry];
-    const len = 16 / halves.length;
-    halves.forEach((cs, h) => {
-      const at = b * 16 + h * len;
-      const c = parseChord(cs);
+    const split = Array.isArray(entry) ? entry : [entry];
+    const len = barSteps / split.length;
+    if (!Number.isInteger(len)) throw new Error(`${label} bar ${b + 1}: ${split.length} chords do not split the bar`);
+    split.forEach((cs, h) => {
+      const at = b * barSteps + h * len;
+      const c = parseChord(cs, `in ${label} bar ${b + 1}`);
       chordAt.fill(c, at, at + len);
       if (cs === prevStr) prevPad.len += len; // same chord again: hold the pad instead of retriggering
       else {
@@ -943,10 +1321,10 @@ function compilePart(part, label) {
       const pat = bars[b % bars.length];
       if (!pat) { last = null; continue; }
       const toks = pat.trim().split(/\s+/);
-      const per = 16 / toks.length;
-      if (!Number.isInteger(per)) throw new Error(`${label}.${inst} bar ${b + 1}: ${toks.length} tokens`);
+      const per = barSteps / toks.length;
+      if (!Number.isInteger(per)) throw new Error(`${label}.${inst} bar ${b + 1}: ${toks.length} tokens in a ${barSteps}-step bar`);
       toks.forEach((tok, k) => {
-        const at = b * 16 + k * per;
+        const at = b * barSteps + k * per;
         if (tok === '.') { last = null; return; }
         if (tok === '-') { if (last) last.len += per; return; }
         const ev = makeEvent(inst, base, tok, chordAt[at], per, last, `in ${label}.${inst} bar ${b + 1}`);
@@ -955,25 +1333,49 @@ function compilePart(part, label) {
       });
     }
   }
-  return { bars: part.bars, steps };
+  return { bars: part.bars, barSteps, steps };
+}
+
+/**
+ * Compile a track definition (pure: no WebAudio, runs in node). Throws an Error naming the track and
+ * the place on malformed data. Returns { name, parts, intro, loop, once, barSteps, stepDur, introBars,
+ * loopBars, introSeconds, loopSeconds }.
+ */
+export function compileTrack(def, name = 'track') {
+  if (!def || typeof def !== 'object') throw new Error(`${name}: not a track definition`);
+  if (!(def.bpm > 0)) throw new Error(`${name}: bpm must be a positive number`);
+  const { barSteps, stepDur } = meterOf(def, name);
+  for (const [line, vo] of Object.entries(def.voices || {})) {
+    if (vo.synth && !SYNTHS[vo.synth]) throw new Error(`${name}: voice "${line}" uses unknown synth "${vo.synth}"`);
+  }
+  const parts = {};
+  for (const [k, p] of Object.entries(def.parts || {})) parts[k] = compilePart(p, `${name}.${k}`, barSteps);
+  const intro = def.intro || [];
+  const loop = def.loop || [];
+  if (!loop.length) throw new Error(`${name}: empty loop`);
+  for (const k of [...intro, ...loop]) if (!parts[k]) throw new Error(`${name}: unknown part "${k}"`);
+  const bars = (list) => list.reduce((s, k) => s + parts[k].bars, 0);
+  const barSec = barSteps * stepDur;
+  return {
+    name, parts, intro, loop, once: !!def.once, barSteps, stepDur,
+    introBars: bars(intro), loopBars: bars(loop), introSeconds: bars(intro) * barSec, loopSeconds: bars(loop) * barSec,
+  };
 }
 
 const compiled = new Map();
-/** Compile (and cache) a track's parts. Throws with a readable message on malformed data. */
-export function compileTrack(name) {
+/**
+ * The compiled data of TRACKS[name] (cached), or null for an unknown name. A malformed track fails alone:
+ * it is reported once with console.error and skipped, so every other track keeps working.
+ */
+export function compiledTrack(name) {
   if (compiled.has(name)) return compiled.get(name);
-  const tr = TRACKS[name];
-  const parts = {};
-  for (const [k, p] of Object.entries(tr.parts)) parts[k] = compilePart(p, `${name}.${k}`);
-  const intro = tr.intro || [];
-  const loop = tr.loop;
-  const barSec = 240 / tr.bpm;
-  const c = {
-    parts, intro, loop,
-    introSeconds: intro.reduce((s, k) => s + parts[k].bars * barSec, 0),
-    loopSeconds: loop.reduce((s, k) => s + parts[k].bars * barSec, 0),
-    loopBars: loop.reduce((s, k) => s + parts[k].bars, 0),
-  };
+  if (!Object.hasOwn(TRACKS, name)) return null;
+  let c = null;
+  try {
+    c = compileTrack(TRACKS[name], name);
+  } catch (e) {
+    console.error(`[audio] track "${name}" is malformed and skipped: ${e.message}`);
+  }
   compiled.set(name, c);
   return c;
 }
@@ -988,7 +1390,7 @@ function partAt(rt) {
 
 function advance(rt) {
   rt.step++;
-  if (rt.step >= rt.c.parts[partAt(rt)].bars * 16) {
+  if (rt.step >= rt.c.parts[partAt(rt)].steps.length) {
     rt.step = 0;
     rt.seqIdx++;
   }
@@ -1005,46 +1407,45 @@ function playStep(rt, t) {
     const dur = e.len * rt.stepDur;
     const r = rt.r;
     switch (e.b) {
-      case 'pad': padVoice(r, out, t, e.m, dur, e.v, vo); break;
-      case 'lead': leadVoice(r, out, t, e.m, dur, e.v, vo, e.from); break;
-      case 'bell': bellVoice(r, out, t, e.m, dur, e.v, vo); break;
-      case 'bass': bassVoice(r, out, t, e.m, dur, e.v, vo); break;
-      case 'arp': pluckVoice(r, out, t, e.m, dur, e.v, vo); break;
-      case 'harp': harpVoice(r, out, t, e.m, dur, e.v, vo); break;
-      case 'stab': stabVoice(r, out, t, e.m, dur, e.v, vo); break;
       case 'kick': kick(r, out, t, e.v, vo); break;
       case 'snare': snare(r, out, t, e.v, vo); break;
-      case 'hat': hat(r, out, t, e.v, false); break;
-      case 'ohat': hat(r, out, t, e.v, true); break;
+      case 'hat': hat(r, out, t, e.v, false, vo); break;
+      case 'ohat': hat(r, out, t, e.v, true, vo); break;
       case 'crash': crash(r, out, t, e.v); break;
-      case 'tom': tom(r, out, t, e.v, TOM_PITCH[e.tok]); break;
-      default: break;
+      case 'tom': tom(r, out, t, e.v, TOM_PITCH[e.tok] * (vo.pitch ?? 1)); break;
+      default: playNote(r, out, t, e, dur, vo);
     }
   }
 }
 
 /**
  * Start a track on a rig at audio time `when`. Returns a runtime handle for pumpTrack/stopTrack.
- * opts.fade: fade-in seconds; opts.part: start at this part (skips the intro).
+ * opts.fade: fade-in seconds; opts.part: start at this loop part (skips the intro). Looping tracks play into
+ * the duckable bed; a `once` track (sting) plays straight into the music bus and stops scheduling after
+ * its intro and loop have played one time. Throws for an unknown or malformed track.
  */
 export function startTrack(r, name, when, { fade = 0, part = null } = {}) {
+  const c = compiledTrack(name);
+  if (!c) throw new Error(`track "${name}" is unknown or malformed`);
   const tr = TRACKS[name];
-  const c = compileTrack(name);
   const ctx = r.ctx;
+  const dest = c.once ? r.music : r.bed;
   const out = { dry: gainNode(ctx, 0), wet: gainNode(ctx, 0), echo: gainNode(ctx, 0) };
   for (const k of ['dry', 'wet', 'echo']) {
-    out[k].connect(r.music[k]);
+    out[k].connect(dest[k]);
     const p = out[k].gain;
     const level = tr.gain ?? 1;
     p.setValueAtTime(fade > 0 ? 0.0001 : level, when);
     if (fade > 0) p.linearRampToValueAtTime(level, when + fade);
   }
-  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: 15 / tr.bpm, stopAt: Infinity };
-  if (part) {
-    const i = c.loop.indexOf(part);
+  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity };
+  if (c.once) rt.stopAt = when + c.introSeconds + c.loopSeconds;
+  else {
+    const i = part ? c.loop.indexOf(part) : -1;
     if (i >= 0) rt.seqIdx = c.intro.length + i;
+    // a sting borrows the shared delay as it is; a looping track syncs it to its own tempo
+    r.setDelay((tr.delay ?? 0.75) * (60 / tr.bpm), when);
   }
-  r.setDelay((tr.delay ?? 0.75) * (60 / tr.bpm), when);
   return rt;
 }
 
@@ -1082,9 +1483,61 @@ const lastDiff = (n, p, last) => [...rep(n - 1, p), last];
 const GALLOP = 'R . R R R . R R R . R R R . R R';
 const GALLOP_TURN = 'R . R R R . R R O . R R F . R R';
 
+// Phrases shared by a track's sections (a theme and its variation keep the same chords and tune).
+// HALCYON's lullaby, F major. A: I - I - ii7 - V | IV - ii7 - V7 - I. B: vi7 - bVII - ii7 - V7 | I - vi7 -
+// ii7 V7 - I; the borrowed bVII (Eb) foreshadows WARDEN's minor.
+const LULLABY_A = {
+  chords: ['F2: F3 A3 C4', 'F2: F3 A3 C4', 'G1: F3 Bb3 D4', 'C2: E3 G3 C4', 'Bb1: F3 Bb3 D4', 'G1: F3 Bb3 D4', 'C2: E3 G3 Bb3', 'F2: F3 A3 C4'],
+  tune: ['A4 - C5', 'F5 - E5', 'D5 E5 D5', 'C5 - -', 'Bb4 - D5', 'G5 - F5', 'E5 D5 E5', 'F5 - -'],
+  descant: ['F5 - -', 'C5 - -', 'D5 - -', 'E5 - -', 'F5 - -', 'D5 - -', 'C5 - -', 'A4 - -'],
+};
+const LULLABY_B = {
+  chords: ['D2: F3 A3 C4', 'Eb2: G3 Bb3 Eb4', 'G1: F3 Bb3 D4', 'C2: E3 G3 Bb3', 'F2: F3 A3 C4', 'D2: F3 A3 C4',
+    ['G1: F3 Bb3 D4', 'G1: F3 Bb3 D4', 'C2: E3 G3 Bb3'], 'F2: F3 A3 C4'],
+  tune: ['C5 - A5', 'G5 - F5', 'Bb5 - A5', 'G5 - -', 'A4 - C5', 'F5 - E5', 'D5 C5 G4', 'F4 - -'],
+  descant: ['F5 - -', 'Eb5 - -', 'D5 - -', 'E5 - -', 'F5 - -', 'D5 - -', 'Bb4 - E5', 'A4 - -'],
+};
+
+// WARDEN's theme: the same lullaby in F natural minor (A, D, E lowered), on the same bar plan.
+const WARDEN_A = {
+  chords: ['F2: F3 Ab3 C4', 'F2: F3 Ab3 C4', 'Bb1: F3 Ab3 Db4', 'C2: Eb3 G3 C4', 'Bb1: F3 Bb3 Db4', 'Eb2: G3 Bb3 Eb4', 'Db2: F3 Ab3 Db4', 'F2: F3 Ab3 C4'],
+  tune: ['Ab4 - C5', 'F5 - Eb5', 'Db5 Eb5 Db5', 'C5 - -', 'Bb4 - Db5', 'G5 - F5', 'Eb5 Db5 Eb5', 'F5 - -'],
+};
+const WARDEN_B = {
+  chords: ['Db2: F3 Ab3 C4', 'Bb1: F3 Ab3 Db4', 'Ab1: Eb3 Ab3 C4', 'C2: E3 G3 C4', 'F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4',
+    ['Bb1: F3 Bb3 Db4', 'Bb1: F3 Bb3 Db4', 'C2: E3 G3 C4'], 'F2: F3 Ab3 C4'],
+  tune: ['C5 - Ab5', 'G5 - F5', 'Bb5 - Ab5', 'G5 - -', 'Ab4 - C5', 'F5 - Eb5', 'Db5 C5 G4', 'F4 - -'],
+};
+
+// Driftmarket, G Mixolydian jig (6/8: six eighths a bar, the lilt is quarter-eighth). The Ringborn motif opens
+// the tune; F natural (the flat seventh) and the F -> G cadence give the Mixolydian colour.
+const DRIFT_A = {
+  chords: ['G2: G3 B3 D4', ['F2: F3 A3 C4', 'G2: G3 B3 D4'], 'E2: E3 G3 B3', 'C2: E3 G3 C4', 'G2: G3 B3 D4', 'F2: F3 A3 C4',
+    ['C2: E3 G3 C4', 'D2: D3 F3 A3'], 'G2: G3 B3 D4'],
+  tune: ['D5 - G5 F5 - D5', 'C5 - A4 G4 - -', 'B4 - E5 G5 - E5', 'G5 - E5 C5 - -', 'D5 - G5 F5 - D5', 'C5 - A4 F4 - A4',
+    'E5 - C5 D5 - F5', 'G5 - D5 B4 - G4'],
+  descant: ['B5 - - A5 - -', 'A5 - - B5 - -', 'G5 - - B5 - -', 'C6 - - G5 - -', 'B5 - - A5 - -', 'A5 - - C6 - -', 'G5 - - A5 - -', 'B5 - - - - -'],
+};
+
+// Shoals, C# minor: glass-bell melody over m9 / maj7 colours.
+const SHOALS_A = {
+  chords: ['C#2: E3 G#3 B3 D#4', 'A1: E3 G#3 C#4 E4', 'F#1: E3 A3 C#4 G#4', ['G#1: D#3 G#3 C#4', 'G#1: D#3 G#3 B#3'],
+    'C#2: E3 G#3 B3 D#4', 'A1: E3 A3 C#4 D#4', 'E2: D#3 G#3 B3 E4', 'B1: D#3 F#3 B3 C#4'],
+  tune: ['G#5 - - - B5 - D#6 -', 'C#6 - - - - - B5 -', 'A5 - - - G#5 - E5 -', 'D#5 - - - - - - -',
+    'G#5 - - - B5 - E6 -', 'D#6 - - - C#6 - - -', 'B5 - - - G#5 - D#5 -', 'F#5 - - - - - - -'],
+};
+
+// The Meridian, F# Phrygian: everything hangs over an F# pedal; G over it is the Phrygian dread.
+const FSM = 'F#1: C#3 F#3 A3';
+const G_FS = 'F#1: B2 D3 G3';
+const D_FS = 'F#1: A2 D3 F#3';
+const EM_FS = 'F#1: B2 E3 G3';
+const BM_FS = 'F#1: B2 D3 F#3';
+
 export const TRACKS = {
   // D minor, i-VI-III-VII colour; celesta bell melody over drifting pads and a slow harp. Melancholy, wistful.
   title: {
+    key: 'D minor',
     bpm: 72,
     gain: 0.95,
     delay: 0.75,
@@ -1120,6 +1573,7 @@ export const TRACKS = {
 
   // D Lydian (E/D shimmer): wide pads, an echoing triangle arpeggio, sparse bells. Wonder, adrift.
   explore: {
+    key: 'D Lydian',
     bpm: 84,
     gain: 0.95,
     delay: 0.75,
@@ -1159,6 +1613,7 @@ export const TRACKS = {
 
   // E minor, 148 bpm: galloping bass, brass lead with 3-3-2 pushes, chord stabs. Heroic.
   battle: {
+    key: 'E minor',
     bpm: 148,
     gain: 0.66,
     delay: 0.5,
@@ -1243,6 +1698,7 @@ export const TRACKS = {
 
   // D minor, 160 bpm: b2 / tritone colour (Eb, G#, Ab), driving 16th bass, heavier kit, half-time section.
   boss: {
+    key: 'D minor',
     bpm: 160,
     gain: 0.6,
     delay: 0.75,
@@ -1325,6 +1781,7 @@ export const TRACKS = {
 
   // C major fanfare (I - bVI bVII - I), then a gentle 16-bar loop to sit under the results screen.
   victory: {
+    key: 'C major',
     bpm: 116,
     gain: 0.82,
     delay: 0.75,
@@ -1376,9 +1833,321 @@ export const TRACKS = {
       },
     },
   },
+
+  // Driftmarket: a Ringborn jig in G Mixolydian, 6/8. Plucked harp tune over harp arpeggios, a frame drum and a
+  // shaker; bells take the minor B strain, a descant over the tune's return, then a lantern-lit interlude where
+  // they ring the Ringborn motif slowly before the drum calls the dance back.
+  driftmarket: {
+    key: 'G Mixolydian',
+    bpm: 92,
+    meter: '6/8',
+    gain: 0.86,
+    delay: 0.5,
+    motifs: ['ringborn'],
+    voices: {
+      lead: { synth: 'harp', decay: 1.1, level: 0.26, cutoff: 4200 },
+      bell: { decay: 1.8, level: 0.16, ratio: 3, index: 1.1 },
+      harp: { decay: 0.8, level: 0.09 },
+      pad: { cutoff: 900, attack: 0.6, release: 1.2, level: 0.06 },
+      bass: { soft: true, level: 0.26 },
+      kick: { f0: 170, f1: 78, sweep: 0.05, d: 0.26, vol: 0.6, click: 0.1 },
+      hat: { f: 6000, d: 0.035 },
+    },
+    mix: { hat: 0.55, kick: 0.85 },
+    sends: { lead: { wet: 0.3, echo: 0.12, pan: 0.1 }, bell: { wet: 0.45, echo: 0.25, pan: 0.25 }, harp: { pan: -0.3 } },
+    loop: ['A', 'B', 'A2', 'C'],
+    parts: {
+      A: {
+        bars: 8,
+        chords: DRIFT_A.chords,
+        lead: DRIFT_A.tune,
+        harp: '0 1 2 3 2 1',
+        bass: 'R - - F - -',
+        kick: lastDiff(8, 'X . o x . .', 'X . o x o o'),
+        hat: 'x o o x o o',
+      },
+      B: {
+        bars: 8,
+        chords: ['A2: E3 A3 C4', 'E2: E3 G3 B3', 'F2: F3 A3 C4', 'C2: E3 G3 C4', 'A2: E3 A3 C4', 'E2: E3 G3 B3', 'F2: F3 A3 C4', 'G2: G3 B3 D4'],
+        bell: ['A4 - - E5 - -', 'D5 - C5 B4 - -', 'C5 - - A4 - C5', 'G4 - - - - -', 'A4 - - E5 - -', 'G5 - - E5 - D5', 'C5 - - F5 - -', 'D5 - - - - -'],
+        harp: '0 2 1 3 2 1',
+        bass: 'R - - F - -',
+        kick: 'X . . . . .',
+        hat: 'x . . x . .',
+      },
+      A2: {
+        bars: 8,
+        chords: DRIFT_A.chords,
+        lead: DRIFT_A.tune,
+        bell: DRIFT_A.descant,
+        harp: '0 1 2 3 2 1',
+        bass: 'R - F R - F',
+        kick: lastDiff(8, 'X . o x . o', 'X . x x x X'),
+        hat: 'x o o x o o',
+      },
+      // the lantern interlude: the motif rung slowly (D G F D C A G), then a drum pickup back into A
+      C: {
+        bars: 8,
+        chords: ['G2: G3 B3 D4', 'F2: F3 A3 C4', 'A2: E3 A3 C4', 'C2: E3 G3 C4', 'G2: G3 B3 D4', 'F2: F3 A3 C4', 'D2: D3 F3 A3', 'G2: G3 B3 D4'],
+        bell: ['D5 G5', 'F5 D5', 'C5 A4', 'G4 -', 'B4 D5', 'C5 A4', 'F4 A4', 'G4 -'],
+        harp: '0 . 2 . 3 .',
+        bass: 'R - - - - -',
+        kick: [...rep(7, ''), '. . . x o X'],
+        hat: [...rep(7, ''), '. . . x x x'],
+      },
+    },
+  },
+
+  // The Shoals, C# minor: glass bells in an ice cave, sub pulses like pressure in the ice, a cold airy pad. The B
+  // strain is the ice "singing" (a sine voice that glides), C thins to drips and crystals, A2 brings it all back.
+  shoals: {
+    key: 'C# minor',
+    bpm: 70,
+    gain: 0.95,
+    delay: 0.75,
+    voices: {
+      bell: { ratio: 3.5, index: 1.6, decay: 3.2, level: 0.17 },
+      bell2: { ratio: 5, index: 0.8, decay: 1.4, level: 0.06 },
+      lead: { layers: [['sine', 0, 1], ['triangle', 5, 0.25]], cutoff: 2400, level: 0.13, vib: 22, vibRate: 4.2, attack: 0.25, release: 0.6, glide: 0.35 },
+      bass: { synth: 'sub', level: 0.42, gate: 0.25, decay: 0.7, harm: 0.35 },
+      pad: { cutoff: 1500, attack: 2.2, release: 3, level: 0.1, air: 0.06, drift: 0.6 },
+      arp: { wave: 'sine', decay: 0.3, level: 0.05, oct: 24 },
+    },
+    sends: { bell: { wet: 0.7, echo: 0.4 }, bell2: { wet: 0.6, echo: 0.5, pan: 0.35 }, lead: { wet: 0.55, echo: 0.3 }, arp: { wet: 0.5, echo: 0.6 } },
+    loop: ['A', 'B', 'C', 'A2'],
+    parts: {
+      A: {
+        bars: 8,
+        chords: SHOALS_A.chords,
+        bell: SHOALS_A.tune,
+        bass: 'R! . R? . R . R? .',
+      },
+      B: {
+        bars: 8,
+        chords: ['A1: E3 A3 C#4', 'B1: D#3 F#3 B3', 'G#1: D#3 G#3 B3', 'C#2: E3 G#3 C#4', 'F#1: F#3 A3 C#4', 'B1: D#3 F#3 A3', 'E2: E3 G#3 B3', 'G#1: D#3 G#3 B#3'],
+        lead: ['E5 - ~A5 -', 'F#5 - - ~D#5', 'D#5 - ~B4 -', 'C#5 - - -', 'C#5 - ~F#5 -', 'A5 - - ~F#5', 'G#5 - ~E5 -', 'D#5 - - B#4'],
+        bell: ['', '', '', '. . . . G#5 - E5 -', '', '', '', '. . . . . . G#5 -'],
+        bass: 'R . . . R . . .',
+      },
+      C: {
+        bars: 8,
+        chords: ['C#2: G#3 B3 D#4', 'C#2: G#3 B3 D#4', 'A1: E3 G#3 B3', 'A1: E3 G#3 B3', 'F#1: E3 A3 C#4', 'F#1: E3 A3 C#4', 'G#1: D#3 G#3 C#4', 'G#1: D#3 G#3 B#3'],
+        bell: ['. . . . G#5 - D#6 -', '', '. . E6 - . . B5 -', '', 'A5 - - - . . . .', '. . . . C#6 - - -', '', '. . . . D#5 - - -'],
+        bell2: ['', 'D#6 . G#6 . . . B6 .', '', '. . E6 . G#6 . . B6', '', '. . . . A6 . C#7 .', '', ''],
+        bass: 'R . . . . . . .',
+      },
+      A2: {
+        bars: 8,
+        chords: SHOALS_A.chords,
+        bell: SHOALS_A.tune,
+        lead: ['E5 - - - - - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'C#5 - - - ~B#4 - - -', 'E5 - - - - - - -', 'C#5 - - - - - - -', 'B4 - - - - - - -', 'D#5 - - - - - - -'],
+        arp: '3 1 2 0 3 2 1 2',
+        bass: 'R! . R? . R . R? .',
+      },
+    },
+  },
+
+  // The Meridian wreck, F# Phrygian, 60 bpm: a low drone on an F# pedal, cracked bells, the hull groaning far
+  // off and an emergency beacon still pulsing. The bells try the Ringborn motif (on A, so it stays in the mode),
+  // break off, then get through it slowly; the last strain tries again an octave down.
+  meridian: {
+    key: 'F# Phrygian',
+    bpm: 60,
+    gain: 1,
+    delay: 1.5,
+    motifs: ['ringborn'],
+    voices: {
+      pad: { cutoff: 520, attack: 3, release: 4, level: 0.16, drift: 0.5, air: 0.035 },
+      bass: { soft: true, level: 0.3 },
+      bell: { ratio: 2.76, index: 1.8, decay: 4.5, level: 0.17 },
+      bell2: { ratio: 1.41, index: 3.4, decay: 6, level: 0.09 },
+      arp: { wave: 'sine', decay: 0.5, level: 0.05 },
+    },
+    sends: { pad: { wet: 0.5 }, bell: { wet: 0.7, echo: 0.35 }, bell2: { wet: 0.9, echo: 0.2, pan: -0.4 }, arp: { wet: 0.6, echo: 0.6, pan: 0.35 } },
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      A: {
+        bars: 8,
+        chords: [FSM, FSM, FSM, FSM, FSM, G_FS, FSM, FSM],
+        bell: ['', '', '', '', 'E5 - - - . . A5 -', '. . . . G5 - - -', '', ''],
+        bell2: ['', '', '. . F#2 - - - - -', '', '', '', 'C3 - - - - - - -', ''],
+        arp: ['C#6 . C#6 .', ''],
+        bass: 'O - - -',
+      },
+      B: {
+        bars: 8,
+        chords: [FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, FSM, FSM],
+        bell: ['E5 - - - . . A5 -', '. . . . G5 - - -', 'E5 - - - - - . .', '. . D5 - - - . .', 'B4 - - - - - - -', '. . . . . . A4 -', '', ''],
+        bell2: ['', '', '', 'G2 - - - - - - -', '', '', '. . . . F#2 - - -', ''],
+        bass: 'O - - -',
+      },
+      C: {
+        bars: 8,
+        chords: [D_FS, D_FS, EM_FS, EM_FS, G_FS, G_FS, FSM, FSM],
+        bell: ['', '. . . . F#5 - - -', '', 'B4 - - - . . . .', '', '. . . . D5 - - -', '', ''],
+        bell2: ['A2 - - - - - - -', '', '. . . . . . E3 -', '', 'G2 - - - - - - -', '. . . . B2 - - -', '', 'C#3 - - - - - - -'],
+        arp: 'C#6 . C#6 .',
+        bass: 'O - - -',
+      },
+      D: {
+        bars: 8,
+        chords: [FSM, FSM, G_FS, EM_FS, D_FS, BM_FS, FSM, G_FS],
+        bell: ['. . . . E4 - - -', 'A4 - - - . . . .', 'G4 - - - . . E4 -', '', 'D4 - - - - - . .', 'B3 - - - - - - -', '. . A3 - - - - -', ''],
+        bell2: ['', '', '', '. . . . . . A2 -', '', '', '', 'G2 - - - - - - -'],
+        arp: ['C#6 . . .', ''],
+        bass: 'O - - -',
+      },
+    },
+  },
+
+  // HALCYON's lullaby, F major 3/4: the canonical statement of MOTIFS.lullaby. Verse one is the music box alone
+  // over a warm bed; verse two adds a harp, a descant on soft bells and a walking bass.
+  lullaby: {
+    key: 'F major',
+    bpm: 76,
+    meter: '3/4',
+    gain: 1,
+    delay: 1,
+    motifs: ['lullaby'],
+    voices: {
+      bell: { synth: 'box', oct: 12, level: 0.22, decay: 2.2 },
+      harp: { synth: 'box', oct: 12, level: 0.085, decay: 1.3 },
+      harp2: { decay: 1.8, level: 0.11 },
+      bell2: { decay: 2.4, level: 0.09, ratio: 3, index: 0.7 },
+      pad: { cutoff: 760, attack: 1.8, release: 2.4, level: 0.12, air: 0.02 },
+      bass: { soft: true, level: 0.2 },
+    },
+    sends: { bell: { wet: 0.5, echo: 0.22 }, harp: { wet: 0.4, echo: 0.1 }, bell2: { wet: 0.55, echo: 0.2, pan: 0.2 }, harp2: { pan: -0.25 } },
+    intro: ['I'],
+    loop: ['A', 'B', 'A2', 'B2'],
+    parts: {
+      I: { bars: 1, chords: ['F2: F3 A3 C4'], harp: '0 1 2 3 2 1' },
+      A: { bars: 8, chords: LULLABY_A.chords, bell: LULLABY_A.tune, harp: '0 . 2 . 1 .', bass: 'R - -' },
+      B: { bars: 8, chords: LULLABY_B.chords, bell: LULLABY_B.tune, harp: '0 . 2 . 1 .', bass: 'R - -' },
+      A2: { bars: 8, chords: LULLABY_A.chords, bell: LULLABY_A.tune, bell2: LULLABY_A.descant, harp2: '0 1 2 3 2 1', bass: 'R - F' },
+      B2: { bars: 8, chords: LULLABY_B.chords, bell: LULLABY_B.tune, bell2: LULLABY_B.descant, harp2: '0 1 2 3 2 1', bass: lastDiff(8, 'R - F', 'R - -') },
+    },
+  },
+
+  // WARDEN, F minor 3/4: the lullaby in the parallel minor (MOTIFS.warden) on a music box that sags as it winds
+  // down, over a soft 'oo' choir and a sub pulse; a far cathedral bell marks the phrases. The second time
+  // the choir sings the theme itself while the box turns to arpeggios, and the box rejoins it an octave up.
+  warden: {
+    key: 'F minor',
+    bpm: 72,
+    meter: '3/4',
+    gain: 1,
+    delay: 1,
+    motifs: ['warden'],
+    voices: {
+      pad: { synth: 'choir', vowel: 'oo', attack: 1.6, release: 2.6, level: 0.42 },
+      bell: { synth: 'box', oct: 12, level: 0.2, decay: 2.6, droop: 12, beat: 5 },
+      harp: { synth: 'box', oct: 12, level: 0.075, decay: 1.6, droop: 12, beat: 5 },
+      choir: { vowel: 'oo', attack: 0.35, release: 1.4, level: 0.34 },
+      bass: { synth: 'sub', level: 0.3, gate: 0.85, decay: 1.8, attack: 0.08 },
+      bell2: { ratio: 1.41, index: 2.4, decay: 6, level: 0.11 },
+    },
+    sends: { pad: { wet: 0.6 }, bell: { wet: 0.6, echo: 0.3 }, harp: { wet: 0.5, echo: 0.15 }, choir: { wet: 0.65, echo: 0.12 }, bell2: { wet: 0.9, echo: 0.25, pan: -0.3 } },
+    intro: ['I'],
+    loop: ['A', 'B', 'A2', 'B2'],
+    parts: {
+      I: { bars: 2, chords: ['F2: F3 Ab3 C4'], bell2: ['F3 - -', ''], bass: 'R - -', harp: ['', '. . . . 2 1'] },
+      A: { bars: 8, chords: WARDEN_A.chords, bell: WARDEN_A.tune, harp: '. . 1 . 2 .', bass: 'R - -' },
+      B: { bars: 8, chords: WARDEN_B.chords, bell: WARDEN_B.tune, harp: '. . 1 . 2 .', bass: 'R - -', bell2: ['Db3 - -', '', '', 'C3 - -', '', '', '', ''] },
+      A2: { bars: 8, chords: WARDEN_A.chords, choir: WARDEN_A.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: firstOnly(8, 'F3 - -') },
+      B2: { bars: 8, chords: WARDEN_B.chords, choir: WARDEN_B.tune, bell: WARDEN_B.tune, harp: '0 1 2 3 2 1', bass: 'R - -', bell2: ['Db3 - -', '', '', 'C3 - -', '', '', '', ''] },
+    },
+  },
+
+  // Chapter card sting (once): a riser and tom roll swell on A sus into a strike on D add9 as the title lands
+  // (~1.2 s, with the card's own 'card' sfx), then the chord rings out under three bells. 2 bars, ~4.6 s.
+  sting_chapter: {
+    key: 'D major',
+    bpm: 104,
+    gain: 0.8,
+    delay: 0.75,
+    once: true,
+    voices: {
+      swell: { level: 0.3, tonal: 0.5, from: 300, to: 7000 },
+      pad: { cutoff: 1800, attack: 0.9, release: 2.6, level: 0.14 },
+      stab: { level: 0.4, oct: 0, cutoff: 3600 },
+      bell: { decay: 3, level: 0.2 },
+      bass: { soft: true, level: 0.32 },
+      kick: { f0: 120, f1: 30, sweep: 0.3, d: 1.2, vol: 1 },
+      tom: { pitch: 0.7 },
+    },
+    sends: { bell: { wet: 0.6, echo: 0.35 } },
+    loop: ['S'],
+    parts: {
+      S: {
+        bars: 2,
+        chords: [['A1: D3 E3 A3', 'D2: A3 D4 E4 F#4'], 'D2: A3 D4 E4 F#4'],
+        swell: ['x - - - - - - - . . . . . . . .', ''],
+        tom: ['. . o o o x x X . . . . . . . .', ''],
+        kick: ['. . . . . . . . X . . . . . . .', ''],
+        crash: ['. . . . . . . . X . . . . . . .', ''],
+        stab: ['. . . . . . . . X . . . . . . .', ''],
+        bass: ['. . . . . . . . R - - - - - - -', 'R - - - - - - - - - - - - - - -'],
+        bell: ['. . . . . . . . D6 - - - A6 - - -', 'E6 - - - - - - - - - - - . . . .'],
+      },
+    },
+  },
 };
 
 export const TRACK_NAMES = Object.keys(TRACKS);
+
+// ------------------------------------------------------------------ motifs (TECH_PLAN 9)
+// Note sequences that give the score its identity; the Choir motif is a chord. The WARDEN theme is the
+// lullaby in the parallel minor. A track that carries one lists it in its `motifs`.
+export const MOTIFS = {
+  lullaby: ['A4', 'C5', 'F5', 'E5', 'D5', 'E5'],
+  ringborn: ['D5', 'G5', 'F5', 'D5', 'C5', 'A4', 'G4'],
+  warden: ['Ab4', 'C5', 'F5', 'Eb5', 'Db5', 'Eb5'],
+  choir: ['A2', 'E3', 'B3', 'D4', 'F#4'],
+};
+const CHORD_MOTIFS = new Set(['choir']);
+
+/**
+ * Where a motif sounds in a compiled track (transposition allowed): [{ line, part, bar }] at its first note.
+ * A melodic motif must be consecutive pitches of one line in play order (intro, then the loop); rests and
+ * repeated notes in between are allowed. The chord motif matches any chord holding its pitch classes.
+ */
+export function findMotif(c, motif) {
+  const notes = MOTIFS[motif].map(noteMidi);
+  const hits = [];
+  const lines = {};
+  for (const k of [...c.intro, ...c.loop]) {
+    const part = c.parts[k];
+    part.steps.forEach((evs, s) => {
+      const bar = Math.floor(s / part.barSteps) + 1;
+      for (const e of evs) {
+        if (e.m == null) continue;
+        if (CHORD_MOTIFS.has(motif)) {
+          if (Array.isArray(e.m) && hasPitchClasses(e.m, notes)) hits.push({ line: e.i, part: k, bar });
+        } else if (!Array.isArray(e.m)) {
+          const seq = lines[e.i] || (lines[e.i] = []);
+          if (!seq.length || seq[seq.length - 1].m !== e.m) seq.push({ m: e.m, part: k, bar });
+        }
+      }
+    });
+  }
+  const want = intervals(notes.filter((m, i) => i === 0 || m !== notes[i - 1]));
+  for (const [line, seq] of Object.entries(lines)) {
+    const got = intervals(seq.map((n) => n.m));
+    for (let i = 0; i + want.length <= got.length; i++) {
+      if (want.every((d, j) => got[i + j] === d)) hits.push({ line, part: seq[i].part, bar: seq[i].bar });
+    }
+  }
+  return hits;
+}
+
+const intervals = (ms) => ms.slice(1).map((m, i) => m - ms[i]);
+
+function hasPitchClasses(chord, motif) {
+  const have = new Set(chord.map((m) => ((m % 12) + 12) % 12));
+  for (let k = 0; k < 12; k++) if (motif.every((m) => have.has((m + k) % 12))) return true;
+  return false;
+}
 
 // ------------------------------------------------------------------ offline rendering
 
@@ -1413,6 +2182,7 @@ const S = {
   want: null, // requested track (remembered before init)
   cur: null, // running track runtime
   fading: [], // runtimes fading out: still scheduled until their fade ends
+  stings: [], // one-shot runtimes over the ducked bed, kept until their tail has rung out
   kickAt: 0, // performance.now() of the last resume request
 };
 
@@ -1443,39 +2213,57 @@ function syncRunning() {
 // confirm still plays): queuing onto a suspended clock would burst out all at once later.
 const clockLive = () => S.ctx.state === 'running' || performance.now() - S.kickAt < 800;
 
+/** Pump one runtime; a runtime that throws is reported, dropped and disposed alone (the rest keeps playing). */
+function pumpSafe(rt, now) {
+  try {
+    pumpTrack(rt, now + LOOKAHEAD, now);
+    return true;
+  } catch (e) {
+    console.error(`[audio] track "${rt.name}" stopped: ${e && e.message}`);
+    disposeTrack(rt);
+    return false;
+  }
+}
+
+/** Keep pumping a stopping runtime until `tail` seconds after its end, then dispose it. Returns whether it stays. */
+function retire(rt, now, tail) {
+  if (now > rt.stopAt + tail) {
+    disposeTrack(rt);
+    return false;
+  }
+  return pumpSafe(rt, now);
+}
+
 function tick() {
   const ctx = S.ctx;
   if (ctx.state !== 'running') return;
   const now = ctx.currentTime;
-  try {
-    if (S.cur) pumpTrack(S.cur, now + LOOKAHEAD, now);
-    for (let i = S.fading.length - 1; i >= 0; i--) {
-      const rt = S.fading[i];
-      if (now > rt.stopAt + 0.1) {
-        disposeTrack(rt);
-        S.fading.splice(i, 1);
-      } else pumpTrack(rt, now + LOOKAHEAD, now);
-    }
-  } catch (e) {
-    // never throw from the timer every 25 ms: drop the music, keep sfx working
-    console.warn('[audio] music disabled:', e && e.message);
-    if (S.cur) disposeTrack(S.cur);
-    for (const rt of S.fading) disposeTrack(rt);
-    S.cur = null;
-    S.fading.length = 0;
-  }
+  if (S.cur && !pumpSafe(S.cur, now)) S.cur = null;
+  S.fading = S.fading.filter((rt) => retire(rt, now, 0.1));
+  S.stings = S.stings.filter((rt) => retire(rt, now, STING_TAIL));
 }
 
-function switchTrack(name) {
+function switchTrack(name, fade) {
   const now = S.ctx.currentTime;
   const had = !!S.cur;
   if (S.cur) {
-    stopTrack(S.cur, now, FADE);
+    stopTrack(S.cur, now, Math.max(0.02, fade ?? FADE));
     S.fading.push(S.cur);
     S.cur = null;
   }
   // the incoming track reaches full level quickly so its downbeat keeps its punch; the old one fades over FADE
-  if (name) S.cur = startTrack(S.rig, name, now + 0.05, { fade: had ? 0.4 : 0.3 });
+  if (name) S.cur = startTrack(S.rig, name, now + 0.05, { fade: fade ?? (had ? 0.4 : 0.3) });
+  tick();
+}
+
+/** A sting cuts any sting still playing, ducks the bed for its length and plays once over it. */
+function playSting(name) {
+  if (!S.rig || S.muted || pageHidden() || !clockLive()) return;
+  const now = S.ctx.currentTime;
+  for (const rt of S.stings) if (rt.stopAt > now) stopTrack(rt, now, 0.12);
+  const rt = startTrack(S.rig, name, now + 0.05);
+  S.stings.push(rt);
+  S.rig.duck(now, rt.stopAt);
   tick();
 }
 
@@ -1511,14 +2299,22 @@ export const audio = {
     try { playSfx(S.rig, name, opts || {}); } catch { /* a sound must never break gameplay */ }
   },
 
-  /** Crossfade to a track ('title' | 'explore' | 'battle' | 'boss' | 'victory') or to silence (null). */
-  music(track) {
-    const name = track && TRACKS[track] ? track : null;
-    if (track && !name) return;
-    if (name === S.want) return;
-    S.want = name;
-    if (!S.rig) return; // started by init()
-    try { switchTrack(name); } catch (e) { console.warn('[audio] music:', e && e.message); }
+  /**
+   * Crossfade to a track, or to silence (null). opts.fade: crossfade seconds (default: the old track fades
+   * over 0.8 s, the new one comes in over 0.3-0.4 s); opts.restart: replay even when `track` is already
+   * playing. A `once` track (sting) plays one time over the ducked current track and leaves it wanted.
+   * Unknown and malformed names are ignored.
+   */
+  music(track, opts) {
+    const { fade, restart } = opts || {};
+    const c = track ? compiledTrack(track) : null;
+    if (track && !c) return;
+    try {
+      if (c && c.once) { playSting(track); return; }
+      if (c ? track === S.want && !restart : S.want === null) return;
+      S.want = track || null;
+      if (S.rig) switchTrack(S.want, fade); // otherwise init() starts it
+    } catch (e) { console.warn('[audio] music:', e && e.message); }
   },
 
   setMuted(b) {

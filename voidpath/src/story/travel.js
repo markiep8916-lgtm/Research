@@ -151,6 +151,8 @@ export const travel = {
       ui.hud.showLocation(def.name, def.region || '', obj ? obj.text : null);
     }
     story.set(`visited:${def.id}`);
+    // the art cache keeps the current location and trims the rest to its budget (11.5)
+    ctx.prewarm?.arrived?.(locationOfMap(def.id));
     if (!cutscenes.active) {
       // control returns to the player: the pause menu works again, the field takes input
       ui.menuEnabled = true;

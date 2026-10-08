@@ -6,6 +6,7 @@
 //   input.pressed('confirm')  went down since the previous update
 //   input.repeat('down')      pressed, or auto-repeat while held (menus)
 //   input.heldFor('cancel')   seconds the action has been held (0 when up): hold-to-skip
+//   input.setSkippable(on)    touch: show B in the 'dialog' context so a seen cutscene can be held to skip
 //   input.axis()              { x, y } movement in [-1, 1], y+ = south
 //
 // Tab opens the menu, but Shift+Tab (and Tab on the title screen) is left to the browser so
@@ -62,6 +63,8 @@ const CSS = `
 .vp-touch[data-ctx="explore"] .vp-tc-menu, .vp-touch[data-ctx="explore"] .vp-tc-mute,
 .vp-touch[data-ctx="battle"] .vp-tc-a, .vp-touch[data-ctx="battle"] .vp-tc-b,
 .vp-touch[data-ctx="battle"] .vp-tc-boost, .vp-touch[data-ctx="battle"] .vp-tc-mute { display: grid; }
+/* hold B to skip a script the player has already seen (setSkippable): top right, clear of the dialog box */
+.vp-touch[data-ctx="dialog"].can-skip .vp-tc-b { display: grid; top: calc(14px + var(--vp-safe-top)); right: calc(14px + var(--vp-safe-right)); bottom: auto; width: 52px; height: 52px; }
 
 /* floating stick: the zone is the lower-left half; the base jumps under the thumb */
 .vp-tc-stick { left: 0; bottom: 0; width: 50%; height: 58%; }
@@ -133,6 +136,7 @@ export class Input {
     this._padsConnected = 0;
     this._touchOn = false;
     this._touchForced = null;           // null = automatic (shown while the last device is touch)
+    this._skippable = false;            // B shown in the 'dialog' context (hold-to-skip)
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
@@ -215,6 +219,14 @@ export class Input {
       if (ctx !== 'explore') this._stickReset();
       this._releaseTouchButtons();
     }
+  }
+
+  /** Touch: show the B button during a cutscene that hold-to-skip may skip (the dialog context hides it). */
+  setSkippable(on) {
+    on = !!on;
+    if (on === this._skippable) return;
+    this._skippable = on;
+    this._touchRoot?.classList.toggle('can-skip', on);
   }
 
   onAny(fn) {
@@ -342,7 +354,7 @@ export class Input {
   _buildTouch(layer) {
     injectCSS('vp-input', CSS);
     const root = document.createElement('div');
-    root.className = 'vp-touch';
+    root.className = this._skippable ? 'vp-touch can-skip' : 'vp-touch';
     root.dataset.ctx = this.context;
     root.innerHTML = `
       <div class="vp-tc vp-tc-stick"><div class="vp-stick-base"><div class="vp-stick-knob"></div></div></div>

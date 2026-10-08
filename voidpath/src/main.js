@@ -4,7 +4,8 @@
 // the title. window.__VP exposes the debug hooks the headless scenarios drive (TECH_PLAN 10.1).
 //
 // ctx = { engine, input, audio, ui, state, game, story, cutscenes, travel, content: REG,
-//         prewarm: { location(locId), evict(locId) }, settings: { encounters, skipWeak, battleSpeed } }
+//         prewarm: { location(locId), evict(locId), arrived(locId), trim() },
+//         settings: { encounters, skipWeak, battleSpeed } }
 // Frame order: input.update(); cutscenes.update() (sees Confirm / Cancel before the UI consumes them);
 // ui.update(realDt); game.update(dt, t).
 
@@ -18,8 +19,9 @@ import { TitleScene, TitleState, hasCleared } from './core/titleScene.js';
 import { gameState, healParty, addItem, useItemOutOfBattle, setLeader, moveMember, getMember } from './core/state.js';
 import { equip, optimize, SLOTS } from './core/progression.js';
 import { listSlots } from './core/save.js';
-import { ITEMS, PARTY_DEFS, ENCOUNTERS, ENEMIES, BATTLE_RULES, DIFFICULTY } from './battle/data.js';
+import { ITEMS, PARTY_DEFS, ENCOUNTERS, ENEMIES } from './battle/data.js';
 import { BattleState } from './battle/battleState.js';
+import { setDifficulty } from './battle/model.js';
 import { createPolicy } from '../tests/policy.mjs';
 import { ExploreState } from './world/explore.js';
 import { setDefaultState } from './world/cond.js';
@@ -74,7 +76,13 @@ audio.music('title');
 
 const ctx = {
   engine, input, audio, ui, state: gameState, game: null, content: REG,
-  prewarm: { location: (loc) => prewarmLocation(loc), evict: (loc) => artCache.evictLocation(loc) },
+  prewarm: {
+    location: (loc) => prewarmLocation(loc),
+    evict: (loc) => artCache.evictLocation(loc),
+    // 11.5: the arrival's location stays painted; least-recently-used art beyond the budget goes
+    arrived: (loc) => { if (loc) artCache.current = loc; artCache.trim(); },
+    trim: () => artCache.trim(),
+  },
   settings: { encounters: 'normal', skipWeak: true, battleSpeed: 1 },
 };
 const game = new Game(ctx);
@@ -101,10 +109,14 @@ function mapData() {
   };
 }
 
+// setHooks reports every stored setting once at boot; a ?q= override (tests) keeps its quality then
+let urlQuality = QUALITIES.includes(new URLSearchParams(location.search).get('q'));
+
 function applySettings(patch) {
-  if (patch.difficulty) Object.assign(BATTLE_RULES.difficulty, DIFFICULTY[patch.difficulty] || DIFFICULTY.normal);
+  if (patch.difficulty) setDifficulty(patch.difficulty);
   for (const k of ['encounters', 'skipWeak', 'battleSpeed']) if (k in patch) ctx.settings[k] = patch[k];
-  if (QUALITIES.includes(patch.quality) && patch.quality !== engine.quality) engine.setQuality(patch.quality);
+  if (QUALITIES.includes(patch.quality) && patch.quality !== engine.quality && !urlQuality) engine.setQuality(patch.quality);
+  urlQuality = false;
 }
 
 ui.setHooks({
@@ -386,9 +398,13 @@ function installDebug({ explore, battle }) {
         npcs: (map.npcs || []).map((n) => n.id), chests: (map.chests || []).map((c) => c.id), gates: (map.gates || []).map((g) => g.id),
       };
     },
-    visualLint(viewpoint) {
-      if (viewpoint) VP.debug.view(viewpoint);
-      return explore.world ? visualLint(explore.world, explore.camera) : null;
+    /** visualLint at a viewpoint (teleports there and renders two frames first so the camera is current). */
+    async visualLint(viewpoint) {
+      if (viewpoint) {
+        VP.debug.view(viewpoint);
+        await nextFrames(2);
+      }
+      return explore.world ? visualLint(explore.world, explore.camera, { viewpoint: viewpoint || null }) : null;
     },
     missingArt: () => missingArt(),
     pacing: () => JSON.parse(JSON.stringify(pacing)),

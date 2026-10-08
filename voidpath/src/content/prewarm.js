@@ -101,7 +101,8 @@ function addMapPart(add, m) {
   const used = new Set((m.grid || []).join(''));
   for (const [ch, cell] of Object.entries(m.legend || {})) {
     if (!used.has(ch) || !cell) continue;
-    addTex(add, [cell.tex, cell.side, cell.cap, cell.low, cell.bank, cell.path, cell.edge, cell.backdrop]);
+    addTex(add, [cell.tex, cell.side, cell.cap, cell.low, cell.bank, cell.path, cell.edge, cell.backdrop, cell.lockedTex, cell.floor]);
+    if (cell.t === 'water') addTex(add, cell.bed || 'water_bed');
     for (const mx of cell.mix || []) addTex(add, mx?.[0]);
   }
   addTex(add, m.wallTex);

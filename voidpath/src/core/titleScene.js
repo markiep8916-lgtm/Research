@@ -84,6 +84,7 @@ export class TitleScene {
   constructor(engine) {
     this.engine = engine;
     this.scene = new THREE.Scene();
+    this.scene.userData.perf = false;      // the title never triggers an automatic quality drop
     this.scene.background = new THREE.Color('#03050c');
     this.scene.fog = new THREE.FogExp2('#08142c', 0.02);
     this.camera = new THREE.PerspectiveCamera(FOV, 16 / 9, 0.3, 200);
@@ -444,7 +445,12 @@ export class TitleState {
     ui.title.show({
       hasSave: !!latestSlot(),
       onStart: () => { game.newJourney(); },
-      onContinue: () => { game.continue(); },
+      // a refused Continue (no readable save) keeps the title up instead of hiding it for nothing
+      onContinue: () => {
+        if (!latestSlot()) return false;
+        game.continue().then((ok) => { if (!ok && game.name === 'title' && !ui.title.isOpen) this.showUI(); });
+        return undefined;
+      },
       onLoad: () => { game.loadMenu(); },
     });
   }

@@ -41,7 +41,7 @@ import { normalizeMap, cellSpec } from './mapdef.js';
 import { Batch, Materials } from './geometry.js';
 import { buildProp } from './props.js';
 import { NpcActor } from './actors.js';
-import { showEmote } from './emotes.js';
+import { showEmote, primeEmotes } from './emotes.js';
 import { buildWater } from './water.js';
 import { buildSky, buildUnderlay } from './sky.js';
 
@@ -173,6 +173,7 @@ export class World {
     this._buildInteractables();
     for (const def of this.map.npcs) this.spawnNpc(def, { solid: true });
     for (const def of this.map.bosses) this._spawnBoss(def);
+    primeEmotes(this);   // maps without NPCs link the emote program behind the cover too
     if (this.map.sky) this.sky = buildSky(this, this.map.sky);
     if (this.map.underlay) this.underlay = buildUnderlay(this, this.map.underlay);
     // pre-simulate a few seconds so dust, steam and embers are already in the air

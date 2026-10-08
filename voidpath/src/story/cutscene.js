@@ -208,10 +208,12 @@ export class CutsceneRunner {
       if (s) this._goInstant(s);
       w.wake?.();
     }
+    const canSkip = !!s && !s.instant && story.played(s.id);
+    input.setSkippable?.(canSkip);   // touch players hold the B button
     if (!s) return;
     if (s.proxy) this._followProxy(s);
     // hold Cancel for 1 s to skip the rest of a script the player has already completed
-    const held = !s.instant && story.played(s.id) ? input.heldFor('cancel') : 0;
+    const held = canSkip ? input.heldFor('cancel') : 0;
     if (held >= 0.4 && !this._hinted) {
       this._hinted = true;
       ui.hud.skipHint(true);

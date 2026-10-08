@@ -245,6 +245,7 @@ export class BattleStage {
     this.engine = engine;
     this.encounter = encounter;
     this.scene = new THREE.Scene();
+    this.scene.userData.perf = 'battle';   // perf.js measures only the first battle of a session (11.6)
     this.camera = new THREE.PerspectiveCamera(FOV, engine.size.aspect, 0.1, 160);
     this.timeline = new Timeline();
     this.arena = buildArena(this.scene, encounter.backdrop, { quality: engine.quality });
@@ -500,9 +501,9 @@ export class BattleStage {
   }
 
   _warmActor(a) {
-    const r = this.engine.renderer;
-    for (const t of a.sprite._textures || []) r?.initTexture(t);
+    // the aura first (it creates the glow sheet), then the sheet and glow uploads (SpriteActor.warm)
     a.sprite.setGlow('#000000', 1);
+    a.sprite.warm(this.engine.renderer);
     a._warmGlow = true;
   }
 

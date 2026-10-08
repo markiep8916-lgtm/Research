@@ -15,7 +15,7 @@ import { iconURL } from '../art/icons.js';
 import { portraitURL } from '../art/characters.js';
 import { buildEnemyIcon } from '../art/enemies.js';
 import { DAMAGE_COLORS } from '../art/palette.js';
-import { installBaseCSS, glyph, TYPE_LABEL, MEMBER_ACCENT, bindPointer } from '../ui/theme.js';
+import { installBaseCSS, glyph, TYPE_LABEL, MEMBER_ACCENT, bindPointer, onTap } from '../ui/theme.js';
 import { ITEMS, SKILLS } from './data.js';
 
 const CSS = `
@@ -661,7 +661,8 @@ export class BattleUI {
     this.boostCap = el('span', { class: 'vp-cap', text: 'Boost' });
     this.pips = [0, 1, 2].map(() => el('i', { class: 'vb-pip' }));
     this.boostEl = el('div', { class: 'vb-boost', title: 'Boost' }, [this.boostCap, ...this.pips]);
-    this.boostEl.addEventListener('click', (e) => { e.stopPropagation(); this._boost(this.cmd && this.cmd.boost >= this.cmd.maxBoost ? -9 : 1); });
+    // pointerup tap (theme.onTap), not click: counts while another finger rests on the screen (R22)
+    onTap(this.boostEl, () => this._boost(this.cmd && this.cmd.boost >= this.cmd.maxBoost ? -9 : 1));
     this.list = el('div', { class: 'vb-list vp-scroll' });
     this.menuFoot = el('div', { class: 'vb-menu-ft' });
     this.menu = el('div', { class: 'vb-abs vb-menu vb-live' }, el('div', { class: 'vp-panel vb-menu-in' }, [

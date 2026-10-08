@@ -1,24 +1,33 @@
-// Audio bench: renders every sfx and the opening of every track offline (OfflineAudioContext through the
-// real graph: reverb, delay, limiter), measures peak / RMS, draws waveform + spectrogram strips and
-// asserts levels. Buttons play everything live. window.__PREVIEW = { ready, report }.
-import { audio, renderOffline, compileTrack, SFX_NAMES, TRACK_NAMES, TRACKS } from '../core/audio.js';
+// Audio bench: renders every sfx and every track (intro + one whole loop) offline (OfflineAudioContext
+// through the real graph: reverb, delay, limiter), measures peak / RMS, draws waveform + spectrogram strips and
+// a piano roll per track from its compiled notes (with the motifs of TECH_PLAN 9 marked), and asserts levels:
+// no clipping, no silence, and every track's loop RMS within 2 dB of both `explore` and `battle`.
+// Buttons play everything live. Query filters for quick iteration: ?tracks=a,b (explore and battle always
+// render as the reference) and ?sfx=a,b, or 'none'. window.__PREVIEW = { ready, report }.
+import { audio, renderOffline, compiledTrack, findMotif, SFX_NAMES, TRACK_NAMES, TRACKS } from '../core/audio.js';
 import { injectCSS, el } from '../core/util.js';
 
 const SR = 44100;
 const SFX_SECONDS = {
   encounter: 3.2, break: 3.0, gameover: 4.6, save: 2.6, victory: 2.8, levelup: 2.6, charge: 2.2,
   enemyBeam: 2.2, heal: 2.2, ko: 2.0, cast: 2.0, door: 1.8, boost: 1.8, recover: 1.8, confirm: 1.6,
+  transform: 4.0, awaken: 3.2, shard: 2.4, lift: 2.6, travel: 2.8, rumble: 3.0, choir: 3.0, sleep: 2.0,
+  summon: 2.0, submerge: 2.2, emerge: 2.0, alarm: 2.4, card: 2.6, splash: 1.6, valve: 1.8,
 };
-// Music renders: the opening of each loop plus the B / C sections, 8 s each.
-const MUSIC_JOBS = [
-  ['title', null], ['title', 'B'], ['explore', null], ['explore', 'B'], ['battle', null], ['battle', 'B'],
-  ['battle', 'C'], ['boss', null], ['boss', 'B'], ['boss', 'C'], ['victory', null], ['victory', 'A'],
-];
+const REFS = ['explore', 'battle']; // the loudness references of the acceptance (TECH_PLAN 13, C9)
 const LIMITS = {
   silentDb: -45, // anything quieter is "silent"
   clipDb: -0.3, // peaks above this count as clipping
-  musicRms: [-32, -14],
+  refDb: 2, // a track's loop RMS may sit at most this far from each reference
 };
+const query = new URLSearchParams(location.search);
+const pick = (key, all) => {
+  const v = query.get(key);
+  if (v == null) return all;
+  return v === 'none' ? [] : all.filter((n) => v.split(',').includes(n));
+};
+const trackJobs = [...new Set([...REFS, ...pick('tracks', TRACK_NAMES)])].filter((n) => TRACK_NAMES.includes(n));
+const sfxJobs = pick('sfx', SFX_NAMES);
 
 injectCSS('preview-audio', `
 html, body { height: auto !important; overflow: auto !important; touch-action: auto !important; user-select: text; }
@@ -220,18 +229,24 @@ function drawSpectrogram(cv, buf) {
   }
 }
 
-// Piano roll of a whole track straight from the compiled note data (intro + one loop).
-const ROLL = { pad: '#5b4fa8', bass: '#4fd889', harp: '#3fd6d2', arp: '#3fd6d2', stab: '#ff63b6', bell: '#7fe3ff', lead: '#ffc560' };
-function drawRoll(cv, name) {
-  const c = compileTrack(name);
+// Piano roll of a whole track straight from the compiled note data (intro + one loop), motifs marked in gold.
+const ROLL = {
+  pad: '#5b4fa8', choir: '#d9a94a', swell: '#b48cff', bass: '#4fd889', harp: '#3fd6d2', arp: '#3fd6d2', stab: '#ff63b6',
+  bell: '#7fe3ff', lead: '#ffc560',
+};
+const LAYERS = ['pad', 'swell', 'choir', 'bass', 'harp', 'arp', 'stab', 'bell', 'lead'];
+const MOTIF_COLOR = '#ffd27a';
+
+function drawRoll(cv, c, hits) {
   const order = [...c.intro, ...c.loop];
-  const total = order.reduce((n, k) => n + c.parts[k].bars * 16, 0);
+  const total = order.reduce((n, k) => n + c.parts[k].steps.length, 0);
   const W = cv.width;
   const H = cv.height;
   const g = cv.getContext('2d');
   g.fillStyle = '#060a14';
   g.fillRect(0, 0, W, H);
   const drumH = 14;
+  const top = 22;
   let lo = 127;
   let hi = 0;
   for (const k of order) {
@@ -244,26 +259,25 @@ function drawRoll(cv, name) {
   }
   lo -= 2;
   hi += 3;
-  const noteH = (H - drumH - 4) / (hi - lo);
+  const noteH = (H - drumH - 4 - top) / (hi - lo);
   const y = (m) => H - drumH - 4 - (m - lo + 1) * noteH;
   const sx = W / total;
   let at = 0;
   for (const k of order) {
     const part = c.parts[k];
     g.fillStyle = 'rgba(140,214,255,.07)';
-    for (let b = 0; b < part.bars; b++) g.fillRect((at + b * 16) * sx, 0, 1, H);
+    for (let b = 0; b < part.bars; b++) g.fillRect((at + b * part.barSteps) * sx, top, 1, H - top);
     g.fillStyle = 'rgba(140,214,255,.5)';
     g.fillRect(at * sx, 0, 1, H);
     g.font = '600 15px ui-monospace, monospace';
-    g.fillText(k, at * sx + 6, 17);
-    const layers = ['pad', 'bass', 'harp', 'arp', 'stab', 'bell', 'lead'];
-    for (const layer of layers) {
+    g.fillText(k, at * sx + 6, 16);
+    for (const layer of LAYERS) {
       part.steps.forEach((evs, s) => {
         for (const e of evs) {
           if (e.b !== layer) continue;
           const notes = Array.isArray(e.m) ? e.m : [e.m];
           g.fillStyle = ROLL[layer];
-          g.globalAlpha = layer === 'pad' ? 0.45 : layer === 'stab' ? 0.8 : 1;
+          g.globalAlpha = layer === 'pad' || layer === 'swell' ? 0.45 : layer === 'stab' || layer === 'choir' ? 0.8 : 1;
           const tall = layer === 'lead' || layer === 'bell' ? 2.2 : 1;
           for (const m of notes) g.fillRect((at + s) * sx, y(m) - (tall - 1) * noteH * 0.5, Math.max(1.5, e.len * sx - 1), Math.max(2, noteH * tall));
         }
@@ -277,7 +291,15 @@ function drawRoll(cv, name) {
         else if (e.i === 'hat' || e.i === 'ohat') { g.fillStyle = 'rgba(233,242,255,.5)'; g.fillRect((at + s) * sx, H - drumH * 0.4, 1, drumH * 0.4 * e.v); }
       }
     });
-    at += part.bars * 16;
+    // motif markers: a gold flag at the bar where each statement starts
+    for (const h of hits.filter((x) => x.part === k)) {
+      const x = (at + (h.bar - 1) * part.barSteps) * sx;
+      g.fillStyle = MOTIF_COLOR;
+      g.fillRect(x, top - 4, 2, H - top - drumH);
+      g.font = '700 13px ui-monospace, monospace';
+      g.fillText(`♪ ${h.motif} (${h.line})`, x + 5, top + 9);
+    }
+    at += part.steps.length;
   }
 }
 
@@ -317,6 +339,12 @@ const comboBtn = liveButton('battle combo', () => {
   refreshButtons();
   for (const [ms, name, opts] of combo) setTimeout(() => audio.sfx(name, opts), ms);
 });
+// the chapter card as the game plays it: the sting over the current track, the 'card' shing as the title lands
+const cardBtn = liveButton('chapter card', () => {
+  audio.music('sting_chapter');
+  audio.sfx('card');
+  setTimeout(() => audio.sfx('card'), 1150);
+});
 
 const sliders = ['master', 'music', 'sfx'].map((k) => {
   const input = el('input', { type: 'range', min: 0, max: 1, step: 0.05, value: audio.volume[k] });
@@ -326,19 +354,19 @@ const sliders = ['master', 'music', 'sfx'].map((k) => {
 
 root.append(
   el('h1', { text: 'VOIDPATH AUDIO' }),
-  el('div', { class: 'sub', text: 'Every sound is synthesised live with WebAudio: no samples. Strips are offline renders through the real mix bus (reverb, delay, limiter). Music waveforms are linear (full height = -6 dBFS); sfx waveforms are peak envelopes in dB (guides at -6, -12, -24 dBFS). Spectrograms span 50 Hz to 16 kHz.' }),
-  el('div', { class: 'bar' }, [...musicButtons, liveButton('■ stop', () => { audio.music(null); refreshButtons(); }), comboBtn, muteBtn, ...sliders]),
+  el('div', { class: 'sub', text: 'Every sound is synthesised live with WebAudio: no samples. Strips are offline renders through the real mix bus (reverb, delay, limiter). Music strips cover the intro and one whole loop; waveforms are linear (full height = -6 dBFS), sfx waveforms are peak envelopes in dB (guides at -6, -12, -24 dBFS). Spectrograms span 50 Hz to 16 kHz. A track passes when nothing clips and its loop RMS sits within 2 dB of both explore and battle.' }),
+  el('div', { class: 'bar' }, [...musicButtons, liveButton('■ stop', () => { audio.music(null); refreshButtons(); }), comboBtn, cardBtn, muteBtn, ...sliders]),
   chips,
 );
 
 const rollGrid = el('div', { class: 'grid', style: { gridTemplateColumns: '1fr' } });
-const legend = el('div', { class: 'legend' }, Object.entries({ lead: 'lead', bell: 'bell', pad: 'pad chords', bass: 'bass', arp: 'arp / harp', stab: 'stabs' })
+const legend = el('div', { class: 'legend' }, Object.entries({ lead: 'lead', bell: 'bell / music box', choir: 'choir', pad: 'pad chords', swell: 'swell', bass: 'bass / sub', arp: 'arp / harp', stab: 'stabs' })
   .map(([k, label]) => el('span', {}, [el('i', { style: { background: ROLL[k] } }), label]))
-  .concat([['#ff5a6a', 'kick'], ['#ffe066', 'snare / toms'], ['rgba(233,242,255,.5)', 'hats']].map(([c, label]) => el('span', {}, [el('i', { style: { background: c } }), label]))));
-const musicGrid = el('div', { class: 'grid wide' });
+  .concat([[MOTIF_COLOR, 'motif statement'], ['#ff5a6a', 'kick'], ['#ffe066', 'snare / toms'], ['rgba(233,242,255,.5)', 'hats']].map(([c, label]) => el('span', {}, [el('i', { style: { background: c } }), label]))));
+const musicGrid = el('div', { class: 'grid', style: { gridTemplateColumns: '1fr' } });
 const sfxGrid = el('div', { class: 'grid' });
 root.append(el('h2', { text: 'Scores (intro + one full loop, from the track data)' }), legend, rollGrid,
-  el('h2', { text: 'Music renders (first 8 s of each section)' }), musicGrid, el('h2', { text: `Sound effects (${SFX_NAMES.length})` }), sfxGrid);
+  el('h2', { text: 'Music renders (intro + one full loop)' }), musicGrid, el('h2', { text: `Sound effects (${sfxJobs.length})` }), sfxGrid);
 
 function makeCard(grid, title, playFn, w, h1, h2) {
   const wave = el('canvas', { width: w, height: h1 });
@@ -347,7 +375,7 @@ function makeCard(grid, title, playFn, w, h1, h2) {
   const stats = el('div', { class: 'stats', text: '' });
   const meta = el('div', { class: 'meta' });
   const card = el('div', { class: 'card' }, [
-    el('div', { class: 'head' }, [el('span', { class: 'name', text: title }), badge, liveButton('\u25b6', playFn)]),
+    el('div', { class: 'head' }, [el('span', { class: 'name', text: title }), badge, liveButton('▶', playFn)]),
     stats, wave, spec, meta,
   ]);
   card.querySelector('button').classList.add('play');
@@ -362,44 +390,99 @@ function verdict(ui, problems, warns) {
   ui.badge.textContent = fail ? problems.join(' ') : warns.length ? warns.join(' ') : 'OK';
 }
 
+/** RMS in dBFS of a buffer between two times (seconds). */
+function rmsDb(buf, t0, t1) {
+  const L = buf.getChannelData(0);
+  const R = buf.getChannelData(1);
+  const a = Math.max(0, Math.floor(t0 * buf.sampleRate));
+  const b = Math.min(L.length, Math.floor(t1 * buf.sampleRate));
+  let sum = 0;
+  for (let i = a; i < b; i++) sum += L[i] * L[i] + R[i] * R[i];
+  return db(Math.sqrt(sum / Math.max(1, 2 * (b - a))));
+}
+
+const describe = (tr, c) => [tr.key, `${tr.bpm} bpm`, tr.meter || '4/4', c.once ? 'once' : `${c.loopBars}-bar loop (${c.loopSeconds.toFixed(1)} s)`]
+  .filter(Boolean).join(' · ');
+
+function rollCard(name, c, hits) {
+  const cv = el('canvas', { class: 'roll', width: 2200, height: 190 });
+  const motifs = TRACKS[name].motifs || [];
+  rollGrid.appendChild(el('div', { class: 'card', id: `roll-${name}` }, [
+    el('div', { class: 'head' }, [el('span', { class: 'name', text: name }), el('span', { class: 'stats', text: describe(TRACKS[name], c) }),
+      motifs.length ? el('span', { class: `badge${motifs.every((m) => hits.some((h) => h.motif === m)) ? '' : ' fail'}`, text: `motif ${motifs.join(', ')}` }) : null,
+      liveButton('▶', () => { audio.music(name); refreshButtons(); })]),
+    cv,
+  ]));
+  drawRoll(cv, c, hits);
+}
+
+async function renderTrack(name, c, refs) {
+  const tr = TRACKS[name];
+  const ui = makeCard(musicGrid, name, () => { audio.music(name); refreshButtons(); }, 2200, 110, 110);
+  ui.card.id = `music-${name}`;
+  status.textContent = `rendering ${name}...`;
+  const seconds = c.introSeconds + c.loopSeconds;
+  const buf = await renderOffline('music', name, { seconds, sampleRate: SR });
+  const a = analyze(buf);
+  // the loop's level, and each section's, measured on the loop that follows the intro
+  const t0 = c.once ? 0 : c.introSeconds;
+  const loopRms = c.once ? a.rmsDb : rmsDb(buf, t0, seconds);
+  const barSec = c.barSteps * c.stepDur;
+  let at = t0;
+  const sections = c.loop.map((k) => {
+    const len = c.parts[k].bars * barSec;
+    const row = { part: k, rmsDb: +fmt(rmsDb(buf, at, at + len)) };
+    at += len;
+    return row;
+  });
+  drawWave(ui.wave, buf, '#7fe3ff', 'linear');
+  drawSpectrogram(ui.spec, buf);
+  const problems = [];
+  if (a.peakDb < LIMITS.silentDb) problems.push('SILENT');
+  if (a.peakDb > LIMITS.clipDb) problems.push('CLIP');
+  const off = refs.map((r) => loopRms - r);
+  if (off.some((d) => d > LIMITS.refDb)) problems.push('LOUD');
+  if (off.some((d) => d < -LIMITS.refDb)) problems.push('QUIET');
+  verdict(ui, problems, []);
+  ui.stats.textContent = `peak ${fmt(a.peakDb)} dB · loop rms ${fmt(loopRms)} dB (${off.map((d) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`).join(' / ')} vs ${REFS.join(' / ')}) · sections ${sections.map((x) => `${x.part} ${fmt(x.rmsDb)}`).join(', ')}`;
+  ui.meta.textContent = `${describe(tr, c)}${c.intro.length ? ` after a ${c.introSeconds.toFixed(1)} s intro` : ''} · sections ${[...c.intro, ...c.loop].join(' ')}`;
+  return { name, peakDb: +fmt(a.peakDb), rmsDb: +fmt(loopRms), sections, loopBars: c.loopBars, loopSeconds: +c.loopSeconds.toFixed(1), ok: !problems.length, problems };
+}
+
 async function run() {
-  const report = { sfx: [], music: [], failures: [], limits: LIMITS };
-  for (const name of TRACK_NAMES) {
-    const c = compileTrack(name); // throws on malformed track data
-    const cv = el('canvas', { class: 'roll', width: 2200, height: 170 });
-    rollGrid.appendChild(el('div', { class: 'card' }, [
-      el('div', { class: 'head' }, [el('span', { class: 'name', text: name }), el('span', { class: 'stats', text: `${TRACKS[name].bpm} bpm \u00b7 ${c.loopBars} bar loop` }),
-        liveButton('\u25b6', () => { audio.music(name); refreshButtons(); })]),
-      cv,
-    ]));
-    drawRoll(cv, name);
+  const report = { sfx: [], music: [], motifs: {}, failures: [], limits: LIMITS, refs: {} };
+  const tracks = [];
+  for (const name of trackJobs) {
+    const c = compiledTrack(name); // null (and a console.error) for a malformed track
+    if (!c) {
+      report.failures.push(`${name}: malformed`);
+      continue;
+    }
+    const motifs = TRACKS[name].motifs || [];
+    const hits = motifs.flatMap((m) => findMotif(c, m).map((h) => ({ ...h, motif: m })));
+    report.motifs[name] = Object.fromEntries(motifs.map((m) => [m, hits.filter((h) => h.motif === m).map((h) => `${h.line} ${h.part}:${h.bar}`)]));
+    for (const m of motifs) if (!hits.some((h) => h.motif === m)) report.failures.push(`${name}: motif ${m} missing`);
+    rollCard(name, c, hits);
+    tracks.push([name, c]);
   }
 
-  for (const [name, part] of MUSIC_JOBS) {
-    const c = compileTrack(name);
-    const label = part ? `${name} · ${part}` : name;
-    const ui = makeCard(musicGrid, label, () => { audio.music(name); refreshButtons(); }, 1100, 90, 96);
-    status.textContent = `rendering ${label}...`;
-    const buf = await renderOffline('music', name, { seconds: 8, sampleRate: SR, part });
-    const a = analyze(buf, { skip: 0.5 });
-    drawWave(ui.wave, buf, '#7fe3ff', 'linear');
-    drawSpectrogram(ui.spec, buf);
-    const problems = [];
-    if (a.peakDb < LIMITS.silentDb) problems.push('SILENT');
-    if (a.peakDb > LIMITS.clipDb) problems.push('CLIP');
-    if (a.rmsDb < LIMITS.musicRms[0]) problems.push('QUIET');
-    if (a.rmsDb > LIMITS.musicRms[1]) problems.push('LOUD');
-    verdict(ui, problems, []);
-    ui.stats.textContent = `peak ${fmt(a.peakDb)} dB · rms ${fmt(a.rmsDb)} dB`;
-    const tr = TRACKS[name];
-    ui.meta.textContent = `${tr.bpm} bpm · loop ${c.loopBars} bars (${c.loopSeconds.toFixed(1)} s)${c.intro.length ? ` after a ${c.introSeconds.toFixed(1)} s intro` : ''} · sections ${[...c.intro, ...c.loop].join(' ')}`;
-    const row = { name: label, peakDb: +fmt(a.peakDb), rmsDb: +fmt(a.rmsDb), ok: !problems.length };
+  // the references first: every other track is measured against them
+  const refs = [];
+  for (const [name, c] of tracks.filter(([n]) => REFS.includes(n))) {
+    const row = await renderTrack(name, c, []);
+    report.refs[name] = row.rmsDb;
+    refs.push(row.rmsDb);
     report.music.push(row);
-    if (problems.length) report.failures.push(`${label}: ${problems.join(',')}`);
+  }
+  for (const [name, c] of tracks.filter(([n]) => !REFS.includes(n))) {
+    const row = await renderTrack(name, c, refs);
+    report.music.push(row);
+    if (!row.ok) report.failures.push(`${name}: ${row.problems.join(',')}`);
   }
 
-  for (const name of SFX_NAMES) {
+  for (const name of sfxJobs) {
     const ui = makeCard(sfxGrid, name, () => audio.sfx(name, name === 'boost' ? { pitch: 1 + Math.floor(Math.random() * 3) } : {}), 560, 64, 56);
+    ui.card.id = `sfx-${name}`;
     status.textContent = `rendering ${name}...`;
     const buf = await renderOffline('sfx', name, { seconds: SFX_SECONDS[name] || 1.4, sampleRate: SR });
     const a = analyze(buf);
@@ -418,23 +501,27 @@ async function run() {
   }
 
   const sfxPeaks = report.sfx.map((r) => r.peakDb);
+  const musicRms = report.music.map((r) => r.rmsDb);
   report.summary = {
     sfxOk: report.sfx.filter((r) => r.ok).length,
     sfxTotal: report.sfx.length,
     musicOk: report.music.filter((r) => r.ok).length,
     musicTotal: report.music.length,
-    sfxPeakMax: Math.max(...sfxPeaks),
-    sfxPeakMin: Math.min(...sfxPeaks),
-    musicRmsRange: [Math.min(...report.music.map((r) => r.rmsDb)), Math.max(...report.music.map((r) => r.rmsDb))],
+    sfxPeakMax: sfxPeaks.length ? Math.max(...sfxPeaks) : null,
+    sfxPeakMin: sfxPeaks.length ? Math.min(...sfxPeaks) : null,
+    musicRmsRange: musicRms.length ? [Math.min(...musicRms), Math.max(...musicRms)] : null,
   };
   const s = report.summary;
   status.remove();
+  const chip = (ok, label, value) => el('span', { class: `chip${ok == null ? '' : ok ? ' good' : ' bad'}` }, [label, el('b', { text: value })]);
   chips.append(
-    el('span', { class: `chip ${s.sfxOk === s.sfxTotal ? 'good' : 'bad'}` }, ['sfx ', el('b', { text: `${s.sfxOk}/${s.sfxTotal}` }), ' pass']),
-    el('span', { class: `chip ${s.musicOk === s.musicTotal ? 'good' : 'bad'}` }, ['music ', el('b', { text: `${s.musicOk}/${s.musicTotal}` }), ' pass']),
-    el('span', { class: 'chip' }, ['sfx peaks ', el('b', { text: `${fmt(s.sfxPeakMin)} .. ${fmt(s.sfxPeakMax)} dBFS` })]),
-    el('span', { class: 'chip' }, ['music rms ', el('b', { text: `${fmt(s.musicRmsRange[0])} .. ${fmt(s.musicRmsRange[1])} dBFS` })]),
+    chip(s.sfxOk === s.sfxTotal, 'sfx ', `${s.sfxOk}/${s.sfxTotal} pass`),
+    chip(s.musicOk === s.musicTotal, 'music ', `${s.musicOk}/${s.musicTotal} pass`),
+    chip(Object.values(report.motifs).every((m) => Object.values(m).every((l) => l.length)), 'motifs ', `${Object.values(report.motifs).reduce((n, m) => n + Object.keys(m).length, 0)} found`),
+    chip(null, 'reference rms ', REFS.map((r) => `${r} ${fmt(report.refs[r])}`).join(' · ')),
   );
+  if (s.sfxPeakMin != null) chips.append(chip(null, 'sfx peaks ', `${fmt(s.sfxPeakMin)} .. ${fmt(s.sfxPeakMax)} dBFS`));
+  if (s.musicRmsRange) chips.append(chip(null, 'music rms ', `${fmt(s.musicRmsRange[0])} .. ${fmt(s.musicRmsRange[1])} dBFS`));
   console.table(report.music);
   console.table(report.sfx);
   if (report.failures.length) console.warn('[audio bench] failures:', report.failures.join('; '));
