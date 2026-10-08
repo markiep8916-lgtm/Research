@@ -31,7 +31,7 @@ const scripts = {
     await step(cs, args, 1);
 
     // 2. actors: spawn a hologram, face, pose, emote
-    await cs.spawn('dev_holo', { sprite: 'holo', x: at(0, -1.6)[0], z: at(0, -1.6)[1], facing: 'down', hologram: true, name: 'HALCYON' });
+    await cs.spawn('dev_holo', { sprite: 'holo', x: at(2.2, -1.3)[0], z: at(2.2, -1.3)[1], facing: 'left', hologram: true, name: 'HALCYON' });
     cs.face('leader', 'dev_holo');
     cs.anim('dev_holo', 'idle_down');
     await cs.emote('dev_holo', '!');
@@ -91,7 +91,7 @@ const scripts = {
 
     // 7. world: lights, particles, living props
     cs.light('water', { color: '#ffd27a', intensity: 20 });
-    cs.particles('holo', [at(0, -1.6)[0], 1, at(0, -1.6)[1]], { count: 24 });
+    cs.particles('holo', [at(2.2, -1.3)[0], 1, at(2.2, -1.3)[1]], { count: 24 });
     const pod = cs.prop('dev_pod');
     await cs.say('KADE', pod ? 'The pod reports in.' : 'No pod answers.');
     cs.light('water', { color: '#3fd6ff', intensity: 12 });

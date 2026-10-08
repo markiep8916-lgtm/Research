@@ -73,15 +73,15 @@ const MOODS = {
 const MEMORY_FX = {
   bloom: { strength: 1.25 },
   grade: {
-    saturation: 0.82, contrast: 1.14, exposure: 1.06, aberration: 0.0045, grain: 0.07, vignette: 0.62,
-    shadowTint: [0.84, 0.78, 1.18], highlightTint: [0.82, 1.08, 1.16],
+    saturation: 0.8, contrast: 1.16, exposure: 1.08, aberration: 0.005, grain: 0.07, vignette: 0.64,
+    shadowTint: [0.8, 0.7, 1.26], highlightTint: [0.78, 1.1, 1.2],
   },
 };
 
 const CSS = `
 .vp-cs-fade { position: absolute; inset: 0; z-index: 25; pointer-events: none; opacity: 0; background: #000; }
 .vp-cs-scan { position: absolute; inset: 0; z-index: 24; pointer-events: none; opacity: 0; transition: opacity .6s linear;
-  background: repeating-linear-gradient(180deg, rgba(120,230,255,.07) 0 1px, transparent 1px 3px); mix-blend-mode: screen; }
+  background: repeating-linear-gradient(180deg, rgba(120,230,255,.1) 0 1px, transparent 1px 3px); mix-blend-mode: screen; }
 .vp-cs-scan.is-on { opacity: 1; }
 `;
 
