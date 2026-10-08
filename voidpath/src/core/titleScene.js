@@ -1,7 +1,12 @@
 // Title backdrop: the four travelers on the ISV Halcyon's observation deck, gazing out through the
 // panoramic window at the ringed gas giant. Planet light pours through the glass (strut shadows on
 // the deck, light shafts, dust), a cyan bounce and an amber work lamp rim the sprites, and the camera
-// eases in, then drifts. TitleState wraps it for the game: ui.title over it, 'title' music.
+// eases in, then drifts. After a clear the window shows Ione at dawn instead (setDawn). TitleState
+// wraps it for the game: ui.title over it (Continue / New Journey / Load), 'title' music.
+//
+// export class TitleScene { constructor(engine); warm() -> Promise; setDawn(on); reset(); update(dt, t) }
+// export class TitleState { constructor(ctx, view); enter({ deferUI }); showUI(); exit(); update(dt, t) }
+// export function hasCleared() -> bool   voidpath.cleared in localStorage, else the latest save's summary
 
 import * as THREE from 'three';
 import { SpriteActor } from './spriteActor.js';
@@ -11,6 +16,7 @@ import { makeMaterial, textureSet, setTextureFrame } from '../art/tiles.js';
 import { buildBattleSprite, PARTY_IDS } from '../art/characters.js';
 import { makeCanvas } from '../art/painter.js';
 import { clamp, ease, lerp } from './util.js';
+import { latestSlot, readSlot, isCleared } from './save.js';
 
 const FOV = 30;
 const WALL_Z = -6;
@@ -35,6 +41,18 @@ const TALL = [[-0.8, 0.9], [0.0, 0.2], [0.8, -0.5], [1.55, -1.2]];
 // Where the planet sits on screen ([x, y] from the top-left, 0..1) and its angular radius (degrees).
 const PLANET_WIDE = { x: 0.18, y: 0.44, r: 6.7 };
 const PLANET_TALL = { x: 0.38, y: 0.19, r: 4.2 };
+// Ione at dawn (bd_ione_dawn, 2:1): its centre on screen and its angular width (degrees)
+const DAWN_WIDE = { x: 0.3, y: 0.42, w: 64 };
+const DAWN_TALL = { x: 0.5, y: 0.24, w: 50 };
+// the planet light shadow map per quality (shadows are off on low)
+const SHADOW_SIZE = { low: 512, medium: 1024, high: 2048 };
+
+/** A completed journey: the title then shows Ione at dawn. */
+export function hasCleared() {
+  if (isCleared()) return true;
+  const slot = latestSlot();
+  return !!(slot && readSlot(slot)?.summary?.cleared);
+}
 
 const _v = new THREE.Vector3();
 const _dir = new THREE.Vector3();
@@ -72,6 +90,7 @@ export class TitleScene {
     this.animated = [];
     this.time = 0;
     this.intro = 0;
+    this.dawn = false;
     this.fx = {
       tiltShift: { enabled: true, focusY: 0.34, band: 0.2, falloff: 0.36, maxBlur: 0.85 },
       bloom: { enabled: true, strength: 1.0, radius: 0.62, threshold: 0.76 },
@@ -189,6 +208,7 @@ export class TitleScene {
     const set = textureSet('space_backdrop');
     set.map.repeat.x = -1;     // mirrored: the planet on the left, open space toward the travelers
     set.map.offset.x = 1;
+    this._spaceMap = set.map;
     this.space = new THREE.Mesh(new THREE.PlaneGeometry(2, 1), new THREE.MeshBasicMaterial({ map: set.map, fog: false, color: new THREE.Color(0.9, 0.9, 0.95) }));
     s.add(this.space);
     // volumetric light falling through the glass toward the deck (and the travelers)
@@ -208,7 +228,9 @@ export class TitleScene {
     sun.position.set(-7, 9, -13);
     sun.target.position.set(1.5, 0, 0);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    this._shadowQ = this.engine.quality;
+    sun.shadow.mapSize.setScalar(SHADOW_SIZE[this._shadowQ] || 1024);
+    this.sun = sun;
     Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 50 });
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 0.02;
@@ -246,9 +268,23 @@ export class TitleScene {
     this._layout();
   }
 
-  /** Compile every program now so the first title frame does not hitch. */
+  /** Compile every program for the composer's render target now, so the first title frame does not hitch. */
   warm() {
-    this.engine.renderer.compile(this.scene, this.camera);
+    return this.engine.compileScene(this.scene, this.camera);
+  }
+
+  /** Ione at dawn through the glass (after a clear) instead of the ringed giant. */
+  setDawn(on) {
+    if (this.dawn === !!on) return;
+    this.dawn = !!on;
+    const mat = this.space.material;
+    mat.map = on ? (this._dawnMap ||= textureSet('bd_ione_dawn').map) : this._spaceMap;
+    mat.color.setScalar(on ? 1 : 0.92);
+    mat.needsUpdate = true;
+    // dawn light: a warm low sun through the glass, a rose rim on the travelers
+    this.sun.color.set(on ? '#ffc8a4' : '#a9c8ff');
+    this.rim.color.set(on ? '#ffb8c8' : '#7fd8ff');
+    this._placeSpace();
   }
 
   _layout() {
@@ -280,6 +316,7 @@ export class TitleScene {
 
   update(dt, t) {
     if (this.engine.size.aspect !== this._aspect) this._layout();
+    if (this.engine.quality !== this._shadowQ) this._resizeShadow();
     this.time += dt;
     this.intro = Math.min(1, this.intro + dt / 5);
     for (const a of this.party) a.update(dt);
@@ -334,8 +371,20 @@ export class TitleScene {
     }
   }
 
-  /** Hang the painted planet far away so it appears at the layout's screen spot and size. */
+  _resizeShadow() {
+    this._shadowQ = this.engine.quality;
+    const sh = this.sun.shadow;
+    sh.mapSize.setScalar(SHADOW_SIZE[this._shadowQ] || 1024);
+    sh.map?.dispose();
+    sh.map = null;
+  }
+
+  /** Hang the painted planet (or Ione's dawn) far away at the layout's screen spot and size. */
   _placeSpace() {
+    if (this.dawn) {
+      this._placeDawn();
+      return;
+    }
     const p = this._k > 0.5 ? PLANET_TALL : PLANET_WIDE;
     const cam = this.camera;
     _dir.set(p.x * 2 - 1, 1 - p.y * 2, 0.5).unproject(cam).sub(cam.position).normalize();
@@ -348,6 +397,17 @@ export class TitleScene {
     sp.translateX(-(PLANET_U - 0.5) * W);
     sp.translateY(-(0.5 - PLANET_V) * (W / 2));
   }
+
+  _placeDawn() {
+    const p = this._k > 0.5 ? DAWN_TALL : DAWN_WIDE;
+    const cam = this.camera;
+    _dir.set(p.x * 2 - 1, 1 - p.y * 2, 0.5).unproject(cam).sub(cam.position).normalize();
+    const W = 2 * SPACE_DIST * Math.tan(THREE.MathUtils.degToRad(p.w / 2));
+    const sp = this.space;
+    sp.scale.set(W / 2, W / 2, 1);
+    sp.position.copy(cam.position).addScaledVector(_dir, SPACE_DIST);
+    sp.lookAt(_v.copy(cam.position));
+  }
 }
 
 /** The 'title' game state: the backdrop above with ui.title over it. */
@@ -357,14 +417,21 @@ export class TitleState {
     this.view = view;
   }
 
-  /** params.deferUI: leave the title overlay hidden until showUI() (boot screen still fading). */
+  /**
+   * params.deferUI: leave the title overlay hidden until showUI() (the boot screen or the fade back
+   * to the title is still running, so no press can act before the title is visible).
+   */
   enter(params = {}) {
-    const { engine, ui, audio } = this.ctx;
+    const { engine, ui, audio, input } = this.ctx;
+    this.view.setDawn(hasCleared());
     this.view.reset();
     engine.setView(this.view.scene, this.view.camera);
     engine.setFx(this.view.fx);
     ui.dialog.clear();
     if (ui.menu.isOpen) ui.menu.close();
+    // neither the pause menu nor battle buttons may appear over the title or the New Journey iris
+    input.setContext('title');
+    ui.menuEnabled = false;
     ui.hud.setPrompt(null);
     ui.hud.setDanger(0);
     ui.hud.setVisible(false);
@@ -373,7 +440,13 @@ export class TitleState {
   }
 
   showUI() {
-    this.ctx.ui.title.show({ onStart: () => this.ctx.game.newJourney() });
+    const { ui, game } = this.ctx;
+    ui.title.show({
+      hasSave: !!latestSlot(),
+      onStart: () => { game.newJourney(); },
+      onContinue: () => { game.continue(); },
+      onLoad: () => { game.loadMenu(); },
+    });
   }
 
   exit() {

@@ -1,6 +1,8 @@
 // VFX preview: lit SpriteActors (flip, aura, hologram, hit flash, dithered fade), every particle
-// preset, light shafts, glows and light flicker in a small diorama. Keys 1-4 switch camera views,
-// Space pauses the orbiting lights. window.__PREVIEW.setView(name) does the same for tests.
+// preset (the POC set, the chapter ambience presets, a registered one and an unknown name), light
+// shafts, glows and light flicker in a small diorama. Keys 1-8 switch camera views (overview,
+// actors, particles, rimtest, closeup, shadows, trio, presets), Space pauses the orbiting lights.
+// window.__PREVIEW.setView(name) does the same for tests; #presets opens on the new presets.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -10,7 +12,8 @@ import { Painter, packSheet, makeNormalMap, makeEmissiveMap, toTexture, parseCol
 import { RAMPS, GLOW, OUTLINE } from '../art/palette.js';
 import { injectCSS, el } from '../core/util.js';
 import { SpriteActor } from '../core/spriteActor.js';
-import { Particles, PARTICLE_PRESETS } from '../core/particles.js';
+import { Particles, PARTICLE_PRESETS, registerPreset } from '../core/particles.js';
+import devArt from '../content/dev/art.js';
 import { makeGlow, makeLightShaft, makeFlicker, updateVfx } from '../core/vfx.js';
 
 // ---------------------------------------------------------------- stand-in pixel art
@@ -283,10 +286,10 @@ composer.setSize(innerWidth, innerHeight);
 
 // ---------------------------------------------------------------- diorama
 
-const floorMap = toTexture(floorTile(), { repeat: [12, 7] });
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 14), new THREE.MeshStandardMaterial({ map: floorMap, roughness: 0.7, metalness: 0.35 }));
+const floorMap = toTexture(floorTile(), { repeat: [12, 9] });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 18), new THREE.MeshStandardMaterial({ map: floorMap, roughness: 0.7, metalness: 0.35 }));
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(0, 0, 0.5);
+floor.position.set(0, 0, 2.5);
 floor.receiveShadow = true;
 scene.add(floor);
 
@@ -404,7 +407,9 @@ const rimActors = [-1.4, 1.4].map((x, i) => {
 
 // ---------------------------------------------------------------- particles
 
-const particles = new Particles(scene, { max: 4000 });
+// a content preset registered like content/<loc>/art.js does, and one unknown name (placeholder)
+for (const [name, layers] of Object.entries(devArt.particles)) registerPreset(name, ...layers);
+const particles = new Particles(scene, { max: 6000 });
 particles.addEmitter('dust', { position: new THREE.Vector3(0, 1.6, 0), area: [20, 3.2, 10], rate: 9 });
 const stations = [];
 const CONT = {
@@ -417,13 +422,26 @@ const CONT = {
   boost: { area: [0, 0, 0], rate: 16, y: 0.05 },
   heal: { area: [0, 0, 0], rate: 9, y: 0.1 },
   smoke: { area: [0.2, 0.05, 0.2], rate: 4, y: 0.05 },
+  firefly: { area: [1.4, 1, 1.4], rate: 3, y: 0.8 },
+  rain: { area: [1.2, 0.1, 1.2], rate: 40, y: 3 },
+  drip: { area: [0.6, 0.05, 0.6], rate: 3, y: 2.6 },
+  snow: { area: [1.6, 2, 1.6], rate: 10, y: 1.5 },
+  spore: { area: [1, 0.2, 1], rate: 5, y: 0.2 },
+  petal: { area: [1.4, 0.5, 1.4], rate: 4, y: 2.2 },
+  data: { area: [0.8, 0.1, 0.8], rate: 12, y: 0.1 },
+  glitch: { area: [0.6, 0.8, 0.6], rate: 2, burst: 10, y: 0.8 },
+  mote: { area: [1.2, 0.6, 1.2], rate: 5, y: 0.6 },
+  ash: { area: [1.6, 0.4, 1.6], rate: 6, y: 2.6 },
+  light_stream: { area: [0.8, 0.1, 0.8], rate: 14, y: 3.5 },
+  dev_sparkle: { area: [0.6, 0.2, 0.6], rate: 6, y: 0.3 },
 };
-PARTICLE_PRESETS.forEach((name, i) => {
-  const x = -6.3 + (i % 8) * 1.8, z = i < 8 ? 1.3 : 3.3;
+[...PARTICLE_PRESETS, 'not_a_preset'].forEach((name, i) => {
+  const x = -6.3 + (i % 8) * 1.8, z = 1.3 + Math.floor(i / 8) * 2;
   const c = CONT[name];
   const pos = new THREE.Vector3(x, c ? c.y : 0.6, z);
   if (c) particles.addEmitter(name, { position: pos, ...c });
-  stations.push({ name, pos, burst: !c, timer: 0.3 + (i % 8) * 0.17, label: name, labelPos: new THREE.Vector3(x, -0.05, z + 0.45) });
+  const label = name === 'not_a_preset' ? 'unknown name' : name;
+  stations.push({ name, pos, burst: !c, timer: 0.3 + (i % 8) * 0.17, label, labelPos: new THREE.Vector3(x, -0.05, z + 0.45) });
 });
 
 // ---------------------------------------------------------------- labels
@@ -452,6 +470,7 @@ const VIEWS = {
   closeup: { target: [-2.6, 0.85, -1.4], dist: 6.5, pitch: 0.5 },
   shadows: { target: [-1, 0, -1.6], dist: 11, pitch: 1.15 },
   trio: { target: [2.2, 0.8, -1.4], dist: 5.5, pitch: 0.45 },
+  presets: { target: [0, 0.9, 6.1], dist: 15.5, pitch: 0.62 },
 };
 let view = 'overview';
 let paused = false;
@@ -465,7 +484,7 @@ function setView(name) {
   camera.position.set(tx, ty + Math.sin(v.pitch) * v.dist, tz + Math.cos(v.pitch) * v.dist);
   camera.lookAt(tx, ty, tz);
 }
-setView('overview');
+setView(location.hash === '#presets' ? 'presets' : 'overview');
 addEventListener('keydown', (e) => {
   if (e.key === ' ') paused = !paused;
   const names = Object.keys(VIEWS);

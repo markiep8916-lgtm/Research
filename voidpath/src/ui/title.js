@@ -1,9 +1,16 @@
 // Title overlay drawn over the live 3D backdrop (transparent middle, soft top/bottom shading):
 // chrome VOIDPATH logotype with chromatic ghosts and a sweeping sheen, amber rule, tagline,
-// blinking Press Start, then a small menu (New Journey / Controls / Sound).
+// blinking Press Start, then a small menu (Continue / New Journey / Load / Controls / Sound).
+//
+//   ui.title.show({ onStart, onContinue, onLoad, hasSave })
+//     Continue appears (and is preselected) when hasSave; Load is dimmed without a save. onStart and
+//     onContinue hide the title unless they return false; onLoad leaves it up under the save
+//     picker. Input is ignored while the engine runs a transition (no soft-lock when Confirm is
+//     mashed through the fade back to the title), and hiding leaves the input context at 'title'
+//     until the next state sets its own (no pause menu or battle buttons during the iris).
 
 import { el, injectCSS } from '../core/util.js';
-import { bindPointer, controlsTable, glyph } from './theme.js';
+import { bindPointer, controlsTable, glyph, onTap } from './theme.js';
 
 const CSS = `
 .vp-title { z-index: 50; opacity: 0; visibility: hidden; transition: opacity .7s var(--vp-ease-out), visibility 0s linear .7s; overflow: hidden; }
@@ -41,10 +48,13 @@ const CSS = `
 .vp-press span { padding-left: .5em; }
 @keyframes vp-blink { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
 .vp-title-menu { display: none; min-width: 300px; padding: 10px 0; }
-.vp-title-menu .vp-row { justify-content: center; padding: 0 40px; min-height: 48px; font: 600 16px var(--vp-font-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--vp-ink-dim); }
+.vp-title-menu .vp-row { justify-content: center; padding: 0 40px; min-height: 42px; font: 600 16px var(--vp-font-ui); letter-spacing: .3em; text-transform: uppercase; color: var(--vp-ink-dim); }
 .vp-title-menu .vp-row.is-sel { color: var(--vp-amber); background: linear-gradient(90deg, rgba(255,197,96,0), rgba(255,197,96,.16), rgba(255,197,96,0)); box-shadow: none; }
 .vp-title-menu .vp-row::before { left: 22px; }
+.vp-title-menu .vp-row.is-dim { color: var(--vp-ink-faint); }
+.vp-title-menu .vp-row.is-dim.is-sel { color: #c99a4f; }
 .vp-title.is-menu .vp-press { display: none; }
+.vp-title.is-menu .vp-title-lower { bottom: calc(9% + var(--vp-safe-bottom)); }
 .vp-title.is-menu .vp-title-menu { display: block; animation: vp-tmenu .35s var(--vp-ease-out); }
 @keyframes vp-tmenu { from { opacity: 0; transform: translateY(8px); } }
 .vp-title-foot { position: absolute; left: 16px; right: 16px; bottom: calc(18px + var(--vp-safe-bottom)); text-align: center; color: var(--vp-ink-faint); letter-spacing: .3em; }
@@ -89,25 +99,14 @@ export class Title {
     this._sel = 0;
 
     this.press = el('div', { class: 'vp-press' }, [el('span', { text: 'Press Start' })]);
-    this.items = [
-      { id: 'start', label: 'New Journey' },
-      { id: 'controls', label: 'Controls' },
-      { id: 'sound', label: 'Sound: On' },
-    ];
-    this.rows = this.items.map((it, i) => {
-      const row = el('div', { class: 'vp-row', role: 'menuitem', text: it.label });
-      bindPointer(row, {
-        onHover: () => this._select(i, true),
-        onActivate: () => { this._select(i, false); this._activate(); },
-      });
-      return row;
-    });
-    this.menuBox = el('div', { class: 'vp-title-menu', role: 'menu' }, this.rows);
+    this.items = [];
+    this.rows = [];
+    this.menuBox = el('div', { class: 'vp-title-menu', role: 'menu' });
     this.ctlBody = el('div', { class: 'vp-scroll' });
     this.ctlFoot = el('div', { class: 'vp-title-ctl-foot' });
-    this.ctlFoot.addEventListener('click', (e) => { e.stopPropagation(); this._closeControls(); });
+    onTap(this.ctlFoot, () => this._closeControls());
     this.ctl = el('div', { class: 'vp-panel vp-title-ctl' }, [el('h2', { text: 'Controls' }), this.ctlBody, this.ctlFoot]);
-    this.ctl.addEventListener('click', (e) => e.stopPropagation());
+    onTap(this.ctl, () => {});
 
     this.root = el('div', { class: 'vp-layer vp-title' }, [
       el('div', { class: 'vp-title-shade' }),
@@ -119,23 +118,40 @@ export class Title {
           el('span', { class: 'vp-logo-main', text: 'VOIDPATH' }),
         ]),
         el('div', { class: 'vp-rule' }, [el('i'), el('b'), el('i')]),
-        el('div', { class: 'vp-tagline', text: 'A 2D-HD proof of concept' }),
+        el('div', { class: 'vp-tagline', text: 'A 2D-HD RPG' }),
       ]),
       el('div', { class: 'vp-title-lower' }, [this.press, this.menuBox]),
       el('div', { class: 'vp-cap vp-title-foot', text: 'Procedural pixel art · WebGL diorama · WebAudio score' }),
       this.ctl,
     ]);
     // tap anywhere on "Press Start" advances to the menu
-    this.root.addEventListener('click', () => {
-      if (!this.isOpen) return;
+    onTap(this.root, () => {
+      if (!this.isOpen || this._busy()) return;
       if (this.phase === 'press') this._toMenu();
       else if (this.phase === 'controls') this._closeControls();
     });
     ui.root.appendChild(this.root);
   }
 
-  show({ onStart } = {}) {
-    this.onStart = onStart;
+  show({ onStart, onContinue, onLoad, hasSave = false } = {}) {
+    this.cb = { start: onStart, continue: onContinue, load: onLoad };
+    this.hasSave = !!hasSave;
+    this.items = [
+      hasSave ? { id: 'continue', label: 'Continue' } : null,
+      { id: 'start', label: 'New Journey' },
+      { id: 'load', label: 'Load', dim: !hasSave },
+      { id: 'controls', label: 'Controls' },
+      { id: 'sound', label: 'Sound: On' },
+    ].filter(Boolean);
+    this.rows = this.items.map((it, i) => {
+      const row = el('div', { class: `vp-row${it.dim ? ' is-dim' : ''}`, role: 'menuitem', text: it.label });
+      bindPointer(row, {
+        onHover: () => this._select(i, true),
+        onActivate: () => { if (this._busy()) return; this._select(i, false); this._activate(); },
+      });
+      return row;
+    });
+    this.menuBox.replaceChildren(...this.rows);
     this.phase = 'press';
     this._sel = 0;
     this._syncSound();
@@ -153,12 +169,18 @@ export class Title {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.classList.remove('is-open', 'is-live');
-    this.ui._ctxPop('title');
+    this.ui._ctxPop('title', 'title');
+  }
+
+  /** A transition (the fade back to the title, the New Journey iris) is running: ignore input. */
+  _busy() {
+    return !!(this.ui.engine && this.ui.engine.transitioning);
   }
 
   update(dt, focused) {
     if (!this.isOpen || !focused) return;
     const inp = this.ui.input;
+    if (this._busy()) { for (const a of ['confirm', 'cancel', 'menu']) inp.consume(a); return; }
     if (this.phase === 'press') {
       if (inp.pressed('confirm') || inp.pressed('menu')) { inp.consume('confirm'); inp.consume('menu'); this._toMenu(); }
       return;
@@ -188,12 +210,16 @@ export class Title {
   }
 
   _activate() {
-    const id = this.items[this._sel].id;
-    if (id === 'start') {
+    const it = this.items[this._sel];
+    const id = it.id;
+    if (id === 'start' || id === 'continue') {
       this.ui.sfx('confirm');
-      const cb = this.onStart;
-      this.hide();
-      if (cb) cb();
+      const cb = this.cb[id];
+      if (!cb || cb() !== false) this.hide();
+    } else if (id === 'load') {
+      if (it.dim) { this.ui.sfx('error'); return; }
+      this.ui.sfx('confirm');
+      if (this.cb.load) this.cb.load();
     } else if (id === 'controls') {
       this.ui.sfx('confirm');
       this.phase = 'controls';
@@ -214,6 +240,7 @@ export class Title {
   }
 
   _syncSound() {
-    this.rows[2].textContent = `Sound: ${this.ui.getSetting('sound') ? 'On' : 'Off'}`;
+    const i = this.items.findIndex((it) => it.id === 'sound');
+    if (i >= 0) this.rows[i].textContent = `Sound: ${this.ui.getSetting('sound') ? 'On' : 'Off'}`;
   }
 }

@@ -1,7 +1,10 @@
-// Battle DOM UI: turn order bar, party status panel, command menu with Boost, targeting cursor,
-// per-enemy shield / weakness / HP plates, floating damage numbers, the BREAK callout, banners, the
-// boss lock-on reticle and the results panel. It draws from its own view state (updated by the
-// director as events play), never from the model's already-resolved numbers.
+// Battle DOM UI: turn order bar, party status panel (1-4 members), command menu with Boost,
+// targeting cursor, per-enemy shield / weakness / HP plates, floating damage numbers, the BREAK
+// callout, banners, the boss lock-on reticle, the charge warning band, the battle dialog strip
+// (ui.say), the boss intro card (ui.bossCard), ultimate cut-ins and awakenings (ui.ultimateCut) and
+// the results panel. It draws from its own view state (updated by the director as events play), never
+// from the model's already-resolved numbers. Plates are keyed by combatant id (summons: addFoe,
+// transforms: resetFoe, untargetable foes: setUntargetable).
 //
 // Everything is in one root inside #ui-root, scaled like the field UI on big screens. World-anchored
 // pieces are positioned from engine.projectToScreen every frame (only when they move).
@@ -13,7 +16,7 @@ import { portraitURL } from '../art/characters.js';
 import { buildEnemyIcon } from '../art/enemies.js';
 import { DAMAGE_COLORS } from '../art/palette.js';
 import { installBaseCSS, glyph, TYPE_LABEL, MEMBER_ACCENT, bindPointer } from '../ui/theme.js';
-import { ITEMS } from './data.js';
+import { ITEMS, SKILLS } from './data.js';
 
 const CSS = `
 .vb-root { position: absolute; inset: 0; z-index: 12; pointer-events: none; font-family: var(--vp-font-ui); color: var(--vp-ink); }
@@ -28,7 +31,7 @@ const CSS = `
 
 /* ---------------------------------------------------------------- turn order */
 .vb-top { position: absolute; left: calc(14px + var(--vp-safe-left)); right: calc(14px + var(--vp-safe-right)); top: calc(12px + var(--vp-safe-top));
-  display: flex; align-items: flex-start; gap: 14px; }
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; }
 .vb-turns { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 8px; flex: none; max-width: 100%; }
 .vb-round { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 50px; padding-right: 10px; border-right: 1px solid var(--vp-line-dim); align-self: stretch; }
 .vb-round .vp-cap { font-size: 10px; letter-spacing: .3em; padding-left: .3em; color: var(--vp-cyan); }
@@ -57,7 +60,7 @@ const CSS = `
 @keyframes vb-pop { 0% { transform: scale(1.6); color: var(--vp-amber); } 100% { transform: none; } }
 
 /* ---------------------------------------------------------------- help line */
-.vb-help { margin-left: auto; width: min(540px, 44vw); min-height: 52px; padding: 9px 18px; display: flex; align-items: center; gap: 12px;
+.vb-help { margin-left: auto; width: min(540px, 44vw); min-width: min(300px, 100%); min-height: 52px; padding: 9px 18px; display: flex; align-items: center; gap: 12px;
   font: 500 15px/1.35 var(--vp-font-ui); color: var(--vp-ink); opacity: 0; transform: translateY(-6px); transition: opacity .16s, transform .2s var(--vp-ease-out); }
 .vb-help.is-on { opacity: 1; transform: none; }
 .vb-help .vb-help-t { flex: 1; min-width: 0; }
@@ -80,6 +83,8 @@ const CSS = `
 
 /* ---------------------------------------------------------------- party panel */
 .vb-party { position: absolute; right: calc(14px + var(--vp-safe-right)); bottom: calc(12px + var(--vp-safe-bottom)); width: 430px; padding: 6px 0; }
+.vb-row.is-ult .vb-pt { box-shadow: 0 0 0 1px var(--vp-amber), 0 0 12px rgba(255,197,96,.75); animation: vb-ult 1.2s ease-in-out infinite alternate; }
+@keyframes vb-ult { to { box-shadow: 0 0 0 1px #fff3c4, 0 0 18px rgba(255,197,96,.95); } }
 .vb-row { --acc: var(--vp-cyan); position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center; padding: 5px 14px 5px 10px;
   transition: transform .2s var(--vp-ease-out), background-color .2s, opacity .3s; }
 .vb-row + .vb-row { border-top: 1px solid rgba(140,214,255,.07); }
@@ -102,6 +107,9 @@ const CSS = `
 .vb-buffs { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
 .vb-buff { padding: 1px 4px; font: 700 10px/1.3 var(--vp-font-display); letter-spacing: .08em; border: 1px solid currentColor; }
 .vb-buff.up { color: #8affc0; } .vb-buff.down { color: #ff8fa0; } .vb-buff.taunt { color: var(--vp-amber); }
+.vb-buff.ail { display: inline-flex; align-items: center; gap: 2px; padding: 0 3px 0 1px; color: #c9b8ff; }
+.vb-buff.ail img { width: 12px; height: 12px; }
+.vb-buff.ail.marked { color: #ff7b88; } .vb-buff.ail.jam { color: #ffd27a; }
 .vb-bp { display: flex; gap: 1px; margin-left: auto; flex: none; }
 .vb-bp img { width: 16px; height: 16px; transition: transform .2s; }
 .vb-bp img.is-new { animation: vb-pip .45s var(--vp-ease-out); }
@@ -180,6 +188,18 @@ const CSS = `
 .vb-foe-name { font: 600 11px/1 var(--vp-font-ui); letter-spacing: .14em; color: var(--vp-ink-dim); text-transform: uppercase; text-shadow: 0 1px 2px #000; white-space: nowrap; opacity: 0; transition: opacity .15s; }
 .vb-foe.is-target .vb-foe-name { opacity: 1; color: var(--vp-amber); }
 .vb-foe.is-gone { opacity: 0 !important; }
+.vb-foe.is-new { animation: vb-foe-in .6s var(--vp-ease-out) both; }
+@keyframes vb-foe-in { from { opacity: 0; transform: translateY(-8px); } }
+.vb-away { display: none; padding: 2px 6px; font: 700 10px/1 var(--vp-font-display); letter-spacing: .22em; color: #9fe9ff; border: 1px solid rgba(159,233,255,.6); background: rgba(6,10,20,.8); }
+.vb-foe.is-away .vb-away { display: block; }
+.vb-foe.is-away .vb-plate, .vb-foe.is-away .vb-foe-hp { opacity: .38; filter: saturate(.3); }
+.vb-foe.is-away.phase .vb-away { color: #ff9ae6; border-color: rgba(255,154,230,.6); }
+.vb-foe.is-away.shield .vb-away { color: #7fe3ff; }
+.vb-weak.is-shift .vb-wk { animation: vb-glitch .45s steps(3) both; }
+@keyframes vb-glitch { 0% { transform: translateX(3px) skewX(-20deg); filter: hue-rotate(90deg) brightness(2); } 50% { transform: translateX(-3px); } 100% { transform: none; filter: none; } }
+.vb-mark { width: 26px; height: 26px; margin: -40px 0 0 -13px; display: none; }
+.vb-mark.is-on { display: block; }
+.vb-mark img { width: 26px; height: 26px; animation: vb-bob .6s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px #ff3b4e); }
 
 /* ---------------------------------------------------------------- cursor, reticle, hit boxes */
 .vb-cursor { width: 32px; height: 32px; margin: -36px 0 0 -16px; display: none; }
@@ -298,6 +318,112 @@ const CSS = `
 
 .vb-root.is-frozen *, .vb-root.is-frozen *::before, .vb-root.is-frozen *::after { animation-play-state: paused !important; }
 
+/* ---------------------------------------------------------------- label tones */
+.vb-label.ailment > div { color: #c9b8ff; } .vb-label.danger > div { color: #ff8fa0; border-color: #ff3b4e; }
+.vb-label.sleep > div { color: #b8c4ff; font-style: italic; letter-spacing: .3em; text-transform: lowercase; border-color: rgba(169,182,255,.5); }
+
+/* ---------------------------------------------------------------- dialog strip (ui.say) */
+.vb-say { --acc: var(--vp-cyan); position: absolute; right: calc(14px + var(--vp-safe-right)); bottom: calc(var(--vb-party-h, 236px) + 20px + var(--vp-safe-bottom));
+  width: min(660px, calc(100% - 28px)); display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px 20px 12px 12px;
+  opacity: 0; transform: translateY(10px); transition: opacity .18s, transform .22s var(--vp-ease-out); pointer-events: none; cursor: pointer; }
+.vb-say.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.vb-root.is-ending .vb-say { bottom: calc(24px + var(--vp-safe-bottom)); }
+.vb-say.no-pt { grid-template-columns: minmax(0, 1fr); padding-left: 22px; }
+.vb-say .pt { position: relative; width: 80px; height: 80px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--acc) 60%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--acc) 30%, #0a1020), #070b16 75%); }
+.vb-say .pt img { position: absolute; width: 160px; height: 160px; left: -44px; top: -20px; }
+.vb-say .pt.sigil { border-color: rgba(255,210,122,.6); background: radial-gradient(circle at 50% 50%, rgba(255,210,122,.22), #0a0806 75%); }
+.vb-say .pt.sigil img { width: 80px; height: 80px; left: 0; top: 0; }
+.vb-say .who { font: 700 14px/1 var(--vp-font-display); letter-spacing: .24em; color: var(--acc); text-transform: uppercase; margin-bottom: 7px; }
+.vb-say .txt { font: 500 18px/1.42 var(--vp-font-ui); color: #fff; min-height: 2.84em; }
+.vb-say .txt em { font-style: normal; color: var(--vp-amber); }
+.vb-say .nx { position: absolute; right: 12px; bottom: 8px; width: 0; height: 0; border: 6px solid transparent; border-top-color: var(--acc); opacity: 0; }
+.vb-say.is-done .nx { opacity: 1; animation: vb-bob .5s ease-in-out infinite alternate; }
+
+/* ---------------------------------------------------------------- boss intro card */
+.vb-card { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vb-card .band { position: absolute; left: 0; right: 0; top: 50%; height: 168px; margin-top: -92px;
+  background: linear-gradient(90deg, rgba(14,2,6,0), rgba(14,2,6,.86) 14%, rgba(14,2,6,.86) 86%, rgba(14,2,6,0)); animation: vb-card-band 1.7s var(--vp-ease-out) forwards; }
+.vb-card .rule { position: absolute; left: 6%; right: 6%; top: 50%; height: 3px; margin-top: 28px; transform-origin: 50% 50%;
+  background: linear-gradient(90deg, transparent, #c8102e 18%, #ff5a70 50%, #c8102e 82%, transparent); box-shadow: 0 0 16px #ff2a4a; animation: vb-card-rule 1.7s var(--vp-ease-out) forwards; }
+.vb-card .ttl { position: absolute; left: 0; right: 0; top: 50%; margin-top: -58px; text-align: center; white-space: nowrap;
+  font: 800 68px/1 var(--vp-font-display); letter-spacing: .24em; padding-left: .24em; color: #fff;
+  text-shadow: 0 0 22px rgba(255,42,74,.8), 3px 3px 0 #5c0a18, -2px -2px 0 #5c0a18; animation: vb-card-slam 1.7s cubic-bezier(.2,.8,.2,1) forwards; }
+.vb-card .sub { position: absolute; left: 0; right: 0; top: 50%; margin-top: 42px; text-align: center; font: 600 15px/1 var(--vp-font-ui);
+  letter-spacing: .6em; padding-left: .6em; color: #ffc2cc; text-transform: uppercase; animation: vb-card-sub 1.7s ease-out forwards; }
+@keyframes vb-card-band { 0% { opacity: 0; transform: scaleY(.1); } 10% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes vb-card-rule { 0% { transform: scaleX(0); } 18% { transform: scaleX(1); } 84% { opacity: 1; } 100% { opacity: 0; transform: scaleX(1.1); } }
+@keyframes vb-card-slam { 0% { opacity: 0; transform: scale(2.6); filter: brightness(3); } 12% { opacity: 1; transform: scale(.96); filter: brightness(1.6); }
+  16% { transform: translate(-6px, 3px); } 20% { transform: translate(5px, -2px); filter: none; } 24% { transform: none; } 84% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0; transform: scale(1.06); } }
+@keyframes vb-card-sub { 0%, 20% { opacity: 0; letter-spacing: 1.1em; } 40% { opacity: 1; letter-spacing: .6em; } 84% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------------------------------------------------------------- ultimate cut-in */
+.vb-cut { --acc: var(--vp-amber); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.vb-cut .band { position: absolute; left: -10%; right: -10%; top: 50%; height: 210px; margin-top: -105px; transform: skewY(-7deg); overflow: hidden;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 22%, #05070d), color-mix(in srgb, var(--acc) 55%, #05070d) 46%, color-mix(in srgb, var(--acc) 20%, #05070d));
+  border-top: 2px solid var(--acc); border-bottom: 2px solid var(--acc); box-shadow: 0 0 40px color-mix(in srgb, var(--acc) 60%, transparent);
+  animation: vb-cut-band var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards; }
+.vb-cut .band::before { content: ''; position: absolute; inset: 0; opacity: .35;
+  background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.5) 46px 48px, transparent 48px 90px); animation: vb-cut-lines .5s linear infinite; }
+.vb-cut .pt { position: absolute; left: 14%; top: 50%; width: 160px; height: 160px; margin-top: -92px; animation: vb-cut-pt var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--acc) 80%, transparent)); }
+.vb-cut .pt img { width: 160px; height: 160px; }
+.vb-cut .nm { position: absolute; left: calc(14% + 196px); right: 4%; top: 50%; margin-top: -40px; white-space: nowrap; animation: vb-cut-nm var(--d, 1.1s) cubic-bezier(.2,.8,.2,1) forwards; }
+.vb-cut .nm small { display: block; font: 700 14px/1 var(--vp-font-display); letter-spacing: .5em; color: var(--acc); margin-bottom: 10px; text-shadow: 0 0 10px #000; }
+.vb-cut .nm b { display: block; font: 800 italic 54px/1 var(--vp-font-display); letter-spacing: .06em; color: #fff;
+  text-shadow: 3px 3px 0 color-mix(in srgb, var(--acc) 40%, #05070d), 0 0 22px color-mix(in srgb, var(--acc) 80%, transparent); }
+.vb-cut .nm i { display: block; margin-top: 10px; font: 500 15px/1.3 var(--vp-font-ui); font-style: italic; letter-spacing: .1em; color: #ffeec4; }
+.vb-cut.awaken { --acc: #ffd36a; }
+.vb-cut .flash { position: absolute; inset: 0; background: #fff; opacity: 0; animation: vb-cut-flash var(--d, 1.1s) ease-out forwards; }
+@keyframes vb-cut-band { 0% { transform: skewY(-7deg) translateX(-110%); } 16% { transform: skewY(-7deg) translateX(0); } 82% { transform: skewY(-7deg) translateX(1%); opacity: 1; } 100% { transform: skewY(-7deg) translateX(110%); opacity: .2; } }
+@keyframes vb-cut-pt { 0% { opacity: 0; transform: translateX(-160px) scale(1.2); } 18% { opacity: 1; transform: none; } 82% { opacity: 1; transform: translateX(24px); } 100% { opacity: 0; transform: translateX(160px); } }
+@keyframes vb-cut-nm { 0%, 10% { opacity: 0; transform: translateX(120px); } 26% { opacity: 1; transform: none; } 82% { opacity: 1; transform: translateX(-16px); } 100% { opacity: 0; transform: translateX(-140px); } }
+@keyframes vb-cut-lines { to { background-position: -90px 0; } }
+@keyframes vb-cut-flash { 0% { opacity: .55; } 12% { opacity: 0; } 86% { opacity: 0; } 92% { opacity: .35; } 100% { opacity: 0; } }
+
+/* ---------------------------------------------------------------- charge warning band */
+.vb-charge { position: absolute; left: 0; right: 0; top: 40%; height: 72px; margin-top: -36px; display: flex; align-items: center; justify-content: center; gap: 14px; pointer-events: none;
+  font: 700 18px/1 var(--vp-font-display); letter-spacing: .2em; color: #ffd6da; text-transform: uppercase; text-shadow: 0 0 12px rgba(255,59,78,.8);
+  background: repeating-linear-gradient(-45deg, rgba(255,59,78,.22) 0 14px, rgba(255,59,78,.05) 14px 28px), linear-gradient(90deg, rgba(40,4,10,0), rgba(40,4,10,.88) 14%, rgba(40,4,10,.88) 86%, rgba(40,4,10,0));
+  border-top: 1px solid rgba(255,59,78,.8); border-bottom: 1px solid rgba(255,59,78,.8); animation: vb-charge 1.4s var(--vp-ease-out) forwards; }
+.vb-charge img { width: 24px; height: 24px; }
+@keyframes vb-charge { 0% { opacity: 0; transform: scaleY(.1); background-position: 0 0; } 10% { opacity: 1; transform: none; } 86% { opacity: 1; } 100% { opacity: 0; transform: scaleY(.6); background-position: 60px 0; } }
+.vb-dock { position: absolute; left: 50%; top: calc(132px + var(--vp-safe-top)); transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 6px 16px; white-space: nowrap;
+  font: 700 12px/1 var(--vp-font-display); letter-spacing: .24em; color: #ffd6da; text-transform: uppercase; background: rgba(40,4,10,.86); border: 1px solid rgba(255,59,78,.75);
+  box-shadow: 0 0 14px rgba(255,59,78,.4); animation: vb-dock 1s ease-in-out infinite alternate; }
+.vb-dock.is-on { display: flex; }
+.vb-dock img { width: 16px; height: 16px; }
+@keyframes vb-dock { to { box-shadow: 0 0 22px rgba(255,59,78,.75); border-color: #ff6b78; } }
+
+/* ---------------------------------------------------------------- results: learned skills */
+.vb-res-learn { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 9px 26px; border-bottom: 1px solid rgba(140,214,255,.1); font: 600 14px/1.3 var(--vp-font-ui); letter-spacing: .06em; color: var(--vp-ink-dim); }
+.vb-res-learn b { color: #fff; font-family: var(--vp-font-display); letter-spacing: .14em; }
+.vb-res-learn em { font-style: normal; color: var(--vp-cyan); }
+.vb-res-party.n1 { grid-template-columns: 1fr; }
+
+/* ---------------------------------------------------------------- reduced motion: callouts keep their time, lose their motion (R21) */
+@media (prefers-reduced-motion: reduce) {
+  .vb-root .vb-num > div { animation: vb-num-rm 1.2s linear forwards !important; }
+  .vb-root .vb-label > div, .vb-root .vb-combo.is-out { animation: vb-fade-rm 1.3s linear forwards !important; }
+  .vb-root .vb-break > div, .vb-root .vb-break .bar { animation: vb-fade-rm 1.35s linear forwards !important; }
+  .vb-root .vb-act.is-on { animation: vb-act-rm 1.5s linear forwards !important; }
+  .vb-root .vb-banner > div, .vb-root .vb-charge { animation: vb-fade-rm var(--d, 1.2s) linear forwards !important; }
+  .vb-root .vb-card .band, .vb-root .vb-card .rule, .vb-root .vb-card .ttl, .vb-root .vb-card .sub { animation: vb-fade-rm 1.7s linear forwards !important; }
+  .vb-root .vb-cut .band, .vb-root .vb-cut .pt, .vb-root .vb-cut .nm { animation: vb-fade-rm var(--d, 1.1s) linear forwards !important; }
+  .vb-root .vb-cut .band { transform: skewY(-7deg); }
+  .vb-root .vb-cut .flash, .vb-root .vb-cut .band::before { animation: none !important; opacity: 0; }
+}
+@keyframes vb-fade-rm { 0% { opacity: 0; } 8% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes vb-num-rm { 0% { opacity: 0; transform: translate(-50%, -50%); } 8% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%); } }
+@keyframes vb-act-rm { 0% { opacity: 0; transform: translateX(-50%); } 10% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%); } }
+
+/* ---------------------------------------------------------------- short landscape touch: Boost pair beside A, clear of Sound (R23) */
+@media (max-height: 420px) and (min-aspect-ratio: 9/10) {
+  .vp-touch[data-ctx="battle"] .vp-tc-plus { bottom: calc(176px + var(--vp-safe-bottom)); right: calc(22px + var(--vp-safe-right)); }
+  .vp-touch[data-ctx="battle"] .vp-tc-minus { bottom: calc(176px + var(--vp-safe-bottom)); right: calc(82px + var(--vp-safe-right)); }
+}
+@media (max-height: 330px) and (min-aspect-ratio: 9/10) { .vp-touch[data-ctx="battle"] .vp-tc-mute { display: none !important; } }
+
 /* ---------------------------------------------------------------- compact (portrait phones) */
 .vb-root.is-compact .vb-top { flex-direction: column; gap: 8px; left: 8px; right: 8px; top: calc(8px + var(--vp-safe-top)); }
 .vb-root.is-compact .vb-turns { gap: 7px; padding: 5px 8px 5px 6px; }
@@ -349,6 +475,28 @@ const CSS = `
 .vb-root.is-compact .vb-res-items { padding: 8px 16px; }
 .vb-root.is-compact .vb-up { margin-top: 4px; }
 .vb-root.is-compact .vb-banner > div { padding: 10px 26px; font-size: 15px; }
+.vb-root.is-compact .vb-party.n1 { grid-template-columns: 1fr; left: auto; width: min(260px, calc(100% - 16px)); }
+.vb-root.is-compact .vb-party.n3 .vb-row:last-child { grid-column: 1 / -1; justify-self: center; width: 50%; }
+.vb-root.is-compact .vb-say { left: 8px; right: 8px; width: auto; bottom: calc(var(--vb-party-h, 150px) + 14px + var(--vp-safe-bottom)); grid-template-columns: 56px minmax(0, 1fr); gap: 10px; padding: 9px 12px 9px 9px; }
+.vb-root.is-compact .vb-say .pt { width: 56px; height: 56px; }
+.vb-root.is-compact .vb-say .pt img { width: 112px; height: 112px; left: -31px; top: -14px; }
+.vb-root.is-compact .vb-say .pt.sigil img { width: 56px; height: 56px; left: 0; top: 0; }
+.vb-root.is-compact .vb-say .txt { font-size: 15px; }
+.vb-root.is-compact .vb-say .who { font-size: 12px; margin-bottom: 5px; }
+.vb-root.is-compact .vb-card .ttl { font-size: 38px; letter-spacing: .16em; padding-left: .16em; margin-top: -38px; }
+.vb-root.is-compact .vb-card .band { height: 128px; margin-top: -70px; }
+.vb-root.is-compact .vb-card .rule { margin-top: 16px; }
+.vb-root.is-compact .vb-card .sub { margin-top: 30px; font-size: 12px; letter-spacing: .4em; }
+.vb-root.is-compact .vb-cut .band { height: 170px; margin-top: -85px; }
+.vb-root.is-compact .vb-cut .pt { left: 4%; width: 120px; height: 120px; margin-top: -76px; }
+.vb-root.is-compact .vb-cut .pt img { width: 120px; height: 120px; }
+.vb-root.is-compact .vb-cut .nm { left: calc(4% + 128px); margin-top: -30px; }
+.vb-root.is-compact .vb-cut .nm b { font-size: 28px; white-space: normal; }
+.vb-root.is-compact .vb-cut .nm small { font-size: 11px; letter-spacing: .3em; }
+.vb-root.is-compact .vb-cut .nm i { font-size: 12px; white-space: normal; }
+.vb-root.is-compact .vb-charge { font-size: 13px; letter-spacing: .1em; height: 60px; margin-top: -30px; white-space: normal; text-align: center; padding: 0 16px; }
+.vb-root.is-compact .vb-dock { top: auto; bottom: calc(var(--vb-party-h, 150px) + 14px + var(--vp-safe-bottom)); font-size: 10px; letter-spacing: .14em; }
+.vb-root.is-compact .vb-res-learn { padding: 6px 16px; font-size: 13px; }
 /* touch buttons sit to the right of the command menu, above the status grid */
 @media (max-aspect-ratio: 9/10) {
   .vp-touch[data-ctx="battle"] .vp-tc-a { right: calc(14px + var(--vp-safe-right)); bottom: calc(var(--vb-panel, 150px) + 22px + var(--vp-safe-bottom)); width: 70px; height: 70px; }
@@ -360,7 +508,7 @@ const CSS = `
 }
 
 /* short landscape (phones on their side): the status panel becomes one row of four cards */
-.vb-root.is-short .vb-party { width: min(620px, 74vw); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 3px; bottom: calc(6px + var(--vp-safe-bottom)); right: calc(6px + var(--vp-safe-right)); }
+.vb-root.is-short .vb-party { width: min(620px, 74vw); display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); padding: 3px; bottom: calc(6px + var(--vp-safe-bottom)); right: calc(6px + var(--vp-safe-right)); }
 .vb-root.is-touch:not(.is-compact) .vb-top { right: calc(64px + var(--vp-safe-right)); }
 .vb-root.is-touch:not(.is-compact):not(.is-short) .vb-party { right: calc(176px + var(--vp-safe-right)); }
 .vb-root.is-short.is-touch .vb-party { left: calc(8px + var(--vp-safe-left)); right: calc(176px + var(--vp-safe-right)); width: auto; }
@@ -396,33 +544,53 @@ const SHARD_CLIPS = [
   'polygon(0 0, 55% 0, 45% 50%, 0 60%)', 'polygon(55% 0, 100% 0, 100% 55%, 45% 50%)',
   'polygon(0 60%, 45% 50%, 50% 100%, 0 100%)', 'polygon(45% 50%, 100% 55%, 100% 100%, 50% 100%)',
 ];
-const STAT_SHORT = { atk: 'ATK', def: 'DEF', mag: 'MAG', res: 'RES', spd: 'SPD', taunt: 'TAUNT' };
+const STAT_SHORT = { atk: 'ATK', def: 'DEF', mag: 'MAG', res: 'RES', spd: 'SPD', taunt: 'TAUNT', sleep: 'ZZZ', jam: 'JAM', marked: 'MRK' };
+
+const AILMENTS = new Set(['sleep', 'jam', 'marked']);
+const AWAY_TAG = { submerge: 'SUBMERGED', phase: 'PHASED', shield: 'SHIELDED' };
+const SAY_AUTO = 3.5;           // seconds a dialog strip line stays during autoplay
+const SAY_CPS = 70;             // dialog strip reveal speed (characters per second)
 
 const enemyIconCache = new Map();
-/** 24x24 enemy turn icon redrawn at 2x as a data URL (cached). */
-function enemyIconURL(kind) {
-  let u = enemyIconCache.get(kind);
+/** 24x24 enemy turn icon redrawn at 2x as a data URL (cached per art). */
+function enemyIconURL(art) {
+  let u = enemyIconCache.get(art);
   if (!u) {
-    const src = buildEnemyIcon(kind);
+    const src = buildEnemyIcon(art);
     const c = document.createElement('canvas');
     c.width = c.height = 48;
     const g = c.getContext('2d');
     g.imageSmoothingEnabled = false;
     g.drawImage(src, 0, 0, 48, 48);
     u = c.toDataURL();
-    enemyIconCache.set(kind, u);
+    enemyIconCache.set(art, u);
   }
   return u;
 }
 
 const img = (src, cls) => el('img', { src, alt: '', draggable: 'false', class: cls });
 
+/** Portrait data URL for 'id' or 'id:expr'; an expression the art lacks falls back to the plain portrait. */
+function portrait(id, scale = 2) {
+  try {
+    return portraitURL(id, scale);
+  } catch (err) {
+    const base = String(id).split(':')[0];
+    if (base === id) throw err;
+    return portraitURL(base, scale);
+  }
+}
+
+/** Item icon name (TECH_PLAN 7.4: ITEMS[id].icon || id). */
+const itemIcon = (id) => ITEMS[id]?.icon || id;
+
 export class BattleUI {
   /**
-   * opts: root (#ui-root), engine, input, audio, stage (BattleStage), model (BattleModel),
-   * onBoost(actorId, level, prev) for the live boost preview.
+   * opts: root (#ui-root), engine, input, audio, stage (BattleStage), model (BattleModel; null for
+   * canned fixtures, which pass `combatants`), onBoost(actorId, level, prev) for the live boost
+   * preview, fieldUI (the game UI: speaker styles for the dialog strip).
    */
-  constructor({ root, engine, input, audio, stage, model, onBoost = null }) {
+  constructor({ root, engine, input, audio, stage, model, combatants = model?.combatants || [], onBoost = null, fieldUI = null }) {
     installBaseCSS();
     injectCSS('vp-battle', CSS);
     this.engine = engine;
@@ -430,7 +598,11 @@ export class BattleUI {
     this.audio = audio;
     this.stage = stage;
     this.model = model;
+    this.fieldUI = fieldUI;
     this.onBoost = onBoost;
+    this.autoAdvance = false;   // autoplay: dialog strip lines advance by themselves
+    this.sayState = null;
+    this.chargeText = null;
     this.zoom = 1;
     this.W = 1;
     this.H = 1;
@@ -456,6 +628,7 @@ export class BattleUI {
     this.cursors = [0, 1, 2, 3].map(() => el('div', { class: 'vb-abs vb-cursor' }, img(iconURL('cursor', 2))));
     this.reticle = el('div', { class: 'vb-abs vb-reticle' }, [el('i'), el('b'), el('s'), el('span', { text: 'LOCK-ON' })]);
     this.world.append(...this.cursors, this.reticle);
+    this.markIcon = iconURL('marked', 2);
 
     this.roundEl = el('b', { text: '1' });
     this.orderEl = el('div', { class: 'vb-order' });
@@ -483,31 +656,48 @@ export class BattleUI {
       el('div', { class: 'vb-menu-hd' }, [el('div', {}, [this.menuWho, el('br'), this.menuSub]), this.boostEl]), this.list, this.menuFoot,
     ]));
     this.banners = el('div', { class: 'vb-banner' });
+    this.dock = el('div', { class: 'vb-dock' });
+    this.sayPt = el('div', { class: 'pt' });
+    this.sayWho = el('div', { class: 'who' });
+    this.sayTxt = el('div', { class: 'txt' });
+    this.say_ = el('div', { class: 'vp-panel vb-say vb-live' }, [this.sayPt, el('div', {}, [this.sayWho, this.sayTxt]), el('i', { class: 'nx' })]);
+    this.say_.addEventListener('pointerup', (e) => { e.stopPropagation(); this._advanceSay(); });
     this.overlay = el('div', { class: 'vb-overlay' });
-    this.root.append(this.world, this.top, this.act, this.party, this.menu, this.banners, this.overlay);
+    this.root.append(this.world, this.top, this.act, this.dock, this.party, this.menu, this.banners, this.say_, this.overlay);
     root.appendChild(this.root);
 
-    this._build();
+    this._build(combatants);
     this._resize();
   }
 
   // ------------------------------------------------------------------ build
 
-  _build() {
-    const m = this.model;
-    for (const c of m.combatants) {
-      const v = {
-        id: c.id, side: c.side, key: c.key, name: c.name, hp: c.hp, maxHp: c.maxHp, ep: c.ep, maxEp: c.maxEp, bp: c.bp,
-        shield: c.shield, maxShield: c.maxShield, broken: false, brokenRounds: 0, revealed: [...c.revealed], weakCount: c.weaknesses.length,
-        alive: c.alive, buffs: {}, dispHp: c.hp, dispEp: c.ep, stack: 0, stackT: -1, stackY: 0, stackTag: '',
-      };
-      this.view.set(c.id, v);
-      v.hitbox = el('div', { class: 'vb-abs vb-hit' });
-      bindPointer(v.hitbox, { onHover: () => this._hoverTarget(c.id), onActivate: () => this._tapTarget(c.id) });
-      this.world.appendChild(v.hitbox);
-      if (c.side === 'party') this._buildRow(v);
-      else this._buildFoe(v);
-    }
+  _build(combatants) {
+    for (const c of combatants) this._view(c);
+    const n = Math.min(4, Math.max(1, combatants.filter((c) => c.side === 'party').length));
+    this.party.classList.add(`n${n}`);
+    this.party.style.setProperty('--n', String(n));
+    this.partyCount = n;
+  }
+
+  /** View state, hit box and row / plate for one combatant. */
+  _view(c) {
+    const v = {
+      id: c.id, side: c.side, key: c.key, art: c.side === 'enemy' ? this.stage.actor(c.id)?.art || c.art || c.key : c.key, name: c.name,
+      hp: c.hp, maxHp: c.maxHp, ep: c.ep || 0, maxEp: c.maxEp || 0, bp: c.bp || 0,
+      shield: c.shield || 0, maxShield: c.maxShield || 0, broken: false, brokenRounds: 0, revealed: [...(c.revealed || [])],
+      weakCount: c.weakCount ?? c.weaknesses?.length ?? 0, alive: c.alive !== false, buffs: {}, away: null,
+      dispHp: c.hp, dispEp: c.ep || 0, stack: 0, stackT: -1, stackY: 0, stackTag: '',
+    };
+    this.view.set(c.id, v);
+    v.hitbox = el('div', { class: 'vb-abs vb-hit' });
+    bindPointer(v.hitbox, { onHover: () => this._hoverTarget(c.id), onActivate: () => this._tapTarget(c.id) });
+    this.world.appendChild(v.hitbox);
+    v.markEl = el('div', { class: 'vb-abs vb-mark' }, img(this.markIcon));
+    this.world.appendChild(v.markEl);
+    if (c.side === 'party') this._buildRow(v);
+    else this._buildFoe(v);
+    return v;
   }
 
   _buildRow(v) {
@@ -521,7 +711,7 @@ export class BattleUI {
     v.bpEl.append(...v.bpImgs);
     v.buffsEl = el('div', { class: 'vb-buffs' });
     v.row = el('div', { class: 'vb-row' }, [
-      el('div', { class: 'vb-pt' }, img(portraitURL(v.key, 2))),
+      el('div', { class: 'vb-pt' }, img(portrait(v.key, 2))),
       el('div', {}, [
         el('div', { class: 'vb-l1' }, [el('span', { class: 'vb-name', text: v.name }), el('span', { class: 'vb-ko', text: 'KO' }), v.buffsEl, v.bpEl]),
         el('div', { class: 'vb-bars' }, [
@@ -547,7 +737,9 @@ export class BattleUI {
     v.hpFill = el('i');
     v.nameEl = el('div', { class: 'vb-foe-name', text: v.name });
     v.buffsEl = el('div', { class: 'vb-buffs' });
+    v.awayEl = el('div', { class: 'vb-away' });
     v.foe = el('div', { class: 'vb-abs vb-foe' }, [
+      v.awayEl,
       v.nameEl,
       el('div', { class: 'vb-plate' }, [v.shieldEl, v.weakEl, v.brkEl]),
       el('div', { class: 'vb-foe-hp' }, v.hpFill),
@@ -627,7 +819,7 @@ export class BattleUI {
       const v = this.view.get(id);
       if (!v) return;
       const s = el('div', { class: `vb-slot ${v.side}${current && i === 0 && id === this.activeId ? ' is-active' : ''}` },
-        img(v.side === 'party' ? portraitURL(v.key, 2) : enemyIconURL(v.key)));
+        img(v.side === 'party' ? portrait(v.key, 2) : enemyIconURL(v.art)));
       if (v.side === 'party') s.style.setProperty('--acc', MEMBER_ACCENT[v.key] || '#7fe3ff');
       s.style.animationDelay = `${i * 0.03}s`;
       s.title = v.name;
@@ -635,9 +827,19 @@ export class BattleUI {
     });
   }
 
+  /**
+   * Marks the acting combatant. Actors ahead of it in the round's order have already acted, so they
+   * leave the bar first (the model only sends orderUpdate when the order itself changes, R15).
+   */
   setActive(id) {
     this.activeId = id;
     for (const v of this.view.values()) if (v.row) v.row.classList.toggle('is-active', v.id === id);
+    if (id && this.order && this.order.includes(id) && this.order[0] !== id) {
+      // drop the slots of those who already acted, keep the rest in place (no re-animation)
+      const k = this.order.indexOf(id);
+      this.order = this.order.slice(k);
+      for (let i = 0; i < k && this.orderEl.firstElementChild; i++) this.orderEl.firstElementChild.remove();
+    }
     const first = this.orderEl.firstElementChild;
     if (first) first.classList.toggle('is-active', !!id && this.order && this.order[0] === id);
   }
@@ -721,12 +923,20 @@ export class BattleUI {
     });
   }
 
+  /** Flips a weakness slot; identical twins (same kind) learn it too, as the bestiary does (R18). */
   reveal(id, type) {
     const v = this.view.get(id);
-    if (!v || !v.weakEl || v.revealed.includes(type)) return;
-    v.revealed.push(type);
-    this._paintWeak(v, v.revealed.length - 1);
-    this.audio?.sfx('cursor', { pitch: 1.6 });
+    if (!v || !v.weakEl) return;
+    let any = false;
+    for (const o of this.view.values()) {
+      if (!o.weakEl || o.revealed.includes(type)) continue;
+      if (o !== v && (o.key !== v.key || !o.alive || o.shifted || v.shifted || o.revealed.length >= o.weakCount)) continue;
+      o.revealed.push(type);
+      this._paintWeak(o, o.revealed.length - 1);
+      o.foeW = 0;
+      any = true;
+    }
+    if (any) this.audio?.sfx('cursor', { pitch: 1.6 });
   }
 
   setKO(id, ko) {
@@ -738,6 +948,8 @@ export class BattleUI {
       v.hp = 0;
       v.bp = 0;
       v.buffs = {};
+      v.markEl?.classList.remove('is-on');
+      v.row?.classList.remove('is-ult');
       this._paintBuffs(v);
       if (v.row) { this._paintBars(v); this._paintBp(v); }
     }
@@ -747,7 +959,85 @@ export class BattleUI {
     const v = this.view.get(id);
     if (!v || !v.foe) return;
     v.foe.classList.add('is-gone');
+    v.markEl.classList.remove('is-on');
     v.gone = true;
+  }
+
+  // ------------------------------------------------------------------ mid-battle changes (summons, transforms, ...)
+
+  /** A plate for a combatant that joined mid-battle (summon events carry its numbers). */
+  addFoe(c) {
+    if (this.view.has(c.id)) return this.view.get(c.id);
+    const v = this._view({ ...c, side: 'enemy' });
+    v.foe.classList.add('is-new');
+    this._drive(v.foe, 0.6, { remove: false });
+    return v;
+  }
+
+  /** New numbers for a transformed foe: name, HP, shield, weaknesses; breaks and buffs are cleared. */
+  resetFoe(id, data) {
+    const v = this.view.get(id);
+    if (!v || !v.foe) return;
+    if (data.kind) {
+      v.key = data.kind;
+      v.art = this.stage.actor(id)?.art || data.kind;
+    }
+    if (data.name) {
+      v.name = data.name;
+      v.nameEl.textContent = data.name;
+    }
+    if (data.maxHp != null) v.maxHp = data.maxHp;
+    if (data.hp != null) v.hp = data.hp;
+    if (data.maxShield != null) v.maxShield = data.maxShield;
+    if (data.shield != null) v.shield = data.shield;
+    if (data.weakCount != null) v.weakCount = data.weakCount;
+    if (data.revealed) v.revealed = [...data.revealed];
+    v.alive = true;
+    v.gone = false;
+    v.foe.classList.remove('is-gone');
+    this.setBroken(id, false);
+    v.shieldNum.textContent = String(v.shield);
+    v.buffs = {};
+    this._paintBuffs(v);
+    this._paintWeak(v);
+    this._paintBars(v);
+    v.shieldEl.classList.remove('is-hit', 'is-restore');
+    void v.shieldEl.offsetWidth;
+    v.shieldEl.classList.add('is-restore');
+    if (this.order) this.setOrder(this.order, this.nextOrder || []);
+    v.foeW = 0;
+  }
+
+  /** Dims an untargetable foe's plate and tags it (SUBMERGED / PHASED / SHIELDED); it can't be picked. */
+  setUntargetable(id, on, style = 'submerge') {
+    const v = this.view.get(id);
+    if (!v || !v.foe) return;
+    v.away = on ? style : null;
+    v.foe.classList.toggle('is-away', on);
+    v.foe.classList.remove('submerge', 'phase', 'shield');
+    if (on) v.foe.classList.add(style);
+    v.awayEl.textContent = on ? AWAY_TAG[style] || 'OUT OF REACH' : '';
+    v.foeW = 0;
+  }
+
+  /** New weakness slots after a shift (the old answers no longer apply). */
+  weakShift(id, weakCount, revealed) {
+    const v = this.view.get(id);
+    if (!v || !v.weakEl) return;
+    v.weakCount = weakCount;
+    v.revealed = [...revealed];
+    v.shifted = true;
+    this._paintWeak(v);
+    v.weakEl.classList.remove('is-shift');
+    void v.weakEl.offsetWidth;
+    v.weakEl.classList.add('is-shift');
+    this._drive(v.weakEl, 0.45, { remove: false });
+    v.foeW = 0;
+  }
+
+  /** Glows the member's row while their ultimate is ready. */
+  ultimateReady(id, on = true) {
+    this.view.get(id)?.row?.classList.toggle('is-ult', on);
   }
 
   setStatus(id, stat, stage) {
@@ -756,12 +1046,17 @@ export class BattleUI {
     if (stage === 0) delete v.buffs[stat];
     else v.buffs[stat] = stage;
     this._paintBuffs(v);
+    v.markEl?.classList.toggle('is-on', !!v.buffs.marked && v.alive);
     v.foeW = 0;
   }
 
   _paintBuffs(v) {
     v.buffsEl.textContent = '';
     for (const [stat, stage] of Object.entries(v.buffs)) {
+      if (AILMENTS.has(stat)) {
+        v.buffsEl.appendChild(el('span', { class: `vb-buff ail ${stat}`, title: stat }, [img(iconURL(stat, 1)), document.createTextNode(STAT_SHORT[stat])]));
+        continue;
+      }
       const cls = stat === 'taunt' ? 'taunt' : stage > 0 ? 'up' : 'down';
       const arrow = stat === 'taunt' ? '' : (stage > 0 ? '▲' : '▼').repeat(Math.abs(stage));
       v.buffsEl.appendChild(el('span', { class: `vb-buff ${cls}`, text: `${STAT_SHORT[stat] || stat}${arrow}` }));
@@ -904,6 +1199,155 @@ export class BattleUI {
     this._drive(this.act, 1.5, { remove: false });
   }
 
+  // ------------------------------------------------------------------ dialog strip, cards, cut-ins
+
+  /**
+   * Battle dialog strip above the party panel: { speaker, text, portrait }. Confirm or a tap first
+   * shows the whole line, then advances; with autoAdvance (autoplay) a line leaves after 3.5 s.
+   * Speakers registered with the game UI supply portrait, sigil and accent. Resolves when dismissed.
+   */
+  say({ speaker = null, text = '', portrait: pt = null } = {}) {
+    return new Promise((resolve) => {
+      (this._sayQueue ||= []).push({ speaker, text: String(text), pt, resolve });
+      if (!this.sayState) this._nextSay();
+    });
+  }
+
+  _nextSay() {
+    const line = this._sayQueue.shift();
+    if (!line) {
+      this.sayState = null;
+      this.say_.classList.remove('is-on', 'is-done');
+      return;
+    }
+    const name = line.speaker ? String(line.speaker) : '';
+    const reg = name ? this.fieldUI?.speaker?.(name) : null;
+    const id = line.pt || reg?.portrait || (MEMBER_ACCENT[name.toLowerCase()] ? name.toLowerCase() : null);
+    const acc = reg?.accent || MEMBER_ACCENT[(id || '').split(':')[0]] || '#7fe3ff';
+    this.say_.style.setProperty('--acc', acc);
+    this.sayPt.textContent = '';
+    this.sayPt.className = 'pt';
+    let src = null;
+    if (reg?.sigil) {
+      src = iconURL(reg.sigil, 2);
+      this.sayPt.classList.add('sigil');
+    } else if (id) {
+      try { src = portrait(id, 4); } catch { src = null; }
+    }
+    if (src) this.sayPt.appendChild(img(src));
+    this.say_.classList.toggle('no-pt', !src);
+    this.sayWho.textContent = name;
+    this.sayWho.style.display = name ? '' : 'none';
+    this.sayTxt.style.fontStyle = name ? '' : 'italic';
+    // *emphasis* segments, revealed a character at a time on the UI clock
+    const segs = [];
+    String(line.text).split('*').forEach((t, i) => { if (t) segs.push({ t, em: i % 2 === 1 }); });
+    this.sayState = { line, segs, total: segs.reduce((n, x) => n + x.t.length, 0), shown: 0, drawn: -1, t: 0, done: false };
+    this.say_.classList.remove('is-done');
+    this.say_.classList.add('is-on');
+    this.audio?.sfx('talk');
+    this._paintSay();
+  }
+
+  _paintSay() {
+    const st = this.sayState;
+    const n = Math.min(st.total, Math.floor(st.shown));
+    if (n === st.drawn) return;
+    st.drawn = n;
+    this.sayTxt.textContent = '';
+    let left = n;
+    for (const sg of st.segs) {
+      if (left <= 0) break;
+      const t = sg.t.slice(0, left);
+      left -= t.length;
+      this.sayTxt.appendChild(sg.em ? el('em', { text: t }) : document.createTextNode(t));
+    }
+    if (n >= st.total && !st.done) {
+      st.done = true;
+      st.t = 0;
+      this.say_.classList.add('is-done');
+    }
+  }
+
+  _advanceSay() {
+    const st = this.sayState;
+    if (!st) return;
+    if (!st.done) {
+      st.shown = st.total;
+      this._paintSay();
+      return;
+    }
+    this.audio?.sfx('cursor');
+    st.line.resolve();
+    this._nextSay();
+  }
+
+  _tickSay(dt) {
+    const st = this.sayState;
+    if (!st) return;
+    st.shown += dt * SAY_CPS;
+    this._paintSay();
+    if (st.done && (st.t += dt) >= SAY_AUTO && this.autoAdvance) this._advanceSay();
+  }
+
+  /** Boss intro card (~1.7 s): the name slams in across the screen over a crimson rule. */
+  bossCard({ title = '', subtitle = '' } = {}) {
+    const node = el('div', { class: 'vb-card' }, [
+      el('div', { class: 'band' }), el('div', { class: 'rule' }), el('div', { class: 'ttl', text: title }), el('div', { class: 'sub', text: subtitle }),
+    ]);
+    this.root.appendChild(node);
+    this.audio?.sfx('card');
+    this.after(0.2, () => this.engine.shake?.(0.12, 0.3));
+    return new Promise((resolve) => this._drive(node, 1.7, { onDone: resolve }));
+  }
+
+  /**
+   * Ultimate cut-in (~1.1 s): a diagonal band with the member's portrait at 4x and the skill name.
+   * awakening: the longer gold variant played when the ultimate is granted mid-battle.
+   */
+  ultimateCut(memberId, skillName, { awakening = false } = {}) {
+    const v = this.view.get(memberId);
+    const name = v?.name || String(memberId).toUpperCase();
+    const dur = awakening ? 1.6 : 1.1;
+    const node = el('div', { class: `vb-cut${awakening ? ' awaken' : ''}` }, [
+      el('div', { class: 'band' }),
+      el('div', { class: 'pt' }, img(portrait(awakening ? `${memberId}:determined` : memberId, 4))),
+      el('div', { class: 'nm' }, [
+        el('small', { text: awakening ? 'Awakening' : `${name} · Ultimate` }),
+        el('b', { text: skillName }),
+        ...(awakening ? [el('i', { text: `${name} · ultimate unlocked` })] : []),
+      ]),
+      el('div', { class: 'flash' }),
+    ]);
+    node.style.setProperty('--d', `${dur}s`);
+    if (!awakening) node.style.setProperty('--acc', MEMBER_ACCENT[memberId] || '#ffc560');
+    this.root.appendChild(node);
+    this.audio?.sfx(awakening ? 'awaken' : 'boost', awakening ? undefined : { pitch: 3 });
+    this.after(0.18, () => this.engine.hitStop?.(160));
+    if (!awakening) this.ultimateReady(memberId, false);
+    return new Promise((resolve) => this._drive(node, dur, { onDone: resolve }));
+  }
+
+  /**
+   * Charge warning (telegraph without a target): a screen-wide band sweeps across, then a slim
+   * strip stays under the turn bar until chargeBand(null). Resolves when the sweep is over.
+   */
+  chargeBand(text) {
+    this.chargeText = text || null;
+    this.dock.classList.remove('is-on');
+    this.dock.textContent = '';
+    if (!text) return Promise.resolve();
+    this.dock.append(img(iconURL('charge', 1)), document.createTextNode(text));
+    const node = el('div', { class: 'vb-charge' }, [img(iconURL('charge', 2)), document.createTextNode(text)]);
+    this.root.appendChild(node);
+    this.audio?.sfx('alarm');
+    // the band settles into the slim strip once its sweep is over
+    return new Promise((resolve) => this._drive(node, 1.4, { onDone: () => {
+      if (this.chargeText === text) this.dock.classList.add('is-on');
+      resolve();
+    } }));
+  }
+
   /** Runs fn after `sec` seconds of UI time (stops with the battle). Returns a cancellable handle. */
   after(sec, fn) {
     const h = { t: sec, fn, cancelled: false };
@@ -1015,14 +1459,21 @@ export class BattleUI {
       }));
     }
     if (screen === 'skills') {
-      return menu.skills.map((s) => ({
-        id: s.id, label: s.name, icon: s.type || (s.kind === 'heal' || s.kind === 'revive' ? 'medigel' : 'skill'), skill: s, dim: !s.usable,
-        right: [...this._weakHint(s.type), el('span', { class: 'ep', text: `${s.cost} EP` })],
-        help: `${s.desc} ${s.boostMode === 'hits' ? 'Boost: +1 hit per BP.' : s.kind === 'attack' || s.kind === 'heal' ? 'Boost: x1.5 / x2 / x2.5.' : 'Boost: lasts longer.'}`,
-      }));
+      const jammed = !!c.v.buffs.jam;
+      return menu.skills.map((s) => {
+        const ult = !!(s.ultimate || SKILLS[s.id]?.ultimate);
+        const why = jammed ? 'Jammed: skills are offline.' : ult && !s.usable ? (c.v.bp < 3 ? 'Needs 3 BP.' : 'Spent for this battle.') : '';
+        return {
+          id: s.id, label: s.name, icon: ult ? 'ultimate' : s.type || (s.kind === 'heal' || s.kind === 'revive' ? 'medigel' : 'skill'), skill: s, dim: !s.usable, ult,
+          right: ult ? [el('span', { class: 'wk', text: s.usable ? 'ULT' : c.v.bp < 3 ? 'NEEDS 3 BP' : 'SPENT' }), el('span', { class: 'ep', text: `${s.cost} EP` })]
+            : [...this._weakHint(s.type), el('span', { class: 'ep', text: `${s.cost} EP` })],
+          help: why ? `${why} ${s.desc}` : ult ? `${s.desc} Ultimate: spends 3 BP and always strikes at full Boost.`
+            : `${s.desc} ${s.boostMode === 'hits' ? 'Boost: +1 hit per BP.' : s.kind === 'attack' || s.kind === 'heal' ? 'Boost: x1.5 / x2 / x2.5.' : 'Boost: lasts longer.'}`,
+        };
+      });
     }
     return menu.items.map((it) => ({
-      id: it.id, label: it.name, icon: it.id, item: it, dim: !it.usable,
+      id: it.id, label: it.name, icon: itemIcon(it.id), item: it, dim: !it.usable,
       right: el('span', { text: `x${it.count}` }), help: it.desc,
     }));
   }
@@ -1082,6 +1533,7 @@ export class BattleUI {
       if (r.dim) return err();
       this.audio?.sfx('confirm');
       this._mem('skill', c.sel);
+      if (r.ult) this._setBoost(Math.min(3, c.maxBoost));
       return this._target(r.skill.target, { kind: 'skill', skillId: r.skill.id }, r.skill.type, r.skill);
     } else if (c.screen === 'items') {
       if (r.dim) return err();
@@ -1129,7 +1581,7 @@ export class BattleUI {
   /** Enter target selection for a target kind ('enemy' | 'enemies' | 'ally' | 'allies' | 'self' | 'koAlly'). */
   _target(kind, action, type = null, source = null) {
     const c = this.cmd;
-    const ids = this.model.validTargets(c.actorId, kind);
+    const ids = this.model.validTargets(c.actorId, kind).filter((id) => !this.view.get(id)?.away);
     if (!ids.length) { this.audio?.sfx('error'); return; }
     const sorted = this._sortTargets(ids);
     let index = 0;
@@ -1150,6 +1602,7 @@ export class BattleUI {
     this.menu.classList.remove('is-open');
     for (const v of this.view.values()) if (v.foe) this._paintWeak(v);
     this._paintTarget();
+    this._curMin = null;
   }
 
   _sortTargets(ids) {
@@ -1184,7 +1637,9 @@ export class BattleUI {
       const wk = el('div', { class: 'vb-weak' });
       this._paintWeak(v, -1, wk);
       side.append(sh, wk);
-      this._setHelp({ title: v.name, weak, text: weak ? 'Weakness! This hit cracks its shield.' : v.broken ? 'Broken: takes double damage.' : 'Unknown weak points are marked ?', side });
+      const text = v.broken ? (weak ? 'Broken: takes double damage. Weakness hit!' : 'Broken: takes double damage.')
+        : weak ? 'Weakness! This hit cracks its shield.' : 'Unknown weak points are marked ?';
+      this._setHelp({ title: v.name, weak, text, side });
     } else {
       this._setHelp({ title: v.name, text: `HP ${v.hp} / ${v.maxHp}   EP ${v.ep} / ${v.maxEp}${v.alive ? '' : '   (down)'}` });
     }
@@ -1299,20 +1754,26 @@ export class BattleUI {
 
   /**
    * Victory panel. data: { xp, credits, items: [{id, n}], members: [{ id, name, key, level, xp, xpNext,
-   * before: { level, xp, xpNext }, alive, gains: [{ level, gains }] }] }. Resolves when dismissed.
+   * before: { level, xp, xpNext }, alive, gains: [levelUp events], learned: [skill names] }] }. Only
+   * levelUp events count as level gains; learned skills are listed on their own. Resolves when dismissed.
    */
   showResults(data) {
     const items = el('div', { class: 'vb-res-items' }, data.items.length
-      ? [el('span', { class: 'vp-cap', text: 'Obtained' }), ...data.items.map((it) => el('span', { class: 'it' }, [img(iconURL(it.id, 2)), document.createTextNode(`${ITEMS[it.id]?.name || it.id} x${it.n}`)]))]
+      ? [el('span', { class: 'vp-cap', text: 'Obtained' }), ...data.items.map((it) => el('span', { class: 'it' }, [img(iconURL(itemIcon(it.id), 2)), document.createTextNode(`${ITEMS[it.id]?.name || it.id} x${it.n}`)]))]
       : [el('span', { class: 'vp-cap', text: 'No items recovered' })]);
+    const learned = data.members.flatMap((m) => (m.learned || []).map((skill) => ({ name: m.name, skill })));
+    const learnEl = learned.length
+      ? el('div', { class: 'vb-res-learn' }, learned.map((l) => el('span', {}, [el('b', { text: l.name }), document.createTextNode(' learned '), el('em', { text: l.skill })])))
+      : null;
     const rows = data.members.map((m) => {
       const fill = el('i');
-      const up = m.gains.length > 0;
-      const g = up ? m.gains.reduce((acc, x) => { for (const [k, val] of Object.entries(x.gains)) acc[k] = (acc[k] || 0) + val; return acc; }, {}) : null;
+      const gains = (m.gains || []).filter((u) => !u.type || u.type === 'levelUp');
+      const up = gains.length > 0;
+      const g = up ? gains.reduce((acc, x) => { for (const [k, val] of Object.entries(x.gains || {})) acc[k] = (acc[k] || 0) + val; return acc; }, {}) : null;
       const gainText = g ? ['maxHp', 'maxEp', 'atk', 'def', 'mag', 'res', 'spd'].filter((k) => g[k]).map((k) => `${{ maxHp: 'HP', maxEp: 'EP' }[k] || k.toUpperCase()} +${g[k]}`).join('   ') : '';
       const lv = el('span', { class: 'lv' }, [document.createTextNode('LV '), el('b', { text: String(m.before.level) })]);
       const row = el('div', { class: `vb-rm${m.alive ? '' : ' is-ko'}` }, [
-        el('div', { class: 'vb-pt' }, img(portraitURL(m.key, 2))),
+        el('div', { class: 'vb-pt' }, img(portrait(m.key, 2))),
         el('div', {}, [
           el('div', { class: 'vb-l1' }, [el('span', { class: 'vb-name', text: m.name }), el('span', { class: 'vb-lvup', text: 'Level up' }), lv]),
           el('div', { class: 'vp-bar xp' }, fill),
@@ -1324,6 +1785,7 @@ export class BattleUI {
       return { row, fill, m, lv, up };
     });
     const foot = el('div', { class: 'vb-res-ft' }, [glyph('confirm', this.input?.lastDevice || 'keyboard'), document.createTextNode('Continue')]);
+    const party = el('div', { class: `vb-res-party n${Math.min(4, rows.length)}` }, rows.map((r) => r.row));
     const panel = el('div', { class: 'vp-panel vp-rich vb-res vb-live' }, [
       el('div', { class: 'vb-res-hd' }, [
         el('div', {}, [el('span', { class: 'vp-cap', text: 'Battle won' }), el('h2', { text: 'VICTORY' })]),
@@ -1333,7 +1795,8 @@ export class BattleUI {
         ]),
       ]),
       items,
-      el('div', { class: 'vb-res-party' }, rows.map((r) => r.row)),
+      ...(learnEl ? [learnEl] : []),
+      party,
       foot,
     ]);
     this.overlay.appendChild(panel);
@@ -1355,7 +1818,8 @@ export class BattleUI {
     return new Promise((resolve) => {
       this.results = { panel, resolve, ready: false, foot };
       this.after(0.9, () => { if (this.results) { this.results.ready = true; foot.classList.add('is-ready'); } });
-      panel.addEventListener('click', () => this._dismissResults());
+      // pointerup, not click: a tap made while another finger rests on the screen still counts (R22)
+      panel.addEventListener('pointerup', () => this._dismissResults());
     });
   }
 
@@ -1391,6 +1855,7 @@ export class BattleUI {
     this._partyH = 0;
     this._topH = 0;
     this._menuSize = null;
+    this._curMin = null;
     for (const v of this.view.values()) v.foeW = 0;
   }
 
@@ -1408,6 +1873,7 @@ export class BattleUI {
       this.clock += dt;
       this._timers(dt);
       this._drivenStep(dt);
+      this._tickSay(dt);
     }
     this._input();
     this._tick(dt);
@@ -1430,6 +1896,14 @@ export class BattleUI {
   _input() {
     const inp = this.input;
     if (!inp) return;
+    if (this.sayState) {
+      if (inp.pressed('confirm') || inp.pressed('cancel')) {
+        inp.consume('confirm');
+        inp.consume('cancel');
+        this._advanceSay();
+      }
+      return;
+    }
     if (this.results) {
       if (inp.pressed('confirm') || inp.pressed('cancel')) {
         inp.consume('confirm');
@@ -1517,6 +1991,10 @@ export class BattleUI {
         v.hitbox.style.height = `${h}px`;
       }
       v.hitbox.classList.toggle('is-valid', !!(this.cmd && this.cmd.screen === 'target' && this.cmd.target.ids.includes(v.id)));
+      if (v.markEl.classList.contains('is-on')) {
+        v.markLast ||= { x: -1e4, y: -1e4 };
+        this._setPos(v.markEl, r.cx / z, r.y / z, v.markLast);
+      }
       v.rectY = r.y;
       v.rectCx = r.cx;
       v.rectX = r.x;
@@ -1524,14 +2002,26 @@ export class BattleUI {
       v.rectH = r.h;
     }
     // a plate that would cover another foe (a back-row foe's plate over a front-row sprite) slides to
-    // its left when there is room (never right, toward the party)
+    // its left when that keeps it near its own foe (never far right, toward the party); else it nudges
+    // right just past the other foe, or sits above its own foe's head (adds beside a big boss)
+    const topMin = (this._topH || 54) + 24;
     for (const p of plates) {
-      const w = p.v.foeW;
-      for (const o of plates) {
-        if (o === p) continue;
+      const w = p.v.foeW, h = p.v.foeH;
+      const hits = (x, y) => plates.find((o) => {
+        if (o === p) return false;
         const ox = o.v.rectX / z + 6, ow = o.v.rectW / z - 12, oy = o.v.rectY / z + 6, oh = o.v.rectH / z - 12;
-        if (p.x >= ox + ow || p.x + w <= ox || p.y >= oy + oh || p.y + p.v.foeH <= oy) continue;
-        if (ox - w - 2 >= 4) p.x = ox - w - 2;
+        return !(x >= ox + ow || x + w <= ox || y >= oy + oh || y + h <= oy);
+      });
+      const o = hits(p.x, p.y);
+      if (!o) continue;
+      const own = p.v.rectCx / z;
+      const ox = o.v.rectX / z + 6, ow = o.v.rectW / z - 12;
+      const cands = [[ox - w - 2, p.y, Math.abs(ox - w / 2 - 2 - own) <= w], [ox + ow + 2, p.y, ox + ow + 2 - p.x <= 0.6 * w], [p.x, p.v.rectY / z - h - 4, true]];
+      for (const [x, y, ok] of cands) {
+        if (!ok || x < 4 || x + w > this.W - 4 || y < topMin || hits(x, y)) continue;
+        p.x = x;
+        p.y = y;
+        break;
       }
     }
     // plates that would overlap (crowded phone formations) are pushed down below the one above
@@ -1550,15 +2040,15 @@ export class BattleUI {
       p.v.foeLast ||= { x: -1e4, y: -1e4 };
       this._setPos(p.v.foe, p.x, p.y, p.v.foeLast);
     }
-    let curMin = -1e4;
     for (const cur of this.cursors) {
       if (!cur.classList.contains('is-on')) continue;
       const v = this.view.get(cur.dataset.id);
       if (!v) continue;
-      // on phones the top bar + help plate can cover a back-row foe's head: keep the arrow below them
-      if (this.compact && curMin < -1e3) curMin = this.top.offsetTop + this.top.offsetHeight + 40;
+      // on phones the top bar + help plate can cover a back-row foe's head: keep the arrow below them.
+      // Measured once per target screen (a per-frame read forced a layout every frame, R14).
+      if (this._curMin == null) this._curMin = this.compact ? this.top.offsetTop + this.top.offsetHeight + 40 : -1e4;
       cur._last ||= { x: -1e4, y: -1e4 };
-      this._setPos(cur, v.rectCx / z, Math.max(v.rectY / z, curMin), cur._last);
+      this._setPos(cur, v.rectCx / z, Math.max(v.rectY / z, this._curMin), cur._last);
     }
     if (this.reticleId) {
       const a = stage.actor(this.reticleId);
@@ -1570,19 +2060,26 @@ export class BattleUI {
       }
     }
     if (this.cmd) this._placeMenu();
-    if (this.compact) {
-      if (!this._partyH) this._partyH = this.party.offsetHeight;
-      if (this._partyH !== this._panelH) {
-        this._panelH = this._partyH;
-        document.documentElement.style.setProperty('--vb-panel', `${Math.round(this._partyH * z)}px`);
-      }
+    if (!this._partyH) this._partyH = this.party.offsetHeight;
+    if (this._partyH !== this._panelH) {
+      this._panelH = this._partyH;
+      this.root.style.setProperty('--vb-party-h', `${Math.round(this._partyH)}px`);
+      if (this.compact) document.documentElement.style.setProperty('--vb-panel', `${Math.round(this._partyH * z)}px`);
     }
   }
 
   _placeMenu() {
     const z = this.zoom;
-    if (!this._menuSize) this._menuSize = { w: this.menu.offsetWidth || 250, h: this.menu.offsetHeight || 260 };
     if (!this._partyH) this._partyH = this.party.offsetHeight || 200;
+    if (!this._menuSize) {
+      // the list never runs past the screen or over the party panel (R23)
+      if (!this._topH) this._topH = this.turns.offsetHeight || 54;
+      const room = this.compact ? this.H - this._partyH - 24 - (this._topH + 70) : this.H - this._partyH - 24 - (this._topH + 30);
+      const chrome = this.menu.offsetHeight - this.list.offsetHeight;
+      const cssMax = this.compact ? 210 : this.root.classList.contains('is-short') ? 170 : 300;
+      this.list.style.maxHeight = `${Math.max(96, Math.min(cssMax, Math.floor(room - chrome)))}px`;
+      this._menuSize = { w: this.menu.offsetWidth || 250, h: this.menu.offsetHeight || 260 };
+    }
     const { w: mw, h: mh } = this._menuSize;
     this.menu._last ||= { x: -1e4, y: -1e4 };
     if (this.compact) {
@@ -1605,8 +2102,13 @@ export class BattleUI {
   dispose() {
     this.cmd = null;
     this.results = null;
+    for (const line of this._sayQueue || []) line.resolve();
+    if (this.sayState) this.sayState.line.resolve();
+    this.sayState = null;
     this.timers.length = 0;
     this.driven.length = 0;
+    // paused CSS animations keep their nodes (and this whole UI) reachable from the document timeline (R17)
+    for (const a of this.root.getAnimations?.({ subtree: true }) || []) a.cancel();
     this.root.remove();
     document.documentElement.style.removeProperty('--vb-panel');
     document.documentElement.classList.remove('vb-ended');

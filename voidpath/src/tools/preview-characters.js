@@ -1,14 +1,19 @@
 // Preview: party + NPC sprites from art/characters.js.
-// URL params: ?show=three,field,battle,lineup,portraits,npc,sheets,bframes  &char=kade  &scale=4  &t=0.6 (freeze time)
-//             bframes: &bscale=5 &frames=0,7   portraits: &pscale=6
+// URL params: ?show=three,field,poses,expressions,registered,battle,lineup,portraits,npc,sheets,bframes
+//             &char=kade  &scale=4  &t=0.6 (freeze time)   bframes: &bscale=5 &frames=0,7   portraits: &pscale=6
+//   poses        the six field poses of each traveler, down and side views (side flipped too)
+//   expressions  the five portrait expressions of each traveler, BOLT's eyes, HALCYON's variants
+//   registered   registerCharacter: base inheritance, a custom painter, the unknown-id fallback
 import * as THREE from 'three';
 import * as C from '../art/characters.js';
 import { Painter, toTexture } from '../art/painter.js';
 import { injectCSS, el } from '../core/util.js';
+import devArt from '../content/dev/art.js';
 
 const params = new URLSearchParams(location.search);
 const SCALE = Number(params.get('scale') || 4);
-const SHOW = new Set((params.get('show') || 'three,field,battle,lineup,portraits,npc,sheets').split(','));
+const SHOW = new Set((params.get('show') || 'three,field,poses,expressions,registered,battle,lineup,portraits,npc,sheets').split(','));
+for (const [id, def] of Object.entries(devArt.characters)) C.registerCharacter(id, def);
 const ONLY = params.get('char');
 const FREEZE = params.has('t') ? Number(params.get('t')) : null;
 const IDS = ONLY ? [ONLY] : C.PARTY_IDS;
@@ -42,7 +47,7 @@ injectCSS('preview-characters', `
 `);
 document.getElementById('vp-boot')?.remove();
 const root = document.getElementById('ui-root');
-root.append(el('h1', { class: 'pc-h1', text: 'VOIDPATH / CHARACTERS' }), el('p', { class: 'pc-sub', text: `Party and NPC pixel art: field 32x48, battle 64x64 (facing left), portraits 40x40, nearest-neighbour. All sheets generated in ${BUILD_MS} ms.` }));
+root.append(el('h1', { class: 'pc-h1', text: 'VOIDPATH / CHARACTERS' }), el('p', { class: 'pc-sub', text: `Party and NPC pixel art: field 48x48 frames (32-px figures; room for poses), battle 64x64 (facing left), portraits 40x40, nearest-neighbour. All sheets generated in ${BUILD_MS} ms.` }));
 
 // ---------------------------------------------------------------- animated DOM canvases
 
@@ -117,6 +122,46 @@ if (SHOW.has('field')) {
     const row = el('div', { class: 'pc-row' });
     for (const n of FIELD_ANIMS) row.append(animCell(field, n, SCALE));
     row.append(staticCell(C.buildPortrait(id), SCALE, 'portrait'));
+    root.append(row);
+  }
+}
+
+if (SHOW.has('poses')) {
+  section(`Field poses (${SCALE}x): down view, side view facing right, side view flipped (facing left)`);
+  for (const id of IDS) {
+    root.append(el('div', { class: 'pc-name', text: id.toUpperCase() }));
+    const field = C.buildFieldSprite(id);
+    const row = el('div', { class: 'pc-row' });
+    for (const pose of C.POSES) {
+      row.append(staticCell(frameCanvas(field, field.anims[`${pose}_down`].frames[0], 1), SCALE, `${pose} down`));
+      row.append(staticCell(frameCanvas(field, field.anims[`${pose}_side`].frames[0], 1), SCALE, 'side'));
+    }
+    root.append(row);
+  }
+}
+
+if (SHOW.has('expressions')) {
+  const ps = Number(params.get('pscale') || 5);
+  section(`Portrait expressions (${ps}x): ${C.EXPRESSIONS.join(', ')}`);
+  for (const id of IDS) {
+    const row = el('div', { class: 'pc-row' });
+    for (const ex of C.EXPRESSIONS) row.append(staticCell(C.buildPortrait(`${id}:${ex}`), ps, `${id}:${ex}`));
+    root.append(row);
+  }
+  const npc = el('div', { class: 'pc-row' });
+  for (const ex of ['neutral', 'happy', 'worried', 'determined']) npc.append(staticCell(C.buildPortrait(`bolt:${ex}`), ps, `bolt:${ex}`));
+  for (const ex of ['neutral', 'calm', 'flicker']) npc.append(staticCell(C.buildPortrait(`holo:${ex}`), ps, `holo:${ex}`));
+  root.append(npc);
+}
+
+if (SHOW.has('registered')) {
+  section(`registerCharacter (${SCALE}x): base inheritance, a custom painter, and an unknown id (tinted silhouette)`);
+  for (const id of ['dev_ringborn', 'dev_officer', 'dev_drone', 'unknown_townsfolk']) {
+    const field = C.buildFieldSprite(id);
+    const row = el('div', { class: 'pc-row' });
+    for (const n of ['idle_down', 'walk_down', 'walk_side', 'idle_up']) row.append(animCell(field, n, SCALE, `${id} ${n}`));
+    if (field.anims.kneel_side) row.append(staticCell(frameCanvas(field, field.anims.kneel_side.frames[0], 1), SCALE, 'kneel side'));
+    for (const ex of ['neutral', 'smile', 'sad']) row.append(staticCell(C.buildPortrait(`${id}:${ex}`), 3, ex));
     root.append(row);
   }
 }
@@ -275,6 +320,8 @@ function setupThree(canvas) {
   all.forEach((s, k) => add(s, 'walk_down', -((n - 1) * 0.95) / 2 + k * 0.95, 0.7));
   list.forEach((s, k) => add(s, k % 2 ? 'walk_side' : 'idle_side', -2.4 + k * 1.6, -0.6, k % 2 === 1));
   list.forEach((s, k) => add(s, 'idle_up', -3.9 + k * 0.6, -1.5));
+  // posed row: kneel, arms crossed, point, lying down
+  ['kneel_side', 'arms_crossed_down', 'point_side', 'collapse_side'].forEach((pose, k) => add(list[k % list.length], pose, 1.4 + k * 1.05, -1.4, k === 0));
 
   const setFrame = (act, idx) => {
     const s = act.sheet, col = idx % s.cols, row = Math.floor(idx / s.cols);

@@ -9,9 +9,17 @@
 // Albedo and emissive are painted together so glowing pixels line up exactly.
 //
 // All sprites face RIGHT (toward the party). Sheets follow the CONTRACTS.md sprite sheet shape.
+//
+// Registry (TECH_PLAN 7.6): registerEnemyArt(art, def) adds content arts (bosses up to 256x256 with
+// an optional fitBox for the battle camera); BUILTIN_ART holds the four POC defs so content can derive
+// variants, and Rig is the drawing rig every def paints with. buildEnemySprite / buildEnemyIcon /
+// prebuildEnemySprites accept any registered art and fall back to a tinted placeholder (one
+// console.warn per art, listed by debug.missingArt). Sheets and icons live in the art cache under
+// 'enemy:<art>'; a sheet's cacheKey lets the SpriteActors showing it hold it against eviction.
 
 import { Painter, PX_PER_UNIT, packSheet, makeNormalMap, parseColor, rng } from './painter.js';
 import { RAMPS, GLOW, OUTLINE } from './palette.js';
+import { artCache, noteMissingArt } from './cache.js';
 
 export const ENEMY_KINDS = ['drone', 'crawler', 'turret', 'sentinel'];
 
@@ -1335,7 +1343,85 @@ const SENTINEL = {
 
 // ---------------------------------------------------------------- registry + builders
 
-const DEFS = { drone: DRONE, crawler: CRAWLER, turret: TURRET, sentinel: SENTINEL };
+/** The four POC arts, so content can derive variants ({ ...BUILTIN_ART.drone, draw(rig, pose) { ... } }). */
+export const BUILTIN_ART = Object.freeze({ drone: DRONE, crawler: CRAWLER, turret: TURRET, sentinel: SENTINEL });
+const DEFS = { ...BUILTIN_ART };
+const MAX_FRAME = 256;
+const MAX_FRAMES = 12;
+const REQUIRED_ANIMS = ['idle', 'attack', 'hurt', 'break'];
+const PLACEHOLDER_TINT = col('#ff8ad8');
+
+const sheetKey = (art) => `enemy:${art}`;
+const iconKey = (art) => `enemy:${art}#icon`;
+
+/**
+ * Registers an EnemyArtDef under an art key (TECH_PLAN 7.6):
+ *   { w, h, bevel?, draw(rig, pose), anims: { idle, attack, hurt, break, ...extra: { fps, loop, poses, order? } },
+ *     points: { center, muzzle, top, core? }, icon: { x, y, scale }, fitBox?: [x, y, w, h] }
+ * Frames up to 256x256, at most 12 frames per sheet. Registering the same def again is a no-op.
+ */
+export function registerEnemyArt(art, def) {
+  if (!def || typeof def.draw !== 'function' || !def.anims?.idle || !def.points?.center || !def.icon) {
+    console.error(`registerEnemyArt: "${art}" needs w, h, draw(rig, pose), anims.idle, points.center and icon`);
+    return;
+  }
+  if (DEFS[art] === def) return;
+  if (def.w > MAX_FRAME || def.h > MAX_FRAME) console.error(`registerEnemyArt: "${art}" frames are ${def.w}x${def.h} (max ${MAX_FRAME}x${MAX_FRAME})`);
+  const frames = Object.values(def.anims).reduce((n, a) => n + (a.poses?.length || 0), 0);
+  if (frames > MAX_FRAMES) console.error(`registerEnemyArt: "${art}" has ${frames} frames (max ${MAX_FRAMES})`);
+  for (const a of REQUIRED_ANIMS) if (!def.anims[a]) console.warn(`registerEnemyArt: "${art}" has no "${a}" animation`);
+  DEFS[art] = def;
+  artCache.delete(sheetKey(art));
+  artCache.delete(iconKey(art));
+}
+
+/** Every art key that has a definition (the four built-ins plus registered ones). */
+export function enemyArtKinds() {
+  return Object.keys(DEFS);
+}
+
+export function hasEnemyArt(art) {
+  return !!DEFS[art];
+}
+
+export { Rig };
+
+/** A tinted drone scaled into a frame of the declared size, for arts not registered yet (3.12). */
+function placeholderDef(size) {
+  const w = Math.min(MAX_FRAME, size?.w || DRONE.w), h = Math.min(MAX_FRAME, size?.h || DRONE.h);
+  const k = Math.min(w / DRONE.w, h / DRONE.h);
+  const ox = Math.round((w - DRONE.w * k) / 2), oy = Math.round(h - DRONE.h * k);
+  const at = ([x, y]) => [Math.round(ox + x * k), Math.round(oy + y * k)];
+  return {
+    ...DRONE,
+    w, h,
+    bevel: Math.max(2, Math.round(3 * k)),
+    tint: PLACEHOLDER_TINT,
+    draw(r, pose) {
+      r.translate(ox, oy).scale(k);
+      DRONE.draw(r, pose);
+    },
+    points: Object.fromEntries(Object.entries(DRONE.points).map(([n, p]) => [n, at(p)])),
+  };
+}
+
+function resolve(art, size) {
+  const def = DEFS[art];
+  if (def) return def;
+  if (noteMissingArt('enemy', art)) console.warn(`enemy art "${art}" is not registered: drawing a placeholder`);
+  return placeholderDef(size);
+}
+
+/** Multiplies a painter's colours by a tint (placeholders). */
+function tintPainter(p, t) {
+  const d = p.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = (d[i] * t[0]) / 255;
+    d[i + 1] = (d[i + 1] * t[1]) / 255;
+    d[i + 2] = (d[i + 2] * t[2]) / 255;
+  }
+  p._dirty = true;
+}
 
 function buildSheet(def) {
   const frames = [];
@@ -1345,7 +1431,9 @@ function buildSheet(def) {
     for (const pose of spec.poses) {
       const r = new Rig(def.w, def.h);
       def.draw(r, pose);
-      frames.push(r.finish());
+      const f = r.finish();
+      if (def.tint) tintPainter(f.p, def.tint);
+      frames.push(f);
     }
     const idx = spec.poses.map((_, i) => start + i);
     anims[name] = { frames: spec.order ? spec.order.map((k) => idx[k]) : idx, fps: spec.fps, loop: spec.loop };
@@ -1370,51 +1458,54 @@ function buildSheet(def) {
     pxPerUnit: PX_PER_UNIT,
     facing: 'right',
     points: def.points,
+    fitBox: def.fitBox || null,
+    placeholder: !!def.tint,
   };
 }
 
-const sheetCache = new Map();
-const iconCache = new Map();
-
-/** Battle sprite sheet for an enemy kind (cached). Faces right. */
-export function buildEnemySprite(kind) {
-  let s = sheetCache.get(kind);
-  if (s) return s;
-  const def = DEFS[kind];
-  if (!def) throw new Error(`buildEnemySprite: unknown enemy kind "${kind}"`);
-  s = buildSheet(def);
-  sheetCache.set(kind, s);
-  return s;
+/**
+ * Battle sprite sheet for an art key (cached in the art cache). Faces right. Unknown arts fall back to
+ * a tinted placeholder of `size` ({ w, h }, default the drone's) with one console.warn.
+ */
+export function buildEnemySprite(art, { size = null } = {}) {
+  const key = sheetKey(art);
+  const hit = artCache.get(key);
+  if (hit) return hit;
+  const sheet = buildSheet(resolve(art, size));
+  sheet.cacheKey = key;   // SpriteActors acquire it while they live, so a battle's sheets are never evicted
+  return artCache.set(key, sheet, { loc: artCache.locate('enemy', art) });
 }
 
 /**
  * 24x24 head / silhouette portrait for the turn-order bar (cached): the idle pose redrawn at a
  * smaller scale around the creature's face, so the icon is clean pixel art rather than a resample.
  */
-export function buildEnemyIcon(kind) {
-  let c = iconCache.get(kind);
-  if (c) return c;
-  const def = DEFS[kind];
-  if (!def) throw new Error(`buildEnemyIcon: unknown enemy kind "${kind}"`);
-  const { x, y, scale } = def.icon;
+export function buildEnemyIcon(art) {
+  const key = iconKey(art);
+  const hit = artCache.get(key);
+  if (hit) return hit;
+  const def = DEFS[art];
+  if (!def) noteMissingArt('enemy', art);
+  const d = def || DRONE;
+  const { x, y, scale } = d.icon;
   const r = new Rig(24, 24);
   r.translate(12, 12).scale(scale).translate(-x, -y);
-  def.draw(r, def.anims.idle.poses[0]);
-  c = r.finish().p.canvas;
-  iconCache.set(kind, c);
-  return c;
+  d.draw(r, d.anims.idle.poses[0]);
+  const f = r.finish();
+  if (!def) tintPainter(f.p, PLACEHOLDER_TINT);
+  return artCache.set(key, f.p.canvas, { loc: artCache.locate('enemy', art) });
 }
 
 /**
- * Warm the sprite cache without blocking a frame for long: builds one kind per macrotask.
- * Call it at boot or behind a transition (the boss sheet is the expensive one).
+ * Warm the sprite cache without blocking a frame for long: builds one art per macrotask.
+ * Call it at boot or behind a transition (boss sheets are the expensive ones).
  */
-export function prebuildEnemySprites(kinds = ENEMY_KINDS) {
-  return kinds.reduce((chain, kind) => chain.then(() => new Promise((resolve) => {
+export function prebuildEnemySprites(arts = ENEMY_KINDS) {
+  return arts.reduce((chain, art) => chain.then(() => new Promise((resolveJob) => {
     setTimeout(() => {
-      buildEnemySprite(kind);
-      buildEnemyIcon(kind);
-      resolve();
+      buildEnemySprite(art);
+      buildEnemyIcon(art);
+      resolveJob();
     }, 0);
   })), Promise.resolve());
 }

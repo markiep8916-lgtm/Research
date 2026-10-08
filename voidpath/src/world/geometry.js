@@ -182,6 +182,11 @@ export class Materials {
     return m;
   }
 
+  /** Every material this cache created (World.dispose releases them, used or not). */
+  list() {
+    return [...this.cache.values()];
+  }
+
   /** Advance every animated texture. */
   update(t) {
     for (const a of this.animated) {

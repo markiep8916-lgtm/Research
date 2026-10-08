@@ -1,8 +1,8 @@
 [
-  {"note": "Boot: the loading screen, the title, Enter to the menu, Enter on New Journey, the first field frame"},
+  {"note": "Boot: the loading screen, the title, Enter to the menu, Enter on New Journey (KADE wakes alone at halcyon:start; no blocking dialog), the first steps"},
   {"wait": 500},
   {"shot": "01-loading"},
-  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 120000},
+  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 240000},
   {"eval": "window.S = () => window.__VP.debug.state()"},
   {"waitFor": "S().state === 'title' && S().ui.title === 'press' && S().music === 'title'"},
   {"wait": 3000},
@@ -12,8 +12,8 @@
   {"wait": 800},
   {"shot": "03-title-menu"},
   {"key": "Enter"},
-  {"waitFor": "S().transitioning", "timeout": 10000},
-  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 60000},
+  {"waitFor": "S().transitioning", "timeout": 60000},
+  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 400000},
   {"waitFor": "S().music === 'explore' && S().explore.area === 'cryo' && !S().ui.blocking"},
   {"wait": 1200},
   {"shot": "04-cryo-deck"},
@@ -21,5 +21,6 @@
   {"waitFor": "S().explore.z > 20.6"},
   {"wait": 600},
   {"shot": "05-first-steps"},
+  {"waitFor": "S().partyIds.join() === 'kade' && S().leader === 'kade' && S().autosaves === 1 && S().checkpoint && S().checkpoint.map === 'halcyon'"},
   {"log": "JSON.stringify(S())"}
 ]

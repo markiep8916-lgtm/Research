@@ -9,10 +9,32 @@
 // garment, head, near arm) plus 1px contact lines between overlapping parts keep silhouettes readable,
 // and a dark outline closes every frame.
 
-import { Painter, packSheet, makeNormalMap, makeEmissiveMap } from './painter.js';
+import { Painter, packSheet, makeNormalMap, makeEmissiveMap, makeCanvas, ramp } from './painter.js';
 import { OUTLINE, OUTLINE_SOFT } from './palette.js';
+import { artCache, noteMissingArt } from './cache.js';
 
 export const PARTY_IDS = ['kade', 'nyx', 'orion', 'sera'];
+
+/** Field poses (TECH_PLAN 3.6), each with a down and a side view (the side view faces right; flip for left). */
+export const POSES = ['kneel', 'look_up', 'arms_crossed', 'hand_to_chest', 'collapse', 'point'];
+
+/** Portrait expressions every CHARS-format character gets (TECH_PLAN 3.6). */
+export const EXPRESSIONS = ['neutral', 'smile', 'sad', 'determined', 'surprised'];
+
+/**
+ * Sheet anim for a pose or anim name at a facing: { anim, flipX } or null when the sheet has neither.
+ * Poses resolve to '<pose>_down' or '<pose>_side' (left flips; up uses the down view).
+ */
+export function poseAnim(sheet, name, facing = 'down') {
+  const anims = sheet.anims || {};
+  if (POSES.includes(name)) {
+    const view = facing === 'left' || facing === 'right' ? 'side' : 'down';
+    const anim = `${name}_${view}`;
+    if (anims[anim]) return { anim, flipX: facing === 'left' };
+    return anims[`${name}_down`] ? { anim: `${name}_down`, flipX: false } : null;
+  }
+  return anims[name] ? { anim: name, flipX: null } : null;
+}
 
 // ---------------------------------------------------------------- lighting
 
@@ -77,6 +99,7 @@ class Frame {
     this.grp = 0;
     this.ops = [];
     this.lines = [];
+    this.ox = 0; // drawing offset in x (field art is drawn at 32-px coordinates into 48-px frames)
   }
 
   group() { return ++this.gid; }
@@ -92,7 +115,7 @@ class Frame {
   count(mi) { return this.pal.colors[mi].length; }
 
   has(x, y) {
-    x = Math.floor(x);
+    x = Math.floor(x) + this.ox;
     y = Math.floor(y);
     return x >= 0 && y >= 0 && x < this.w && y < this.h && this.m[y * this.w + x] >= 0;
   }
@@ -104,7 +127,7 @@ class Frame {
   }
 
   put(x, y, mi, tone, auto = 0) {
-    x = Math.floor(x);
+    x = Math.floor(x) + this.ox;
     y = Math.floor(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     this.ops.push(y * this.w + x, mi, tone, auto);
@@ -196,6 +219,7 @@ class Frame {
       const mid = (xl + xr + 1) / 2, hw = Math.max(1, (xr - xl + 1) / 2);
       const ny = o.ny ? o.ny(y + 0.5) : 0;
       for (let x = xl; x <= xr; x++) {
+        if (o.clip && o.clip(x + 0.5, y + 0.5)) continue;
         const nx = ((x + 0.5 - mid) / hw) * round;
         const nz = Math.sqrt(Math.max(0.04, 1 - nx * nx - ny * ny));
         const mname = fixed >= 0 ? null : mat(x, y);
@@ -250,7 +274,7 @@ class Frame {
     let err = dx + dy;
     this.begin(o.group);
     for (;;) {
-      const ok = on >= 0 ? this.has(x0, y0) && this.m[y0 * this.w + x0] === on : !o.only || this.has(x0, y0);
+      const ok = on >= 0 ? this.has(x0, y0) && this.m[y0 * this.w + x0 + this.ox] === on : !o.only || this.has(x0, y0);
       if (ok) this.put(x0, y0, mi, tn);
       if (x0 === x1 && y0 === y1) break;
       const e2 = 2 * err;
@@ -356,6 +380,24 @@ const FACE_SIDE = [
   '.....wwwww....',
 ];
 const BLINK = { i: 'e', o: 'i' };
+
+/** A copy of a face template with chars replaced at [row, col] positions. */
+function editRows(rows, edits) {
+  const out = rows.map((r) => r.split(''));
+  for (const [y, x, c] of edits) out[y][x] = c;
+  return out.map((r) => r.join(''));
+}
+// eyes raised (looking up) and lowered (downcast) for the field faces; the eye column moves a row
+const FACE_LOOK = {
+  down: {
+    up: editRows(FACE_DOWN, [[6, 4, 'i'], [6, 9, 'i'], [7, 4, 'o'], [7, 9, 'o'], [8, 4, 'e'], [8, 9, 'e']]),
+    down: editRows(FACE_DOWN, [[7, 4, 'e'], [7, 9, 'e'], [8, 4, 'i'], [8, 9, 'i']]),
+  },
+  side: {
+    up: editRows(FACE_SIDE, [[6, 10, 'i'], [7, 10, 'o'], [8, 10, 'e']]),
+    down: editRows(FACE_SIDE, [[7, 10, 'e'], [8, 10, 'i']]),
+  },
+};
 
 // ---------------------------------------------------------------- party definitions
 
@@ -638,6 +680,7 @@ function drawLeg(f, ch, L, view, dim = 0, B = ch.build) {
   f.limb(L.hip[0], L.hip[1], L.knee[0], L.knee[1], B.thighR, B.shinR + 0.1, S.thigh, { group: g, dim });
   f.limb(L.knee[0], L.knee[1], L.ankle[0], L.ankle[1], B.shinR + 0.1, B.shinR, (t) => (t > S.bootFrom ? S.boot : S.shin), { group: g, dim });
   const fr = B.footR || 1.6;
+  if (L.noFoot) return;
   if (view === 'side' || view === 'battle') f.limb(L.ankle[0] - 0.4, L.ankle[1] + 1, L.toe[0], L.toe[1], fr, fr - 0.35, S.boot, { group: g, dim });
   else f.ball(L.ankle[0], L.ankle[1] + 1.4, 2.4, 1.6, S.boot, { group: g, dim });
 }
@@ -670,11 +713,12 @@ function drawNeck(f, sk) {
 }
 
 function drawFieldHead(f, ch, sk, blink) {
-  const v = sk.view, x = 9, y = sk.headY, g = f.group();
-  const map = blink ? BLINK : null;
-  if (v === 'down') f.tpl(FACE_DOWN, x, y, { group: g, map, sep: true });
-  if (v === 'side') f.tpl(FACE_SIDE, x, y, { group: g, map, sep: true });
-  const locks = FIELD_LOCKS[ch.id]?.[v];
+  const v = sk.view, x = 9 + (sk.hx || 0), y = sk.headY, g = f.group();
+  const map = blink || sk.eyes === 'closed' ? BLINK : null;
+  const look = sk.eyes === 'up' || sk.eyes === 'down' ? FACE_LOOK[v]?.[sk.eyes] : null;
+  if (v === 'down') f.tpl(look || FACE_DOWN, x, y, { group: g, map, sep: true });
+  if (v === 'side') f.tpl(look || FACE_SIDE, x, y, { group: g, map, sep: true });
+  const locks = (ch.locks || FIELD_LOCKS[ch.id])?.[v];
   if (locks) {
     if (v === 'up') f.ball(x + 7, y + 8, 5.4, 5, 'skin');
     const line = locks.hairline;
@@ -683,7 +727,9 @@ function drawFieldHead(f, ch, sk, blink) {
       : (px, py) => px - x > 2 && px - x < 12 && py - y > line;
     lockHair(f, locks.list, (u, w) => [x + u, y + w], clip);
   } else f.tpl(ch.hair[v], x, y, { group: g, sep: true });
-  for (const [ox, oy, rows] of ch.over[v] || []) f.tpl(rows, x + ox, y + oy, { group: g });
+  // visors and lenses follow the gaze a pixel up or down
+  const dy = sk.eyes === 'up' ? -1 : sk.eyes === 'down' ? 1 : 0;
+  for (const [ox, oy, rows] of ch.over[v] || []) f.tpl(rows, x + ox, y + oy + dy, { group: g });
 }
 
 // Field-scale capsule hair for the spiky heads (14-wide head box at x = 9, y = headY).
@@ -848,29 +894,30 @@ CHARS.kade.hooks = {
 
 CHARS.nyx.hooks = {
   behind(f, sk) {
-    const { cx, headY, sh, hip, view } = sk;
+    const { cx, headY, sh, hip, view } = sk, hx = sk.hx || 0;
     if (view === 'down') {
-      f.tpl(PONY.down, 20, headY + 3 - (sk.walk ? sk.i % 2 : 0), {});
+      f.tpl(PONY.down, 20 + hx, headY + 3 - (sk.walk ? sk.i % 2 : 0), {});
       rifleParts(f, cx - 7.5, sh - 8, cx + 5.5, hip + 2);
     } else if (view === 'side') {
       rifleParts(f, cx + 3.5, sh - 9, cx - 4.5, hip + 2.5);
       const w = sk.walk ? (sk.i % 2) : 0;
-      f.tpl(PONY.side.slice(0, 5), 5, headY + 2, {});
-      f.tpl(PONY.side.slice(5), 5 - w, headY + 7, {});
+      f.tpl(PONY.side.slice(0, 5), 5 + hx, headY + 2, {});
+      f.tpl(PONY.side.slice(5), 5 + hx - w, headY + 7, {});
     }
   },
   skirt(f, sk) {
     const { cx, hip, view } = sk, s = sk.sway * 0.7;
-    const tm = (x, y) => (y >= hip + 9.6 ? 'acc' : 'main');
+    const hem = (d) => Math.min(hip + d, sk.floor - (11.2 - d));   // a kneeling coat pools at the floor
+    const tm = (x, y) => (y >= hem(9.6) ? 'acc' : 'main');
     if (view === 'side') {
-      f.shape([[cx - 3.0, hip - 1], [cx + 3.1, hip - 1], [cx + 3.6, hip + 3.5], [cx + 1.6, hip + 10.6], [cx - 6.0 - s, hip + 11.2], [cx - 4.2, hip + 4]], tm);
-      fold(f, cx - 1, hip + 2, cx - 3 - Math.round(s), hip + 9, 'main');
+      f.shape([[cx - 3.0, hip - 1], [cx + 3.1, hip - 1], [cx + 3.6, hip + 3.5], [cx + 1.6, hem(10.6)], [cx - 6.0 - s, hem(11.2)], [cx - 4.2, hip + 4]], tm);
+      fold(f, cx - 1, hip + 2, cx - 3 - Math.round(s), hem(9), 'main');
     } else if (view === 'down') {
-      f.shape([[cx - 3.7, hip - 1], [cx - 0.6, hip - 1], [cx - 1.4, hip + 10.2], [cx - 5.8 + s, hip + 10.8]], tm);
-      f.shape([[cx + 0.6, hip - 1], [cx + 3.7, hip - 1], [cx + 5.8 + s, hip + 10.8], [cx + 1.4, hip + 10.2]], tm);
-      f.line(cx - 1, hip, cx - 2, hip + 9, 'acc', 2, { on: 'main' });
-      fold(f, cx - 4, hip + 3, cx - 4 + Math.round(s), hip + 9, 'main');
-      fold(f, cx + 4, hip + 3, cx + 4 + Math.round(s), hip + 9, 'main', false);
+      f.shape([[cx - 3.7, hip - 1], [cx - 0.6, hip - 1], [cx - 1.4, hem(10.2)], [cx - 5.8 + s, hem(10.8)]], tm);
+      f.shape([[cx + 0.6, hip - 1], [cx + 3.7, hip - 1], [cx + 5.8 + s, hem(10.8)], [cx + 1.4, hem(10.2)]], tm);
+      f.line(cx - 1, hip, cx - 2, hem(9), 'acc', 2, { on: 'main' });
+      fold(f, cx - 4, hip + 3, cx - 4 + Math.round(s), hem(9), 'main');
+      fold(f, cx + 4, hip + 3, cx + 4 + Math.round(s), hem(9), 'main', false);
     } else {
       f.shape([[cx - 3.8, hip - 1], [cx + 3.8, hip - 1], [cx + 5.8 + s, hip + 10.8], [cx - 5.8 + s, hip + 10.8]], tm);
       f.line(cx, hip + 3, cx + Math.round(s), hip + 10, 'main', 0, { on: 'main' });
@@ -932,6 +979,7 @@ CHARS.orion.hooks = {
     f.dot(Math.floor(A.el[0] + (A.ha[0] - A.el[0]) * 0.55), Math.floor(A.el[1] + (A.ha[1] - A.el[1]) * 0.55 + 0.5), 'glow', 2);
   },
   front(f, sk) {
+    if (sk.pose === 'collapse') return;
     const bobs = sk.walk ? [0, 1, 1, 0] : [0, 1];
     const ob = bobs[sk.i] ?? 0;
     const x = sk.view === 'side' ? sk.cx - 10 : sk.view === 'down' ? sk.cx + 7 : sk.cx - 12;
@@ -960,20 +1008,29 @@ CHARS.sera.hooks = {
     else f.ball(cx, sh - 0.2, 3.6, 1.5, 'sec');
   },
   front(f, sk) {
-    haloRing(f, sk.view === 'side' ? sk.cx - 0.5 : sk.cx, sk.headY - 1.2, 5.6, 1.9);
+    if (sk.pose === 'collapse') return;
+    haloRing(f, (sk.view === 'side' ? sk.cx - 0.5 : sk.cx) + (sk.hx || 0), sk.headY - 1.2, 5.6, 1.9);
   },
 };
 
 // ---------------------------------------------------------------- field sprites (32x48)
 
-const FW = 32, FH = 48;
+// Field frames are 48x48: the art is drawn at 32-px coordinates (centre x = 16) with an 8 px
+// offset, so wide poses (pointing, lying down) fit while standing frames look exactly as before.
+const FW = 48, FH = 48, FOX = 8;
+
+function fieldFrame(pal) {
+  const f = new Frame(FW, FH, pal);
+  f.ox = FOX;
+  return f;
+}
 
 function fieldSkel(ch, view, kind, i) {
   const B = ch.build;
   const walk = kind === 'walk';
   const bob = walk ? (i % 2 === 0 ? 1 : 0) : i === 1 ? 1 : 0;
   const cx = 16;
-  const sk = { view, kind, i, walk, bob, cx, headY: B.headY + bob, sh: B.shY + bob, hip: B.hipY + bob, sway: 0 };
+  const sk = { view, kind, i, walk, bob, cx, headY: B.headY + bob, sh: B.shY + bob, hip: B.hipY + bob, sway: 0, floor: 45.6, hx: 0, eyes: null, pose: null };
   const { sh, hip } = sk;
   if (view === 'side') {
     const P = walk ? i : -1;
@@ -1025,9 +1082,111 @@ function fieldSkel(ch, view, kind, i) {
   return sk;
 }
 
-function drawFieldFrame(ch, view, kind, i, blink = false) {
-  const f = new Frame(FW, FH, ch.pal);
+const arm3 = (sh, el, ha) => ({ sh, el, ha });
+
+/**
+ * Poses (TECH_PLAN 3.6): each reshapes a standing skeleton (32-px coordinates, side view facing
+ * right). The body hooks follow the skeleton, so scarves, coats, robes and weapons come along.
+ */
+const POSE_SKEL = {
+  kneel(sk, B) {
+    const d = 7.5;
+    sk.headY += d + 1; sk.sh += d; sk.hip += d;
+    sk.eyes = 'down';
+    const { cx, sh, hip } = sk;
+    if (sk.view === 'side') {
+      sk.hx = 1;
+      sk.legF = { hip: [cx + 0.3, hip], knee: [cx + 5.2, hip - 0.4], ankle: [cx + 5.6, 44], toe: [cx + 8.6, 45.5] };
+      sk.legB = { hip: [cx - 0.5, hip], knee: [cx - 1.0, 44.6], ankle: [cx - 6.2, 44.4], toe: [cx - 8.4, 45.4] };
+      sk.armF = arm3([cx + 0.3, sh + 1], [cx + 2.4, sh + 5.4], [cx + 4.6, hip - 1.6]);
+      sk.armB = arm3([cx - 0.2, sh + 1], [cx - 0.6, sh + 5.8], [cx + 0.4, sh + 10]);
+    } else {
+      const hx = B.hipX, ax = B.armX;
+      // one knee on the floor (its foot hidden behind), the other raised toward the camera
+      sk.legL = { hip: [cx - hx, hip], knee: [cx - hx - 0.4, 44.6], ankle: [cx - hx - 0.4, 44.6], lift: 0, noFoot: true };
+      sk.legR = { hip: [cx + hx, hip], knee: [cx + hx + 3.0, hip + 2.2], ankle: [cx + hx + 3.4, 43.8], lift: 1 };
+      sk.armL = arm3([cx - ax, sh + 1], [cx - ax - 0.4, sh + 5.6], [cx - ax + 0.6, sh + 10]);
+      sk.armR = arm3([cx + ax, sh + 1], [cx + ax + 1.0, sh + 5.0], [cx + hx + 2.8, hip + 0.8]);
+    }
+  },
+  look_up(sk) {
+    sk.eyes = 'up';
+    sk.headY -= 1;   // the chin lifts and the neck shows
+    const { cx, sh } = sk;
+    if (sk.view === 'side') {
+      sk.hx = -1;
+      sk.armF = arm3([cx + 0.3, sh + 1], [cx - 0.4, sh + 5.8], [cx - 0.8, sh + 10.4]);
+    }
+  },
+  arms_crossed(sk, B) {
+    const { cx, sh } = sk, ax = B.armX;
+    if (sk.view === 'side') {
+      sk.armF = arm3([cx + 0.3, sh + 1], [cx + 0.6, sh + 6.2], [cx + 3.6, sh + 4.8]);
+      sk.armB = arm3([cx - 0.2, sh + 1], [cx - 0.4, sh + 6.0], [cx + 2.6, sh + 5.6]);
+    } else {
+      sk.armL = arm3([cx - ax, sh + 1], [cx - ax - 0.6, sh + 6.2], [cx + 2.4, sh + 5.6]);
+      sk.armR = arm3([cx + ax, sh + 1], [cx + ax + 0.6, sh + 6.6], [cx - 2.4, sh + 6.4]);
+    }
+  },
+  hand_to_chest(sk, B) {
+    const { cx, sh } = sk, ax = B.armX;
+    sk.eyes = 'down';
+    if (sk.view === 'side') sk.armF = arm3([cx + 0.3, sh + 1], [cx + 1.6, sh + 6.2], [cx + 3.0, sh + 3.4]);
+    else sk.armR = arm3([cx + ax, sh + 1], [cx + ax + 0.6, sh + 6.4], [cx + 1.4, sh + 3.8]);
+  },
+  point(sk, B) {
+    const { cx, sh } = sk, ax = B.armX;
+    if (sk.view === 'side') {
+      sk.armF = arm3([cx + 0.3, sh + 1], [cx + 4.8, sh + 1.8], [cx + 9.4, sh + 1.8]);
+      sk.finger = [cx + 10.6, sh + 2.2, cx + 12.2, sh + 2.2];
+    } else {
+      sk.armR = arm3([cx + ax, sh + 1], [cx + ax + 4.2, sh + 1.4], [cx + ax + 8.4, sh + 1.2]);
+      sk.finger = [cx + ax + 9.6, sh + 1.6, cx + ax + 11.2, sh + 1.6];
+    }
+  },
+  collapse(sk, B) {
+    sk.eyes = 'closed';
+    const { cx, sh, hip } = sk, ax = B.armX, hx = B.hipX;
+    if (sk.view === 'side') {
+      sk.legF = { hip: [cx + 0.3, hip], knee: [cx + 3.6, hip + 6.0], ankle: [cx + 1.2, 43.4], toe: [cx + 4.0, 44.8] };
+      sk.armF = arm3([cx + 0.3, sh + 1], [cx + 1.8, sh + 5.6], [cx + 3.0, hip - 1.4]);
+      sk.armB = arm3([cx - 0.2, sh + 1], [cx - 1.6, sh + 5.4], [cx - 2.0, sh + 10]);
+    } else {
+      sk.armL = arm3([cx - ax, sh + 1], [cx - ax - 1.6, sh + 5.6], [cx - ax - 2.6, sh + 10.2]);
+      sk.armR = arm3([cx + ax, sh + 1], [cx + ax + 1.4, sh + 5.8], [cx + ax + 1.8, sh + 10.4]);
+      sk.legR = { hip: [cx + hx, hip], knee: [cx + hx + 1.6, (hip + 44) / 2], ankle: [cx + hx + 1.0, 44], lift: 0 };
+    }
+  },
+};
+
+/** Lay a drawn (standing) figure down: rotate it a quarter turn, head left, onto the floor line. */
+function lieDown(src) {
+  const f = new Frame(FW, FH, src.pal);
+  let x0 = FW, x1 = -1, y1 = -1;
+  const at = (x, y) => [y, FW - 1 - x];           // counter-clockwise: the top goes left
+  for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
+    if (src.m[y * FW + x] < 0) continue;
+    const [nx, ny] = at(x, y);
+    x0 = Math.min(x0, nx); x1 = Math.max(x1, nx); y1 = Math.max(y1, ny);
+  }
+  const dx = Math.round((FW - (x0 + x1 + 1)) / 2), dy = 46 - y1;
+  for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
+    const i = y * FW + x;
+    if (src.m[i] < 0) continue;
+    const [nx, ny] = at(x, y);
+    const j = (ny + dy) * FW + nx + dx;
+    f.m[j] = src.m[i]; f.t[j] = src.t[i]; f.a[j] = src.a[i]; f.g[j] = src.g[i];
+  }
+  return f;
+}
+
+function drawFieldFrame(ch, view, kind, i, blink = false, pose = null) {
+  const f = fieldFrame(ch.pal);
   const sk = fieldSkel(ch, view, kind, i);
+  if (pose) {
+    sk.pose = pose;
+    POSE_SKEL[pose](sk, ch.build);
+  }
   const H = ch.hooks || {};
   H.behind?.(f, sk);
   if (view === 'side') {
@@ -1045,12 +1204,16 @@ function drawFieldFrame(ch, view, kind, i, blink = false) {
   H.skirt?.(f, sk);
   if (view === 'side') drawArm(f, ch, sk.armF, 0);
   else { drawArm(f, ch, sk.armL); drawArm(f, ch, sk.armR); }
+  if (sk.finger) {
+    const [ax, ay, bx, by] = sk.finger;
+    f.limb(ax, ay, bx, by, 0.7, 0.55, ch.style.hand);
+  }
   H.arms?.(f, sk);
   drawNeck(f, sk);
   H.neck?.(f, sk);
   drawFieldHead(f, ch, sk, blink);
   H.front?.(f, sk);
-  return f;
+  return pose === 'collapse' ? lieDown(f) : f;
 }
 
 // 8 fps sequence: 2 fps breathing (a/b) with a quick blink every 4 s.
@@ -1078,6 +1241,21 @@ const FIELD_ANIMS = {
   idle_side: { frames: idleSeq(13, 14, 15), fps: 8, loop: true },
   walk_side: { frames: [16, 17, 18, 19], fps: 8, loop: true },
 };
+
+/** Pose frames appended after the 20 standard ones: [pose, view] per frame, anims '<pose>_<view>'. */
+function poseLayout(poses) {
+  const out = [];
+  for (const pose of poses) for (const view of ['down', 'side']) out.push([pose, view]);
+  return out;
+}
+
+function fieldAnims(poses) {
+  const anims = { ...FIELD_ANIMS };
+  poseLayout(poses).forEach(([pose, view], k) => {
+    anims[`${pose}_${view}`] = { frames: [FIELD_LAYOUT.length + k], fps: 1, loop: true };
+  });
+  return anims;
+}
 
 // ---------------------------------------------------------------- sheets
 
@@ -1116,23 +1294,145 @@ function buildSheet(frames, cols, anims, facing) {
   };
 }
 
-const cache = new Map();
+// Painted sheets and portraits live in the art cache (TECH_PLAN 11.5); sheets carry their key so a
+// SpriteActor keeps them from eviction while it shows them.
 function cached(key, make) {
-  if (!cache.has(key)) cache.set(key, make());
-  return cache.get(key);
+  const hit = artCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = make();
+  if (v && typeof v === 'object' && 'frameW' in v) v.cacheKey = key;
+  return artCache.set(key, v, typeof v === 'string' ? { bytes: v.length * 2 } : undefined);
 }
 
+const REGISTERED = {};
+const RESOLVED = new Map();
+const NPC_ALIAS = { halcyon: 'holo' };
+
+/**
+ * Register a character (TECH_PLAN 3.12). CharDef = the CHARS format { mats, build, style, hair,
+ * over, hooks } with optional `base: 'nyx'` (inherit everything, override what is given), `locks`
+ * (capsule hair per view instead of `hair` templates), `poses` (default all POSES), `portrait`
+ * ({ bust(f), collar(f), behind?, after?, over }), `hairLocks` / `hairline` (portrait hair) and
+ * `expressions` ({ name: [[row, col, chars], ...] } edits of the portrait face); or
+ * { custom: { field(view, kind, i, blink) -> Painter | canvas, portrait(expr) -> Painter | canvas } }.
+ * Re-registering an id repaints its art on next use.
+ */
+export function registerCharacter(id, def) {
+  REGISTERED[id] = def;
+  RESOLVED.clear();
+  for (const key of artCache.keys()) {
+    const [kind, rest = ''] = key.split(/:(.*)/);
+    if (['field', 'battle', 'portrait', 'portraitURL', 'npc'].includes(kind) && rest.split(':')[0] === id) artCache.delete(key);
+  }
+}
+
+/** True for party ids, BOLT / HALCYON and registered characters. */
+export function hasCharacter(id) {
+  return !!(CHARS[id] || REGISTERED[id] || NPC_DEFS[id] || NPC_ALIAS[id]);
+}
+
+/** Resolved CHARS-format character (party or registered, `base` merged), or a { custom } one, or null. */
+function resolveChar(id, depth = 0) {
+  if (CHARS[id]) return CHARS[id];
+  const def = REGISTERED[id];
+  if (!def || depth > 6) return null;
+  if (RESOLVED.has(id)) return RESOLVED.get(id);
+  let ch;
+  if (def.custom) ch = { id, custom: def.custom };
+  else {
+    const base = def.base ? resolveChar(def.base, depth + 1) : null;
+    if (def.base && !base) console.warn(`characters: "${id}" has an unknown base "${def.base}"`);
+    const B = base && !base.custom ? base : CHARS.kade;
+    const from = base && !base.custom ? base : null;
+    ch = {
+      id,
+      mats: { ...B.mats, ...def.mats },
+      build: { ...B.build, ...def.build },
+      style: { ...B.style, ...def.style },
+      hair: def.hair || (from ? from.hair : null),
+      locks: def.locks || (from ? from.locks || FIELD_LOCKS[from.id] || null : null),
+      over: def.over || (from ? from.over : {}),
+      hooks: { ...(from ? from.hooks : {}), ...def.hooks },
+      portrait: def.portrait || (from ? from.portrait || PORTRAIT[from.id] : null),
+      hairLocks: def.hairLocks || (from ? from.hairLocks || HAIR_LOCKS[from.id] : null),
+      hairline: def.hairline ?? (from ? from.hairline ?? HAIRLINE[from.id] : 6.4),
+      expressions: { ...(from ? from.expressions : {}), ...def.expressions },
+      poses: def.poses || (from ? from.poses : null) || POSES,
+    };
+    if (!ch.hair && !ch.locks) ch.locks = FIELD_LOCKS.orion;   // a generic tousled crop
+    ch.mats.vial = ch.mats.vial || CHARS.kade.mats.vial;
+    if (!ch.mats.glow2) ch.mats.glow2 = ch.mats.glow;
+    ch.pal = makePal(ch.mats);
+  }
+  RESOLVED.set(id, ch);
+  return ch;
+}
+
+function hslHex(hh, ss, ll) {
+  const f = (n) => {
+    const k = (n + hh * 12) % 12, a = ss * Math.min(ll, 1 - ll);
+    const v = ll - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** Tinted silhouette for an unknown id (TECH_PLAN 3.12): Kade's build in one flat hue, no glow. */
+function silhouetteChar(id) {
+  let h = 7;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const tone = ramp(hslHex((h % 360) / 360, 0.22, 0.46), 5, 0.3);
+  const mats = {};
+  for (const k of Object.keys(CHARS.kade.mats)) mats[k] = k === 'ink' ? [OUTLINE, OUTLINE_SOFT] : tone;
+  const pal = makePal(mats);
+  pal.glow = pal.glow.map(() => false);
+  return { ...CHARS.kade, id, mats, pal, over: {}, hooks: {}, locks: FIELD_LOCKS.kade, poses: POSES };
+}
+
+function missingChar(id) {
+  if (noteMissingArt('character', id)) console.warn(`characters: unknown character "${id}" (tinted silhouette)`);
+  return silhouetteChar(id);
+}
+
+/** A party member's definition (battle sprites exist for the four travelers only). */
 function charDef(id) {
   const ch = CHARS[id];
   if (!ch) throw new Error(`characters: unknown party id "${id}"`);
   return ch;
 }
 
+/** Frames of a custom character: its painter (32 or 48 wide) centred in a 48x48 frame. */
+function customFrame(src) {
+  const img = src instanceof Painter ? src : Painter.fromCanvas(src);
+  const p = new Painter(FW, FH);
+  p.blit(img, Math.round((FW - img.w) / 2), FH - img.h);
+  return { render: () => p, glowMask: () => new Uint8Array(FW * FH), w: FW, h: FH };
+}
+
+/**
+ * Field sheet (48x48 frames) for a party id, a registered character, 'bolt' / 'holo' (or
+ * 'halcyon'); unknown ids draw a tinted silhouette with one console.warn. Anims: idle_/walk_ per
+ * view, plus '<pose>_down' / '<pose>_side' for each pose (POSES; poseAnim() resolves facings).
+ */
 export function buildFieldSprite(id) {
+  const npc = NPC_ALIAS[id] || id;
+  if (NPC_DEFS[npc]) return buildNpcSprite(npc);
   return cached(`field:${id}`, () => {
-    const ch = charDef(id);
-    const frames = FIELD_LAYOUT.map(([v, k, i, b]) => drawFieldFrame(ch, v, k, i, b));
-    return buildSheet(frames, 10, FIELD_ANIMS, 'down');
+    const ch = resolveChar(id) || missingChar(id);
+    if (ch.custom) {
+      const poses = REGISTERED[id].poses || [];
+      const frames = [
+        ...FIELD_LAYOUT.map(([v, k, i, b]) => customFrame(ch.custom.field(v, k, i, b))),
+        ...poseLayout(poses).map(([pose, v]) => customFrame(ch.custom.field(v, pose, 0, false))),
+      ];
+      return buildSheet(frames, 10, fieldAnims(poses), 'down');
+    }
+    const poses = ch.poses || POSES;
+    const frames = [
+      ...FIELD_LAYOUT.map(([v, k, i, b]) => drawFieldFrame(ch, v, k, i, b)),
+      ...poseLayout(poses).map(([pose, v]) => drawFieldFrame(ch, v, 'idle', 0, false, pose)),
+    ];
+    return buildSheet(frames, 10, fieldAnims(poses), 'down');
   });
 }
 
@@ -1656,7 +1956,7 @@ CHARS.sera.bhooks = {
 
 const IDLE_BOB = [0, 0, 1, 1];
 
-const POSES = {
+const BATTLE_POSES = {
   kade: {
     idle: IDLE_BOB.map((by, k) => ({ k, by, hF: [-5.5, 8.5 - by * 0.5], hN: [2.5, 9], sw: -140 + by * 3 })),
     ready: [0, 1].map((k) => ({ k, by: k, crouch: 1.5, lean: 3, hF: [-5.5, 1.5], hN: [0.5, 8], sw: -118 })),
@@ -1703,7 +2003,7 @@ function nyxPose(spec) {
   }
   return s;
 }
-POSES.nyx = {
+BATTLE_POSES.nyx = {
   idle: IDLE_BOB.map((by, k) => nyxPose({ k, by, lean: 2, aim: [[-1, 9], 166 - by * 2], under: false })),
   ready: [0, 1].map((k) => nyxPose({ k, by: k, lean: 3.5, hy: 1, aim: [[-3, 2.5], 180] })),
   shoot: [
@@ -1733,13 +2033,13 @@ POSES.nyx = {
 };
 // NYX's rifle hangs from the far hand in the knife / cast / item / hurt poses.
 for (const a of ['attack', 'cast', 'item', 'hurt']) {
-  for (const s of POSES.nyx[a]) {
+  for (const s of BATTLE_POSES.nyx[a]) {
     const t = battleRig('nyx', s), h = t.armF.ha;
     s.rifleF = [add(h, dir(-75), 7), add(h, dir(105), 21), {}];
   }
 }
 
-POSES.orion = {
+BATTLE_POSES.orion = {
   idle: IDLE_BOB.map((by, k) => ({ k, by, lean: 2, hF: [-6, 4 - by * 0.5], bF: -1, hN: [2.5, 8.5], ob: [0, -1, -1, 0][k] - by })),
   ready: [0, 1].map((k) => ({ k, by: k, crouch: 1.5, lean: 3, hF: [-6, -1], hN: [1, 7], charge: true, ob: k ? -1 : 0, ox: -2 })),
   attack: [
@@ -1763,7 +2063,7 @@ POSES.orion = {
   victory: [0, 1].map((k) => ({ k, by: k, lean: 1.5, hF: [-2, -11.5], bF: 1, hN: [2.5, 7], charge: true, ob: -2 - k })),
 };
 
-POSES.sera = {
+BATTLE_POSES.sera = {
   idle: IDLE_BOB.map((by, k) => ({ k, by, lean: 2, hF: [-5, 6], hN: [2, 8], lance: [null, -95], halo: [0, 0, -1, -1][k] })),
   ready: [0, 1].map((k) => ({ k, by: k, crouch: 1.5, lean: 3, hF: [-5, 3], hN: [-9, 7], bN: -1, lance: [null, -148], halo: -k })),
   attack: [
@@ -1787,8 +2087,8 @@ POSES.sera = {
   victory: [0, 1].map((k) => ({ k, by: k, lean: 1, hF: [-3, -9.5], bF: 1, hN: [2, 7], lance: [null, -62], lanceBack: 20, lanceFwd: 17, bright: 1 + k * 0.6, halo: -1 - k })),
 };
 // SERA's lance grip follows the far hand.
-for (const a of Object.keys(POSES.sera)) {
-  for (const s of POSES.sera[a]) {
+for (const a of Object.keys(BATTLE_POSES.sera)) {
+  for (const s of BATTLE_POSES.sera[a]) {
     if (!s.lance) continue;
     s.lance[0] = battleRig('sera', s).armF.ha;
   }
@@ -1802,7 +2102,7 @@ const BATTLE_ANIMS_ORDER = [
 export function buildBattleSprite(id) {
   return cached(`battle:${id}`, () => {
     charDef(id);
-    const table = POSES[id];
+    const table = BATTLE_POSES[id];
     const frames = [], anims = {};
     for (const [name, fps, loop] of BATTLE_ANIMS_ORDER) {
       const list = table[name];
@@ -1933,23 +2233,71 @@ const PORTRAIT = {
   },
 };
 
-function partyPortrait(id) {
-  const ch = charDef(id), D = PORTRAIT[id];
+// Portrait expressions (TECH_PLAN 3.6): edits of FACE_P as [row, col, chars] ('.' keeps a pixel).
+// Rows: 8-9 brows, 10-13 eyes (near eye cols 8-10, far eye cols 16-17), 17-19 mouth (cols 15-19).
+const EXPRESSION_EDITS = {
+  neutral: [],
+  smile: [
+    [11, 8, 'eie'], [12, 8, 'iei'], [13, 8, 'eee'],   // eyes closed in happy arcs
+    [11, 16, 'ei'], [12, 16, 'ie'], [13, 16, 'ee'],
+    [17, 15, 'q...q'], [18, 15, 'eqqqe'],             // the corners turn up
+  ],
+  sad: [
+    [9, 9, 'eee'], [8, 9, 'aaa'], [9, 15, 'ee'], [8, 15, 'aa'],     // inner brow ends rise
+    [12, 8, 'iii'], [12, 16, 'ii'],                   // heavy lids, the gaze drops
+    [18, 15, 'eqqqe'], [19, 15, 'q...q'],             // the corners turn down
+  ],
+  determined: [
+    [9, 7, 'ee'], [8, 7, 'aa'], [9, 11, 'e'], [10, 11, 'a'],         // brows drawn down to the nose
+    [9, 15, 'e'], [10, 15, 'a'], [9, 17, 'ee'], [8, 17, 'aa'],
+    [13, 8, 'eee'], [13, 16, 'ee'],                   // narrowed eyes
+    [18, 15, 'qqqqq'],                                // a firm, wider line
+  ],
+  surprised: [
+    [9, 7, 'eeeee'], [8, 7, 'aaaaa'], [9, 15, 'eeee'], [8, 15, 'aaaa'],   // brows up
+    [10, 8, 'iii'], [11, 8, 'ipo'], [10, 16, 'ii'], [11, 16, 'ip'],         // eyes wide open
+    [17, 16, 'qq'], [18, 15, 'qllq'], [19, 16, 'qq'],                       // an open mouth
+  ],
+};
+// visors and lenses take part: dimmer when sad, brighter when determined
+const EXPRESSION_GLOW = { sad: { u: 'y', y: 't' }, determined: { t: 'y', y: 'u' } };
+
+/** FACE_P with an expression's edits applied (custom edits from the CharDef win). */
+function faceFor(expr, custom) {
+  const edits = (custom && custom[expr]) || EXPRESSION_EDITS[expr] || [];
+  if (!edits.length) return FACE_P;
+  const rows = FACE_P.map((r) => r.split(''));
+  for (const [y, x, str] of edits) [...str].forEach((c, k) => { if (c !== '.') rows[y][x + k] = c; });
+  return rows.map((r) => r.join(''));
+}
+
+// A plain bust for registered characters without their own portrait parts.
+const GENERIC_PORTRAIT = {
+  bust(f) { f.ball(21, 44, 16, 10.5, 'main'); },
+  collar(f) { f.ball(22, 31, 7.2, 2.6, 'sec', { spec: true }); },
+  over: [],
+};
+
+function charPortrait(ch, expr) {
+  const D = PORTRAIT[ch.id] || ch.portrait || GENERIC_PORTRAIT;
   const f = new Frame(40, 40, ch.pal);
   D.behind?.(f);
   D.bust(f);
   f.limb(21.5, 26, 21, 33, 3.4, 3.6, 'skin', { sep: false });
   D.collar(f);
-  f.tpl(FACE_P, FACE_PX, FACE_PY, { sep: true });
-  const line = HAIRLINE[id];
-  lockHair(f, HAIR_LOCKS[id], pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > line; }, PS);
-  for (const [x, y, rows] of D.over) f.tpl(rows, x, y, {});
+  f.tpl(faceFor(expr, ch.expressions), FACE_PX, FACE_PY, { sep: true });
+  const line = HAIRLINE[ch.id] ?? ch.hairline ?? 6.4;
+  const locks = HAIR_LOCKS[ch.id] || ch.hairLocks || HAIR_LOCKS.orion;
+  lockHair(f, locks, pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > line; }, PS);
+  for (const [x, y, rows] of D.over || []) f.tpl(rows, x, y, { map: EXPRESSION_GLOW[expr] });
   D.after?.(f);
   return f;
 }
 
 // BOLT's dialog portrait: the round shell fills the frame, big eye glancing right.
-function boltPortrait() {
+// Eye variants: neutral, happy (a smiling arc), worried (small pupil, tilted lid, a sweat drop),
+// determined (a flat lid across the top, the pupil wide).
+function boltPortrait(expr) {
   const f = new Frame(40, 40, NPC_PAL.bolt);
   f.line(25, 10, 28, 3, 'metal', 3);
   f.dot(28, 2, 'glow2', 2);
@@ -1957,15 +2305,43 @@ function boltPortrait() {
   f.ball(19.5, 26, 15.5, 14.5, (nx, ny) => (ny > 0.15 && ny < 0.45 ? 'acc' : 'main'), { spec: true });
   f.line(5, 31, 34, 31, 'acc', 0, { on: 'acc' });
   f.ball(23, 22, 8.4, 8.2, 'metal', { spec: true });
-  f.ball(23.6, 22, 6.2, 6.2, 'glow');
-  f.ball(24.6, 22, 2.8, 2.8, 'metal');
-  f.dot(25, 22, 'glow', 2);
-  f.tpl(['uu', 'u.'], 20, 18, {});
+  const socket = (px, py) => ((px - 23) / 8.4) ** 2 + ((py - 22) / 8.2) ** 2 > 1;
+  if (expr === 'happy') {
+    // the eye closes into a bright upward arc
+    const gi = f.mat('glow');
+    f.begin();
+    for (let y = 14; y < 26; y++) for (let x = 15; x < 33; x++) {
+      const d = Math.hypot(x + 0.5 - 23.6, (y + 0.5 - 24.5) * 1.15);
+      if (d > 4.2 && d < 6.6 && y + 0.5 < 24) f.put(x, y, gi, d < 5.4 ? 2 : 1);
+    }
+    f.end(false);
+    f.tpl(['XC', 'ZX'], 8, 26, {});
+    f.tpl(['XC', 'ZX'], 32, 26, {});
+  } else if (expr === 'worried') {
+    f.ball(23.6, 22.8, 5.8, 5.8, 'glow');
+    f.ball(22.6, 24.6, 1.8, 1.8, 'metal');
+    f.dot(22, 23, 'glow', 2);
+    // the lid droops on the outer side
+    f.shape([[13, 11], [33, 15.6], [33, 19.2], [13, 14.8]], 'metal', { sep: false, clip: socket });
+    f.tpl(['.u.', 'uyu', 'uyu', '.u.'], 7, 12, {});   // sweat drop
+  } else if (expr === 'determined') {
+    f.ball(23.6, 22, 6.2, 6.2, 'glow');
+    f.ball(24.2, 22.6, 3.4, 3.4, 'metal');
+    f.dot(24, 22, 'glow', 2);
+    f.shape([[13, 12], [33, 12], [33, 18.4], [13, 18.4]], 'metal', { sep: false, clip: socket });   // a flat, focused lid
+    f.line(16, 19, 30, 19, 'glow', 2, { on: 'glow' });
+  } else {
+    f.ball(23.6, 22, 6.2, 6.2, 'glow');
+    f.ball(24.6, 22, 2.8, 2.8, 'metal');
+    f.dot(25, 22, 'glow', 2);
+    f.tpl(['uu', 'u.'], 20, 18, {});
+  }
   f.ball(4, 36, 2.6, 2.4, 'acc', { spec: true });
   return f;
 }
 
-// HALCYON's dialog portrait in the hologram's single cyan ramp.
+// HALCYON's dialog portrait in the hologram's single cyan ramp. Variants: neutral, calm (eyes
+// closed, a faint smile) and flicker (broken scanlines and torn rows: the fragmented self).
 const HOLO_LOCKS = [
   ['ball', 11.6, 9, 4.6, 5.4],
   ['ball', 8.5, 6, 7.4, 5.2],
@@ -1974,28 +2350,94 @@ const HOLO_LOCKS = [
   [7.6, 3, 4.0, 6.4, 2.0, 1.0],
   [9.4, 3.2, 11.6, 6.4, 2.0, 1.0],
 ];
-function holoPortrait() {
+const HOLO_CALM = [[11, 8, 'eee'], [12, 8, 'eie'], [13, 8, 'iei'], [11, 16, 'ee'], [12, 16, 'ii'], [13, 16, 'ee'], [17, 15, 'w...w'], [18, 15, 'eqqqe']];
+
+function holoPortrait(expr) {
   const f = new Frame(40, 40, NPC_PAL.holo);
   f.ball(21, 44, 14.5, 10, 'main');
   f.limb(21.5, 26, 21, 33, 3.2, 3.4, 'skin', { sep: false });
   f.ball(21.5, 31.5, 6.4, 2.4, 'acc', { spec: true });
   f.tpl(['.yu.', 'uyyu', '.uy.'], 19, 36, { only: true });
-  f.tpl(FACE_P, FACE_PX, FACE_PY, { sep: true });
+  f.tpl(faceFor(expr === 'calm' ? 'calm' : 'neutral', { calm: HOLO_CALM }), FACE_PX, FACE_PY, { sep: true });
   lockHair(f, HOLO_LOCKS, pT, (px, py) => { const [u, v] = pTi(px, py); return u < 10.6 && v > 6.4; }, PS);
   f.line(12, 10, 31, 10, 'glow', 1, { on: 'hair' });
   return f;
 }
 
-const portraitPainter = (id) => cached(`portrait:${id}`, () => (id === 'bolt' ? boltPortrait() : id === 'holo' ? holoPortrait() : partyPortrait(id)).render());
+/** Tear a rendered portrait: drop scanlines and shift a few rows (HALCYON's flicker). */
+function tear(p) {
+  const out = p.clone();
+  const shifts = { 9: 2, 10: 2, 17: -2, 25: 3, 26: 3, 27: 1 };
+  for (let y = 0; y < out.h; y++) {
+    const dx = shifts[y] || 0;
+    for (let x = 0; x < out.w; x++) {
+      const c = p.get(x - dx, y);
+      out.set(x, y, y % 5 === 3 || (y > 32 && y % 3 === 0) ? null : c[3] ? c : null);
+    }
+  }
+  for (const [x, y] of [[6, 14], [7, 14], [33, 22], [34, 22], [12, 30], [29, 8]]) out.set(x, y, '#c8f3ff');
+  return out;
+}
 
-/** 40x40 bust facing right (party ids, plus 'bolt' and 'holo' for NPC dialog). Shared cached canvas: do not draw on it. */
+const EXPR_ALIAS = {
+  bolt: { smile: 'happy', sad: 'worried', surprised: 'worried' },
+  holo: { smile: 'calm', sad: 'calm', determined: 'neutral', surprised: 'flicker' },
+};
+const NPC_EXPRESSIONS = { bolt: ['neutral', 'happy', 'worried', 'determined'], holo: ['neutral', 'calm', 'flicker'] };
+
+/** 'sera:sad' -> ['sera', 'sad']; unknown expressions fall back to neutral with one warning. */
+function parsePortraitId(spec) {
+  const [raw, want = 'neutral'] = String(spec).split(':');
+  const id = NPC_ALIAS[raw] || raw;
+  const known = NPC_EXPRESSIONS[id] || EXPRESSIONS;
+  let expr = (EXPR_ALIAS[id] && EXPR_ALIAS[id][want]) || want;
+  if (!known.includes(expr)) {
+    const custom = resolveChar(id);
+    if (!(custom && custom.expressions && custom.expressions[expr])) {
+      if (noteMissingArt('expression', `${id}:${want}`)) console.warn(`characters: unknown expression "${want}" for "${id}" (neutral)`);
+      expr = 'neutral';
+    }
+  }
+  return [id, expr];
+}
+
+function portraitCanvas(spec) {
+  const [id, expr] = parsePortraitId(spec);
+  return cached(`portrait:${id}:${expr}`, () => {
+    if (id === 'bolt') return boltPortrait(expr).render().canvas;
+    if (id === 'holo') {
+      const p = holoPortrait(expr).render();
+      return (expr === 'flicker' ? tear(p) : p).canvas;
+    }
+    const ch = resolveChar(id) || missingChar(id);
+    if (ch.custom) {
+      const img = ch.custom.portrait(expr);
+      return img instanceof Painter ? img.canvas : img;
+    }
+    return charPortrait(ch, expr).render().canvas;
+  });
+}
+
+/**
+ * 40x40 bust facing right for a party id, a registered character, 'bolt' or 'holo' / 'halcyon'.
+ * The id may carry an expression: 'sera:sad' (EXPRESSIONS; BOLT: happy, worried, determined;
+ * HALCYON: calm, flicker). Shared cached canvas: do not draw on it.
+ */
 export function buildPortrait(id) {
-  return portraitPainter(id).canvas;
+  return portraitCanvas(id);
 }
 
 /** Cached PNG data URL of a portrait upscaled with nearest-neighbour, for <img> / CSS / dialog boxes. */
 export function portraitURL(id, scale = 2) {
-  return cached(`portraitURL:${id}:${scale}`, () => portraitPainter(id).toDataURL(scale));
+  const [base, expr] = parsePortraitId(id);
+  return cached(`portraitURL:${base}:${expr}:${scale}`, () => {
+    const src = portraitCanvas(`${base}:${expr}`);
+    const c = makeCanvas(src.width * scale, src.height * scale);
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL ? c.toDataURL('image/png') : '';
+  });
 }
 
 // ---------------------------------------------------------------- NPCs (field layout, 32x48)
@@ -2026,7 +2468,7 @@ const NPC_DEFS = {
 const NPC_PAL = Object.fromEntries(Object.entries(NPC_DEFS).map(([k, m]) => [k, makePal(m)]));
 
 function drawBoltFrame(view, kind, i, blink) {
-  const f = new Frame(FW, FH, NPC_PAL.bolt);
+  const f = fieldFrame(NPC_PAL.bolt);
   const walk = kind === 'walk';
   const bob = walk ? [0, -1, -1, 0][i] : i === 1 ? -1 : 0;
   const flame = walk ? [4, 5, 4, 3][i] : i === 1 ? 2 : 3;
@@ -2084,7 +2526,7 @@ function drawBoltFrame(view, kind, i, blink) {
 const HOLO_BUILD = { headY: 3, shY: 18.5, hipY: 30, armX: 5.5 };
 
 function drawHoloFrame(view, kind, i, blink) {
-  const f = new Frame(FW, FH, NPC_PAL.holo);
+  const f = fieldFrame(NPC_PAL.holo);
   const walk = kind === 'walk';
   const bob = walk ? [0, 1, 0, 1][i] : i === 1 ? 1 : 0;
   const sway = walk ? [1, 0, -1, 0][i] : 0;
@@ -2144,10 +2586,12 @@ function drawHoloFrame(view, kind, i, blink) {
   return f;
 }
 
+/** Field sheet for BOLT ('bolt') or HALCYON ('holo' / 'halcyon'); other ids go to buildFieldSprite. */
 export function buildNpcSprite(kind) {
-  return cached(`npc:${kind}`, () => {
-    const draw = kind === 'bolt' ? drawBoltFrame : kind === 'holo' ? drawHoloFrame : null;
-    if (!draw) throw new Error(`characters: unknown NPC kind "${kind}"`);
+  const id = NPC_ALIAS[kind] || kind;
+  const draw = id === 'bolt' ? drawBoltFrame : id === 'holo' ? drawHoloFrame : null;
+  if (!draw) return buildFieldSprite(id);
+  return cached(`npc:${id}`, () => {
     const frames = FIELD_LAYOUT.map(([v, k, i, b]) => draw(v, k, i, b));
     return buildSheet(frames, 10, FIELD_ANIMS, 'down');
   });

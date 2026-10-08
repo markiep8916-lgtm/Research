@@ -1,5 +1,13 @@
-// Full-screen moments: "Signal lost" game over, "Proof of concept complete" with play stats,
-// and a plain fade to black that other states use around scene changes.
+// Full-screen moments: "Signal lost" game over, "Journey complete" with play stats, and a plain
+// fade to black that other states use around scene changes.
+//
+//   screens.gameOver({ onRetry, onRetryPhase?, onLoad?, onTitle })
+//     Retry (checkpoint), Retry from the second form (only when onRetryPhase is given), Load (only
+//     when onLoad is given), Title. Load keeps the screen up while the save picker is open: onLoad
+//     may return a Promise; the screen closes when it resolves truthy (a journey was loaded), or
+//     when the game calls screens.close().
+//   screens.complete({ stats, onContinue, onTitle, continueLabel = 'Return to Ione' })
+//   screens.fadeBlack(on, ms = 500) -> Promise
 
 import { el, injectCSS, ease } from '../core/util.js';
 import { bindPointer, formatTime, fmtNum } from './theme.js';
@@ -36,6 +44,7 @@ const CSS = `
 .vp-over-sub { margin-top: 22px; font: 500 clamp(15px, 1.5vw, 18px)/1.5 var(--vp-font-ui); color: #d9b9c0; letter-spacing: .06em; }
 .vp-over-flat { width: min(520px, 80vw); height: 1px; margin-top: 26px; background: linear-gradient(90deg, rgba(255,90,106,0), rgba(255,90,106,.8), rgba(255,90,106,0)); box-shadow: 0 0 10px rgba(255,90,106,.6); }
 .vp-over .vp-row.is-sel { color: #ffd0a0; }
+.vp-over .vp-row.is-hl:not(.is-sel) { color: #ffd9b0; }
 
 /* complete */
 .vp-done { background: radial-gradient(circle farthest-side at 50% 40%, rgba(16,30,62,.8), rgba(8,12,24,.9) 60%, rgba(5,7,13,.96)); }
@@ -82,26 +91,32 @@ export class Screens {
     ui.root.append(this.fade, this.root);
   }
 
-  /** "Signal lost". opts: { onRetry, onTitle }; Return to title reloads the page when onTitle is absent. */
-  gameOver({ onRetry, onTitle } = {}) {
+  /** "Signal lost". Return to title reloads the page when onTitle is absent. */
+  gameOver({ onRetry, onRetryPhase = null, onLoad = null, onTitle } = {}) {
     this._counters = [];
     const ghost = (cls) => el('span', { class: `vp-over-ghost ${cls}`, 'aria-hidden': 'true', text: 'SIGNAL LOST' });
+    const party = (this.ui.state && this.ui.state.party) || [];
+    const sub = party.length === 1 ? `${this.ui.memberName(party[0].id)} is down. The Halcyon drifts on in silence.`
+      : party.length === 4 ? 'All four travelers are down. The Halcyon drifts on in silence.'
+        : 'The party is down. The Halcyon drifts on in silence.';
     const view = el('div', { class: 'vp-scr vp-over', role: 'alertdialog', 'aria-label': 'Signal lost' }, [
       el('div', { class: 'vp-cap vp-over-kick vp-scr-in', text: 'Transmission interrupted' }),
       el('h1', { class: 'vp-over-title vp-scr-in d1' }, [ghost('r'), ghost('c'), el('span', { class: 'vp-over-main', text: 'SIGNAL LOST' })]),
       el('div', { class: 'vp-over-flat vp-scr-in d2' }),
-      el('div', { class: 'vp-over-sub vp-scr-in d2', text: 'All four travelers are down. The Halcyon drifts on in silence.' }),
+      el('div', { class: 'vp-over-sub vp-scr-in d2', text: sub }),
       this._buttons([
-        { label: 'Retry from last Med-Station', run: onRetry },
+        onRetryPhase ? { label: 'Retry from the second form', run: onRetryPhase, hl: true } : null,
+        { label: onRetryPhase ? 'Retry from checkpoint' : 'Retry from last checkpoint', run: onRetry },
+        onLoad ? { label: 'Load journey', run: onLoad, keep: true } : null,
         { label: 'Return to title', run: onTitle || (() => location.reload()) },
-      ], 'd3'),
+      ].filter(Boolean), 'd3'),
     ]);
     this.ui.sfx('gameover');
     this._open(view);
   }
 
-  /** "Proof of concept complete". stats: gameState.stats-like { battles, breaks, maxDamage, playTime }. */
-  complete({ stats = {}, onContinue, onTitle } = {}) {
+  /** "Journey complete". stats: gameState.stats-like { battles, breaks, maxDamage, playTime }. */
+  complete({ stats = {}, onContinue, onTitle, continueLabel = 'Return to Ione' } = {}) {
     const tiles = [
       ['Battles', stats.battles, fmtNum],
       ['Breaks', stats.breaks, fmtNum, true],
@@ -114,15 +129,15 @@ export class Screens {
       this._counters.push({ node: num, to: Math.max(0, +value || 0), fmt });
       return el('div', { class: `vp-panel vp-stat-tile${hl ? ' hl' : ''}` }, [num, el('span', { class: 'vp-cap', text: label })]);
     }));
-    const view = el('div', { class: 'vp-scr vp-done', role: 'dialog', 'aria-label': 'Proof of concept complete' }, [
-      el('div', { class: 'vp-cap vp-done-kick vp-scr-in', text: 'Sentinel offline · bridge secured' }),
-      el('div', { class: 'vp-done-title vp-scr-in d1' }, [el('small', { text: 'Proof of concept' }), el('b', {}, [
+    const view = el('div', { class: 'vp-scr vp-done', role: 'dialog', 'aria-label': 'Journey complete' }, [
+      el('div', { class: 'vp-cap vp-done-kick vp-scr-in', text: 'The Halcyon sails for Ione' }),
+      el('div', { class: 'vp-done-title vp-scr-in d1' }, [el('small', { text: 'Journey' }), el('b', {}, [
         el('span', { class: 'vp-done-glow', 'aria-hidden': 'true', text: 'COMPLETE' }), el('span', { class: 'vp-done-main', text: 'COMPLETE' }),
       ])]),
-      el('div', { class: 'vp-done-msg vp-scr-in d2', text: 'Thank you for walking the Voidpath. This slice shows the look and the battle loop; story and new decks come next.' }),
+      el('div', { class: 'vp-done-msg vp-scr-in d2', text: 'Thank you for walking the Voidpath. Twelve thousand sleepers wake to a world worth waking for.' }),
       grid,
       this._buttons([
-        { label: 'Continue exploring', run: onContinue },
+        { label: continueLabel, run: onContinue },
         { label: 'Return to title', run: onTitle || (() => location.reload()) },
       ], 'd4'),
     ]);
@@ -174,6 +189,7 @@ export class Screens {
     this.current = view;
     this.isOpen = true;
     this._sel = 0;
+    this._busy = false;
     this._lock = 0.8;              // ignore mashed buttons from the fight that just ended
     this.root.appendChild(view);
     this.root.classList.add('is-live');
@@ -186,7 +202,7 @@ export class Screens {
   _buttons(list, delay) {
     this._actions = list;
     this._rows = list.map((b, i) => {
-      const row = el('div', { class: 'vp-row', role: 'button', text: b.label });
+      const row = el('div', { class: `vp-row${b.hl ? ' is-hl' : ''}`, role: 'button', text: b.label });
       bindPointer(row, {
         onHover: () => this._select(i, true),
         onActivate: () => { if (this._lock <= 0) { this._select(i, false); this._activate(i); } },
@@ -204,9 +220,19 @@ export class Screens {
 
   _activate(i) {
     const a = this._actions[i];
-    if (!a) return;
+    if (!a || this._busy) return;
     this.ui.sfx('confirm');
-    this.close();
-    if (a.run) a.run();
+    if (!a.keep) {
+      this.close();
+      if (a.run) a.run();
+      return;
+    }
+    // Load: the save picker opens above; close only once a journey was actually loaded
+    const view = this.current;
+    this._busy = true;
+    Promise.resolve(a.run && a.run()).then((loaded) => {
+      this._busy = false;
+      if (loaded && this.current === view) this.close();
+    }, (e) => { this._busy = false; setTimeout(() => { throw e; }); });
   }
 }

@@ -9,8 +9,9 @@
 // frames out horizontally; use setTextureFrame() on a textureSet() to pick a frame.
 
 import * as THREE from 'three';
-import { Painter, toTexture, shade, mix, bayer, rng } from './painter.js';
+import { Painter, toTexture, shade, mix, bayer, rng, makeNormalMap } from './painter.js';
 import { RAMPS, GLOW } from './palette.js';
+import { artCache, noteMissingArt } from './cache.js';
 
 const S = RAMPS.steel;     // 0..7
 const G = RAMPS.gunmetal;  // 0..5
@@ -287,6 +288,34 @@ const GLYPHS = {
   2: ['.##.', '#..#', '...#', '..#.', '.#..', '#...', '####'],
   7: ['####', '...#', '..#.', '..#.', '.#..', '.#..', '.#..'],
   ' ': ['..', '..', '..', '..', '..', '..', '..'],
+  // the rest of the alphabet, digits and punctuation (same 7-row grammar)
+  F: ['####', '#...', '#...', '###.', '#...', '#...', '#...'],
+  J: ['..##', '...#', '...#', '...#', '...#', '#..#', '.##.'],
+  L: ['#...', '#...', '#...', '#...', '#...', '#...', '####'],
+  M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
+  Q: ['.##.', '#..#', '#..#', '#..#', '#.##', '#..#', '.###'],
+  T: ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '.#.'],
+  U: ['#..#', '#..#', '#..#', '#..#', '#..#', '#..#', '.##.'],
+  V: ['#...#', '#...#', '#...#', '.#.#.', '.#.#.', '.#.#.', '..#..'],
+  W: ['#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'],
+  X: ['#..#', '#..#', '.##.', '.##.', '.##.', '#..#', '#..#'],
+  Z: ['####', '...#', '..#.', '.#..', '#...', '#...', '####'],
+  3: ['###.', '...#', '...#', '.##.', '...#', '...#', '###.'],
+  4: ['#..#', '#..#', '#..#', '####', '...#', '...#', '...#'],
+  5: ['####', '#...', '###.', '...#', '...#', '#..#', '.##.'],
+  6: ['.##.', '#...', '#...', '###.', '#..#', '#..#', '.##.'],
+  8: ['.##.', '#..#', '#..#', '.##.', '#..#', '#..#', '.##.'],
+  9: ['.##.', '#..#', '#..#', '.###', '...#', '...#', '.##.'],
+  '-': ['...', '...', '...', '###', '...', '...', '...'],
+  '.': ['.', '.', '.', '.', '.', '.', '#'],
+  ',': ['..', '..', '..', '..', '..', '.#', '#.'],
+  ':': ['.', '.', '#', '.', '.', '#', '.'],
+  '!': ['#', '#', '#', '#', '#', '.', '#'],
+  '?': ['.##.', '#..#', '...#', '..#.', '.#..', '....', '.#..'],
+  '/': ['...#', '...#', '..#.', '.#..', '.#..', '#...', '#...'],
+  "'": ['#', '#', '.', '.', '.', '.', '.'],
+  '+': ['...', '...', '.#.', '###', '.#.', '...', '...'],
+  '#': ['.#.#.', '#####', '.#.#.', '.#.#.', '#####', '.#.#.', '.....'],
 };
 
 // 3x5 stencil digits for crate/locker numbering
@@ -301,15 +330,19 @@ const DIGITS = {
   9: ['###', '#.#', '###', '..#', '##.'],
 };
 
+const glyphOf = (font, ch) => font[ch] || font[ch.toUpperCase()] || font[' '] || ['..'];
+
+/** Width in pixels of `str` in a pixel font (unknown characters count as spaces). */
 function textWidth(str, font = GLYPHS) {
   let w = 0;
-  for (const ch of str) w += font[ch][0].length + 1;
+  for (const ch of String(str)) w += glyphOf(font, ch)[0].length + 1;
   return w - 1;
 }
 
+/** Plot `str` with a pixel font: plot(x, y) is called for every lit pixel. */
 function drawText(str, x, y, plot, font = GLYPHS) {
-  for (const ch of str) {
-    const g = font[ch];
+  for (const ch of String(str)) {
+    const g = glyphOf(font, ch);
     for (let j = 0; j < g.length; j++) for (let i = 0; i < g[j].length; i++) if (g[j][i] === '#') plot(x + i, y + j);
     x += g[0].length + 1;
   }
@@ -1677,13 +1710,32 @@ const DEFS = {
   decal_scorch: { w: 32, h: 32, paint: paintDecalScorch, alpha: true },
 };
 
-/** Every texture name buildTexture()/textureSet() accept (contract names plus door_locked). */
+/** Every texture name buildTexture()/textureSet() accept: built-ins plus registered ones. */
 export const TEXTURE_NAMES = Object.keys(DEFS);
+
+/**
+ * Register (or replace) a texture (TECH_PLAN 3.12). TextureDef forms:
+ *   { w, h, frames = 1, fps = 0, wrapX, wrapY, alpha, strength = 2.4, paint(t: Tex, frame) }
+ *   { w, h, raw: () => Painter | canvas, emissiveIsMap = true }      backdrops, skies, star layers
+ *   { w, h, image: () => ({ map, emissive?, normal? }) }              Painters/canvases painted directly
+ * Painting is lazy (first buildTexture / textureSet); a replaced texture repaints on next use.
+ */
+export function registerTexture(name, def) {
+  if (!def || !(def.paint || def.raw || def.image)) throw new Error(`tiles: texture "${name}" needs paint, raw or image`);
+  DEFS[name] = def;
+  if (!TEXTURE_NAMES.includes(name)) TEXTURE_NAMES.push(name);
+  artCache.delete(`tex:${name}`);
+}
+
+/** True for a built-in or registered texture name. */
+export function hasTexture(name) {
+  return !!DEFS[name];
+}
 
 /** Suggested animation rate (frames per second) for animated textures; 0 for static ones. */
 export function textureFps(name) {
   const d = DEFS[name];
-  return d && d.frames > 1 ? d.fps : 0;
+  return d && d.frames > 1 ? d.fps ?? 4 : 0;
 }
 
 /** True for textures with transparent pixels (render with alphaTest or transparent blending). */
@@ -1691,11 +1743,10 @@ export function textureHasAlpha(name) {
   return !!(DEFS[name] && (DEFS[name].alpha || name === 'stars_layer'));
 }
 
-const cache = new Map();
 let flatCanvas = null;
 
 function flatNormal() {
-  if (!flatCanvas) {
+  if (!flatCanvas || !flatCanvas.width) {
     const p = new Painter(4, 4);
     p.rect(0, 0, 4, 4, [128, 128, 255, 255]);
     flatCanvas = p.canvas;
@@ -1703,47 +1754,69 @@ function flatNormal() {
   return flatCanvas;
 }
 
+const canvasOf = (v) => (v instanceof Painter ? v.canvas : v);
+
+/** Magenta checker with a "?" (unknown texture names, TECH_PLAN 3.12). */
+function paintMissing(t) {
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    t.px(x, y, ((x >> 3) + (y >> 3)) % 2 ? '#ff2bd6' : '#1a0618', ((x >> 3) + (y >> 3)) % 2 ? 0.6 : 0.4);
+  }
+  drawText('?', 14, 12, (x, y) => t.glow(x, y, '#ffffff'));
+}
+const MISSING_DEF = { w: 32, h: 32, wrapX: true, wrapY: true, paint: paintMissing };
+
+function paintDef(def) {
+  if (def.raw) {
+    const map = canvasOf(def.raw());
+    return { map, normal: flatNormal(), emissive: def.emissiveIsMap === false ? null : map, w: def.w, h: def.h, frames: 1 };
+  }
+  if (def.image) {
+    const img = def.image();
+    const map = img.map instanceof Painter ? img.map : Painter.fromCanvas(img.map);
+    const normal = img.normal ? canvasOf(img.normal) : makeNormalMap(map, { bevel: 2, strength: 1.6, lumaRelief: 0.4 }).canvas;
+    return { map: map.canvas, normal, emissive: img.emissive ? canvasOf(img.emissive) : null, w: def.w, h: def.h, frames: def.frames || 1 };
+  }
+  const frames = def.frames || 1;
+  const map = new Painter(def.w * frames, def.h);
+  const normal = new Painter(def.w * frames, def.h);
+  let emissive = null;
+  for (let f = 0; f < frames; f++) {
+    const t = new Tex(def.w, def.h, { wrapX: !!def.wrapX, wrapY: !!def.wrapY });
+    def.paint(t, f);
+    const nm = heightToNormal(t.hm, def.w, def.h, {
+      strength: def.strength || 2.4,
+      wrapX: !!def.wrapX,
+      wrapY: !!def.wrapY,
+      alphaOf: def.alpha ? (x, y) => t.c.alpha(x, y) > 0 : null,
+    });
+    copyInto(map, t.c, f * def.w);
+    copyInto(normal, nm, f * def.w);
+    if (t.e) {
+      if (!emissive) { emissive = new Painter(def.w * frames, def.h); emissive.rect(0, 0, emissive.w, emissive.h, '#000000'); }
+      copyInto(emissive, t.e, f * def.w);
+    }
+  }
+  return { map: map.canvas, normal: normal.canvas, emissive: emissive ? emissive.canvas : null, w: def.w, h: def.h, frames };
+}
+
 /**
- * Build (once, then cached) the canvases for a texture:
+ * Build (once, then cached in the art cache under 'tex:<name>') the canvases for a texture:
  *   { map, normal, emissive (or null), w, h, frames }
  * w/h are the size of ONE frame in texture pixels (32 px = 1 world unit); animated textures lay
- * `frames` frames out horizontally, so the canvases are w*frames wide. The two painted backdrops
- * (space_backdrop, stars_layer) use a tiny flat normal canvas and their map doubles as emissive.
+ * `frames` frames out horizontally, so the canvases are w*frames wide. Raw backdrops use a tiny
+ * flat normal canvas and their map doubles as emissive. An unknown name paints a magenta checker
+ * with one console.warn (debug.missingArt lists it).
  */
 export function buildTexture(name) {
-  const hit = cache.get(name);
+  const key = `tex:${name}`;
+  const hit = artCache.get(key);
   if (hit) return hit;
-  const def = DEFS[name];
-  if (!def) throw new Error(`tiles: unknown texture "${name}"`);
-  let out;
-  if (def.raw) {
-    const map = def.raw().canvas;
-    out = { map, normal: flatNormal(), emissive: map, w: def.w, h: def.h, frames: 1 };
-  } else {
-    const frames = def.frames || 1;
-    const map = new Painter(def.w * frames, def.h);
-    const normal = new Painter(def.w * frames, def.h);
-    let emissive = null;
-    for (let f = 0; f < frames; f++) {
-      const t = new Tex(def.w, def.h, { wrapX: !!def.wrapX, wrapY: !!def.wrapY });
-      def.paint(t, f);
-      const nm = heightToNormal(t.hm, def.w, def.h, {
-        strength: def.strength || 2.4,
-        wrapX: !!def.wrapX,
-        wrapY: !!def.wrapY,
-        alphaOf: def.alpha ? (x, y) => t.c.alpha(x, y) > 0 : null,
-      });
-      copyInto(map, t.c, f * def.w);
-      copyInto(normal, nm, f * def.w);
-      if (t.e) {
-        if (!emissive) { emissive = new Painter(def.w * frames, def.h); emissive.rect(0, 0, emissive.w, emissive.h, '#000000'); }
-        copyInto(emissive, t.e, f * def.w);
-      }
-    }
-    out = { map: map.canvas, normal: normal.canvas, emissive: emissive ? emissive.canvas : null, w: def.w, h: def.h, frames };
+  let def = DEFS[name];
+  if (!def) {
+    if (noteMissingArt('texture', name)) console.warn(`tiles: unknown texture "${name}" (magenta placeholder)`);
+    def = MISSING_DEF;
   }
-  cache.set(name, out);
-  return out;
+  return artCache.set(key, paintDef(def));
 }
 
 function copyInto(dst, src, dx) {
@@ -1773,23 +1846,36 @@ function sourceFor(canvas) {
  * map/emissive are sRGB, normal is NoColorSpace, all nearest-filtered. `repeat: [rx, ry]` enables
  * RepeatWrapping. Animated textures show frame 0 (repeat.x = 1/frames); call setTextureFrame()
  * to advance them. They can still repeat vertically (ry), but not horizontally.
+ * `layers` (['map', 'normal', 'emissive']) makes only those textures (the others are null); the
+ * canvases stay in the art cache until every texture made from them is disposed.
  */
-export function textureSet(name, { repeat = null } = {}) {
+export function textureSet(name, { repeat = null, layers = null } = {}) {
   const t = buildTexture(name);
-  const make = (canvas, color) => {
-    if (!canvas) return null;
+  const key = `tex:${name}`;
+  const make = (canvas, color, layer) => {
+    if (!canvas || (layers && !layers.includes(layer))) return null;
     const tex = toTexture(canvas, { color, repeat });
     tex.source = sourceFor(canvas);
     if (t.frames > 1) tex.repeat.x = 1 / t.frames;
+    artCache.acquire(key);
+    tex.addEventListener('dispose', () => artCache.release(key));
     return tex;
   };
   return {
-    map: make(t.map, true),
-    normalMap: make(t.normal, false),
-    emissiveMap: make(t.emissive, true),
+    map: make(t.map, true, 'map'),
+    normalMap: make(t.normal, false, 'normal'),
+    emissiveMap: make(t.emissive, true, 'emissive'),
     frames: t.frames,
     fps: textureFps(name),
   };
+}
+
+/** The glowing layer of a texture alone (its emissive canvas, else its colour map) as `.map` of a set. */
+export function glowSet(name, { repeat = null } = {}) {
+  const hasEmissive = !!buildTexture(name).emissive;
+  const set = textureSet(name, { repeat, layers: [hasEmissive ? 'emissive' : 'map'] });
+  if (hasEmissive) { set.map = set.emissiveMap; set.emissiveMap = null; }
+  return set;
 }
 
 /** Show frame `frame` (wraps) of an animated textureSet() result. Cheap: only moves UV offsets. */
@@ -1828,3 +1914,10 @@ export function makeMaterial(name, {
   m.userData.set = set;
   return m;
 }
+
+// Paint helpers for content textures (TECH_PLAN 3.12): Tex is the colour + height + emissive canvas
+// that TextureDef.paint receives; the rest are the shared pixel-art strokes the built-ins use.
+export {
+  Tex, fbm, vnoise, hash, engrave, seamGrime, grime, plateBase, tread, drawText, textWidth, GLYPHS, DIGITS,
+  bolt, rivet, raised, recess, scratch, rowShade, hazard, chips, smooth, clamp01,
+};

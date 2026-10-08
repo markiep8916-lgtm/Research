@@ -5,7 +5,11 @@
 //   input.update()            once per frame, before game logic
 //   input.pressed('confirm')  went down since the previous update
 //   input.repeat('down')      pressed, or auto-repeat while held (menus)
+//   input.heldFor('cancel')   seconds the action has been held (0 when up): hold-to-skip
 //   input.axis()              { x, y } movement in [-1, 1], y+ = south
+//
+// Tab opens the menu, but Shift+Tab (and Tab on the title screen) is left to the browser so
+// keyboard focus can always leave an embedded game.
 //
 // Event handlers latch presses, so a tap shorter than one frame is never lost. onAny() listeners
 // run synchronously inside the DOM event (keyboard / pointer), which counts as a user gesture for
@@ -94,6 +98,11 @@ const CSS = `
 .vp-tc-mute.is-muted .vp-snd-off { display: inline; }
 .vp-tc-mute.is-muted { color: var(--vp-ink-faint); }
 @media (max-width: 380px) { .vp-tc-a { width: 66px; height: 66px; } .vp-tc-b { right: calc(96px + var(--vp-safe-right)); } }
+/* short landscape screens: Boost +/- sit side by side just above A, clear of the sound button */
+@media (max-height: 480px) {
+  .vp-tc-plus, .vp-tc-minus { bottom: calc(176px + var(--vp-safe-bottom)); }
+  .vp-tc-minus { right: calc(86px + var(--vp-safe-right)); }
+}
 `;
 
 const ICON_MENU = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h11"/></svg>';
@@ -120,6 +129,7 @@ export class Input {
     this._released = new Uint8Array(N);
     this._repeat = new Uint8Array(N);
     this._nextRepeat = new Float64Array(N);
+    this._downAt = new Float64Array(N);    // performance.now() when the action went down
     this._keys = new Set();
     this._any = new Set();
     this._axis = { x: 0, y: 0 };
@@ -165,6 +175,7 @@ export class Input {
       const r = (!h && prev[i]) || this._latchR[i] > 0;
       this._pressed[i] = p ? 1 : 0;
       this._released[i] = r ? 1 : 0;
+      if (h && !prev[i]) this._downAt[i] = now;
       if (p) { this._repeat[i] = 1; this._nextRepeat[i] = now + REPEAT_DELAY; }
       else if (h && now >= this._nextRepeat[i]) { this._repeat[i] = 1; this._nextRepeat[i] = now + REPEAT_RATE; }
       else this._repeat[i] = 0;
@@ -181,6 +192,12 @@ export class Input {
   pressed(action) { return this._pressed[IDX[action]] === 1; }
   repeat(action) { return this._repeat[IDX[action]] === 1; }
   released(action) { return this._released[IDX[action]] === 1; }
+  /** Seconds `action` has been held without a release (0 while it is up). */
+  heldFor(action) {
+    const i = IDX[action];
+    return this._held[i] ? (performance.now() - this._downAt[i]) / 1000 : 0;
+  }
+
   /** Movement vector, length <= 1. The returned object is reused every frame: copy it to keep it. */
   axis() { return this._axis; }
 
@@ -241,6 +258,8 @@ export class Input {
     if (e.ctrlKey || e.metaKey || e.altKey) return;       // leave browser shortcuts alone
     const a = KEYMAP[e.code];
     if (a === undefined) return;
+    // let focus leave the page: Shift+Tab always, Tab on the title screen (WCAG 2.1.2)
+    if (e.code === 'Tab' && (e.shiftKey || this.context === 'title')) return;
     e.preventDefault();
     this._setDevice('keyboard');
     if (e.repeat || this._keys.has(e.code)) return;      // OS auto-repeat: we run our own

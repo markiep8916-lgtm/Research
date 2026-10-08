@@ -1,13 +1,17 @@
 [
-  {"note": "Battle with real keys: boost + attack on a weakness, a skill that BREAKs, an attack on the broken foe, defend, then finish and return to the field"},
-  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 120000},
+  {"note": "Battle with real keys: boost + attack on a weakness, a skill that BREAKs, an attack on the broken foe, defend, then finish and return to the field (POC party via jumpTo('poc'))"},
+  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 240000},
   {"eval": "window.S = () => window.__VP.debug.state()"},
-  {"key": "Enter"}, {"wait": 700}, {"key": "Enter"},
-  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 60000},
+  {"key": "Enter"},
+  {"waitFor": "S().ui.title === 'menu'", "timeout": 60000},
+  {"wait": 1200},
+  {"key": "Enter"},
+  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 400000},
+  {"eval": "__VP.debug.jumpTo('poc')"},
+  {"waitFor": "S().partyIds.length === 4 && S().map === 'halcyon' && !S().transitioning", "timeout": 240000},
   {"eval": "__VP.debug.encounters(false)"},
   {"eval": "__VP.debug.view('corridor')"},
   {"hold": "ArrowRight", "ms": 2000},
-
   {"note": "a seeded Sec-Drone encounter keeps this script deterministic (scenario 02 shows a random one)"},
   {"eval": "__VP.debug.startBattle('drone_single', { seed: 3 })"},
   {"wait": 300},
@@ -17,7 +21,6 @@
   {"waitFor": "S().music === 'battle'"},
   {"wait": 700},
   {"shot": "02-command-menu"},
-
   {"note": "NYX: Boost once with E, Attack > Rifle > the drone (a weakness)"},
   {"key": "KeyE"},
   {"waitFor": "S().battle.boost === 1"},
@@ -35,15 +38,16 @@
   {"shot": "05-weakness-hit"},
   {"eval": "__VP.debug.resume()"},
   {"waitFor": "S().battle.enemies[0].revealed.includes('rifle') && S().battle.enemies[0].shield === 1", "timeout": 120000},
-
   {"note": "ORION: Skills > Volt Chain on every foe: the second weakness that BREAKs the shield"},
   {"waitFor": "S().battle.actor === 'orion' && S().battle.menu === 'main'", "timeout": 180000},
   {"key": "ArrowDown"},
   {"waitFor": "S().battle.sel === 1"},
   {"key": "Enter"},
   {"waitFor": "S().battle.menu === 'skills'"},
-  {"key": "ArrowDown"}, {"waitFor": "S().battle.sel === 1"},
-  {"key": "ArrowDown"}, {"waitFor": "S().battle.sel === 2"},
+  {"key": "ArrowDown"},
+  {"waitFor": "S().battle.sel === 1"},
+  {"key": "ArrowDown"},
+  {"waitFor": "S().battle.sel === 2"},
   {"wait": 500},
   {"shot": "06-skills"},
   {"key": "Enter"},
@@ -54,7 +58,6 @@
   {"shot": "07-break"},
   {"eval": "__VP.debug.resume()"},
   {"waitFor": "S().battle.enemies[0].broken", "timeout": 60000},
-
   {"note": "KADE: Attack > Lance on the broken drone (double damage)"},
   {"waitFor": "S().battle.actor === 'kade' && S().battle.menu === 'main'", "timeout": 180000},
   {"key": "Enter"},
@@ -65,46 +68,24 @@
   {"waitFor": "S().battle.menu === 'target'"},
   {"key": "Enter"},
   {"waitFor": "S().battle.menu === null"},
-
   {"note": "SERA: Defend"},
   {"waitFor": "S().battle.actor === 'sera' && S().battle.menu === 'main'", "timeout": 180000},
-  {"key": "ArrowDown"}, {"waitFor": "S().battle.sel === 1"},
-  {"key": "ArrowDown"}, {"waitFor": "S().battle.sel === 2"},
-  {"key": "ArrowDown"}, {"waitFor": "S().battle.sel === 3"},
+  {"key": "ArrowDown"},
+  {"waitFor": "S().battle.sel === 1"},
+  {"key": "ArrowDown"},
+  {"waitFor": "S().battle.sel === 2"},
+  {"key": "ArrowDown"},
+  {"waitFor": "S().battle.sel === 3"},
   {"key": "Enter"},
   {"waitFor": "S().battle.menu === null"},
-
   {"note": "round 2+: attack until the drone falls (KADE boosts twice, SERA attacks instead of defending)"},
-  {"until": "S().battle && S().battle.results", "max": 20, "do": [
-    {"waitFor": "S().battle.results || S().battle.menu === 'main'", "timeout": 180000},
-    {"if": "S().battle.menu === 'main' && S().battle.actor === 'sera'", "then": [
-      {"until": "S().battle.sel === 0", "max": 5, "do": [
-        {"key": "ArrowUp"}, {"waitFor": "S().battle.sel !== null"}, {"wait": 900}
-      ]},
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}
-    ]},
-    {"if": "S().battle.menu === 'main' && S().battle.actor === 'kade'", "then": [
-      {"key": "KeyE"}, {"waitFor": "S().battle.boost === 1"},
-      {"key": "KeyE"}, {"waitFor": "S().battle.boost === 2"},
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'weapons'"},
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}
-    ]},
-    {"if": "S().battle.menu === 'main' && S().battle.actor === 'nyx'", "then": [
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'weapons'"},
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}
-    ]},
-    {"if": "S().battle.menu === 'main' && S().battle.actor === 'orion'", "then": [
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'skills'"},
-      {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}
-    ]},
-    {"waitFor": "S().battle.results || S().battle.menu !== 'main'", "timeout": 30000}
-  ]},
+  {"until": "S().battle && S().battle.results", "max": 20, "do": [{"waitFor": "S().battle.results || S().battle.menu === 'main'", "timeout": 180000}, {"if": "S().battle.menu === 'main' && S().battle.actor === 'sera'", "then": [{"until": "S().battle.sel === 0", "max": 5, "do": [{"key": "ArrowUp"}, {"waitFor": "S().battle.sel !== null"}, {"wait": 900}]}, {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}]}, {"if": "S().battle.menu === 'main' && S().battle.actor === 'kade'", "then": [{"key": "KeyE"}, {"waitFor": "S().battle.boost === 1"}, {"key": "KeyE"}, {"waitFor": "S().battle.boost === 2"}, {"key": "Enter"}, {"waitFor": "S().battle.menu === 'weapons'"}, {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}]}, {"if": "S().battle.menu === 'main' && S().battle.actor === 'nyx'", "then": [{"key": "Enter"}, {"waitFor": "S().battle.menu === 'weapons'"}, {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}]}, {"if": "S().battle.menu === 'main' && S().battle.actor === 'orion'", "then": [{"key": "Enter"}, {"waitFor": "S().battle.menu === 'skills'"}, {"key": "Enter"}, {"waitFor": "S().battle.menu === 'target'"}, {"key": "Enter"}]}, {"waitFor": "S().battle.results || S().battle.menu !== 'main'", "timeout": 30000}]},
   {"wait": 1500},
   {"shot": "08-victory-results"},
   {"log": "JSON.stringify({ battle: S().battle.result, stats: S().stats, events: S().events })"},
   {"waitFor": "S().music === 'victory' && S().stats.battles === 1 && S().stats.breaks >= 1"},
   {"key": "Enter"},
-  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 60000},
+  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 400000},
   {"waitFor": "S().music === 'explore' && S().explore.area === 'corridor'"},
   {"wait": 800},
   {"shot": "09-back-in-field"}

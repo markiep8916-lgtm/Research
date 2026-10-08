@@ -7,7 +7,7 @@
 <title>Voidpath</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Oxanium:wght@400;600;700;800&family=Silkscreen&display=swap">
+<link id="vp-fonts" rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Oxanium:wght@400;600;700;800&family=Silkscreen&display=swap">
 <style>
 /* VOIDPATH base layer. Single deliberate dark look (a game screen), so no light theme.
    Layout: one full-bleed WebGL canvas with stacked DOM UI layers above it.
@@ -57,7 +57,9 @@ body { font-family: var(--vp-font-ui); font-size: 16px; -webkit-font-smoothing: 
 #vp-boot { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--vp-font-display); letter-spacing: .4em; color: var(--vp-ink-dim); font-size: 13px; text-transform: uppercase; background: var(--vp-void); z-index: 50; transition: opacity .6s; }
 #vp-boot.vp-hide { opacity: 0; pointer-events: none; }
 #vp-fatal { position: absolute; left: 16px; right: 16px; bottom: calc(16px + var(--vp-safe-bottom)); padding: 12px 14px; background: #2a0b14; border: 1px solid var(--vp-danger); color: #ffd9de; font: 13px/1.4 ui-monospace, monospace; white-space: pre-wrap; z-index: 99; display: none; }
-@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+/* reduced motion: no looping or sliding chrome, but every timed callout keeps its duration so it stays readable */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+#vp-fatal button { margin-top: 10px; padding: 6px 14px; background: transparent; border: 1px solid var(--vp-danger); color: #ffd9de; font: inherit; cursor: pointer; }
 </style>
 <!--HEAD-END-->
 </head>
@@ -71,13 +73,47 @@ body { font-family: var(--vp-font-ui); font-size: 16px; -webkit-font-smoothing: 
   <div id="vp-fatal" role="alert"></div>
 </div>
 <script>
-  // Surface fatal script errors on screen instead of a silent black page.
-  window.addEventListener('error', function (e) {
-    var el = document.getElementById('vp-fatal');
-    if (!el) return;
-    el.style.display = 'block';
-    el.textContent = 'Voidpath hit an error: ' + (e.message || e.error) + (e.filename ? '\n' + e.filename + ':' + e.lineno : '');
-  });
+  // Fonts load without blocking the first paint or the game script (a hanging font host must not
+  // leave a blank page); the CSS fallbacks cover them until they arrive.
+  (function () {
+    var f = document.getElementById('vp-fonts');
+    if (f) f.rel = 'stylesheet';
+  })();
+  // Surface fatal errors on screen instead of a silent black page. Capture phase, so a script
+  // element that fails to load (three.js from the CDN) is caught too: those events do not bubble.
+  (function () {
+    function fatal(msg, retry) {
+      var el = document.getElementById('vp-fatal');
+      var boot = document.getElementById('vp-boot');
+      if (!el) return;
+      if (boot && retry) boot.style.display = 'none';           // no endless "Loading" under the message
+      el.style.display = 'block';
+      el.textContent = msg;
+      if (retry) {
+        var b = document.createElement('button');
+        b.textContent = 'Retry';
+        b.addEventListener('click', function () { location.reload(); });
+        el.appendChild(document.createElement('br'));
+        el.appendChild(b);
+      }
+    }
+    var NET = 'Voidpath could not load three.js from cdn.jsdelivr.net. Check your connection, then retry.';
+    window.addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t !== window && t.tagName) {
+        if (t.tagName === 'SCRIPT') fatal(t.src ? 'Voidpath could not load ' + t.src + '. Check your connection, then retry.' : NET, true);
+        return;                                     // a font or image that failed is harmless
+      }
+      fatal('Voidpath hit an error: ' + (e.message || e.error) + (e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+    }, true);
+    // watchdog for a hanging CDN: after 15 s the game module has not run (it sets window.__VP,
+    // previews set __PREVIEW) and three.js has not finished downloading
+    setTimeout(function () {
+      if (window.__VP || window.__PREVIEW || document.getElementById('vp-fatal').style.display === 'block') return;
+      var got = (performance.getEntriesByType ? performance.getEntriesByType('resource') : []).some(function (r) { return /three/.test(r.name) && r.responseEnd > 0; });
+      if (!got) fatal('Voidpath is still waiting for three.js from cdn.jsdelivr.net. Check your connection, then retry.', true);
+    }, 15000);
+  })();
 </script>
 <!--BUNDLE-->
 <!--BODY-END-->

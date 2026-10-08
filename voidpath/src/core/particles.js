@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { makeCanvas } from '../art/painter.js';
+import { noteMissingArt } from '../art/cache.js';
 
 // ---------------------------------------------------------------- constants
 
@@ -171,7 +172,100 @@ export const PRESETS = {
       size: [0.32, 0.5], grow: 3.2, colors: ['#4d535f', '#5a5f6a'], end: '#16181d', alpha: 0.42, fade: [0.15, 0.6],
       gravity: -0.22, drag: 0.8, wobble: 0.25 },
   ),
+
+  // ---- ambient presets for the chapters (TECH_PLAN 3.12); emitters set the area and rate
+  // slow glowing wanderers that blink on and off (Arboretum)
+  firefly: preset(
+    { n: 6, shape: SQUARE, life: [5, 9], speed: [0.04, 0.16], size: [0.035, 0.05], colors: ['#e4ff8a', '#b8ff9a'],
+      end: '#5fd86a', intensity: 3.4, fade: [0.2, 0.3], gravity: -0.012, drag: 0.25, wobble: 0.55, flicker: 1 },
+    { n: 3, shape: SOFT, life: [5, 9], speed: [0.04, 0.16], size: [0.16, 0.24], colors: ['#c8ff7a'], end: '#3fae58',
+      intensity: 1.1, alpha: 0.45, fade: [0.2, 0.3], gravity: -0.012, drag: 0.25, wobble: 0.55, flicker: 1 },
+  ),
+  // sprinkler rain: thin falling streaks (spawn them high, area as wide as the room)
+  rain: preset(
+    { n: 10, shape: STREAK, life: [0.55, 0.85], speed: [6.5, 8.5], dir: 'down', cone: 0.06, size: [0.018, 0.026],
+      colors: ['#d6ecff', '#a9d4ff'], intensity: 1.15, alpha: 0.6, fade: [0.05, 0.2], gravity: 6, streak: 0.05 },
+    { n: 2, shape: SQUARE, life: [0.25, 0.4], speed: [0.4, 1.0], dir: 'up', cone: 0.9, size: [0.025, 0.035],
+      colors: ['#e6f4ff'], intensity: 1.4, alpha: 0.7, fade: [0.0, 0.5], gravity: 8, drag: 1, bounce: 0.2 },
+  ),
+  // single drops falling from pipes and ice, bouncing once
+  drip: preset(
+    { n: 1, shape: SQUARE, life: [1.1, 1.6], speed: [0, 0.15], dir: 'down', cone: 0.1, size: [0.035, 0.045],
+      colors: ['#c8f0ff'], end: '#6fb8e0', intensity: 1.8, fade: [0.15, 0.2], gravity: 9.5, bounce: 0.18 },
+  ),
+  // drifting ice crystals with glints (Driftmarket viewports, the Shoals, Ione)
+  snow: preset(
+    { n: 10, shape: SQUARE, life: [6, 10], speed: [0.05, 0.2], size: [0.028, 0.045], colors: ['#f2fdff', '#d4f0ff'],
+      end: '#8fc8ec', intensity: 1.5, alpha: 0.9, fade: [0.2, 0.25], gravity: 0.11, drag: 0.9, wobble: 0.32, flicker: 0.55 },
+    { n: 3, shape: PLUS, life: [6, 10], speed: [0.05, 0.2], size: [0.07, 0.1], colors: ['#ffffff'], end: '#a8dcff',
+      intensity: 1.7, alpha: 0.8, fade: [0.2, 0.25], gravity: 0.09, drag: 0.9, wobble: 0.3, flicker: 0.8 },
+  ),
+  // floating glowing spores rising from the beds
+  spore: preset(
+    { n: 8, shape: SOFT, life: [4.5, 7.5], speed: [0.05, 0.18], dir: 'up', cone: 0.9, size: [0.045, 0.085],
+      colors: ['#cfff8a', '#7dffd2', '#d9a8ff'], end: '#3f8f6a', intensity: 1.9, alpha: 0.75, fade: [0.25, 0.4],
+      gravity: -0.035, drag: 0.6, wobble: 0.35, flicker: 0.3 },
+  ),
+  // tumbling blossom petals (Arboretum blooms, the dreams)
+  petal: preset(
+    { n: 8, blend: NORMAL, shape: SHARD, life: [5, 8], speed: [0.1, 0.3], size: [0.07, 0.11], colors: ['#ffb6dc', '#ff8fc6', '#ffe0ee'],
+      alpha: 0.95, fade: [0.12, 0.25], gravity: 0.22, drag: 0.9, wobble: 0.55, spin: 2.6 },
+  ),
+  // rising data bits and squares (Memory Vault)
+  data: preset(
+    { n: 10, shape: SQUARE, life: [1.6, 3.2], speed: [0.35, 0.9], dir: 'up', cone: 0.04, size: [0.03, 0.075],
+      colors: ['#7ff4ff', '#c8f3ff', '#3fd6ff'], end: '#1479b0', intensity: 2.4, fade: [0.1, 0.35], drag: 0.15, flicker: 0.85 },
+    { n: 3, shape: PLUS, life: [1.2, 2.4], speed: [0.3, 0.7], dir: 'up', cone: 0.05, size: [0.05, 0.08],
+      colors: ['#b98cff'], end: '#6343b0', intensity: 2.2, fade: [0.1, 0.35], drag: 0.2, flicker: 0.6 },
+  ),
+  // magenta pixel bursts of corruption (use emit, or an emitter with burst)
+  glitch: preset(
+    { n: 10, shape: SQUARE, life: [0.12, 0.38], speed: [0.4, 2.2], size: [0.04, 0.13], colors: ['#ff4fc0', '#ff63e0', '#ff2bd6'],
+      end: '#5c1450', intensity: 3, fade: [0.0, 0.3], drag: 3, jitter: 1, flicker: 1 },
+    { n: 3, shape: SQUARE, life: [0.08, 0.2], speed: [0.2, 1.2], size: [0.05, 0.16], colors: ['#7ff4ff'], end: '#1479b0',
+      intensity: 2.6, fade: [0.0, 0.3], drag: 3, jitter: 1, flicker: 1 },
+  ),
+  // warm choir light rising slowly (Choir Chamber, the Heart)
+  mote: preset(
+    { n: 8, shape: SOFT, life: [5, 9], speed: [0.04, 0.14], dir: 'up', cone: 0.7, size: [0.04, 0.075],
+      colors: ['#fff0a8', '#ffd98a', '#f0c94d'], end: '#c99a2a', intensity: 2.3, fade: [0.25, 0.35],
+      gravity: -0.03, drag: 0.5, wobble: 0.22, flicker: 0.4 },
+    { n: 2, shape: SOFT, life: [5, 9], speed: [0.04, 0.12], dir: 'up', cone: 0.7, size: [0.2, 0.3], colors: ['#ffe7a0'],
+      end: '#8f6a19', intensity: 0.8, alpha: 0.4, fade: [0.3, 0.35], gravity: -0.03, drag: 0.5, wobble: 0.2 },
+  ),
+  // grey ash flakes with the odd ember (Security Spire)
+  ash: preset(
+    { n: 9, blend: NORMAL, shape: SHARD, life: [5, 9], speed: [0.05, 0.2], size: [0.035, 0.06], colors: ['#5a5c66', '#7a7c86', '#3a3b42'],
+      end: '#2a2b30', alpha: 0.85, fade: [0.15, 0.3], gravity: 0.12, drag: 1, wobble: 0.4, spin: 1.8 },
+    { n: 1, shape: SQUARE, life: [3, 6], speed: [0.05, 0.2], size: [0.03, 0.04], colors: ['#ffb05a'], end: '#ff3214',
+      intensity: 2.6, fade: [0.1, 0.4], gravity: 0.06, drag: 1, wobble: 0.4, flicker: 0.6 },
+  ),
+  // light falling down a lift shaft
+  light_stream: preset(
+    { n: 6, shape: STREAK, life: [0.9, 1.5], speed: [3.2, 6], dir: 'down', cone: 0.02, size: [0.03, 0.05],
+      colors: ['#fff6c8', '#ffffff', '#c8f3ff'], intensity: 2.6, alpha: 0.85, fade: [0.1, 0.3], streak: 0.16 },
+    { n: 2, shape: SOFT, life: [1.2, 2], speed: [1.5, 3], dir: 'down', cone: 0.03, size: [0.12, 0.2], colors: ['#fff0c4'],
+      intensity: 0.9, alpha: 0.4, fade: [0.2, 0.4] },
+  ),
+  // a cold breath puff (emit at the mouth with a direction)
+  breath: preset(
+    { n: 6, blend: NORMAL, shape: SOFT, life: [0.9, 1.5], speed: [0.25, 0.55], dir: 'up', cone: 0.6, spread: 0.03,
+      size: [0.06, 0.1], grow: 3, colors: ['#eef6ff'], end: '#9fb4ca', alpha: 0.32, fade: [0.1, 0.6], gravity: -0.15, drag: 2.2, wobble: 0.15 },
+  ),
+  // placeholder for unknown preset names (magenta, unmistakable)
+  missing: preset(
+    { n: 6, shape: SQUARE, life: [0.8, 1.4], speed: [0.2, 0.6], size: [0.06, 0.09], colors: ['#ff2bd6'], intensity: 2.5,
+      fade: [0.1, 0.4], drag: 1, flicker: 0.5 },
+  ),
 };
+
+/** The preset for a name; unknown names warn once (debug.missingArt) and use the magenta placeholder. */
+function presetOf(name) {
+  const p = PRESETS[name];
+  if (p) return p;
+  if (noteMissingArt('preset', name)) console.warn(`particles: unknown preset "${name}" (magenta placeholder)`);
+  return PRESETS.missing;
+}
 
 // ---------------------------------------------------------------- shaders
 
@@ -538,8 +632,7 @@ export class Particles {
    * direction (Vector3 or [x,y,z]: aims directional layers / biases bursts), floor (bounce height).
    */
   emit(presetName, position, opts = {}) {
-    const p = PRESETS[presetName];
-    if (!p) return;
+    const p = presetOf(presetName);
     const ctx = resolveCtx(this._ctx, opts);
     const px = Array.isArray(position) ? position[0] : position.x;
     const py = Array.isArray(position) ? position[1] : position.y;
@@ -560,7 +653,7 @@ export class Particles {
    * Returns { position, area, rate, active, burst, remove() }.
    */
   addEmitter(presetName, { position, area = [1, 1, 1], rate = 10, color, burst = 0, ...opts } = {}) {
-    const p = PRESETS[presetName];
+    const p = presetOf(presetName);
     const em = {
       preset: presetName,
       position: Array.isArray(position) ? new THREE.Vector3().fromArray(position) : position ? position.clone() : new THREE.Vector3(),
@@ -577,7 +670,7 @@ export class Particles {
         if (i >= 0) this.emitters.splice(i, 1);
       },
     };
-    if (p) this.emitters.push(em);
+    this.emitters.push(em);
     return em;
   }
 
@@ -760,4 +853,27 @@ export class Particles {
   }
 }
 
-export const PARTICLE_PRESETS = Object.keys(PRESETS);
+export const PARTICLE_PRESETS = Object.keys(PRESETS).filter((n) => n !== 'missing');
+
+/** Shape and blend ids for registered layers (strings 'soft', 'add', ... are accepted too). */
+export const PARTICLE_SHAPES = { soft: SOFT, square: SQUARE, streak: STREAK, plus: PLUS, shard: SHARD };
+export const PARTICLE_BLENDS = { add: ADD, normal: NORMAL };
+
+/** Register (or replace) a preset: same layer format as PRESETS (TECH_PLAN 3.12). */
+export function registerPreset(name, ...layers) {
+  const norm = layers.map((l) => {
+    const o = { ...l };
+    if (typeof o.shape === 'string') o.shape = PARTICLE_SHAPES[o.shape] ?? SOFT;
+    if (typeof o.blend === 'string') o.blend = PARTICLE_BLENDS[o.blend] ?? ADD;
+    for (const k of ['shape', 'blend']) if (o[k] === undefined) delete o[k];
+    return o;
+  });
+  PRESETS[name] = preset(...norm);
+  if (!PARTICLE_PRESETS.includes(name)) PARTICLE_PRESETS.push(name);
+  return PRESETS[name];
+}
+
+/** True for a built-in or registered preset name. */
+export function hasPreset(name) {
+  return !!PRESETS[name];
+}

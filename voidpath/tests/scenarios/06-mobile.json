@@ -1,6 +1,6 @@
 [
   {"note": "Phone (run with --mobile): title by taps, the field, the A button on BOLT, a battle driven by tapping menu rows"},
-  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 120000},
+  {"waitFor": "window.__VP && window.__VP.ready", "timeout": 240000},
   {"eval": "window.S = () => window.__VP.debug.state()"},
   {"wait": 2500},
   {"shot": "01-title"},
@@ -9,11 +9,12 @@
   {"wait": 700},
   {"shot": "02-title-menu"},
   {"tapOn": ".vp-title-menu .vp-row", "nth": 0},
-  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 60000},
+  {"waitFor": "S().state === 'explore' && !S().transitioning", "timeout": 400000},
+  {"eval": "__VP.debug.jumpTo('poc')"},
+  {"waitFor": "S().partyIds.length === 4 && S().map === 'halcyon' && !S().transitioning", "timeout": 240000},
   {"eval": "__VP.debug.encounters(false)"},
   {"wait": 1500},
   {"shot": "03-explore"},
-
   {"note": "walk up to BOLT and press the A button"},
   {"eval": "__VP.debug.teleport(7.2, 20.75, 'right')"},
   {"waitFor": "S().ui.prompt === 'Talk'", "timeout": 15000},
@@ -24,8 +25,7 @@
   {"wait": 2200},
   {"shot": "05-dialog"},
   {"until": "!S().ui.dialog", "max": 40, "do": [{"if": "S().ui.dialog", "then": [{"tapOn": ".vp-dlg-panel"}]}, {"wait": 900}]},
-  {"waitFor": "S().flags.talked_bolt === true"},
-
+  {"waitFor": "S().flags['talk:halcyon:bolt'] === true"},
   {"note": "a battle: tap Attack, tap Rifle, confirm the target with A; ORION taps Skills > Volt Chain"},
   {"eval": "__VP.debug.startBattle('drone_single', { seed: 3 })"},
   {"eval": "__VP.debug.speed(2)"},

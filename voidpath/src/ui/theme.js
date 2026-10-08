@@ -14,7 +14,8 @@ export const BASE_CSS = `
 @media (min-width: 1880px) and (min-height: 1060px) { #ui-root > .vp-layer { zoom: 1.5; } }
 @media (min-width: 2520px) and (min-height: 1420px) { #ui-root > .vp-layer { zoom: 2; } }
 /* closed layers keep no animation ticking (no wasted frames under the 3D view) */
-.vp-menu:not(.is-open) *, .vp-title:not(.is-open) *, .vp-dlg:not(.is-open) *, .vp-hud.is-hidden * { animation-play-state: paused !important; }
+.vp-menu:not(.is-open) *, .vp-title:not(.is-open) *, .vp-dlg:not(.is-open) *, .vp-hud.is-hidden *, .vp-shop:not(.is-open) *,
+.vp-star:not(.is-open) *, .vp-saves:not(.is-open) *, .vp-pop:not(.is-open) * { animation-play-state: paused !important; }
 
 /* --- window frame: translucent navy, hairline border, faint inner glow, corner brackets.
    Raster-cheap on purpose: no large blurs or filters (the 3D view below changes every frame and
@@ -104,6 +105,26 @@ export const BASE_CSS = `
   color: var(--acc); text-shadow: 0 0 8px color-mix(in srgb, var(--acc) 55%, transparent);
   background: repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 7px); }
 .vp-portrait.is-ko img { filter: grayscale(1) brightness(.55); }
+
+/* --- shared window pieces: kicker, close button, hints, tags, steppers, empty notes */
+.vp-menu-kicker { display: flex; align-items: center; gap: 10px; color: var(--vp-cyan); }
+.vp-menu-kicker::before { content: ''; width: 6px; height: 6px; background: var(--vp-amber); transform: rotate(45deg); box-shadow: 0 0 8px var(--vp-amber); }
+.vp-menu-close { flex: none; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; color: var(--vp-ink-dim);
+  border: 1px solid var(--vp-line-dim); background: rgba(127,227,255,.04); transition: color .15s, border-color .15s; }
+.vp-menu-close:hover { color: var(--vp-amber); border-color: rgba(255,197,96,.6); }
+.vp-menu-close i { position: relative; width: 18px; height: 18px; }
+.vp-menu-close i::before, .vp-menu-close i::after { content: ''; position: absolute; left: 0; top: 8px; width: 18px; height: 1.5px; background: currentColor; transform: rotate(45deg); }
+.vp-menu-close i::after { transform: rotate(-45deg); }
+.vp-hint { display: inline-flex; align-items: center; gap: 9px; font: 600 13px var(--vp-font-ui); letter-spacing: .18em; text-transform: uppercase; color: var(--vp-ink-dim); }
+.vp-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--vp-line-dim); font: 600 13px/1 var(--vp-font-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--vp-ink-dim); }
+.vp-tag .vp-ico { width: 16px; height: 16px; margin: -2px 0; }
+.vp-tag.amber { color: var(--vp-amber); border-color: rgba(255,197,96,.45); }
+.vp-tag.good { color: var(--vp-hp); border-color: rgba(111,240,166,.4); }
+.vp-empty { padding: 30px 14px; color: var(--vp-ink-faint); font-size: 15px; letter-spacing: .1em; }
+.vp-sec { margin: 6px 0 6px 14px; color: var(--vp-ink-faint); }
+.vp-step { width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--vp-line-dim); color: var(--vp-ink-dim); font: 600 18px/1 var(--vp-font-display); }
+.vp-step:hover { color: var(--vp-amber); }
+.vp-tags { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* --- generic text button (screens, title) */
 .vp-scroll { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(140,214,255,.35) transparent; }
@@ -276,6 +297,20 @@ export function fallbackIconURL(name) {
   return url;
 }
 
+// ------------------------------------------------------------------ settings storage
+
+const SETTINGS_KEY = 'voidpath.settings.v1';
+
+/** The stored settings object (every storage call is wrapped: storage may be blocked). */
+export function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}; } catch { return {}; }
+}
+
+/** Merge a patch into the stored settings, so keys other modules write (perf.js) survive. */
+export function storeSettings(patch) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...loadSettings(), ...patch })); } catch { /* storage blocked */ }
+}
+
 // ------------------------------------------------------------------ misc helpers
 
 const urlCache = new WeakMap();
@@ -305,10 +340,44 @@ export function formatTime(sec = 0) {
 
 export const fmtNum = (n) => Math.round(n || 0).toLocaleString('en-US');
 
-/** Make an element respond to pointer: hover selects (mouse), click/tap selects + activates. */
+/**
+ * Tap on an element: pointerdown and pointerup with the same pointer on it, without a drag.
+ * Uses pointer events rather than `click`, because browsers synthesise no click for a tap made
+ * while another finger rests on the screen (the virtual stick). Stops propagation so a parent's
+ * tap-anywhere handler does not also fire; returns the node.
+ */
+export function onTap(node, fn) {
+  let id = null, x = 0, y = 0;
+  node.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    id = e.pointerId; x = e.clientX; y = e.clientY;
+    e.stopPropagation();
+  });
+  node.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    e.stopPropagation();
+    if (Math.abs(e.clientX - x) + Math.abs(e.clientY - y) < 14) fn(e);
+  });
+  node.addEventListener('pointercancel', () => { id = null; });
+  node.addEventListener('click', (e) => e.stopPropagation());
+  return node;
+}
+
+/** Make an element respond to pointer: hover selects (mouse), a tap selects + activates. */
 export function bindPointer(node, { onHover, onActivate }) {
   node.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && onHover) onHover(e); });
-  node.addEventListener('click', (e) => { e.stopPropagation(); if (onActivate) onActivate(e); });
+  onTap(node, (e) => { if (onActivate) onActivate(e); });
+}
+
+/** Up/down (or left/right with `axis: 'x'`) list step with wrap: the new index, or -1 when no step was pressed. */
+export function navStep(inp, sel, n, { axis = 'y', wrap = true } = {}) {
+  if (n <= 0) return -1;
+  const [back, fwd] = axis === 'x' ? ['left', 'right'] : ['up', 'down'];
+  let d = 0;
+  if (inp.repeat(back)) { inp.consume(back); d = -1; } else if (inp.repeat(fwd)) { inp.consume(fwd); d = 1; }
+  if (!d) return -1;
+  return wrap ? (sel + d + n) % n : Math.max(0, Math.min(n - 1, sel + d));
 }
 
 /** Split "Find the *Bridge Keycard*." into [{ t, em }] runs; *...* marks amber emphasis. */

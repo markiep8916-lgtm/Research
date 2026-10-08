@@ -7,6 +7,7 @@
 // colour ramp, with Bayer dithering only on the outermost fade.
 
 import { Painter, packSheet, bayer, rng, parseColor, makeCanvas } from './painter.js';
+import { artCache } from './cache.js';
 
 const TAU = Math.PI * 2;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -578,8 +579,6 @@ const FX = {
 
 export const FX_NAMES = Object.keys(FX);
 
-const sheets = new Map();
-
 /**
  * Sprite-sheet object for an effect (cached):
  *   { canvas, normal (flat), emissive (= canvas), frameW, frameH, cols, rows: 1, count,
@@ -587,7 +586,7 @@ const sheets = new Map();
  * 'shards' and 'tracer' are 1-frame variants (shards: pick a random frame per particle).
  */
 export function fxSheet(name) {
-  const hit = sheets.get(name);
+  const hit = artCache.get(`fx:${name}`);
   if (hit) return hit;
   const def = FX[name];
   if (!def) throw new Error(`fx: unknown effect "${name}"`);
@@ -609,8 +608,7 @@ export function fxSheet(name) {
     facing: 'right',
     blending: 'additive',
   };
-  sheets.set(name, sheet);
-  return sheet;
+  return artCache.set(`fx:${name}`, sheet, { loc: 'core' });
 }
 
 const glows = new Map();

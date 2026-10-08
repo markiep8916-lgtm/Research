@@ -1,11 +1,14 @@
 // Battle effects in 3D: animated additive effect sheets (art/fx.js) on camera-facing or floor quads,
 // tracer streaks, energy beams, glowing orb projectiles and tumbling glass shards. Quads and glow
-// sprites are pooled; after warm-up a spawn allocates only the promise it returns.
+// sprites are pooled; after warm-up a spawn allocates only the promise it returns. The base effect
+// textures live for the whole session (one GPU upload each); per-battle clones and materials are
+// released with the stage (materials through programs.release, so the next battle links nothing).
 
 import * as THREE from 'three';
 import { fxSheet, FX_NAMES } from '../art/fx.js';
 import { toTexture, makeCanvas } from '../art/painter.js';
 import { makeGlow } from '../core/vfx.js';
+import { release } from '../core/programs.js';
 
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 const FLAT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
@@ -19,6 +22,19 @@ const _seg = { angle: 0, len: 0 };
 const QUADS = 40;
 const ORBS = 8;
 const NOOP = () => {};
+
+// session-wide base textures: effect sheet name -> texture, plus the beam profile
+const BASE = new Map();
+let BEAM = null;
+
+function baseTexture(name) {
+  let t = BASE.get(name);
+  if (!t) {
+    t = name === '__beam' ? (BEAM ||= beamTexture()) : toTexture(fxSheet(name).canvas);
+    BASE.set(name, t);
+  }
+  return t;
+}
 
 /** Soft horizontal beam texture: white core with a gaussian falloff across the width. */
 function beamTexture() {
@@ -64,9 +80,7 @@ export class Effects {
     this.scene = scene;
     this.camera = camera;
     this.particles = particles;
-    this.base = new Map();
     this.geo = new THREE.PlaneGeometry(1, 1);
-    this.beamTex = beamTexture();
     this.quads = [];
     for (let i = 0; i < QUADS; i++) {
       const q = new Quad(this.geo);
@@ -84,32 +98,42 @@ export class Effects {
     }
   }
 
-  /** Upload every effect sheet now so the first cast does not hitch. */
+  /**
+   * Uploads every effect sheet now and keeps one quad and one orb drawn at zero intensity until
+   * endWarm(), so the engine's compile and the first frames link their programs behind the cover.
+   */
   warm(renderer) {
-    for (const name of FX_NAMES) renderer.initTexture(this._base(name));
-    renderer.initTexture(this.beamTex);
+    for (const name of FX_NAMES) renderer?.initTexture(baseTexture(name));
+    renderer?.initTexture(baseTexture('__beam'));
     const q = this.quads[0];
     this._texture(q, 'impact');
     q.mesh.visible = true;
     q.mat.opacity = 0;
-    renderer.compile(this.scene, this.camera);
-    q.mesh.visible = false;
-    q.mat.opacity = 1;
+    q.warming = true;
+    const o = this.orbs[0];
+    o.sprite.visible = true;
+    o.sprite.material.color.setRGB(0, 0, 0);
+    o.warming = true;
   }
 
-  _base(name) {
-    let t = this.base.get(name);
-    if (!t) {
-      t = toTexture(fxSheet(name).canvas);
-      this.base.set(name, t);
+  endWarm() {
+    const q = this.quads[0];
+    if (q.warming) {
+      q.warming = false;
+      if (!q.active) q.mesh.visible = false;
+      q.mat.opacity = 1;
     }
-    return t;
+    const o = this.orbs[0];
+    if (o.warming) {
+      o.warming = false;
+      if (!o.active) o.sprite.visible = false;
+    }
   }
 
   _texture(q, name) {
     let t = q.textures.get(name);
     if (!t) {
-      t = name === '__beam' ? this.beamTex.clone() : this._base(name).clone();
+      t = baseTexture(name).clone();
       q.textures.set(name, t);
     }
     q.mat.map = t;
@@ -127,6 +151,7 @@ export class Effects {
   }
 
   _start(q, kind, dur) {
+    q.warming = false;
     q.kind = kind;
     q.active = true;
     q.t = 0;
@@ -240,6 +265,7 @@ export class Effects {
   orb(from, to, { color = '#ff7a3a', size = 0.7, intensity = 2.2, dur = 0.22, arc = 0, trail = null, trailColor = null } = {}) {
     let o = this.orbs.find((x) => !x.active);
     if (!o) { o = this.orbs[0]; o.resolve?.(); }
+    o.warming = false;
     o.active = true;
     o.t = 0;
     o.dur = dur;
@@ -349,15 +375,13 @@ export class Effects {
   dispose() {
     for (const q of this.quads) {
       for (const t of q.textures.values()) t.dispose();
-      q.mat.dispose();
+      release(q.mat);
       q.mesh.removeFromParent();
     }
     for (const o of this.orbs) {
-      o.sprite.material.dispose();
+      release(o.sprite.material);
       o.sprite.removeFromParent();
     }
-    for (const t of this.base.values()) t.dispose();
-    this.beamTex.dispose();
     this.geo.dispose();
   }
 }

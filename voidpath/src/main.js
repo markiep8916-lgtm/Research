@@ -1,23 +1,41 @@
-// VOIDPATH boot: engine, input, audio and UI wiring; every heavy piece of procedural art is painted
-// behind the loading screen (yielding between steps so the page stays responsive); then the game
-// state machine starts on the title (title -> field <-> battle). window.__VP exposes debug hooks
-// that the headless scenarios in tests/scenarios drive.
+// VOIDPATH boot: registers every location, wires engine, input, audio, UI, the game state machine,
+// the story facade, the cutscene runner and travel into one ctx, paints the title and the Halcyon
+// behind the loading screen (yielding between steps so the page stays responsive), then starts on
+// the title. window.__VP exposes the debug hooks the headless scenarios drive (TECH_PLAN 10.1).
+//
+// ctx = { engine, input, audio, ui, state, game, story, cutscenes, travel, content: REG,
+//         prewarm: { location(locId), evict(locId) }, settings: { encounters, skipWeak, battleSpeed } }
+// Frame order: input.update(); cutscenes.update() (sees Confirm / Cancel before the UI consumes them);
+// ui.update(realDt); game.update(dt, t).
 
 import { Engine } from './core/engine.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
+import { perf } from './core/perf.js';
 import { UI } from './ui/ui.js';
 import { Game } from './core/game.js';
-import { TitleScene, TitleState } from './core/titleScene.js';
-import { gameState, healParty, addItem, useItemOutOfBattle } from './core/state.js';
-import { ITEMS, PARTY_DEFS, ENCOUNTERS } from './battle/data.js';
+import { TitleScene, TitleState, hasCleared } from './core/titleScene.js';
+import { gameState, healParty, addItem, useItemOutOfBattle, setLeader, moveMember, getMember } from './core/state.js';
+import { equip, optimize, SLOTS } from './core/progression.js';
+import { listSlots } from './core/save.js';
+import { ITEMS, PARTY_DEFS, ENCOUNTERS, ENEMIES, BATTLE_RULES, DIFFICULTY } from './battle/data.js';
 import { BattleState } from './battle/battleState.js';
-import { ExploreState, VIEWPOINTS, prewarmWorld } from './world/explore.js';
+import { createPolicy } from '../tests/policy.mjs';
+import { ExploreState } from './world/explore.js';
+import { setDefaultState } from './world/cond.js';
+import { visualLint } from './world/lint.js';
 import { PARTY_IDS, buildFieldSprite, buildBattleSprite, buildPortrait, buildNpcSprite } from './art/characters.js';
 import { ENEMY_KINDS, buildEnemySprite, buildEnemyIcon } from './art/enemies.js';
 import { ICON_NAMES, iconURL } from './art/icons.js';
 import { buildTexture } from './art/tiles.js';
 import { FX_NAMES, fxSheet } from './art/fx.js';
+import { artCache, missingArt } from './art/cache.js';
+import { registerAll, REG } from './content/index.js';
+import { prewarmLocation } from './content/prewarm.js';
+import { story } from './story/story.js';
+import { CutsceneRunner } from './story/cutscene.js';
+import { travel } from './story/travel.js';
+import { buildJumpState, applyJumpState, setMemberLevel } from './story/jump.js';
 import { el, injectCSS, isTouchDevice, makeRng } from './core/util.js';
 
 const QUALITIES = ['low', 'medium', 'high'];
@@ -35,6 +53,9 @@ function startQuality() {
 
 // ------------------------------------------------------------------ core services
 
+registerAll();
+setDefaultState(gameState);
+
 const engine = new Engine(document.getElementById('view'), { quality: startQuality() });
 const input = new Input({ touchLayer: document.getElementById('touch-layer') });
 const ui = new UI({
@@ -43,14 +64,69 @@ const ui = new UI({
 });
 ui.setPortraitProvider(buildPortrait);
 ui.setIconProvider((n) => iconURL(n, 2));
+for (const [name, def] of Object.entries(REG.speakers)) ui.registerSpeaker(name, def);
+perf.setUi(ui);
 
 // Audio may only start inside a real user gesture (iOS): unlock from the DOM events themselves.
 input.onAny(() => audio.init());
 for (const type of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(type, () => audio.init(), { once: true, capture: true });
 audio.music('title');
 
-const ctx = { engine, input, audio, ui, state: gameState, game: null };
+const ctx = {
+  engine, input, audio, ui, state: gameState, game: null, content: REG,
+  prewarm: { location: (loc) => prewarmLocation(loc), evict: (loc) => artCache.evictLocation(loc) },
+  settings: { encounters: 'normal', skipWeak: true, battleSpeed: 1 },
+};
 const game = new Game(ctx);
+const cutscenes = new CutsceneRunner(ctx);
+Object.assign(ctx, { story: story.bind(ctx), cutscenes, travel: travel.bind(ctx) });
+
+// ------------------------------------------------------------------ pause-menu hooks (8.1)
+
+/** Map tab data: the current map, the areas seen, the leader and the objective marker. */
+function mapData() {
+  const ex = game.states.explore;
+  const map = ex?.world?.map;
+  if (!map) return null;
+  const obj = REG.objectives[gameState.story.objective];
+  return {
+    map, mapId: map.id, name: map.name, region: map.region,
+    visited: map.areas.filter((a) => gameState.flags[`area:${map.id}:${a.id}`]).map((a) => a.id),
+    area: ex.area ? ex.area.id : null,
+    leader: { x: ex.player.x, z: ex.player.z, facing: ex.player.facing },
+    objective: obj ? { id: gameState.story.objective, text: obj.text, target: obj.target || null } : null,
+    flags: gameState.flags,
+    test: (cond) => story.test(cond),
+    mapName: (id) => REG.maps[id]?.name || id,
+  };
+}
+
+function applySettings(patch) {
+  if (patch.difficulty) Object.assign(BATTLE_RULES.difficulty, DIFFICULTY[patch.difficulty] || DIFFICULTY.normal);
+  for (const k of ['encounters', 'skipWeak', 'battleSpeed']) if (k in patch) ctx.settings[k] = patch[k];
+  if (QUALITIES.includes(patch.quality) && patch.quality !== engine.quality) engine.setQuality(patch.quality);
+}
+
+ui.setHooks({
+  setLeader: (id) => {
+    if (setLeader(id)) game.states.explore?.setLeader(id);
+  },
+  moveMember: (id, toIndex) => moveMember(id, toIndex),
+  optimize: (memberId) => {
+    const m = getMember(memberId);
+    if (!m) return;
+    const best = optimize(m, gameState.inventory);
+    for (const slot of SLOTS) if (best[slot] !== m.equip[slot]) equip(m, slot, best[slot]);
+  },
+  equipNow: (memberId, itemId) => {
+    const m = getMember(memberId);
+    return m ? equip(m, ITEMS[itemId].equip.slot, itemId) : { ok: false, message: 'Choose a party member.' };
+  },
+  journal: () => story.journal(),
+  mapData,
+  settings: applySettings,
+  quitToTitle: () => game.toTitle(),
+});
 
 // ------------------------------------------------------------------ loading screen
 
@@ -81,18 +157,39 @@ const nextFrames = (n) => new Promise((resolve) => {
   const off = engine.onUpdate(() => { if (--n <= 0) { off(); resolve(); } });
 });
 
+// Boot paints the title, the Halcyon (the prologue location), the party, BOLT and HALCYON only;
+// every other location paints behind the cover of its first arrival (11.5).
 let titleScene = null;
 const BOOT_STEPS = [
   ['Painting the void', () => buildTexture('space_backdrop')],
-  ['Plating the hull', () => prewarmWorld()],
+  ['Plating the hull', () => prewarmLocation('prologue')],
   ...PARTY_IDS.map((id) => ['Waking the travelers', () => { buildFieldSprite(id); buildBattleSprite(id); buildPortrait(id); }]),
   ['Booting BOLT', () => { for (const k of ['bolt', 'holo']) { buildNpcSprite(k); buildPortrait(k); } }],
   ...ENEMY_KINDS.map((k) => ['Arming the security grid', () => { buildEnemySprite(k); buildEnemyIcon(k); }]),
   ['Charging the arsenal', () => FX_NAMES.forEach((n) => fxSheet(n))],
   ['Etching the interface', () => ICON_NAMES.forEach((n) => { iconURL(n, 1); iconURL(n, 2); })],
-  ['Opening the observation deck', () => { titleScene = new TitleScene(engine); }],
+  ['Opening the observation deck', () => {
+    if (hasCleared()) buildTexture('bd_ione_dawn');
+    titleScene = new TitleScene(engine);
+  }],
   ['Opening the observation deck', () => titleScene.warm()],
 ];
+
+// ------------------------------------------------------------------ pacing (debug.pacing, 11.7)
+
+const pacing = {};
+let wasInBattle = false;
+
+function trackPace(dt) {
+  const ch = gameState.story?.chapter || 'prologue';
+  const p = (pacing[ch] ||= { field: 0, battle: 0, cutscene: 0, menu: 0, battles: 0 });
+  if (game.inBattle && !wasInBattle) p.battles++;
+  wasInBattle = game.inBattle;
+  const kind = game.inBattle || game.name === 'battle' ? 'battle'
+    : game.name !== 'explore' ? null
+      : cutscenes.active ? 'cutscene' : ui.isBlocking() ? 'menu' : 'field';
+  if (kind) p[kind] += dt;
+}
 
 // ------------------------------------------------------------------ debug hooks (always present)
 
@@ -118,8 +215,15 @@ function battleSnapshot(battle) {
   };
 }
 
+const untilIdle = async () => {
+  while (engine.transitioning || game.name !== 'explore') await new Promise((r) => setTimeout(r, 50));
+};
+
 function installDebug({ explore, battle }) {
-  battle.onEvent = (e) => {
+  let speed = 1;
+  let god = false;
+  const forced = new Map();
+  game.onBattleEvent = (e) => {
     const key = e.type === 'hit' && e.weak ? 'weakHit' : e.type;
     seen[key] = (seen[key] || 0) + 1;
     const p = pause;
@@ -135,26 +239,172 @@ function installDebug({ explore, battle }) {
       }, p.uiMs);
     });
   };
-  let speed = 1;
+  // per-battle model patches for godMode and forceAction (debug only; they wrap model internals)
+  game.onBattleStart = (m) => {
+    const ko = m._ko.bind(m);
+    m._ko = (t, events) => {
+      if (god && m.party.includes(t)) t.hp = 1;
+      else ko(t, events);
+    };
+    const act = m.act.bind(m);
+    m.act = (a) => {
+      const c = god && m.get(a.actorId);
+      if (c) c.ep = c.maxEp;
+      return act(a);
+    };
+    const choose = m._chooseEnemyAction.bind(m);
+    m._chooseEnemyAction = (e) => {
+      const id = forced.get(e.id);
+      const action = id && ENEMIES[e.key].actions.find((x) => x.id === id);
+      if (!action) return choose(e);
+      forced.delete(e.id);
+      return { action, target: m._targetFor(e, action) };
+    };
+  };
+  const model = () => (game.name === 'battle' ? battle.model : null);
+  const fieldMap = () => explore.world?.map || null;
+
   VP.debug = {
-    skipTitle: () => game.skipTitle(),
-    /** Start a battle from anywhere (skips the title). opts: { seed } for a deterministic model. */
-    startBattle(encId = 'drone_single', { seed } = {}) {
+    // ---- flow (10.1)
+    async jumpTo(target, { play = false } = {}) {
+      const js = buildJumpState(target, REG);
+      cutscenes.abortAll();
+      game.forget();
+      applyJumpState(js);
+      await travel.arrive(js.map, js.spawn, { kind: play ? 'load' : 'goto', duration: 0.4 });
+      game.setCheckpoint();
+      return VP.debug.state();
+    },
+    /** Start a battle from anywhere (skips the title). opts: { seed, jump }. Does not wait for it. */
+    startBattle(encId = 'drone_single', { seed, jump } = {}) {
       if (!ENCOUNTERS[encId]) return false;
       if (game.name === 'title') game.skipTitle();
-      return game.startBattle(encId, { boss: !!ENCOUNTERS[encId].boss, ...(seed != null ? { rng: makeRng(seed) } : {}) });
+      if (jump) applyJumpState(buildJumpState(jump, REG));
+      game.startBattle(encId, { boss: !!ENCOUNTERS[encId].boss, ...(seed != null ? { rng: makeRng(seed) } : {}) })
+        .catch((e) => console.error(e));
+      return true;
     },
+    goto: (map, spawn) => travel.arrive(map, spawn, { kind: 'goto' }),
+    travel(destId) {
+      travel.go(destId);
+      return true;
+    },
+    runScript(id, args = {}) {
+      cutscenes.run(id, args).catch(() => { /* already reported by the runner */ });
+      return true;
+    },
+    interact(id) {
+      explore.interact(id).catch((e) => console.error(e));
+      return true;
+    },
+    skip(on = true) {
+      cutscenes.fast = !!on;
+      engine.transitionTimeScale = on ? 5 : 1;
+      return cutscenes.fast;
+    },
+    choices(list = []) {
+      cutscenes.choices = [...list];
+      return cutscenes.choices.length;
+    },
+    autoResolve(mode = 'policy') {
+      game.autoResolve = mode || false;
+      game.policy = createPolicy();
+      return game.autoResolve;
+    },
+    godMode(on = true) {
+      god = !!on;
+      return god;
+    },
+    enemyHp(id, frac) {
+      const e = model()?.get(id);
+      if (!e) return null;
+      e.hp = Math.max(1, Math.round(e.maxHp * frac));
+      battle.ui.setHp(id, e.hp);
+      return e.hp;
+    },
+    forceAction(enemyId, actionId) {
+      forced.set(enemyId, actionId);
+      return true;
+    },
+    ailment(memberId, stat, turns = 2) {
+      const m = model();
+      const c = m?.get(memberId);
+      if (!c) return false;
+      const events = [];
+      m._setStatus(c, stat, 1, turns, 0, events);
+      battle.director.play(events);
+      return true;
+    },
+    flags(obj = {}) {
+      for (const [k, v] of Object.entries(obj)) story.set(k, v);
+      return { ...gameState.flags };
+    },
+    setLevel(n) {
+      for (const m of gameState.party) {
+        if (m.campaign) setMemberLevel(m, n);
+        else console.warn(`debug.setLevel: ${m.id} is a POC member (no level curve)`);
+      }
+      return gameState.party.map((m) => m.level);
+    },
+    equip(memberId, slot, itemId) {
+      const m = getMember(memberId);
+      if (!m) return { ok: false, message: `${memberId} is not in the party` };
+      if (itemId && !gameState.inventory[itemId]) addItem(itemId);
+      return equip(m, slot, itemId);
+    },
+    party: () => gameState.party.map((m) => ({
+      id: m.id, level: m.level, hp: m.hp, maxHp: m.maxHp, ep: m.ep, maxEp: m.maxEp, alive: m.alive,
+      equip: m.equip ? { ...m.equip } : null, skills: [...m.skills],
+    })),
+    credits(n) {
+      if (n != null) gameState.credits = n;
+      return gameState.credits;
+    },
+    unlockAll() {
+      for (const d of REG.destinations) story.set(`unlock:${d.id}`);
+      return REG.destinations.map((d) => d.id);
+    },
+    // ---- saves
+    save: (slot = 'slot1') => game.write(slot),
+    load: (slot = 'auto') => game.load(slot),
+    listSaves: () => listSlots(),
+    loadSave: (json) => game.loadData(typeof json === 'string' ? JSON.parse(json) : json),
+    async reloadAuto() {
+      const ok = await game.load('auto');
+      await untilIdle();
+      return ok;
+    },
+    // ---- inspection
+    renderInfo: () => engine.renderInfo(),
+    mapInfo() {
+      const map = fieldMap();
+      if (!map) return null;
+      return {
+        map: map.id, areas: map.areas.map((a) => a.id), spawns: Object.keys(map.spawns), anchors: Object.keys(map.anchors),
+        exits: map.exits.map((x) => ({ id: x.id, to: x.to })),
+        interactables: (map.interactables || []).map((i) => ({ id: i.id, kind: i.kind, x: i.x, z: i.z })),
+        npcs: (map.npcs || []).map((n) => n.id), chests: (map.chests || []).map((c) => c.id), gates: (map.gates || []).map((g) => g.id),
+      };
+    },
+    visualLint(viewpoint) {
+      if (viewpoint) VP.debug.view(viewpoint);
+      return explore.world ? visualLint(explore.world, explore.camera) : null;
+    },
+    missingArt: () => missingArt(),
+    pacing: () => JSON.parse(JSON.stringify(pacing)),
+    // ---- POC hooks
+    skipTitle: () => game.skipTitle(),
     teleport(x, z, facing) {
       if (game.name !== 'explore') return null;
       explore.teleport(x, z, facing);
       return explore.debugInfo;
     },
-    /** Teleport to a named viewpoint: cryo | corridor | engineering | antechamber | bridge. */
+    /** Teleport to a named viewpoint of the current map. */
     view(name) {
-      const v = VIEWPOINTS[name];
+      const v = fieldMap()?.viewpoints?.[name];
       return v ? VP.debug.teleport(v.x, v.z, v.facing) : null;
     },
-    viewpoints: VIEWPOINTS,
+    get viewpoints() { return fieldMap()?.viewpoints || {}; },
     winBattle: () => { if (game.name === 'battle') battle.forceVictory(); },
     setQuality(q) {
       if (QUALITIES.includes(q)) engine.setQuality(q);
@@ -166,21 +416,32 @@ function installDebug({ explore, battle }) {
       transitioning: engine.transitioning,
       quality: engine.quality,
       music: audio.track,
-      explore: explore.world ? { ...explore.debugInfo, boss: !!explore.world.boss?.present } : null,
+      map: explore.mapId || null,
+      chapter: gameState.story.chapter,
+      objective: gameState.story.objective,
+      cutscene: cutscenes.current,
+      leader: gameState.leader,
+      partyIds: gameState.party.map((m) => m.id),
+      autosaves: game.autosaves,
+      inBattle: game.inBattle,
+      explore: explore.world ? { ...explore.debugInfo } : null,
       battle: battleSnapshot(battle),
       ui: {
         blocking: ui.isBlocking(), title: ui.title.isOpen ? ui.title.phase : null, menu: ui.menu.isOpen,
         dialog: !!document.querySelector('.vp-dlg.is-open'),
         choice: !!document.querySelector('.vp-dlg.is-open.has-choices'),
         screen: ui.screens.isOpen && ui.screens.current ? ui.screens.current.getAttribute('aria-label') : null,
+        card: ui.cards.isBlocking, saves: ui.saves.isOpen, starchart: ui.starchart.isOpen, shop: ui.shop.isOpen,
         prompt: document.querySelector('.vp-prompt.is-on .vp-prompt-t')?.textContent || null,
         toasts: [...document.querySelectorAll('.vp-toast')].map((t) => t.textContent),
       },
       party: gameState.party.map((p) => ({ id: p.id, hp: p.hp, maxHp: p.maxHp, ep: p.ep, level: p.level, alive: p.alive })),
       inventory: { ...gameState.inventory },
+      credits: gameState.credits,
       flags: { ...gameState.flags },
       checkpoint: gameState.checkpoint,
       stats: { ...gameState.stats },
+      played: [...gameState.played],
       events: { ...seen },
     }),
     // ---- extras for tests
@@ -235,8 +496,10 @@ async function boot() {
 
   engine.onUpdate((dt, t) => {
     input.update();
+    cutscenes.update();
     ui.update(engine.realDt);   // menus, typewriter and screen locks keep real time through hit-stop
     game.update(dt, t);
+    trackPace(engine.realDt);
   });
   game.change('title', { deferUI: true });
   engine.start();

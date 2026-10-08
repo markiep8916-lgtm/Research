@@ -1,6 +1,8 @@
 // The field leader: a SpriteActor walking the diorama with 8-way movement, 4-way animation (side
 // frames mirrored for left), distance-driven walk cycles (no foot sliding, faster when running),
 // footstep callbacks and circle collision with sliding against walls and props.
+// setCharacter(id) swaps the field sprite (leader switching); setWorld(world) moves the leader into
+// another map's World (the Player outlives map changes).
 
 import { SpriteActor } from '../core/spriteActor.js';
 import { buildFieldSprite } from '../art/characters.js';
@@ -17,12 +19,9 @@ export const FACING_VEC = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1,
 export class Player {
   constructor(world, { id = 'kade' } = {}) {
     this.world = world;
-    this.sheet = buildFieldSprite(id);
-    this.actor = new SpriteActor(this.sheet);
-    const A = this.sheet.anims;
-    this._walkAnims = { down: A.walk_down, up: A.walk_up, side: A.walk_side };
+    this.id = null;
+    this.actor = null;
     this._idleNames = { down: 'idle_down', up: 'idle_up', side: 'idle_side' };
-    world.root.add(this.actor.object3d);
     this.radius = RADIUS;
     this.pos = { x: 0, z: 0 };
     this.facing = 'down';
@@ -34,10 +33,37 @@ export class Player {
     this.onStep = null;             // fn(running) on each footfall
     this._frame = -1;
     this._anim = null;
+    this.setCharacter(id);
   }
 
   get x() { return this.pos.x; }
   get z() { return this.pos.z; }
+
+  /** Swap the field sprite (leader switch); keeps position, facing and the parent world. */
+  setCharacter(id) {
+    if (id === this.id) return;
+    const old = this.actor;
+    this.id = id;
+    this.sheet = buildFieldSprite(id);
+    this.actor = new SpriteActor(this.sheet);
+    const A = this.sheet.anims;
+    this._walkAnims = { down: A.walk_down, up: A.walk_up, side: A.walk_side };
+    if (old) {
+      this.actor.object3d.visible = old.object3d.visible;
+      old.object3d.removeFromParent();
+      old.dispose();
+    }
+    this.world.root.add(this.actor.object3d);
+    this._anim = null;
+    this._idle(true);
+    this._sync();
+  }
+
+  /** Move the leader into another World (map change); position is set by the caller. */
+  setWorld(world) {
+    this.world = world;
+    world.root.add(this.actor.object3d);
+  }
 
   setPosition(x, z, facing = this.facing) {
     this.pos.x = x;

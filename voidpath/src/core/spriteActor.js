@@ -4,11 +4,25 @@
 
 import * as THREE from 'three';
 import { toTexture, makeNormalMap, makeCanvas } from '../art/painter.js';
+import { artCache } from '../art/cache.js';
+import { release } from './programs.js';
 import { makeBlobShadow, makeHologramMaterial, BAYER_GLSL, NOISE_GLSL } from './vfx.js';
 
 // ---------------------------------------------------------------- per-sheet caches
 
 const sheetCache = new WeakMap();
+let glowSerial = 0;
+
+// When the art cache drops a sheet (eviction), free its shared GPU textures and its aura sheet.
+artCache.onDrop((key, value) => {
+  const d = value && typeof value === 'object' ? sheetCache.get(value) : null;
+  if (!d) return;
+  d.map.dispose();
+  d.normal.dispose();
+  if (d.emissive) d.emissive.dispose();
+  if (d.glow) freeGlow(d);
+  sheetCache.delete(value);
+});
 
 /**
  * Alpha channel of a canvas as one byte per pixel (read back once per sheet). It reads through a
@@ -71,7 +85,7 @@ function glowSheet(sheet) {
   const pad = Math.max(4, Math.round(Math.min(fw, fh) * 0.12));
   const gw = fw + pad * 2, gh = fh + pad * 2;
   const W = cols * gw, H = rows * gh;
-  const src = d.alpha;
+  const src = d.alpha || readAlpha(sheet.canvas);
   d.alpha = null;
   const SW = sheet.canvas.width;
   const out = new Uint8ClampedArray(W * H * 4);
@@ -140,8 +154,33 @@ function glowSheet(sheet) {
   tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
-  d.glow = { texture: tex, pad, gw, gh, W, H };
+  const key = `glow:${++glowSerial}`;
+  artCache.set(key, canvas, { loc: 'core' });
+  d.glow = { texture: tex, pad, gw, gh, W, H, key, refs: 0 };
   return d.glow;
+}
+
+function freeGlow(d) {
+  d.glow.texture.dispose();
+  artCache.delete(d.glow.key);
+  d.glow = null;
+}
+
+/**
+ * Refcounted aura sheet of a sprite sheet (TECH_PLAN 11.5): every SpriteActor that shows an aura,
+ * and BattleStage.warm, acquire it; the last release disposes the texture and frees its canvas.
+ * Returns { texture, pad, gw, gh, W, H }.
+ */
+export function acquireGlowSheet(sheet) {
+  const g = glowSheet(sheet);
+  g.refs++;
+  return g;
+}
+
+export function releaseGlowSheet(sheet) {
+  const d = sheetCache.get(sheet);
+  if (!d || !d.glow) return;
+  if (--d.glow.refs <= 0) freeGlow(d);
 }
 
 // ---------------------------------------------------------------- shader patches
@@ -224,6 +263,8 @@ export class SpriteActor {
     this.pxPerUnit = pxPerUnit;
     this.tilt = tilt;
     this.anchor = anchor;
+    // sheets painted through the art cache carry their key: a live actor keeps them from eviction
+    if (sheet.cacheKey) artCache.acquire(sheet.cacheKey);
     const d = sheetData(sheet);
     const fw = sheet.frameW, fh = sheet.frameH;
     const w = fw / pxPerUnit, h = fh / pxPerUnit;
@@ -480,7 +521,7 @@ export class SpriteActor {
   }
 
   _buildGlow() {
-    const g = glowSheet(this.sheet);
+    const g = acquireGlowSheet(this.sheet);
     this._glowInfo = g;
     const ppu = this.pxPerUnit;
     const gw = g.gw / ppu, gh = g.gh / ppu;
@@ -539,21 +580,30 @@ export class SpriteActor {
     }
   }
 
+  /** Upload this actor's textures now (prewarm behind a cover, so the first visible frame never stalls). */
+  warm(renderer) {
+    if (!renderer || !renderer.initTexture) return;
+    for (const t of this._textures) renderer.initTexture(t);
+    if (this._glowU) renderer.initTexture(this._glowU.map.value);
+  }
+
   dispose() {
+    if (this._disposed) return;
+    this._disposed = true;
+    if (this.sheet.cacheKey) artCache.release(this.sheet.cacheKey);
     if (this.object3d.parent) this.object3d.parent.remove(this.object3d);
+    // materials go through the program anchor (TECH_PLAN 11.4) so the next actor reuses the programs
     this.mesh.geometry.dispose();
-    this._litMaterial.dispose();
-    if (this._holoMaterial) this._holoMaterial.dispose();
-    if (this._depthMat) this._depthMat.dispose();
-    if (this._distMat) this._distMat.dispose();
+    release([this._litMaterial, this._holoMaterial, this._depthMat, this._distMat].filter(Boolean));
     for (const t of this._textures) t.dispose();
     if (this._glowMesh) {
       this._glowMesh.geometry.dispose();
-      this._glowMesh.material.dispose();
+      release(this._glowMesh.material);
+      releaseGlowSheet(this.sheet);
     }
     if (this.blob) {
       this.blob.geometry.dispose();
-      this.blob.material.dispose();
+      release(this.blob.material);
     }
     this._onEnd = null;
     this._anim = null;
