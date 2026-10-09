@@ -37,6 +37,8 @@
 //             voss / voss_overclock 22 boss (+ voss_escort 20)
 //   ch4       data_wraith 23 caster, glitch_swarm 23, firewall_golem 24 armored, corrupted_memory 25
 //             caster, echo 27 boss
+//   finale    warden_seraph 28 caster, dream_eater 29, choir_guardian 30 armored, the four elites 31
+//             elite, warden_lock 31 / warden_unbound 32 boss
 // Per-kind `overrides` below carry what the curves cannot: lesson foes that must live long enough,
 // chapter XP that lands the party on each boss's level, and every boss's 8-10 rounds with two
 // Breaks against a first-timer's gear (G2 C10-3, bar rule 7).
@@ -126,23 +128,28 @@ export const overrides = {
     feral_caretaker: { atk: 2, mag: 2, maxHp: 1.4 },
     gardener: { xp: 0.3 },                             // the chapter ends at 17 (her numbers are C4's)
     honour_guard: { xp: 0.35 },                        // three of them: worth about a level, like the other rare finds
-    // Voss: a first-timer must still lose sometimes (route check 85-95%); worth about half a level
-    voss: { xp: 0.8, atk: 1.14, mag: 1.14 },
-    voss_overclock: { xp: 0.8, atk: 1.14, mag: 1.14 },
+    // Voss: the overclock is the dangerous half, so a squad in the chapter's chest gear still loses
+    // about one fight in ten (route check 85-95%) and a first-timer who bought the Security Plate
+    // wins four in five, while a weaker squad still lives to see the overclock (spire.test seeds)
+    voss: { xp: 0.6, atk: 1.14, mag: 1.14 },
+    voss_overclock: { xp: 0.6, atk: 1.4, mag: 1.4 },
     voss_escort: { xp: 0.15 },
     corrupted_memory: { mag: 0.85 },                   // the Overwrite lesson costs at most a third of the squad's HP
-    echo: { maxHp: 1.5, atk: 1.18, mag: 1.18 },        // 9-10 rounds, two Severances, a third cancelled
+    echo: { maxHp: 1.5, atk: 1.22, mag: 1.22, xp: 0.75 },   // 9-10 rounds, two Severances, a third cancelled
+    // the Heart: a guardian's cradle rings already make its formations the longest of the game
+    choir_guardian: { maxHp: 0.6 },
   },
   enemies: {
     pro_drone_glitch: { xp: 100 },   // the tutorial levels Kade up before Sera joins
     sentinel_mk1: { shield: 5 },     // its rail charge must sometimes fire: the Defend lesson
+    sec_trooper: { shield: 6 },      // the checkpoint pair lasts long enough to cost 15% of the squad's HP
     rime_golem: { shield: 5 },       // breakable before it falls: the Break-timing lesson
     maw: { shieldGain: 1 },          // two Breaks in a first-timer's fight (G2 bar rule 7)
     voss_overclock: { shield: 3 },   // her second form breaks once more before she falls
     echo: { shield: 5, shieldGain: 1 },   // two Breaks against a first-timer, one in time for a Severance
   },
   // chapter 1, 2, 3 and 4 foes (their bosses too)
-  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.14], [23, 28, 0.83]],
+  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.18], [23, 27, 0.86], [28, 33, 0.72]],
   // Duos lack area skills and a spare healer, so their foes shrink more than in the POC.
   rules: { partyScale: { hp: [0, 0.45, 0.5, 0.85, 1], dmg: [0, 0.7, 0.7, 0.92, 1] } },
   zoneRate: {},

@@ -77,7 +77,7 @@ const items = {
   eq_a_1: armor('eq_a_1', 'Crew Jumpsuit', 'Standard wake-crew coveralls. Many pockets.', 80, { def: 4, res: 4, maxHp: 20 }),
   eq_a_2: armor('eq_a_2', 'Pressure Suit', 'Rated for hard vacuum and soft landings.', 420, { def: 10, res: 8, maxHp: 60 }),
   eq_a_3: armor('eq_a_3', 'Ringborn Weave', 'Layered salvage cloth, patched with prayer ribbon.', 1200, { def: 18, res: 16, maxHp: 120 }),
-  eq_a_4: armor('eq_a_4', 'Security Plate', 'Halcyon Security armor. Still smells of the armory.', 2200, { def: 28, res: 20, maxHp: 200 }),
+  eq_a_4: armor('eq_a_4', 'Security Plate', 'Halcyon Security armor. Still smells of the armory.', 1700, { def: 28, res: 20, maxHp: 200 }),
   eq_a_5: armor('eq_a_5', 'Choir Mantle', 'Woven from the Choir\'s light. Warm, and very quiet.', 3200, { def: 34, res: 34, maxHp: 260 }),
 
   // ---- accessories (anyone; one effect each)
@@ -118,8 +118,8 @@ const outfit = (armorId, gearByMember) => Object.fromEntries(Object.entries(gear
 const withArmor = (member, armorId, equip) => ({ ...equip, [member]: { ...equip[member], armor: armorId } });
 
 // jumpTo starter kits (10.1): what a player following the critical path holds when the chapter starts.
-// ch1 to the finale match how tests/campaign.mjs's route ends the chapter before (`npm run balance
-// -- --verbose` prints kit and route side by side, and the route as a kit); the epilogue is first-pass.
+// ch1 to the epilogue match how tests/campaign.mjs's route ends the chapter before (`npm run balance
+// -- --verbose` prints kit and route side by side, and the route as a kit).
 const kits = {
   prologue: { equip: TIER1, items: { medigel: 3, ether: 1, revive: 1 }, credits: 0 },
   ch1: {
@@ -142,61 +142,70 @@ const kits = {
     credits: 4400,
   },
   ch4: {
-    equip: withArmor('kade', 'eq_a_4', outfit('eq_a_2', {
+    equip: withArmor('orion', 'eq_a_2', withArmor('nyx', 'eq_a_2', outfit('eq_a_4', {
       kade: ['eq_w_kade_4', 'eq_x_vital_core'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
       orion: ['eq_w_orion_3', 'eq_x_stim_chip'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
-    })),
+    }))),
     items: {
-      medigel: 2, medigel_plus: 3, ether: 1, ether_plus: 3, revive: 2, stim: 5, nanomist: 1,
+      medigel: 2, medigel_plus: 3, ether: 1, ether_plus: 4, revive: 1, stim: 5, nanomist: 1,
       cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
     },
-    credits: 5700,
+    credits: 4300,
   },
   finale: {
-    equip: withArmor('nyx', 'eq_a_2', outfit('eq_a_4', {
+    equip: outfit('eq_a_4', {
       kade: ['eq_w_kade_4', 'eq_x_vital_core'], nyx: ['eq_w_nyx_4', 'eq_x_varo_compass'],
       orion: ['eq_w_orion_4', 'eq_x_ether_core'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
-    })),
+    }),
     items: {
-      medigel: 1, medigel_plus: 1, medigel_max: 1, ether: 1, ether_plus: 3, revive: 1, revive_plus: 1, stim: 7,
+      medigel: 1, medigel_plus: 1, medigel_max: 1, ether: 1, ether_plus: 5, revive: 1, revive_plus: 1, stim: 8,
       nanomist: 1, cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
     },
-    credits: 7400,
+    credits: 6850,
   },
+  // the finale's route end; the keepsakes nobody wears stay in the bag
   epilogue: {
-    equip: outfit('eq_a_5', {
-      kade: ['eq_w_kade_4', 'eq_x_keepsake_kade'], nyx: ['eq_w_nyx_4', 'eq_x_keepsake_nyx'],
-      orion: ['eq_w_orion_4', 'eq_x_keepsake_orion'], sera: ['eq_w_sera_4', 'eq_x_keepsake_sera'],
-    }),
-    items: { medigel_plus: 3, ether_plus: 2, revive_plus: 1 }, credits: 2000,
+    equip: withArmor('kade', 'eq_a_5', outfit('eq_a_4', {
+      kade: ['eq_w_kade_4', 'eq_x_vital_core'], nyx: ['eq_w_nyx_4', 'eq_x_varo_compass'],
+      orion: ['eq_w_orion_4', 'eq_x_keepsake_sera'], sera: ['eq_w_sera_4', 'eq_x_photon_prism'],
+    })),
+    items: {
+      ether: 1, ether_plus: 3, revive: 2, revive_plus: 2, stim: 2, nanomist: 1, medigel_max: 7,
+      cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
+      eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1,
+    },
+    credits: 15200,
   },
 };
 
-// The Halcyon fabricator (antechamber; the interactable is placed by the prologue). Stock grows by chapter.
+// The Halcyon fabricator (antechamber; the interactable is placed by the prologue; the Heart's
+// Sanctum has one too). Stock grows by chapter, the best of each kind listed first: a better heal or
+// ether retires the basic one a chapter after it arrives, and the tier-2 gear leaves once tier 3 is
+// on sale everywhere.
 const shops = {
   fabricator: {
     name: 'Halcyon Fabricator', keeper: 'FABRICATOR', portrait: 'fabricator',
     greeting: 'Fabricator online. Specify your desires. Within reason.',
     sellRate: 0.5,
     stock: [
-      { item: 'medigel' },
-      { item: 'ether' },
+      { item: 'medigel_max', when: 'chapter>=finale' },
+      { item: 'medigel_plus', when: 'chapter>=ch2' },
+      { item: 'medigel', when: 'chapter<ch3' },
+      { item: 'nanomist', when: 'chapter>=ch3' },
+      { item: 'ether_plus', when: 'chapter>=ch2' },
+      { item: 'ether', when: 'chapter<ch3' },
+      { item: 'revive_plus', when: 'chapter>=ch4' },
       { item: 'revive' },
       { item: 'stim', when: 'chapter>=ch1' },
-      { item: 'eq_w_orion_2', when: 'chapter>=ch1' },
-      { item: 'eq_w_sera_2', when: 'chapter>=ch1' },
-      { item: 'eq_x_power_band', when: 'chapter>=ch1' },
-      { item: 'eq_x_focus_lens', when: 'chapter>=ch1' },
-      { item: 'medigel_plus', when: 'chapter>=ch2' },
-      { item: 'ether_plus', when: 'chapter>=ch2' },
       { item: 'thermal_charge', when: 'chapter>=ch2' },
       { item: 'cryo_charge', when: 'chapter>=ch2' },
       { item: 'volt_charge', when: 'chapter>=ch3' },
       { item: 'photon_charge', when: 'chapter>=ch3' },
-      { item: 'nanomist', when: 'chapter>=ch3' },
-      { item: 'revive_plus', when: 'chapter>=ch4' },
       { item: 'void_charge', when: 'chapter>=ch4' },
-      { item: 'medigel_max', when: 'chapter>=finale' },
+      { item: 'eq_w_orion_2', when: 'chapter>=ch1 & chapter<ch3' },
+      { item: 'eq_w_sera_2', when: 'chapter>=ch1 & chapter<ch3' },
+      { item: 'eq_x_power_band', when: 'chapter>=ch1 & chapter<finale' },
+      { item: 'eq_x_focus_lens', when: 'chapter>=ch1 & chapter<finale' },
     ],
   },
 };

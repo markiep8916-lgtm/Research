@@ -105,6 +105,8 @@ const REF_SEED = 7;
 
 const TARGETS = {
   regular: { win: 0.98, rounds: [2, 4], hpLost: [0.15, 0.35] },
+  // an elite fight on the critical path (the finale's two, 11.7): longer and costlier, still a sure win
+  elite: { win: 0.95, rounds: [4, 8], hpLost: [0.2, 0.5] },
   boss: { win: [0.85, 0.95], rounds: [6, 10] },
   firstTimer: { win: 0.75, rounds: [8, 10], breaks: 2, hidden: 0.25 },
   bossRounds: { heart_boss_warden: [10, 14] },
@@ -131,6 +133,7 @@ const CANCEL_CHECKS = {
 //   { join }                cs.join(member) at the default level
 //   { rest: mapId }         a Med-Station or inn of that map on the way (skipped while the map has none)
 //   { chests: [mapId] }     every chest of those maps that belongs to the chapter
+//   { give: [itemId] }      gifts of the story (cs.give: the dream keepsakes), treated like chest gear
 //   { shop: [shopId] }      see shopVisit
 //   { boss }                the boss after a rest
 // Walk paths list waypoints: [x, z]; 'spawn:id', 'anchor:id', 'chest:id', 'inter:id', 'boss:id',
@@ -210,6 +213,25 @@ const ROUTES = {
     { chests: ['vault'] },
     { rest: 'vault' },
     { boss: 'vault_boss_echo' },
+  ],
+  // the finale (WRITING 5.7, 12.5 heart): the shops, then up the Heart, with the chests on the
+  // way: the dock tier (Kade's dream), its pylon and the lift; tier 2 (Nyx's dream), its pylon and
+  // the lift; tier 3 (Orion's dream), its two pylons and the processional; the crown approach (Sera's dream), the Sanctum's
+  // Med-Station and fabricator, and the crown lift; WARDEN in both forms. Each dream gives its keepsake. The guarded
+  // lift and the two Choirlit Echoes come from the map's fields. `plan` and `planFights` (11.7's two
+  // elite fights) stood in until the heart map landed.
+  finale: [
+    { shop: ['fabricator', 'ruse'] },
+    { walk: 'heart', path: ['spawn:dock', 'inter:pylon_t1', 'chest:dawnspear', 'inter:lift_t1', 'spawn:tier2', 'chest:t2_south',
+      'inter:pylon_t2', 'chest:mantle', 'inter:lift_t2', 'spawn:tier3'], plan: { heart_ascent: 220 }, planFights: ['heart_elite_frost'] },
+    { give: ['eq_x_keepsake_kade', 'eq_x_keepsake_nyx', 'eq_x_keepsake_orion'] },
+    { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['spawn:tier3', 'chest:t3_north', 'inter:pylon_t3a', 'inter:pylon_t3b',
+      'inter:med_sanctum', 'inter:crown_lift'], plan: { heart_crown: 120 }, planFights: ['heart_elite_guard'] },
+    { give: ['eq_x_keepsake_sera'] },
+    { chests: ['heart'] },
+    { shop: ['fabricator'] },   // the Sanctum's fabricator, beside its Med-Station
+    { rest: 'heart' },
+    { boss: 'heart_boss_warden' },
   ],
 };
 
@@ -513,7 +535,108 @@ const PLACEHOLDERS = {
       { map: 'vault', item: 'eq_x_ether_core' },
     ],
   },
+  // The Heart (7.8, 12.5 heart): regular foes at 29-30 and the two critical-path elite fights
+  // (11.7: "2 elites included") at 29. WARDEN is C11's (warden/data.js).
+  finale: {
+    enemies: {
+      warden_seraph: foe('warden_seraph', 'Warden Seraph', 'warden_seraph', statLine(29, 'caster'), {
+        shield: 4, weaknesses: ['lance', 'rifle', 'void'], script: 'ph_seraph',
+        actions: [
+          shot('seraph_hymn', 'Gilded Hymn', 'photon', 1.05, 60),
+          act('seraph_lullaby', 'Lullaby', 'debuff', { target: 'all', anim: 'enemyBeam', weight: 15, cooldown: 3, effect: { ...sleepFx(0.25), limit: 2 } }),
+          act('seraph_ward', 'Cradle Ward', 'buff', { target: 'ally', anim: 'enemyCharge', weight: 25, cooldown: 2, effect: { stats: ['def', 'res'], stage: 1, turns: 2 } }),
+        ],
+      }),
+      dream_eater: foe('dream_eater', 'Dream Eater', 'dream_eater', statLine(30, 'brute'), {
+        shield: 4, weaknesses: ['photon', 'thermal', 'gauntlet'], script: 'ph_dream_eater',
+        actions: [
+          shot('eater_drain', 'Drink Dreams', 'void', 1.0, 100),
+          shot('eater_devour', 'Devour', 'void', 0.75, 0, { hits: 2 }),
+        ],
+      }),
+      choir_guardian: foe('choir_guardian', 'Choir Guardian', 'choir_guardian', statLine(30, 'armored'), {
+        shield: 5, shieldGain: 2, maxShieldCap: 9, weaknesses: ['blade', 'volt', 'cryo'], script: 'ph_guardian',
+        actions: [
+          shot('guardian_bash', 'Cradle Bash', 'gauntlet', 1.1, 70, { anim: 'enemyMelee' }),
+          shot('guardian_toll', 'Choir Toll', 'photon', 0.5, 30, { target: 'all', cooldown: 2 }),
+        ],
+      }),
+      // elites: the base kind's kit and art, a tint, elite numbers and one extra move (7.8)
+      elite_rime_golem: () => elite('rime_golem', 'elite_rime_golem', 'Rime Golem Prime', '#bfe8ff',
+        shot('elite_avalanche', 'Avalanche', 'cryo', 0.8, 30, { target: 'all', cooldown: 2 })),
+      elite_bloom_mantis: () => elite('bloom_mantis', 'elite_bloom_mantis', 'Bloom Mantis Prime', '#ffc0e0',
+        shot('elite_thorn_storm', 'Thorn Storm', 'blade', 0.6, 30, { target: 'all', cooldown: 2 })),
+      elite_sec_trooper: () => elite('sec_trooper', 'elite_sec_trooper', 'Trooper Captain', '#ffd27a',
+        shot('elite_suppress', 'Suppressing Fire', 'rifle', 0.45, 30, { target: 'all', cooldown: 2 })),
+      elite_firewall_golem: () => elite('firewall_golem', 'elite_firewall_golem', 'Firewall Bastion', '#ffb0a0',
+        shot('elite_purge', 'Purge', 'thermal', 1.3, 25, { cooldown: 2 })),
+    },
+    encounters: {
+      heart_seraphs: enc('heart_seraphs', ['warden_seraph', 'warden_seraph']),
+      heart_eaters: enc('heart_eaters', ['dream_eater', 'warden_seraph']),
+      heart_choir: enc('heart_choir', ['choir_guardian', 'warden_seraph', 'warden_seraph']),
+      heart_hunger: enc('heart_hunger', ['dream_eater', 'dream_eater']),
+      heart_crown_choir: enc('heart_crown_choir', ['choir_guardian', 'dream_eater', 'warden_seraph']),
+      heart_crown_eaters: enc('heart_crown_eaters', ['dream_eater', 'dream_eater', 'warden_seraph']),
+      heart_crown_wards: enc('heart_crown_wards', ['choir_guardian', 'dream_eater']),
+      heart_crown_seraphs: enc('heart_crown_seraphs', ['warden_seraph', 'warden_seraph', 'warden_seraph']),
+      heart_elite_frost: enc('heart_elite_frost', ['elite_rime_golem', 'elite_bloom_mantis'], { canFlee: false }),
+      heart_elite_guard: enc('heart_elite_guard', ['elite_sec_trooper', 'elite_firewall_golem'], { canFlee: false }),
+    },
+    zones: {
+      heart_ascent: ['heart_seraphs', 'heart_eaters', 'heart_choir', 'heart_hunger'],
+      heart_crown: ['heart_crown_choir', 'heart_crown_eaters', 'heart_crown_wards', 'heart_crown_seraphs'],
+    },
+    bossScripts: {
+      ph_seraph: opener('seraph_lullaby'),
+      // drains what it bites; a sleeper is bitten twice
+      ph_dream_eater: {
+        chooseAction(api, e) {
+          const sleeper = api.party().find((p) => p.alive && p.buffs.sleep);
+          return sleeper ? { actionId: 'eater_devour', targetId: sleeper.id } : null;
+        },
+        onHit(api, h) {
+          const e = api.enemy(h.attackerId);
+          if (e?.key === 'dream_eater' && e.alive && !String(h.targetId).startsWith('e')) api.heal(e.id, Math.round(h.amount * 0.4));
+        },
+      },
+      // its allies stand behind its cradle shield (untargetable 'shield') until it is Broken
+      ph_guardian: {
+        onRoundStart(api) {
+          const guard = api.enemies().some((g) => g.alive && g.key === 'choir_guardian' && !g.broken);
+          for (const e of api.enemies()) {
+            if (e.alive && e.key !== 'choir_guardian') api.setUntargetable(e.id, guard, { rounds: 1, style: 'shield' });
+          }
+        },
+        onBreak(api, g) {
+          if (api.enemies().some((o) => o.alive && o.key === 'choir_guardian' && !o.broken && o.id !== g.id)) return;
+          for (const e of api.enemies()) if (e.alive && e.key !== 'choir_guardian') api.setUntargetable(e.id, false);
+        },
+        onDefeat(api, g) {
+          if (!api.enemies().some((o) => o.alive && o.key === 'choir_guardian' && !o.broken && o.id !== g.id)) {
+            for (const e of api.enemies()) if (e.alive && e.key !== 'choir_guardian') api.setUntargetable(e.id, false);
+          }
+          return false;
+        },
+      },
+    },
+    chests: [
+      { map: 'heart', item: 'eq_w_sera_4' },
+      { map: 'heart', item: 'eq_a_5' },
+      { map: 'heart', item: 'eq_x_lullaby_ward' },
+    ],
+  },
 };
+
+// A finale elite (7.8): the registered base kind's kit and art with a tint, level-29 elite numbers
+// (two of them share a fight, so each has a little less HP) and one extra move.
+function elite(base, kind, name, tint, extra) {
+  const b = ENEMIES[base];
+  if (!b) throw new Error(`campaign: elite ${kind} needs its base kind "${base}"`);
+  const line = statLine(29, 'elite');
+  return { ...clone(b), kind, name, art: b.art || base, tint, ...line, maxHp: Math.round(line.maxHp * 0.08) * 10, boss: false,
+    shield: (b.shield || 4) + 2, actions: [...clone(b.actions), extra], drops: [] };
+}
 
 // ------------------------------------------------------------------ setup
 
@@ -538,17 +661,20 @@ function installPlaceholders(chapter) {
   const missing = (table, id) => FORCE_PLACEHOLDERS || !table[id];
   const addEnemy = (kind) => {
     if (!p.enemies?.[kind] || !missing(ENEMIES, kind) || used.includes(`enemy:${kind}`)) return;
-    ENEMIES[kind] = p.enemies[kind];
+    // a function builds its def from registered kinds (the finale's elites)
+    const def = typeof p.enemies[kind] === 'function' ? p.enemies[kind]() : p.enemies[kind];
+    ENEMIES[kind] = def;
     used.push(`enemy:${kind}`);
-    const def = p.enemies[kind];
     for (const a of def.actions || []) if (a.summon) addEnemy(a.summon.kind);
     for (const ph of def.phases || []) if (ph.transform) addEnemy(ph.transform);
+    if (def.onDefeat?.transform) addEnemy(def.onDefeat.transform);
   };
   const addEncounter = (id) => {
-    if (!p.encounters?.[id] || !missing(ENCOUNTERS, id)) return;
+    if (!p.encounters?.[id] || !missing(ENCOUNTERS, id) || used.includes(`encounter:${id}`)) return;
     ENCOUNTERS[id] = p.encounters[id];
     used.push(`encounter:${id}`);
     for (const kind of p.encounters[id].enemies) addEnemy(kind);
+    if (p.encounters[id].retryPhase) addEncounter(p.encounters[id].retryPhase.encounter);
   };
   const addZone = (zone) => {
     if (!zone || !p.zones?.[zone] || !missing(ENCOUNTER_TABLES, zone) || used.includes(`zone:${zone}`)) return;
@@ -560,6 +686,7 @@ function installPlaceholders(chapter) {
     if (step.walk) {
       for (const z of walkZones(chapter, i)) addZone(z);
       for (const item of step.path) if (item?.battle) addEncounter(item.battle);
+      if (!REG.maps[step.walk]) for (const id of step.planFights || []) addEncounter(id);
     }
     if (step.battle || step.boss) addEncounter(step.battle || step.boss);
     for (const id of step.shop || []) {
@@ -651,8 +778,11 @@ function setLevel(m, level) {
 // in zoneless and puzzle areas and resets after any fight, on a map change and on entering a
 // different zone; past `grace` units the hazard is Rayleigh with scale `sigma`, times the party's
 // lowest equipment encounterRate; Skip weak (on by default) rolls nothing in a zone whose strongest
-// enemy is 5+ levels below the party's average level. A field encounter (a FieldBossDef whose
-// encounter is not a boss or elite) within its trigger radius of the path is a forced fight there.
+// enemy is 5+ levels below the party's average level. Forced fights come from the map too: a field
+// encounter (FieldBossDef) within its trigger radius of the path, and an `enter` trigger the path
+// crosses while its `when` holds, for every encounter its script (or a script it runs) fights. Each
+// counts once per chapter; encounters the route names itself (its battles and its boss) are left to
+// the route.
 
 const STEP = 0.25;                     // units walked per hazard roll
 const POC_ZONE_RATE = { grace: 8, sigma: 13.5 };
@@ -827,6 +957,38 @@ function liftJumps(map, open, state) {
 
 const pathLength = (cells) => sum(cells.slice(1), (p, k) => Math.hypot(p[0] - cells[k][0], p[1] - cells[k][1]));
 
+// Encounters a chapter's route names itself: scripted battles, battles on walks, the boss.
+function routeEncounters(chapter) {
+  const out = new Set();
+  for (const step of ROUTES[chapter]) {
+    if (step.battle || step.boss) out.add(step.battle || step.boss);
+    for (const item of step.walk ? step.path : []) if (item?.battle) out.add(item.battle);
+  }
+  return out;
+}
+
+// Encounters a story script fights: its cs.battle literals and those of the scripts it cs.runs.
+function scriptFights(id, seen = new Set()) {
+  if (seen.has(id) || !REG.scripts[id]) return [];
+  seen.add(id);
+  const src = String(REG.scripts[id]);
+  const out = [...src.matchAll(/cs\.battle\(\s*['"](\w+)['"]/g)].map((m) => m[1]);
+  for (const m of src.matchAll(/cs\.run\(\s*['"]([\w.]+)['"]/g)) out.push(...scriptFights(m[1], seen));
+  return out;
+}
+
+// The map's `enter` triggers that start fights: [{ id, rect, when, fights }].
+function fightTriggers(map, named) {
+  const out = [];
+  for (const t of map.triggers || []) {
+    if (t.on !== 'enter' || !t.script) continue;
+    const rect = t.rect || (map.areas || []).find((a) => a.id === t.area)?.rect;
+    const fights = scriptFights(t.script).filter((id) => ENCOUNTERS[id] && !named.has(id));
+    if (rect && fights.length) out.push({ id: t.id, rect, when: t.when, fights });
+  }
+  return out;
+}
+
 // The walk of route step `i`: { map, placeholder, events, notes } where events are, in order,
 // { zone, len } pieces of path (zone null: the count pauses), { battle, field } fights and { lift }
 // rides (the walked distance resets, as on any arrival). Cached.
@@ -845,7 +1007,12 @@ function walkPlan(chapter, i) {
     out.placeholder = true;
     out.events = [];
     for (const item of step.path) if (item?.battle) out.events.push({ battle: item.battle, field: false });
-    for (const [zone, len] of Object.entries(step.plan || {})) out.events.push({ zone, len });
+    // the plan's forced fights (`planFights`) halfway along its walking
+    const forced = (step.planFights || []).map((id) => ({ battle: id, field: true }));
+    for (const [zone, len] of Object.entries(step.plan || {})) {
+      if (forced.length) out.events.push({ zone, len: len / 2 }, ...forced.splice(0), { zone, len: len / 2 });
+      else out.events.push({ zone, len });
+    }
     out.distance = sum(Object.values(step.plan || {}));
     out.notes.push(why);
     return out;
@@ -857,6 +1024,8 @@ function walkPlan(chapter, i) {
   const state = condState(chapter, flags);
   if (!fieldDone.has(chapter)) fieldDone.set(chapter, new Set());
   const met = fieldDone.get(chapter);
+  const named = routeEncounters(chapter);
+  const triggers = fightTriggers(map, named);
   let pos = null;
   let missing = 0;
   const addPiece = (zone, len) => {
@@ -894,12 +1063,16 @@ function walkPlan(chapter, i) {
         continue;
       }
       for (const fb of map.bosses || []) {
-        const encDef = ENCOUNTERS[fb.encounter];
-        if (!encDef || encDef.boss || met.has(`${map.id}:${fb.id}`)) continue;
+        if (!ENCOUNTERS[fb.encounter] || named.has(fb.encounter) || met.has(`${map.id}:${fb.id}`)) continue;
         if (fb.when && !testCond(fb.when, state)) continue;
         if (Math.hypot(fb.x - x, fb.z - z) > (fb.triggerRadius ?? 3.4)) continue;
         met.add(`${map.id}:${fb.id}`);
         out.events.push({ battle: fb.encounter, field: true });
+      }
+      for (const t of triggers) {
+        if (met.has(`${map.id}:trigger:${t.id}`) || !inRect(t.rect, x, z) || (t.when && !testCond(t.when, state))) continue;
+        met.add(`${map.id}:trigger:${t.id}`);
+        for (const id of t.fights) out.events.push({ battle: id, field: false });
       }
       const area = map.areas.find((ar) => inRect(ar.rect, x, z));
       addPiece(zoneOf(area, state), Math.hypot(cells[k + 1][0] - x, cells[k + 1][1] - z));
@@ -1227,6 +1400,7 @@ function shopVisit(shopIds, st) {
       if (!affordable.some(([id]) => id === pick) || !spend(pick, 1, stock.get(pick))) continue;
       equip(m, slot, pick);
       if (slot === 'weapon') st.boughtWeapons.push(`${m.id}:${pick}`);
+      st.boughtGear.push(`${m.id}:${pick}`);
     }
   };
   restock(ESSENTIALS);
@@ -1273,7 +1447,8 @@ function fight(encounterId, seed, tally = null) {
   const memo = new Map();
   const maxHp = sum(m.party, (p) => p.maxHp);
   const hp0 = sum(m.party, (p) => p.hp);
-  const out = { items: {}, invalid: 0, ultGranted: 0, ultUsed: 0, ultOnBreak: 0, bossBreaks: 0 };
+  // formBreaks / formRounds: Breaks on the boss and rounds fought per boss form (a transform starts the next)
+  const out = { items: {}, invalid: 0, ultGranted: 0, ultUsed: 0, ultOnBreak: 0, bossBreaks: 0, formBreaks: [0], formStart: [1] };
   let turns = 0;
   let hidden = 0;
   const windows = new Map();   // round -> { broken, healed } (cue windows, CANCEL_CHECKS)
@@ -1287,9 +1462,14 @@ function fight(encounterId, seed, tally = null) {
         if (tally) tallyFor(tally, m.get(ev.targetId).key).breaks++;
         if (isBoss(ev.targetId)) {
           out.bossBreaks++;
+          out.formBreaks[out.formBreaks.length - 1]++;
           const w = windows.get(m.round);
           if (w && !w.healed) w.broken = true;
         }
+      }
+      if (ev.type === 'transform' && isBoss(ev.targetId)) {
+        out.formBreaks.push(0);
+        out.formStart.push(m.round);
       }
       if (ev.type === 'cue' && ev.value !== false && Object.values(CANCEL_CHECKS).some((c) => c.cue === ev.name)) {
         const boss = m.enemies.find((e) => e.alive && e.boss);
@@ -1396,7 +1576,7 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
   const rng = makeRng(seed);
   startChapter(chapter, carry);
   const st = {
-    losses: 0, lostTo: {}, backToRest: 0, earned: 0, xp: 0, spent: 0, used: {}, boughtWeapons: [], chestWeapons: [], bossWin: false,
+    losses: 0, lostTo: {}, backToRest: 0, earned: 0, xp: 0, spent: 0, used: {}, boughtWeapons: [], boughtGear: [], chestWeapons: [], bossWin: false,
     fights: { scripted: 0, field: 0, random: 0, boss: 0, byZone: {} },
     startWeapons: Object.fromEntries(gameState.party.map((m) => [m.id, m.equip.weapon])),
   };
@@ -1458,7 +1638,10 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
     } else if (step.rest) {
       if (hasMedStation(step.rest)) healParty();
     } else if (step.chests) collectChests(chapter, step.chests, st, firstTimer);
-    else if (step.shop) shopVisit(step.shop, st);
+    else if (step.give) {
+      for (const id of step.give) if (ITEMS[id]) addItem(id, 1);
+      if (!firstTimer) optimizeParty();
+    } else if (step.shop) shopVisit(step.shop, st);
     else if (step.boss) {
       healParty();
       st.bossLevels = Object.fromEntries(gameState.party.map((m) => [m.id, m.level]));
@@ -1488,6 +1671,13 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
 }
 
 const fightCount = (r) => r.fights.scripted + r.fights.field + r.fights.random + r.fights.boss;
+
+// An elite fight: a boss-flagged encounter that is not a chapter's boss, or one with elite kinds
+// (7.8: elite_rime_golem, ...).
+function isEliteFight(id) {
+  const e = ENCOUNTERS[id];
+  return !!e && (e.boss || e.enemies.some((k) => k.startsWith('elite_')));
+}
 
 // Route runs per chapter, cached: the normal route and the first-timer route each chain from the
 // same kind of route of the chapter before.
@@ -1549,6 +1739,9 @@ function battleGroup(chapter, snap, ids, { level, tally, seedBase, weights = ids
 
 function summarize(res) {
   const wins = res.filter((r) => r.result === 'victory');
+  // per boss form (wins reach every form): median Breaks and rounds of each
+  const forms = Math.max(1, ...wins.map((r) => r.formBreaks.length));
+  const formRounds = (r, k) => (k + 1 < r.formStart.length ? r.formStart[k + 1] : r.rounds + 1) - r.formStart[k];
   return {
     win: wins.length / res.length,
     rounds: median(wins.map((r) => r.rounds)),
@@ -1557,6 +1750,10 @@ function summarize(res) {
     invalid: sum(res, (r) => r.invalid),
     breaks: median(res.map((r) => r.bossBreaks)),
     hidden: sum(res, (r) => r.hidden) / Math.max(1, sum(res, (r) => r.turns)),
+    forms: Array.from({ length: forms }, (_, k) => {
+      const reached = wins.filter((r) => r.formBreaks.length > k);
+      return { breaks: median(reached.map((r) => r.formBreaks[k])), rounds: median(reached.map((r) => formRounds(r, k))) };
+    }),
   };
 }
 
@@ -1693,8 +1890,10 @@ function reportChapter(chapter) {
     const rows = battleGroup(chapter, g.snap, g.ids, { tally, seedBase: 50000 });
     const s = summarize(rows.flatMap((r) => Array.from({ length: r.weight }, () => r.res).flat()));
     const lv = Object.values(g.snap.levels).map(Math.floor);
-    const label = `${g.label} (${g.snap.party.length} at L${Math.min(...lv)}-${Math.max(...lv)})`;
-    const ok = s.win >= TARGETS.regular.win && inRange(s.rounds, TARGETS.regular.rounds) && inRange(s.hpLost, TARGETS.regular.hpLost);
+    const elite = g.ids.length === 1 && isEliteFight(g.ids[0]);
+    const label = `${g.label} (${g.snap.party.length} at L${Math.min(...lv)}-${Math.max(...lv)}${elite ? ', elite' : ''})`;
+    const t = elite ? TARGETS.elite : TARGETS.regular;
+    const ok = s.win >= t.win && inRange(s.rounds, t.rounds) && inRange(s.hpLost, t.hpLost);
     verdict(ok, label, `win ${pct1(s.win)}, median ${s.rounds} rounds, HP lost ${pct(s.hpLost)}, KOs ${s.kos.toFixed(2)}${s.invalid ? `, invalid ${s.invalid}` : ''}`);
     if (VERBOSE || !ok) {
       for (const r of rows) {
@@ -1707,13 +1906,16 @@ function reportChapter(chapter) {
   // bosses: the route check and the first-timer check (C10-3)
   const bossTally = {};
   for (const step of route.filter((s) => s.boss)) {
+    // a two-form boss (onDefeat transform: WARDEN) needs its Breaks in every form
+    const twoForm = (ENCOUNTERS[step.boss]?.enemies || []).some((k) => ENEMIES[k]?.onDefeat?.transform);
+    const formText = (s) => (twoForm ? `; ${s.forms.map((f, k) => `form ${k + 1}: ${f.breaks} Breaks in ${f.rounds} rounds`).join(', ')}` : '');
     const bossSnaps = (list) => list.map((r) => r.bossSnap).filter(Boolean);
     const snap = ref.snaps[`boss:${step.boss}`] && consensus(bossSnaps(runs), ref.snaps[`boss:${step.boss}`]);
     if (snap) {
       const b = bossCheck(chapter, snap, step, def.levels[1], bossTally);
       const rt = TARGETS.bossRounds[step.boss] || TARGETS.boss.rounds;
       verdict(inRange(b.s.win, TARGETS.boss.win) && inRange(b.s.rounds, rt), `boss ${step.boss} (route, ${b.lvText})`,
-        `win ${pct1(b.s.win)}, median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks}, HP lost ${pct(b.s.hpLost)}, KOs ${b.s.kos.toFixed(2)}`);
+        `win ${pct1(b.s.win)}, median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks}${formText(b.s)}, HP lost ${pct(b.s.hpLost)}, KOs ${b.s.kos.toFixed(2)}`);
       console.log(`         gear: ${b.gear}`);
       const granted = mean(b.res, (r) => (r.ultGranted ? 1 : 0));
       const used = sum(b.res, (r) => r.ultUsed);
@@ -1729,12 +1931,16 @@ function reportChapter(chapter) {
       const b = bossCheck(chapter, ftSnap, step, lv, {});
       const t = TARGETS.firstTimer;
       const rt = TARGETS.bossRounds[step.boss] || t.rounds;
-      const ok = b.s.win >= t.win && inRange(b.s.rounds, rt) && b.s.breaks >= t.breaks && Math.round(100 * b.s.hidden) <= 100 * t.hidden;
+      const breaksOk = twoForm ? b.s.forms.length >= 2 && b.s.forms.every((f) => f.breaks >= t.breaks) : b.s.breaks >= t.breaks;
+      const ok = b.s.win >= t.win && inRange(b.s.rounds, rt) && breaksOk && Math.round(100 * b.s.hidden) <= 100 * t.hidden;
       verdict(ok, `boss ${step.boss} (first-timer, ${b.lvText})`,
-        `win ${pct1(b.s.win)} (>= ${pct(t.win)}), median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks} (>= ${t.breaks}), ` +
-        `untargetable on ${pct(b.s.hidden)} of party turns, HP lost ${pct(b.s.hpLost)}`);
+        `win ${pct1(b.s.win)} (>= ${pct(t.win)}), median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks} (>= ${t.breaks}${twoForm ? ' per form' : ''})` +
+        `${formText(b.s)}, untargetable on ${pct(b.s.hidden)} of party turns, HP lost ${pct(b.s.hpLost)}`);
       console.log(`         gear: ${b.gear}; credits ${ftSnap.credits}; in the bag: ${Object.keys(ftSnap.items).filter((id) => ITEMS[id]?.equip).join(', ') || 'nothing'}`);
-      console.log(`         route: boss won first try ${pct(mean(ft.runs, (r) => (r.bossWin ? 1 : 0)))}, fights ${f1(mean(ft.runs, fightCount))}`);
+      const ftBought = {};
+      for (const r of ft.runs) for (const g of r.boughtGear) ftBought[g] = (ftBought[g] || 0) + 1 / ft.runs.length;
+      console.log(`         route: boss won first try ${pct(mean(ft.runs, (r) => (r.bossWin ? 1 : 0)))}, fights ${f1(mean(ft.runs, fightCount))}; ` +
+        `gear bought this chapter: ${Object.entries(ftBought).map(([g, n]) => `${g} ${pct(n)}`).join(', ') || 'none'}`);
     }
     const cancel = CANCEL_CHECKS[step.boss];
     const t = cancel && bossTally[cancel.kind];

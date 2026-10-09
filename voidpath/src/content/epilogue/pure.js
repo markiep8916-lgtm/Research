@@ -1,6 +1,7 @@
 // epilogue: LocationDef (PURE, TECH_PLAN 2.2), assembled from data.js, story.js and maps/.
 import data from './data.js';
 import story from './story.js';
+import ione from './maps/ione.js';
 
 export default {
   id: 'epilogue',
@@ -8,5 +9,5 @@ export default {
   name: 'Ione',
   data,
   story,
-  maps: {},
+  maps: { ione },
 };
