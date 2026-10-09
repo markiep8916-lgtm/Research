@@ -67537,9 +67537,10 @@ var scripts3 = {
     cs.letterbox(true);
     if (args.trigger) await cs.goto("driftmarket", "dock");
     cs.music("driftmarket");
+    bg2(cs.camera.focus([12, 11.8], { ms: 500 }));
     const gathering = bg2(cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11], sera: [10, 12.2], orion: [11.2, 12.6] }));
-    bg2(cs.spawn("ruse_walk", { sprite: "ruse", x: 14.4, z: 11.8, facing: "left", name: "RUSE" }));
-    bg2(cs.move("ruse_walk", [[13.4, 11.6]], { speed: 1.8, face: "nyx" }));
+    bg2(cs.spawn("ruse_walk", { sprite: "ruse", x: 14.2, z: 11.9, facing: "left", name: "RUSE" }));
+    bg2(cs.move("ruse_walk", [[13.2, 11.6]], { speed: 1.8, face: "nyx" }));
     await cs.say([
       { speaker: "RUSE", text: "Well. You're all still attached to yourselves." },
       { speaker: "NYX", text: "Got the coil. The Maw's got a sore head.", expr: "smile" },
@@ -68477,14 +68478,15 @@ var driftmarket_default = {
     { x: 34, y: 2.2, z: 10, color: "#ffe0a8", intensity: 12, distance: 6 },
     lantern(22.5, 14, 3, 18, 7),
     lantern(31, 14, 3, 18, 7),
-    lantern(40, 14, 3, 18, 7),
+    lantern(44, 14, 3, 18, 7),
     lantern(48.5, 14, 3, 18, 7),
     lantern(19.5, 18.8, 2.4, 12),
     lantern(36.5, 18.8, 2.4, 12),
     lantern(46, 18.8, 2.4, 12),
     { x: 39.5, y: 2.4, z: 8.6, color: "#ffb54a", intensity: 10, distance: 5 },
     // the Lantern Tree's crown of Tethys glass: a cold pool in the middle of the warm Row
-    { x: 40.2, y: 3.4, z: 13.6, color: "#7fe8f0", intensity: 13, distance: 7 },
+    { x: 40.2, y: 3.4, z: 13.6, color: "#7fe8f0", intensity: 20, distance: 7.5 },
+    { x: 39, y: 0.9, z: 12.6, color: "#4fd8cf", intensity: 10, distance: 4 },
     { x: 57.6, y: 1.6, z: 14, color: "#7fd8ff", intensity: 9, distance: 6, mode: "pulse", amount: 0.2, speed: 0.6 },
     { x: 53, y: 1.2, z: 17.5, color: "#7ddf7a", intensity: 7, distance: 4.5 },
     { x: 55.2, y: 1.5, z: 9.9, color: "#4fd8cf", intensity: 8, distance: 4.5 },
@@ -68492,6 +68494,7 @@ var driftmarket_default = {
     rim(19.4, 7.5),
     rim(25, 7.6),
     rim(31.6, 7.5),
+    rim(35.2, 7.6),
     rim(49.6, 7.6),
     rim(55.6, 7.8),
     { x: 30.6, y: 1.2, z: 18.6, color: "#4fd8cf", intensity: 8, distance: 4.5 },
@@ -68513,7 +68516,7 @@ var driftmarket_default = {
     { x: 20, y: 2, z: 24.6, color: "#ffa24a", intensity: 9, distance: 5 },
     { x: 29, y: 2, z: 25, color: "#ff6a5a", intensity: 7, distance: 4.5 },
     // the inn's kelp tank: the one cold light in a warm room
-    { x: 28.3, y: 1.7, z: 22.9, color: "#4fd8cf", intensity: 6, distance: 5 }
+    { x: 28.3, y: 1.3, z: 23.2, color: "#4fd8cf", intensity: 9, distance: 4.5 }
   ],
   ambient: [
     // drifting ice crystals everywhere the station opens to the ring, lantern sparks over the market
@@ -70723,7 +70726,7 @@ var lanternTree = {
     }
     cyl(B, M.jar, 0.16, 0.2, 0.42, 8, x, h + 0.25, z);
     cyl(B, M.brass, 0.22, 0.22, 0.05, 8, x, h + 0.48, z);
-    glow2(W8, G5, "#7fe8f0", 1.4, 0.8, x, h + 0.25, z + 0.05);
+    glow2(W8, G5, "#7fe8f0", 2.2, 1.1, x, h + 0.25, z + 0.05);
     W8.addEmitter("dm_spark", { position: [x, h, z], area: [1.6, 0.3, 1.6], rate: 0.8 });
     W8.addCircle(x, z, 1.12);
   }
@@ -76653,9 +76656,10 @@ var scripts5 = {
     await cs.say("SERA", "Those aren't beds. Those are pods.", { expr: "determined" });
     await cs.say("MOTHER-7", "Shh. The seedlings are growing.");
     await cs.ungather();
+    bg4(cs.letterbox(false));
     await cs.battle("arb_boss_gardener");
     bg4(cs.letterbox(true));
-    await cs.gather(inParty2(cs, { sera: [64, 21], kade: [62.4, 22.4], orion: [65.8, 22.2], nyx: [61.2, 23.4] }));
+    await cs.gather(inParty2(cs, { sera: [62.7, 20.2], kade: [62, 21.8], orion: [65.8, 21.8], nyx: [60.9, 22.8] }));
     bg4(cs.camera.focus([64, 20.4], { zoom: 0.84, ms: 800 }));
     cs.particles("petal", [COURT.x, 1.6, COURT.z], { count: 30 });
     cs.particles("arb_vines", [COURT.x, 2, COURT.z], { count: 26 });
@@ -92634,7 +92638,7 @@ function drawGuardian(r, P2) {
   r.poly([[28, 45], [40, 40], [47, 46], [43, 57], [32, 57], [26, 51]], PORCELAIN, { nf: dome2(36, 46, 12, 10), bevel: 1, max: 6, bias: -0.14 });
   r.end(0.55);
   r.begin();
-  r.poly([[36, 45], [54, 41], [72, 45], [74, 57], [70, 73], [64, 86], [44, 86], [38, 73], [34, 57]], PORCELAIN, { nf: dome2(55, 58, 22, 30), bevel: 1, max: 7, spec: PORCELAIN[8], specT: 0.99 });
+  r.poly([[36, 45], [54, 41], [72, 45], [74, 57], [70, 73], [64, 86], [44, 86], [38, 73], [34, 57]], PORCELAIN, { nf: dome2(55, 58, 22, 30), bevel: 1, max: 7, bias: -0.05, spec: PORCELAIN[8], specT: 0.99 });
   r.end(0.6);
   r.line(38, 72, 46, 80, PORCELAIN[3]);
   r.line(70, 72, 62, 80, PORCELAIN[4]);
@@ -92672,7 +92676,7 @@ function drawGuardian(r, P2) {
   r.poly([[67, 52], [80, 53], [83, 59], [71, 60]], PORCELAIN, { nf: dome2(75, 52, 10, 8), bevel: 1, max: 7, bias: -0.04 });
   r.end(0.5);
   r.begin();
-  r.poly([[63, 41], [77, 42], [85, 49], [82, 56], [70, 55], [64, 50]], PORCELAIN, { nf: dome2(73, 46, 14, 10), bevel: 1, max: 8, spec: PORCELAIN[8], specT: 0.985 });
+  r.poly([[63, 41], [77, 42], [85, 49], [82, 56], [70, 55], [64, 50]], PORCELAIN, { nf: dome2(73, 46, 14, 10), bevel: 1, max: 7, spec: PORCELAIN[8], specT: 0.985 });
   r.end(0.55);
   filigree(r, [[65, 49], [70, 54], [82, 55]], G_GOLD2[3], 0.35);
   if (P2.crack) filigree(r, [[74, 43], [72, 47], [75, 50]], VOID7[2]);

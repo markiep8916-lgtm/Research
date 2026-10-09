@@ -220,11 +220,14 @@ const scripts = {
     await cs.say('SERA', 'Those aren\'t beds. Those are pods.', { expr: 'determined' });
     await cs.say('MOTHER-7', 'Shh. The seedlings are growing.');
     await cs.ungather();
+    // the bars would cover the battle HUD
+    bg(cs.letterbox(false));
     await cs.battle('arb_boss_gardener');
 
     // aftermath: the vines fall away; MOTHER-7 is freed, not destroyed
     bg(cs.letterbox(true));
-    await cs.gather(inParty(cs, { sera: [64.0, 21.0], kade: [62.4, 22.4], orion: [65.8, 22.2], nyx: [61.2, 23.4] }));
+    // Sera to one side: straight in front of the court she would hide MOTHER-7 from the camera
+    await cs.gather(inParty(cs, { sera: [62.7, 20.2], kade: [62.0, 21.8], orion: [65.8, 21.8], nyx: [60.9, 22.8] }));
     bg(cs.camera.focus([64.0, 20.4], { zoom: 0.84, ms: 800 }));
     cs.particles('petal', [COURT.x, 1.6, COURT.z], { count: 30 });
     cs.particles('arb_vines', [COURT.x, 2.0, COURT.z], { count: 26 });
