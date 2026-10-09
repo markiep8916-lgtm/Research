@@ -44,9 +44,15 @@ const tuned = (line0, { hp = 1, offense = 1 }) => ({
   stats: { ...line0.stats, atk: Math.round(line0.stats.atk * offense), mag: Math.round(line0.stats.mag * offense) },
 });
 
+// a little forward of the usual boss slot, so the 256-px construct's eye stays in the focus band
+// (the crown arena's inlay sits under it)
+export const STAGE_SLOT = [-4.4, 1.4];
+const STAGE = { slot: STAGE_SLOT };
+
 const enemies = {
   warden_lock: {
     kind: 'warden_lock', name: 'WARDEN', art: 'warden_lock', boss: true, ai: 'basic', script: 'warden',
+    stage: STAGE,
     ...tuned(statLine(31, 'boss'), { hp: 1.35, offense: 1.65 }), shield: 3, maxShieldCap: 16, shieldGain: 2,
     weaknesses: ['lance', 'rifle', 'photon', 'void'],
     immune: ['sleep'],
@@ -74,6 +80,7 @@ const enemies = {
 
   warden_unbound: {
     kind: 'warden_unbound', name: 'WARDEN', art: 'warden_unbound', boss: true, ai: 'basic', script: 'warden_unbound',
+    stage: STAGE,
     ...tuned(statLine(32, 'boss'), { hp: 0.75, offense: 1.8 }), shield: 3, maxShieldCap: 6, shieldGain: 1, actionsPerRound: 2,
     weaknesses: ['gauntlet', 'cryo', 'photon', 'blade'],
     weaknessPool: [['gauntlet', 'cryo', 'photon', 'blade'], ['thermal', 'void', 'lance', 'rifle'], ['volt', 'photon', 'rifle', 'gauntlet']],

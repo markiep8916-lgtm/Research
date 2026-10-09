@@ -22,7 +22,8 @@
 //   kits     the next chapter's kit (REG.kits) against the gear and credits the route ends with
 //   report   mechanic frequencies per boss and zone: telegraphs (lock-on, charge) answered by Defend
 //            or cancelled by a Break, dives and the attack that follows them, enemy heals, summons,
-//            ultimates awakened and used on a Break
+//            travelers put to sleep, ultimates awakened and used on a Break; a two-form boss's Breaks
+//            and rounds per form
 //
 // Content a chapter needs that no location has registered yet (maps, zones, encounters, enemy
 // kinds, boss scripts, shops, the binding gear chests of TECH_PLAN 5.5) comes from PLACEHOLDERS,
@@ -43,8 +44,9 @@
 //   --verbose               one row per encounter, every walk leg
 //
 // Targets (--check, 10.4, 11.7, G2): regular fights win >= 98%, median 2-4 rounds, 15-35% party HP
-// lost; route boss check 85-95% in a median of 6-10 rounds (Warden 10-14 across both forms);
-// first-timer boss check >= 75% first-try wins, a median of 8-10 rounds and 2+ Breaks, the boss
+// lost (an elite fight on the critical path: >= 95%, 4-8 rounds, 20-50%); route boss check 85-95% in
+// a median of 6-10 rounds (Warden 10-14 across both forms); first-timer boss check >= 75% first-try
+// wins, a median of 8-10 rounds and 2+ Breaks (a two-form boss: 2+ in each form), the boss
 // untargetable on under 25% of the party's turns; the fights a chapter delivers (scripted + field +
 // expected random + boss) inside 11.7 (prologue 7-9, ch1 10-12, ch2-ch4 8-10); the party arrives at
 // the boss at the chapter's end level (mean level -0.1 to +0.6, counting the share of the next level)
@@ -187,9 +189,10 @@ const ROUTES = {
   ],
   ch3: [
     { shop: ['fabricator', 'ruse'] },
-    // the grids: one terminal, the swap terminal, Kade's override; the cells; then up by lift
-    { walk: 'spire', path: ['spawn:dock', 'inter:grid_t1', 'inter:grid_t2', 'inter:grid_t3', 'inter:cells',
-      { set: ['story:cadets_freed'] }], plan: { spire_barracks: 170 } },
+    // the chests on the way, the grids: one terminal, the armory, the swap terminal, Kade's
+    // override; the cells; then up by lift
+    { walk: 'spire', path: ['spawn:dock', 'chest:cp_cache', 'chest:bunk_locker', 'inter:grid_t1', 'chest:armory_plate',
+      'inter:grid_t2', 'inter:grid_t3', 'inter:cells', { set: ['story:cadets_freed'] }], plan: { spire_barracks: 170 } },
     { shop: ['quartermaster'] },
     { rest: 'spire' },
     { walk: 'spire', flags: ['story:cadets_freed'],
@@ -574,7 +577,7 @@ const PLACEHOLDERS = {
     encounters: {
       heart_seraphs: enc('heart_seraphs', ['warden_seraph', 'warden_seraph']),
       heart_eaters: enc('heart_eaters', ['dream_eater', 'warden_seraph']),
-      heart_choir: enc('heart_choir', ['choir_guardian', 'warden_seraph', 'warden_seraph']),
+      heart_guarded: enc('heart_guarded', ['choir_guardian', 'warden_seraph', 'warden_seraph']),
       heart_hunger: enc('heart_hunger', ['dream_eater', 'dream_eater']),
       heart_crown_choir: enc('heart_crown_choir', ['choir_guardian', 'dream_eater', 'warden_seraph']),
       heart_crown_eaters: enc('heart_crown_eaters', ['dream_eater', 'dream_eater', 'warden_seraph']),
@@ -584,7 +587,7 @@ const PLACEHOLDERS = {
       heart_elite_guard: enc('heart_elite_guard', ['elite_sec_trooper', 'elite_firewall_golem'], { canFlee: false }),
     },
     zones: {
-      heart_ascent: ['heart_seraphs', 'heart_eaters', 'heart_choir', 'heart_hunger'],
+      heart_ascent: ['heart_seraphs', 'heart_eaters', 'heart_guarded', 'heart_hunger'],
       heart_crown: ['heart_crown_choir', 'heart_crown_eaters', 'heart_crown_wards', 'heart_crown_seraphs'],
     },
     bossScripts: {
@@ -1436,7 +1439,7 @@ function tallyFor(tally, kind) {
   return (tally[kind] ||= {
     battles: 0, lockOn: 0, lockFired: 0, lockCancel: 0, charge: 0, chargeFired: 0, chargeCancel: 0,
     dives: 0, diveFollow: 0, telegraphHits: 0, telegraphDefended: 0, heals: 0, summons: 0, breaks: 0,
-    windows: 0, windowCancel: 0, windowHeal: 0,
+    windows: 0, windowCancel: 0, windowHeal: 0, sleeps: 0,
   });
 }
 
@@ -1558,6 +1561,8 @@ function tallyEnemy(tally, m, actor, pend, events) {
       if (m.get(h.targetId)?.defending) t.telegraphDefended++;
     }
   };
+  // travelers put to sleep by this action (the Lullaby, Cradle, Pollen)
+  t.sleeps += events.filter((e) => e.type === 'status' && e.stat === 'sleep' && e.stage > 0 && !String(e.targetId).startsWith('e')).length;
   if (action.kind === 'lockOn') t.lockOn++;
   else if (action.kind === 'charge') t.charge++;
   else if (action.kind === 'submerge') t.dives++;
@@ -1769,6 +1774,7 @@ function mechanicLines(tally) {
     if (t.telegraphHits) bits.push(`telegraphed hits answered by Defend ${pct(t.telegraphDefended / t.telegraphHits)}`);
     if (t.heals) bits.push(`heals ${per(t.heals)}/battle`);
     if (t.summons) bits.push(`summons ${per(t.summons)}/battle`);
+    if (t.sleeps) bits.push(`travelers put to sleep ${per(t.sleeps)}/battle`);
     bits.push(`Breaks ${per(t.breaks)}/battle`);
     out.push(`    ${kind.padEnd(16)} ${bits.join('; ')}`);
   }

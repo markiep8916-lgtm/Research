@@ -41,7 +41,8 @@
 //             elite, warden_lock 31 / warden_unbound 32 boss
 // Per-kind `overrides` below carry what the curves cannot: lesson foes that must live long enough,
 // chapter XP that lands the party on each boss's level, and every boss's 8-10 rounds with two
-// Breaks against a first-timer's gear (G2 C10-3, bar rule 7).
+// Breaks against a first-timer's gear (G2 C10-3, bar rule 7). WARDEN keeps C11's numbers
+// (warden/data.js `tuned`) until its first-timer test moves to the level the route delivers.
 
 import { BATTLE_RULES, ENEMIES, PARTY_DEFS } from '../battle/data.js';
 
@@ -135,9 +136,12 @@ export const overrides = {
     voss_overclock: { xp: 0.6, atk: 1.4, mag: 1.4 },
     voss_escort: { xp: 0.15 },
     corrupted_memory: { mag: 0.85 },                   // the Overwrite lesson costs at most a third of the squad's HP
-    echo: { maxHp: 1.5, atk: 1.22, mag: 1.22, xp: 0.75 },   // 9-10 rounds, two Severances, a third cancelled
+    echo: { maxHp: 1.5, atk: 1.2, mag: 1.2, xp: 0.75 },   // 9-10 rounds, two Severances, a third cancelled
     // the Heart: a guardian's cradle rings already make its formations the longest of the game
     choir_guardian: { maxHp: 0.6 },
+    // the Third Tier's Echoes meet a squad worn down by the climb (no rest since the Second Tier)
+    elite_sec_trooper: { atk: 0.88, mag: 0.88 },
+    elite_firewall_golem: { atk: 0.88, mag: 0.88 },
   },
   enemies: {
     pro_drone_glitch: { xp: 100 },   // the tutorial levels Kade up before Sera joins
@@ -148,8 +152,8 @@ export const overrides = {
     voss_overclock: { shield: 3 },   // her second form breaks once more before she falls
     echo: { shield: 5, shieldGain: 1 },   // two Breaks against a first-timer, one in time for a Severance
   },
-  // chapter 1, 2, 3 and 4 foes (their bosses too)
-  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.18], [23, 27, 0.86], [28, 33, 0.72]],
+  // chapter 1, 2, 3, 4 and finale foes (their bosses too)
+  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.08], [23, 27, 0.86], [28, 33, 0.67]],
   // Duos lack area skills and a spare healer, so their foes shrink more than in the POC.
   rules: { partyScale: { hp: [0, 0.45, 0.5, 0.85, 1], dmg: [0, 0.7, 0.7, 0.92, 1] } },
   zoneRate: {},

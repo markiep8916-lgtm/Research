@@ -23,8 +23,9 @@
 //   warden_field    the Merciful Lock at 0.5 scale (128x128) for the crown map and the resolution:
 //                   idle 4, special (folded down to HALCYON's size), break.
 //
-// fitBox frames the hood and eye only (the core), so the rest of the 256-px construct bleeds off the
-// frame on phones without shrinking the squad (TECH_PLAN 7.4, G2 bar rule 20).
+// fitBox frames the halo's top down to the chest (the core), so the wings and the robe's hem may bleed
+// off the frame on phones without shrinking the squad; the data puts the construct a little forward
+// (stage.slot), so the eye sits inside the battle focus band (TECH_PLAN 7.4, G2 bar rule 20).
 
 import { rng } from '../../art/painter.js';
 import { rp, WHITE, DEG, clamp, polar, dome, spot, sparks } from '../prologue/enemyart.js';
@@ -72,7 +73,7 @@ function motes(r, seed, x0, y0, w, h, n, ramp = G_GOLD, k = 0.7) {
 
 // The box (model space, before the 0.9 fit) every tip must stay inside in any pose: the frame's edges
 // stay clear, so the silhouette is never cut straight by the frame.
-const SAFE = { x0: 2, x1: 254, y0: 8, y1: 246 };
+const SAFE = { x0: 2, x1: 254, y0: 4, y1: 239 };
 
 /** Length along `ang` from `root` that keeps the end inside SAFE (at most `len`). */
 function fitLen(root, ang, len) {
@@ -286,7 +287,7 @@ function lancets(r, P, F) {
   const list = [[-22, 40, 5], [-14, 58, 6], [-6, 74, 7], [2, 80, 7], [10, 66, 6], [18, 50, 5], [26, 34, 4]];
   for (const [dx, L, w] of list) {
     const top = [CX + dx * 1.1, CY + 84];
-    const tip = [CX + dx * 1.3 + sway * (L / 90), CY + 84 + L * 0.62 * (F.unbound ? 0.9 : 1)];
+    const tip = [CX + dx * 1.3 + sway * (L / 90), CY + 84 + L * 0.54 * (F.unbound ? 0.9 : 1)];
     if (F.unbound) {
       // streams of choir light instead of metal
       for (let i = 0; i < L; i++) {
@@ -583,10 +584,12 @@ function figure(r, P, F) {
 // the whole construct is painted at 0.9 about the frame's centre, so no part of it reaches the frame
 // edge in any pose (the silhouette stays broken, never cut straight by the frame)
 const FIT = 0.9;
+// the construct sits 7 px low in its frame, so its eye stays inside the battle focus band (G2 rule 20)
+const DROP = 7;
 
 function drawWarden(r, P, F) {
   r.save();
-  r.translate(W / 2, H * 0.52).scale(FIT).translate(-W / 2, -H * 0.52);
+  r.translate(W / 2, H * 0.52 + DROP).scale(FIT).translate(-W / 2, -H * 0.52);
   r.translate(P.dx || 0, P.bob || 0);
   if (P.lean) r.rotate(P.lean, CX, CY + 50);
   figure(r, P, F);
@@ -640,15 +643,18 @@ const ANIMS_UNBOUND = {
   ] },
 };
 
-const POINTS = { center: [126, 132], muzzle: [148, 106], top: [126, 18], core: [129, 106] };
+// the camera keeps the halo's top to the chest on screen: with the head well below the box's top
+// (which the fit pins under the turn bar), the eye lands inside the focus band on desktop and phone
+const FIT_BOX = [96, 8, 64, 150];
+const POINTS = { center: [126, 139], muzzle: [148, 113], top: [126, 25], core: [129, 113] };
 
 export const WARDEN_LOCK = {
   w: W, h: H, bevel: 3,
   draw: (r, P) => drawWarden(r, P, LOCK),
   anims: ANIMS_LOCK,
   points: POINTS,
-  icon: { x: 128, y: 104, scale: 0.36 },
-  fitBox: [100, 52, 56, 84],
+  icon: { x: 128, y: 111, scale: 0.36 },
+  fitBox: FIT_BOX,
 };
 
 export const WARDEN_UNBOUND = {
@@ -657,8 +663,8 @@ export const WARDEN_UNBOUND = {
   // fold: the defeat (warden.defeat): wings close round the body, the rays draw in, the light dims
   anims: { ...ANIMS_UNBOUND, fold: { fps: 3, loop: false, poses: [{ bob: 10, fold: 1, wing: -4, rot: 2, open: 0.25, eyeK: 0.4, gyro: 0, wide: 0, tear: 0, frag: 11 }] } },
   points: POINTS,
-  icon: { x: 128, y: 104, scale: 0.36 },
-  fitBox: [100, 52, 56, 84],
+  icon: { x: 128, y: 111, scale: 0.36 },
+  fitBox: FIT_BOX,
 };
 
 // ---------------------------------------------------------------- the field version
@@ -679,6 +685,6 @@ export const WARDEN_FIELD = {
     break: { fps: 3, loop: true, poses: [ANIMS_LOCK.break.poses[0]] },
     special: { fps: 3, loop: false, poses: [{ bob: 10, fold: 1, wing: -4, rot: 2, open: 0.3, eyeK: 0.5 }] },
   },
-  points: { center: [63, 66], muzzle: [74, 53], top: [63, 9], core: [65, 53] },
-  icon: { x: 64, y: 52, scale: 0.7 },
+  points: { center: [63, 70], muzzle: [74, 57], top: [63, 13], core: [65, 57] },
+  icon: { x: 64, y: 56, scale: 0.7 },
 };

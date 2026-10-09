@@ -4,7 +4,7 @@
   {"eval": "window.S = () => window.__VP.debug.state()"},
   {"eval": "window.M = () => __VP.game.states.battle.model"},
   {"eval": "window.SAY = () => document.querySelector('.vb-say.is-on.is-done')"},
-  {"eval": "window.LOG = []; window.SNAP = null; window.PREV = __VP.game.onBattleEvent; __VP.game.onBattleEvent = (e) => { const k = e.type === 'say' ? 'say:' + e.speaker : e.type === 'cue' ? 'cue:' + e.name : e.type === 'action' ? 'act:' + e.actionId : e.type; if (['say', 'cue', 'action', 'transform', 'break', 'weakShift', 'telegraph', 'ko', 'victory', 'defeat'].includes(e.type)) LOG.push(k); if (SNAP && SNAP.key === k) { __VP.debug.pauseOn(e.type, SNAP.delay); SNAP = null; } PREV(e); }, true"},
+  {"eval": "(() => { window.LOG = []; window.SNAP = null; const prev = __VP.game.onBattleEvent; __VP.game.onBattleEvent = (e) => { const k = e.type === 'say' ? 'say:' + e.speaker : e.type === 'cue' ? 'cue:' + e.name : e.type === 'action' ? 'act:' + e.actionId : e.type; if (['say', 'cue', 'action', 'transform', 'break', 'weakShift', 'telegraph', 'ko', 'victory', 'defeat'].includes(e.type)) LOG.push(k); if (SNAP && SNAP.key === k) { __VP.debug.pauseOn(e.type, SNAP.delay); SNAP = null; } prev(e); }; return true; })()"},
   {"eval": "__VP.debug.startBattle('heart_boss_warden', { jump: 'fin.warden', seed: 19 })"},
   {"waitFor": "S().inBattle && S().state === 'battle' && S().battle", "timeout": 3600000},
   {"waitFor": "!!document.querySelector('.vb-card')", "timeout": 3600000},

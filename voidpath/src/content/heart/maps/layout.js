@@ -62,13 +62,13 @@ export const BRIDGES = [
 ];
 
 /** Degrees in [0, 360) of (x, z) round (cx, cz). */
-export function angleOf(cx, cz, x, z) {
+function angleOf(cx, cz, x, z) {
   const a = (Math.atan2(z - cz, x - cx) * 180) / Math.PI;
   return (a + 360) % 360;
 }
 
 /** True when angle `a` lies on arc [a0, a1] (a1 may pass 360). */
-export function onArc(a, [a0, a1]) {
+function onArc(a, [a0, a1]) {
   const d = (((a - a0) % 360) + 360) % 360;
   return d <= a1 - a0;
 }
@@ -82,7 +82,7 @@ export function ringPoint(ring, a, r = (ring.rIn + ring.rOut) / 2) {
 const CORNERS = (c, r) => [[c, r], [c + 1, r], [c, r + 1], [c + 1, r + 1]];
 
 /** True when cell (c, r) lies fully inside the ring (all four corners within its radii) on an arc. */
-export function cellInRing(ring, c, r) {
+function cellInRing(ring, c, r) {
   for (const [x, z] of CORNERS(c, r)) {
     const d = Math.hypot(x - ring.cx, z - ring.cz);
     if (d < ring.rIn || d > ring.rOut) return false;
@@ -92,7 +92,7 @@ export function cellInRing(ring, c, r) {
 }
 
 /** True when cell (c, r) lies fully inside the round pad. */
-export function cellInPad(pad, c, r) {
+function cellInPad(pad, c, r) {
   return CORNERS(c, r).every(([x, z]) => Math.hypot(x - pad.cx, z - pad.cz) <= pad.r);
 }
 
@@ -104,7 +104,7 @@ function segDist(x, z, [ax, az], [bx, bz]) {
 }
 
 /** True when the centre of cell (c, r) lies within the bridge's span. */
-export function cellOnBridge(b, c, r) {
+function cellOnBridge(b, c, r) {
   return segDist(c + 0.5, r + 0.5, b.a, b.b) <= b.w / 2 - 0.05;
 }
 

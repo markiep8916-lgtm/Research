@@ -27,7 +27,6 @@ const IV = ['#3a3040', '#5a4a52', '#7e6a66', '#a58e7e', '#c8b296', '#e2cfae', '#
 const GT = ['#1c1204', '#352409', '#5a3e0f', '#856017', '#b58723', '#dcae3a', '#f6d46a', '#fff3c4'];   // gilt
 const ST = ['#0a0e1c', '#111830', '#182240', '#212d52', '#2b3a64', '#384a7a', '#4a5e94', '#6478b0'];   // deck steel
 const GD = { lo: '#4a2e08', mid: '#a06a18', hi: '#ffc04a', hot: '#fff0c0' };                           // emissive gold
-const DW = { lo: '#14304e', mid: '#3a6aa0', hi: '#9fc8ff', hot: '#e6f2ff' };                           // emissive dawn
 
 const floor = { w: 32, h: 32, wrapX: true, wrapY: true };
 
@@ -92,23 +91,27 @@ function paintFloorB(t) {
   t.emit(cx, cy, GD.mid);
 }
 
-/** The Crown: ivory-gold marble with warm veins and gold seams. */
+/**
+ * The Crown: dusk marble (navy shot through with ivory veins, so the gold light reads on it rather
+ * than washing it out), gold seams and studs; the deck's concentric gilt bands are geometry.
+ */
 function paintCrown(t) {
   for (let y = 0; y < 32; y++) {
     for (let x = 0; x < 32; x++) {
       const n = tn(x, y, 301, 0.12);
       const v = Math.abs(tn(x, y, 307, 0.09, 32, 4) - 0.5);
-      let c = 3;
-      if (n > 0.6) c = 4;
-      else if (n < 0.38 && bayer(x, y, 0.5)) c = 2;
-      t.px(x, y, IV[c], 0.55 + (n - 0.5) * 0.06);
-      if (v < 0.025) t.px(x, y, IV[2], 0.5);
+      let c = 4;
+      if (n > 0.62) c = 5;
+      else if (n < 0.38 && bayer(x, y, 0.5)) c = 3;
+      t.px(x, y, NV[c], 0.55 + (n - 0.5) * 0.06);
+      if (v < 0.012) t.px(x, y, IV[2], 0.52);
+      else if (v < 0.03 && bayer(x, y, 0.5)) t.px(x, y, NV[6], 0.52);
     }
   }
   for (let i = 0; i < 32; i++) {
-    for (const [x, y] of [[i, 0], [0, i], [i, 31], [31, i]]) t.glow(x, y, GT[5], GD.lo).ht(x, y, 0.32);
+    for (const [x, y] of [[i, 0], [0, i], [i, 31], [31, i]]) t.glow(x, y, GT[3], GD.lo).ht(x, y, 0.32);
   }
-  t.hline(1, 30, 1, IV[5], 0.62).vline(1, 1, 30, IV[5], 0.62);
+  t.hline(1, 30, 1, NV[6], 0.62).vline(1, 1, 30, NV[6], 0.62);
   for (const [x, y] of [[0, 0], [31, 0], [0, 31], [31, 31]]) t.glow(x, y, GT[7], GD.mid);
 }
 
@@ -142,20 +145,24 @@ function paintSlab(t) {
   for (const [x, y] of [[3, 3], [28, 3], [3, 28], [28, 28]]) t.glow(x, y, GT[6], GD.lo).ht(x, y, 0.75);
 }
 
-/** A hard-light deck: amber light in chevrons over a darker body, a bright line at each edge. */
+/**
+ * Hard light: a deep navy body (the abyss shows through as a dark glass) laid with gold chevrons that
+ * stream along the span; dim seams, so a figure on it still reads against it.
+ */
 function paintBridge(t) {
   for (let y = 0; y < 32; y++) {
     for (let x = 0; x < 32; x++) {
-      const edge = Math.min(y, 31 - y);
-      const chev = ((x + Math.abs(y - 15.5) * 0.9) % 8) < 2.2;
+      const d = Math.abs(y - 15.5);
+      const ch = (x + d * 0.9) % 16;
       const n = tn(x, y, 601, 0.3);
-      if (edge === 0) t.glow(x, y, GT[6], GD.hi);
-      else if (edge === 1) t.glow(x, y, GT[4], GD.mid);
-      else if (chev) t.glow(x, y, GT[5], n > 0.5 ? GD.mid : GD.lo);
-      else t.px(x, y, n > 0.55 ? GT[3] : GT[2]);
-      t.ht(x, y, edge < 2 ? 0.65 : 0.5);
+      if (y === 0 || y === 31) t.px(x, y, NV[1]);
+      else if (ch < 1.6 && d < 12) t.glow(x, y, GT[5], d < 5 ? GD.mid : GD.lo);
+      else if (ch < 3 && d < 12) t.glow(x, y, GT[2], GD.lo);
+      else t.px(x, y, n > 0.6 ? NV[4] : NV[3]);
+      t.ht(x, y, y === 0 || y === 31 ? 0.35 : 0.5);
     }
   }
+  for (const x of [0, 8, 16, 24]) t.emit(x, 0, GD.mid).emit(x, 31, GD.mid);
 }
 
 // ---------------------------------------------------------------- slabs
@@ -235,22 +242,27 @@ function paintScreen(t, frame) {
   for (let x = 0; x < 64; x++) { t.glow(x, 0, '#5a4418', GD.mid); t.glow(x, 39, '#5a4418', GD.mid); }
 }
 
-/** A Choir pod's face: a gilt frame round an oval of warm glass and the shape of a sleeper. */
+/**
+ * A Choir pod (wrapped once round the capsule): a dark navy shell with gilt caps and ribs, one tall
+ * window of warm light on one side with the sleeper inside, so a pod reads as a capsule from any turn.
+ */
 function paintPod(t) {
-  const W = 32, H = 48, cx = 15.5, cy = 23.5;
+  const W = 32, H = 48, cx = 15.5, cy = 24;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const u = (x - cx) / 13, v = (y - cy) / 21;
+      const n = tn(x, y, 1101, 0.3, 32);
+      const u = (x - cx) / 6.5, v = (y - cy) / 15;
       const d = Math.hypot(u, v);
-      if (d > 1) t.px(x, y, pick(GT, 3 + (tn(x, y, 1101, 0.3, 32) > 0.55 ? 1 : 0)), 0.6);
-      else if (d > 0.86) t.glow(x, y, GT[6], GD.mid).ht(x, y, 0.7);
+      if (y < 6 || y > 41) t.px(x, y, pick(GT, (y < 2 || y > 45 ? 2 : 4) + (n > 0.55 ? 1 : 0)), 0.65);
+      else if (y === 6 || y === 41) t.glow(x, y, GT[6], GD.mid);
+      else if (d > 1.12) t.px(x, y, x % 8 === 0 ? NV[1] : pick(NV, n > 0.6 ? 4 : 3), x % 8 === 0 ? 0.45 : 0.55);
+      else if (d > 1) t.glow(x, y, GT[5], GD.lo).ht(x, y, 0.7);
       else {
         // the sleeper: a soft head and shoulders, darker against the glass light
-        const head = Math.hypot((x - cx) / 4.2, (y - 13) / 4.6) < 1;
-        const body = Math.abs(x - cx) < 6.5 - Math.max(0, 22 - y) * 0.2 && y > 17;
-        const glass = 1 - d * 0.55;
-        const em = head || body ? '#8a6a3a' : d < 0.5 ? '#ffe8b8' : '#e8b860';
-        t.glow(x, y, head || body ? '#c8a070' : '#f8e2b0', glass > 0.6 ? em : '#c08840');
+        const head = Math.hypot((x - cx) / 2.6, (y - 15) / 3.2) < 1;
+        const body = Math.abs(x - cx) < 4.2 - Math.max(0, 21 - y) * 0.25 && y > 18;
+        const em = head || body ? GD.lo : d < 0.6 ? GD.hi : GD.mid;
+        t.glow(x, y, head || body ? '#8a6a48' : '#f6dca0', em);
       }
     }
   }

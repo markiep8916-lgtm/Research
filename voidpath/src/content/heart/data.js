@@ -213,11 +213,17 @@ const bossScripts = {
     },
   },
 
-  // It feeds on sleepers (two bites), and every bite heals it by half of what it took.
+  // It feeds on sleepers (two bites; the first feast cues the lesson), and every bite heals it by half
+  // of what it took.
   dream_eater: {
-    chooseAction(api) {
+    chooseAction(api, e) {
       const sleeper = api.party().find((m) => m.alive && m.buffs.sleep);
-      return sleeper ? { actionId: 'eater_gorge', targetId: sleeper.id } : null;
+      if (!sleeper) return null;
+      if (!api.mem.fed) {
+        api.mem.fed = true;
+        api.cue('gorge', { targetId: e.id });
+      }
+      return { actionId: 'eater_gorge', targetId: sleeper.id };
     },
     onHit(api, h) {
       const e = api.enemy(h.attackerId);
@@ -275,6 +281,11 @@ const encounters = {
     canFlee: false,
     tips: [{ on: 'untargetable', flag: 'tut:cradle', lines: [line('ORION', 'It\'s holding a *ward* over the other one. *Break* the guardian and the ward falls.')] }],
   }),
+  // the Second Tier's north chord: a seraph sings them under, a Dream Eater feeds (cleanse first)
+  heart_choir: enc('heart_choir', ['warden_seraph', 'dream_eater', 'warden_seraph'], {
+    canFlee: false,
+    tips: [{ on: 'cue:gorge', flag: 'tut:gorge', lines: [line('SERA', 'It feeds on whoever sleeps. Wake them first: a *Stim*, or any hit.')] }],
+  }),
   // the two elite fights (visible, on the critical path)
   heart_elite_rings: enc('heart_elite_rings', ['elite_rime_golem', 'elite_bloom_mantis'], {
     ...ELITE, intro: { title: 'CHOIRLIT ECHOES', subtitle: 'The Rings and the Garden', lines: [] },
@@ -308,8 +319,10 @@ const zones = {
   heart_crown: ['heart_c_trio', 'heart_c_eaters', 'heart_c_choir', 'heart_c_guards'],
 };
 
-// Measured with tools/expected-fights.mjs on tests/routes/heart.mjs (see the report in the header of
-// maps/heart.js for the critical-path distance)
-const zoneRates = { heart_ascent: { grace: 8, sigma: 17 }, heart_crown: { grace: 8, sigma: 17 } };
+// Measured with tools/expected-fights.mjs on tests/routes/heart.mjs: the critical path walks 100 units
+// in heart_ascent and 35 in heart_crown (the rings fill their quadrants, so the ascent is short and
+// dense): 2.48 + 1.30 random fights expected, with the Wardens, the Choir, two Echoes and WARDEN on the
+// way, 8.8 in all (target 8-10, 2 elites included)
+const zoneRates = { heart_ascent: { grace: 6, sigma: 12 }, heart_crown: { grace: 5, sigma: 10 } };
 
 export default { enemies, encounters, zones, zoneRates, bossScripts };

@@ -57,7 +57,7 @@ const PYLON_T3B = at('t3', 118);
 const ELITE_T2 = at('t2', 150);
 const ELITE_T3 = at('t3', 166);
 const WARDENS_T1 = at('t1', 330, 9.6);
-const BELL_T3 = at('t3', 244);
+const BELL_T3 = at('t3', 234);
 const OCULUS = [R.crown.cx, R.crown.cz];
 
 // ---------------------------------------------------------------- props
@@ -85,11 +85,12 @@ const props = [
   // ---- T2
   ...screen(66.0, 44.6, -1.2), ...screen(60.6, 52.4, -0.5), ...screen(47.0, 36.0, 0.6), ...screen(43.4, 45.0, 1.1),
   // ---- T3
-  ...screen(61.6, 4.0, -0.4), ...screen(67.0, 12.0, -1.3), ...screen(48.0, 9.6, 0.9), ...screen(56.5, 25.0, 0),
+  ...screen(61.6, 4.0, -0.4), ...screen(67.0, 12.0, -1.3), ...screen(48.0, 9.6, 0.9), ...screen(56.5, 21.7, 0),
   // ---- the Sanctum and the crown approach
   ...screen(31.4, 8.6, 0.4), ...screen(36.6, 17.4, -0.4), pylonPost(30.8, 17.0),
   // ---- the Crown: the oculus and the cradle above it (focal)
-  { t: 'heart.crown', x: OCULUS[0], z: OCULUS[1], id: 'crown' },
+  // (it pales from gold to dawn once WARDEN and HALCYON are one: world reacts, 12.3)
+  { t: 'heart.crown', x: OCULUS[0], z: OCULUS[1], id: 'crown', status: 'story:warden_merged' },
   ...screen(6.0, 19.6, 0.7, 'crown', 1.2), ...screen(19.6, 16.0, -0.9, 'crown', 1.2),
 ];
 
@@ -119,7 +120,7 @@ const lights = [
   lamp(40.5, 13.5, GOLD, 12, { y: 1.2 }), lamp(33.6, 10.6, AMBER, 12), lamp(33.4, 16.0, DAWN, 10), lamp(36.4, 13.0, ROSE, 9),
   lamp(P.lift_crown.cx, P.lift_crown.cz, WHITE, 14, { y: 2.6 }),
   // the Crown
-  { x: OCULUS[0], y: 3.0, z: OCULUS[1] + 1.0, color: '#ffe4a0', intensity: 16, distance: 12 },
+  { x: OCULUS[0], y: 3.0, z: OCULUS[1] + 1.0, color: '#ffe4a0', intensity: 11, distance: 12 },
   lamp(...at('crown', 30), AMBER, 11), lamp(...at('crown', 150), DAWN, 10), lamp(...at('crown', 90), ROSE, 9),
   lamp(...at('crown', 210), GOLD, 11), lamp(...at('crown', 330), GOLD, 11), lamp(P.lift_crown_in.cx, P.lift_crown_in.cz, WHITE, 10),
 ];
@@ -209,6 +210,11 @@ export default {
     t1: { x: 9.5, z: 42.5, facing: 'right' },
     t2_west: xz(at('t2', 200), { facing: 'down' }),
     approach: { x: 45.5, z: 13.5, facing: 'left' },
+    // before each scripted fight (the contact sheet stages them here)
+    wardens: { x: 29.6, z: 41.2, facing: 'up' },
+    choir: { x: 61.2, z: 39.0, facing: 'left' },
+    echoes_t2: { x: 45.0, z: 43.6, facing: 'down' },
+    echoes_t3: { x: 48.6, z: 19.4, facing: 'up' },
   },
   anchors: {
     warden: { x: OCULUS[0], z: OCULUS[1] - 0.6, facing: 'down' },
@@ -225,7 +231,7 @@ export default {
     { id: 't3_north', ...xz(at('t3', 300)), item: 'ether_plus', n: 2, prop: 'heart.reliquary' },
     // off the path: below the second lift, and past the Bellwarden
     { id: 'ward', ...xz(at('t2', 116)), item: 'eq_x_lullaby_ward', prop: 'heart.reliquary' },
-    { id: 'bell', ...xz(at('t3', 252)), item: 'medigel_max', n: 2, credits: 900, prop: 'heart.reliquary' },
+    { id: 'bell', ...xz(at('t3', 246)), item: 'medigel_max', n: 2, credits: 900, prop: 'heart.reliquary' },
   ],
   interactables: [
     { id: 'starchart', kind: 'starchart', x: 3.2, z: 40.2 },
@@ -279,6 +285,9 @@ export default {
     // the Choir's Wardens hold the first lift (the cradle-rings lesson)
     { id: 'wardens', art: 'choir_guardian', name: 'CHOIR GUARDIAN', ...xz(WARDENS_T1), facing: 'left', encounter: 'heart_wardens',
       script: 'heart.wardens', triggerRadius: 3.0, radius: 1.0, when: '!heart:wardens_down' },
+    // the Second Tier's north chord: the Choir's singers and a Dream Eater (the cleanse lesson)
+    { id: 'choir', art: 'warden_seraph', name: 'WARDEN SERAPH', x: 56.6, z: 39.0, facing: 'left', encounter: 'heart_choir',
+      script: 'heart.choir', triggerRadius: 3.0, radius: 0.9, when: '!heart:choir_down' },
     // the Choirlit Echoes: what WARDEN remembers of the Rings and the Garden, of the Spire and the Vault
     { id: 'echoes_t2', art: 'rime_golem', name: 'CHOIRLIT ECHOES', ...xz(ELITE_T2), facing: 'right', encounter: 'heart_elite_rings',
       script: 'heart.echoes_t2', triggerRadius: 3.0, radius: 1.1, when: '!heart:echoes_t2_down' },

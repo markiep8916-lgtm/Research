@@ -9,6 +9,7 @@
 //   heart.wardens        the Choir Guardian and a seraph hold the first lift (the cradle-rings lesson)
 //   heart.warden_tier    the Second and Third Tiers' lift arrivals: one line of WARDEN each
 //   dreams.nyx           (C8) the Second Tier's east arc
+//   heart.choir          two seraphs and a Dream Eater on the north chord (the cleanse lesson)
 //   heart.echoes_t2      the Choirlit Echoes of the Rings and the Garden (elite fight, the lift pad)
 //   dreams.orion         (C8) the Third Tier's east arc
 //   heart.echoes_t3      the Choirlit Echoes of the Spire and the Vault (elite fight, the processional)
@@ -25,7 +26,7 @@
 // Objectives: fin.go_heart (binding, the vault's card) -> fin.ascend -> fin.t1_lift -> fin.t2 ->
 // fin.t2_lift -> fin.t3 -> fin.t3_one_a / fin.t3_one_b -> fin.crown -> (C8's crown: epi.wake).
 // Local flags: heart:wardens_down, heart:echoes_t2_down, heart:echoes_t3_down, heart:bell_down,
-// heart:cache, heart:said_t1 .. heart:said_t3.
+// heart:choir_down, heart:cache, heart:said_t1 .. heart:said_t3.
 
 /** A cs call left running alongside others: an abort (Retry, Load, jumpTo) must not surface unhandled. */
 const bg = (p) => {
@@ -66,9 +67,6 @@ function beside(cs, ids, { dz = 0.5 } = {}) {
   }
   return slots;
 }
-
-/** Objectives owned by later chapters are set once their owner has registered them. */
-const objective = (cs, id, known) => cs.objective(known ? id : null);
 
 const TIER_LINES = {
   warden_t2: 'Higher. You are so tired. Higher still.',
@@ -149,6 +147,21 @@ const scripts = {
     await cs.battle('heart_wardens');
     cs.flag('heart:wardens_down');
     cs.particles('hr_motes', [28.0, 1.2, 35.5], { count: 40 });
+    await cs.ungather();
+  },
+
+  // ---------------------------------------------------------------- the Choir's singers (the north chord)
+  'heart.choir': async (cs) => {
+    bg(cs.emote('choir', '!', { wait: false }));
+    bg(cs.camera.focus('choir', { zoom: 0.92, ms: 800 }));
+    cs.sfx('choir', { volume: 0.8 });
+    if (cs.test('party:sera')) {
+      await cs.gather(beside(cs, ['sera']));
+      await cs.say('SERA', 'They\'re singing. Don\'t listen too hard. Stay awake.', { expr: 'determined' });
+    }
+    await cs.battle('heart_choir');
+    cs.flag('heart:choir_down');
+    cs.particles('hr_motes', [56.6, 1.2, 39.0], { count: 40 });
     await cs.ungather();
   },
 
@@ -238,7 +251,7 @@ const scripts = {
     await cs.give('ether_plus', 2);
   },
 
-  'heart.chest_dawnspear': async (cs, args = {}) => {
+  'heart.chest_dawnspear': async (cs) => {
     if (!cs.test('party:sera')) return;
     await cs.gather(beside(cs, ['sera']));
     await cs.say('SERA', 'A lance that hums like an alarm clock. I approve.', { expr: 'smile' });
@@ -360,8 +373,8 @@ const objectives = {
 const NIGHT = ['dream:night_before', 'dest:heart', 'visited:heart'];
 const T1 = [...NIGHT, 'seen:heart:arrival', 'story:dream_kade', 'seen:heart:dream_kade', 'sw:heart:t1', 'heart:said_t1',
   'heart:wardens_down', 'chest:heart:dawnspear', 'tut:cradle'];
-const T2 = [...T1, 'seen:heart:warden_t2', 'story:dream_nyx', 'seen:heart:dream_nyx', 'sw:heart:t2', 'heart:said_t2',
-  'heart:echoes_t2_down', 'chest:heart:mantle'];
+const T2 = [...T1, 'seen:heart:warden_t2', 'story:dream_nyx', 'seen:heart:dream_nyx', 'heart:choir_down', 'tut:gorge',
+  'sw:heart:t2', 'heart:said_t2', 'heart:echoes_t2_down', 'chest:heart:mantle'];
 const T3 = [...T2, 'seen:heart:warden_t3', 'story:dream_orion', 'seen:heart:dream_orion', 'sw:heart:t3a', 'sw:heart:t3b',
   'heart:said_t3', 'heart:echoes_t3_down'];
 
@@ -370,12 +383,13 @@ export default {
   // play order inside the finale (C8: night_before 5, the dreams 30-60, the crown 80)
   scenes: [
     { id: 'heart.arrival', chapter: 'finale', order: 20, key: true, budget: { boxes: 8, sec: 80 }, jump: 'fin.heart', at: 'heart:dock' },
-    { id: 'heart.wardens', chapter: 'finale', order: 32, budget: { boxes: 1, sec: 10 } },
+    { id: 'heart.wardens', chapter: 'finale', order: 32, budget: { boxes: 1, sec: 10 }, jump: 'fin.heart', at: 'heart:wardens' },
     { id: 'heart.pt_kade_orion', chapter: 'finale', order: 34, budget: { boxes: 10, sec: 75 }, jump: 'fin.tier2', at: 'heart:t2_west' },
+    { id: 'heart.choir', chapter: 'finale', order: 42, budget: { boxes: 1, sec: 10 }, jump: 'fin.tier2', at: 'heart:choir' },
     { id: 'heart.warden_tier', chapter: 'finale', order: 38, budget: { boxes: 1, sec: 8 }, jump: 'fin.tier2', at: 'heart:tier2' },
-    { id: 'heart.echoes_t2', chapter: 'finale', order: 44, budget: { boxes: 2, sec: 20 } },
+    { id: 'heart.echoes_t2', chapter: 'finale', order: 44, budget: { boxes: 2, sec: 20 }, jump: 'fin.tier2', at: 'heart:echoes_t2' },
     { id: 'heart.pt_nyx_sera', chapter: 'finale', order: 46, budget: { boxes: 8, sec: 60 }, jump: 'fin.tier2', at: 'heart:t2_west' },
-    { id: 'heart.echoes_t3', chapter: 'finale', order: 54, budget: { boxes: 3, sec: 25 } },
+    { id: 'heart.echoes_t3', chapter: 'finale', order: 54, budget: { boxes: 3, sec: 25 }, jump: 'fin.tier3', at: 'heart:echoes_t3' },
     { id: 'heart.crown_lift', chapter: 'finale', order: 70, budget: { boxes: 1, sec: 10 }, jump: 'fin.crown', at: 'heart:sanctum' },
   ],
   objectives,

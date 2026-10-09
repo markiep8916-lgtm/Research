@@ -101,7 +101,7 @@ function mats(W) {
     crown: M.tile('hr_crown', { emissive: 2.4, roughness: 0.4, metalness: 0.45, cast: false }),
     pad: M.tile('hr_pad', { emissive: 2.4, roughness: 0.4, metalness: 0.5, cast: false }),
     slab: M.tile('hr_slab', { emissive: 2.2, roughness: 0.5, metalness: 0.35, cast: false }),
-    bridge: M.tile('hr_bridge', { emissive: 1.5, roughness: 0.3, metalness: 0.3, cast: false }),
+    bridge: M.tile('hr_bridge', { emissive: 1.1, roughness: 0.3, metalness: 0.3, cast: false }),
     edge: M.tile('hr_edge', { emissive: 2.4, roughness: 0.45, metalness: 0.45, cast: false }),
     under: M.tile('hr_under', { emissive: 2.0, roughness: 0.5, metalness: 0.3, cast: false }),
     gilt: M.tile('hr_gilt', { emissive: 2.0, roughness: 0.32, metalness: 0.65 }),
@@ -287,16 +287,18 @@ function buildRing(W, B, ring, pods, r0) {
   const { cx, cz, rIn, rOut } = ring;
   const isCrown = ring.id === 'crown';
   const deck = isCrown ? M.crown : M.floor;
-  const band = isCrown ? M.crown : M.floorB;
+  const band = M.floorB;
   const arcs = ring.arcs.map(([a0, a1]) => (a1 - a0 >= 360 ? [0, 360] : [a0, a1]));
   for (const [a0, a1] of arcs) {
     const full = a1 - a0 >= 360;
     // the deck: an inner band, the walkway, an outer band; gold inlay rings between them
     const bi = rIn + (isCrown ? 1.2 : 0.9), bo = rOut - 0.9;
-    deckBand(B, band, cx, cz, a0, a1, rIn, bi);
-    deckBand(B, deck, cx, cz, a0, a1, bi, bo);
-    deckBand(B, band, cx, cz, a0, a1, bo, rOut);
-    for (const r of [bi, bo]) deckBand(B, M.inlay, cx, cz, a0, a1, r - 0.035, r + 0.035, 0.008);
+    // (the Crown's walkway rings out from the oculus: marble, a band of flagstones, marble)
+    const m0 = bi + (bo - bi) * 0.34, m1 = bi + (bo - bi) * 0.62;
+    const runs = isCrown ? [[rIn, bi, band], [bi, m0, deck], [m0, m1, band], [m1, bo, deck], [bo, rOut, band]]
+      : [[rIn, bi, band], [bi, bo, deck], [bo, rOut, band]];
+    for (const [q0, q1, mat] of runs) deckBand(B, mat, cx, cz, a0, a1, q0, q1);
+    for (const r of isCrown ? [bi, m0, m1, bo] : [bi, bo]) deckBand(B, M.inlay, cx, cz, a0, a1, r - 0.035, r + 0.035, 0.008);
     // rims and the keel underneath
     sweep(B, M.edge, cx, cz, a0, a1, [[rOut, 0, 1], [rOut, -0.6, 0.4]], { out: 1 });
     sweep(B, M.edge, cx, cz, a0, a1, [[rIn, -0.6, 0.4], [rIn, 0, 1]], { out: -1 });
@@ -411,9 +413,9 @@ function staticBridge(W, B, G, b) {
   const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
   const hw = b.w / 2;
   const P = (s, o, y) => [ax + ux * s + nx * o, y, az + uz * s + nz * o];
-  face(B, M.bridge, P(0, -hw, 0.009), P(len, -hw, 0.011), P(len, hw, 0.011), P(0, hw, 0.009), [0, 0, len, b.w], [0, 1, 0]);
+  face(B, M.bridge, P(0, -hw, 0.011), P(len, -hw, 0.011), P(len, hw, 0.011), P(0, hw, 0.011), [0, 0, len, b.w], [0, 1, 0]);
   for (const sd of [-1, 1]) {
-    face(B, M.edge, P(0, sd * hw, 0.009), P(len, sd * hw, 0.011), P(len, sd * hw, -0.3), P(0, sd * hw, -0.3), [0, 1, len, 0.7], [nx * sd, 0, nz * sd]);
+    face(B, M.edge, P(0, sd * hw, 0.011), P(len, sd * hw, 0.011), P(len, sd * hw, -0.3), P(0, sd * hw, -0.3), [0, 1, len, 0.7], [nx * sd, 0, nz * sd]);
     // rail of light on short gilt posts
     const n = Math.max(2, Math.round(len / 0.9));
     for (let s = 0; s <= n; s++) {
@@ -422,7 +424,7 @@ function staticBridge(W, B, G, b) {
     }
   }
   face(B, M.under, P(0, -hw, -0.3), P(len, -hw, -0.3), P(len, hw, -0.3), P(0, hw, -0.3), [0, 0, len, b.w], [0, -1, 0]);
-  const rail = additive('#ffd27a', 0.9);
+  const rail = additive('#ffd27a', 0.55);
   for (const sd of [-1, 1]) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.045, 0.045), rail);
     const [x, , z] = P(len / 2, sd * (hw - 0.1), 0);
@@ -652,7 +654,7 @@ const bridge = {
     G.add(holder);
     const deckSet = textureSet('hr_bridge', { repeat: [len, span.w] });
     const deckMat = new THREE.MeshStandardMaterial({
-      map: deckSet.map, normalMap: deckSet.normalMap, emissiveMap: deckSet.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.5,
+      map: deckSet.map, normalMap: deckSet.normalMap, emissiveMap: deckSet.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.1,
       roughness: 0.3, metalness: 0.3,
     });
     const deck = new THREE.Group();
@@ -662,8 +664,8 @@ const bridge = {
     top.scale.set(1, span.w, 1);
     top.receiveShadow = true;
     deck.add(top);
-    const sideMat = additive('#ffb84a', 0.5, 0.6);
-    const railMat = additive('#ffd890', 0.9);
+    const sideMat = additive('#ffb84a', 0.35, 0.6);
+    const railMat = additive('#ffd890', 0.6);
     for (const sd of [-1, 1]) {
       const side = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.26), sideMat);
       side.position.set(0.5, -0.12, sd * hw);

@@ -17,7 +17,8 @@
 //                  break                          the crown gutters, then its light creeps back
 
 import * as THREE from 'three';
-import { makeGlow } from '../../core/vfx.js';
+import { makeGlow, glowTexture } from '../../core/vfx.js';
+import { STAGE_SLOT } from './data.js';
 
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler();
@@ -36,8 +37,8 @@ const THEME = {
   rimParty: ['#9fc4ff', 22], rimEnemy: ['#ffcf6a', 18], fill: ['#c4b4ff', 0.42],
 };
 
-// WARDEN stands at the boss slot; its floor rings and the crown behind centre on it
-const BOSS = [-4.2, -0.8];
+// WARDEN stands at its stage slot; its floor rings centre on it
+const BOSS = STAGE_SLOT;
 const CROWN = [-3.6, 6.2, -11];
 
 /** The dais: an ellipse wider at the front, open to the void at the back corners. */
@@ -52,7 +53,7 @@ function dais(kit) {
   kit.floor((x, z) => {
     if (!inside(x, z)) return null;
     const k = r();
-    return k < 0.05 ? 'wd_crown_floor_c' : k < 0.5 ? 'wd_crown_floor_b' : 'wd_crown_floor';
+    return k < 0.025 ? 'wd_crown_floor_c' : k < 0.5 ? 'wd_crown_floor_b' : 'wd_crown_floor';
   }, { wd_crown_floor: { emissiveIntensity: 1.4 }, wd_crown_floor_b: { emissiveIntensity: 1.4 }, wd_crown_floor_c: { emissiveIntensity: 1.6 } });
   // slabs of real thickness under every edge cell, a stepped underside, a gilt lip facing the void
   const rim = kit.mat('wd_crown_rim', { emissiveIntensity: 2 });
@@ -94,8 +95,12 @@ function inlay(kit, C) {
     spokes.push(placed([BOSS[0] + Math.cos(a) * 3.05, 0.015, BOSS[1] + Math.sin(a) * 3.05 * 0.62], [0, -a, 0], [0.7, 0.02, 0.05]));
   }
   kit.instanced(kit.track(new THREE.BoxGeometry(1, 1, 1)), [[spokeMat, spokes]], { receive: false });
-  const pool = kit.add(makeGlow('#ffc85a', 7, 0.28, { pull: 0.05 }));
-  pool.position.set(BOSS[0], 0.25, BOSS[1]);
+  // the pool lies flat on the floor (a billboard here would haze over the construct's body)
+  const pool = kit.add(new THREE.Mesh(kit.plane(7.4, 4.6), kit.track(new THREE.MeshBasicMaterial({
+    map: glowTexture(), color: '#ffc85a', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  }))));
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(BOSS[0], 0.03, BOSS[1]);
   C.pool = pool;
 }
 
@@ -257,7 +262,7 @@ function build(kit) {
     C.podMats.forEach((m, i) => { m.emissiveIntensity = ((i ? 0.9 : 1.1) + f * 1.2) * k; });
     C.podGlass.emissiveIntensity = (1.8 + f * 1.6) * k;
     C.floorRingMats.forEach((m, i) => { m.emissiveIntensity = ((i ? 1.1 : 1.6) + f * 1.2 + C.pulse * 3) * k; });
-    C.pool.material.color.set('#ffc85a').multiplyScalar((0.9 + f * 0.9 + C.pulse) * k);
+    C.pool.material.color.set('#ffc85a').multiplyScalar((0.35 + f * 0.4 + C.pulse * 0.5) * k);
     pool.intensity = (10 + f * 8 + C.pulse * 12) * k;
     crownLight.intensity = (12 + f * 12) * k * breath;
     dawn.color.copy(base.dawnBase).lerp(base.dawnC, C.dawn);
