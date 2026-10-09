@@ -1183,6 +1183,40 @@ function boxVoice(r, out, t, m, dur, vel, o) {
   noise(r, out, t, { type: 'highpass', f: 5200, d: 0.006, vol: lvl * 0.35 });
 }
 
+// Piano strings: two detuned triangles and three soft, slightly stretched partials ([wave, ratio, cents, gain]).
+const PIANO_PARTIALS = [['triangle', 1, -3, 0.5], ['triangle', 1, 3, 0.5], ['sine', 2, 1, 0.22], ['sine', 3.004, 0, 0.08], ['sine', 4.012, 0, 0.035]];
+
+/**
+ * Piano: a hammer tick, detuned strings through a lowpass that darkens as the note rings, a bloom that settles,
+ * then a long decay (low strings ring longer). The damper stops the note when it ends; o.pedal lets it ring out.
+ */
+function pianoVoice(r, out, t, m, dur, vel, o) {
+  const ctx = r.ctx;
+  const f = mtof(m + (o.oct ?? 0));
+  const lvl = vel * (o.level ?? 0.2);
+  const d = (o.decay ?? 3.2) * clamp(Math.sqrt(330 / f), 0.45, 1.6);
+  const settle = t + 0.18;
+  const off = o.pedal ? t + d : t + Math.max(0.09, dur);
+  const stop = Math.min(off + 0.45, settle + d + 0.1);
+  const lp = filterNode(ctx, 'lowpass', hz(f * 10 * (0.4 + 0.6 * vel)), 0.5);
+  lp.frequency.setTargetAtTime(hz(Math.max(f * 2.4, 500)), t + 0.01, d * 0.16);
+  const v = gainNode(ctx, 0);
+  lp.connect(v).connect(out);
+  v.gain.setValueAtTime(0, t);
+  v.gain.linearRampToValueAtTime(lvl, t + 0.003);
+  v.gain.setTargetAtTime(lvl * 0.5, t + 0.003, 0.07);
+  if (off > settle) v.gain.setTargetAtTime(0, settle, d / 5);
+  v.gain.setTargetAtTime(0, Math.max(t + 0.004, off), 0.07); // the damper
+  for (const [wave, ratio, cents, g] of PIANO_PARTIALS) {
+    const osc = oscNode(r, wave, f * ratio);
+    osc.detune.value = cents;
+    osc.connect(gainNode(ctx, g)).connect(lp);
+    osc.start(t);
+    osc.stop(stop);
+  }
+  noise(r, out, t, { f: clamp(f * 3, 700, 3800), q: 1.3, a: 0.001, d: 0.03, vol: lvl * 0.22 });
+}
+
 // Formant centres (Hz) and gains of the first three formants, per vowel.
 const VOWELS = {
   oo: [[320, 1], [800, 0.3], [2500, 0.06]],
@@ -1285,7 +1319,7 @@ function swellVoice(r, out, t, notes, dur, vel, o) {
 const SYNTHS = {
   pad: padVoice, lead: leadVoice, bell: bellVoice, bass: bassVoice, arp: pluckVoice, harp: harpVoice,
   stab: stabVoice, box: boxVoice, choir: choirVoice, sub: subVoice, swell: swellVoice,
-  flute: fluteVoice, strings: stringsVoice, drip: dripVoice,
+  flute: fluteVoice, strings: stringsVoice, drip: dripVoice, piano: pianoVoice,
 };
 const CHORD_SYNTHS = new Set(['pad', 'stab', 'choir', 'swell']);
 
@@ -1327,8 +1361,10 @@ function makeStrip(rt, name, base) {
 //   3/4 and 6/8: 12, 7/8: 14). bpm counts quarter notes, or dotted quarters in compound metres (6/8, 9/8, 12/8).
 //   delay: echo time in beats. once: a sting, played one time over the ducked current track.
 //   choirSfx: chords (note-name arrays) WARDEN's 'choir' sfx sings while this track plays (default: F minor).
-//   voices.<line>: synth options; voices.<line>.synth borrows another synth (a 'bell' line on the music box).
-// A part is { bars, chords, <instrument>: pattern | pattern[] (one per bar, cycled) }.
+//   voices.<line>: synth options; voices.<line>.synth borrows another synth (a 'bell' line on the music box or the
+//   piano; a 'stab' line on the 'pad' synth with wave: 'square' is the finale's organ).
+// A part is { bars, chords, bpm?, meter?, <instrument>: pattern | pattern[] (one per bar, cycled) }; a part's own
+// bpm / meter override the track's for that part (a suite that changes tempo and metre, like the credits).
 // A numbered line ('lead2', 'bell2') is an extra voice of the base instrument with its own channel strip.
 // Pattern = whitespace tokens; their count must divide the bar's steps (4/4: 1 2 4 8 16; 3/4 and 6/8:
 // 1 2 3 4 6 12). '.' rest, '-' extend the previous note.
@@ -1347,14 +1383,15 @@ const DRUMS = new Set(['kick', 'snare', 'hat', 'ohat', 'crash', 'tom']);
 const CHORD_LINES = new Set(['stab', 'swell', 'choir']);
 const BASS_TOK = { R: 0, O: 12, F: 7, f: -5, b: 1, t: 6, L: -12 };
 
-/** Steps per bar and seconds per step of a track's metre. */
-function meterOf(def, name) {
-  const m = /^(\d+)\/(4|8)$/.exec(def.meter || '4/4');
-  if (!m || Number(m[1]) < 1) throw new Error(`${name}: bad meter "${def.meter}"`);
+/** Steps per bar and seconds per step of a metre and tempo ({ meter, bpm } of a track or a part). */
+function meterOf({ meter, bpm }, name) {
+  if (!(bpm > 0)) throw new Error(`${name}: bpm must be a positive number`);
+  const m = /^(\d+)\/(4|8)$/.exec(meter || '4/4');
+  if (!m || Number(m[1]) < 1) throw new Error(`${name}: bad meter "${meter}"`);
   const beats = Number(m[1]);
   const unit = Number(m[2]);
   const compound = unit === 8 && beats % 3 === 0;
-  return { barSteps: (beats * 16) / unit, stepDur: (compound ? 10 : 15) / def.bpm };
+  return { barSteps: (beats * 16) / unit, stepDur: (compound ? 10 : 15) / bpm };
 }
 
 function parseChord(s, where) {
@@ -1393,7 +1430,7 @@ function makeEvent(inst, base, tok, chord, len, prev, where) {
   return { i: inst, b: base, m, len, v, from: glide && prev ? prev.m : null };
 }
 
-function compilePart(part, label, barSteps) {
+function compilePart(part, label, { barSteps, stepDur }) {
   if (!part || !Number.isInteger(part.bars) || part.bars < 1) throw new Error(`${label}: bars must be a whole number`);
   const n = part.bars * barSteps;
   const steps = Array.from({ length: n }, () => []);
@@ -1418,7 +1455,7 @@ function compilePart(part, label, barSteps) {
     });
   }
   for (const [inst, val] of Object.entries(part)) {
-    if (inst === 'bars' || inst === 'chords') continue;
+    if (inst === 'bars' || inst === 'chords' || inst === 'bpm' || inst === 'meter') continue;
     const base = inst.replace(/\d+$/, '');
     if (!(base in STRIPS) && base !== 'ohat') throw new Error(`${label}: unknown instrument "${inst}"`);
     const bars = Array.isArray(val) ? val : [val];
@@ -1439,32 +1476,35 @@ function compilePart(part, label, barSteps) {
       });
     }
   }
-  return { bars: part.bars, barSteps, steps };
+  return { bars: part.bars, barSteps, stepDur, seconds: part.bars * barSteps * stepDur, steps };
 }
 
 /**
  * Compile a track definition (pure: no WebAudio, runs in node). Throws an Error naming the track and
  * the place on malformed data. Returns { name, parts, intro, loop, once, barSteps, stepDur, introBars,
- * loopBars, introSeconds, loopSeconds }.
+ * loopBars, introSeconds, loopSeconds }; barSteps / stepDur are the track's own metre and tempo, and each
+ * compiled part carries its own barSteps, stepDur and seconds (they differ where a part sets bpm / meter).
  */
 export function compileTrack(def, name = 'track') {
   if (!def || typeof def !== 'object') throw new Error(`${name}: not a track definition`);
-  if (!(def.bpm > 0)) throw new Error(`${name}: bpm must be a positive number`);
   const { barSteps, stepDur } = meterOf(def, name);
   for (const [line, vo] of Object.entries(def.voices || {})) {
     if (vo.synth && !SYNTHS[vo.synth]) throw new Error(`${name}: voice "${line}" uses unknown synth "${vo.synth}"`);
   }
   const parts = {};
-  for (const [k, p] of Object.entries(def.parts || {})) parts[k] = compilePart(p, `${name}.${k}`, barSteps);
+  for (const [k, p] of Object.entries(def.parts || {})) {
+    const label = `${name}.${k}`;
+    parts[k] = compilePart(p, label, meterOf({ meter: p?.meter ?? def.meter, bpm: p?.bpm ?? def.bpm }, label));
+  }
   const intro = def.intro || [];
   const loop = def.loop || [];
   if (!loop.length) throw new Error(`${name}: empty loop`);
   for (const k of [...intro, ...loop]) if (!parts[k]) throw new Error(`${name}: unknown part "${k}"`);
   const bars = (list) => list.reduce((s, k) => s + parts[k].bars, 0);
-  const barSec = barSteps * stepDur;
+  const seconds = (list) => list.reduce((s, k) => s + parts[k].seconds, 0);
   return {
     name, parts, intro, loop, once: !!def.once, barSteps, stepDur,
-    introBars: bars(intro), loopBars: bars(loop), introSeconds: bars(intro) * barSec, loopSeconds: bars(loop) * barSec,
+    introBars: bars(intro), loopBars: bars(loop), introSeconds: seconds(intro), loopSeconds: seconds(loop),
   };
 }
 
@@ -1494,13 +1534,21 @@ function partAt(rt) {
   return i < intro.length ? intro[i] : loop[(i - intro.length) % loop.length];
 }
 
+/** The step just scheduled took its part's step time; a new part with its own tempo re-times the echo. */
 function advance(rt) {
-  rt.step++;
-  if (rt.step >= rt.c.parts[partAt(rt)].steps.length) {
-    rt.step = 0;
-    rt.seqIdx++;
-  }
-  rt.next += rt.stepDur;
+  const part = rt.c.parts[partAt(rt)];
+  rt.next += part.stepDur;
+  if (++rt.step < part.steps.length) return;
+  rt.step = 0;
+  rt.seqIdx++;
+  const next = rt.c.parts[partAt(rt)];
+  if (!rt.c.once && next.stepDur !== part.stepDur) syncDelay(rt, partAt(rt), rt.next);
+}
+
+/** Sync the shared echo to a looping track's tempo (a part's own bpm wins). */
+function syncDelay(rt, k, when) {
+  const tr = rt.track;
+  rt.r.setDelay((tr.delay ?? 0.75) * (60 / (tr.parts[k].bpm ?? tr.bpm)), when);
 }
 
 function playEvent(r, out, t, e, dur, v, vo) {
@@ -1516,20 +1564,21 @@ function playEvent(r, out, t, e, dur, v, vo) {
 }
 
 function playStep(rt, t) {
-  const evs = rt.c.parts[partAt(rt)].steps[rt.step];
+  const part = rt.c.parts[partAt(rt)];
+  const evs = part.steps[rt.step];
   for (let k = 0; k < evs.length; k++) {
     const e = evs[k];
     if (rt.only && !rt.only.has(e.i)) continue;
     const name = e.i === 'ohat' ? 'hat' : e.i;
     const out = rt.strips[name] || (rt.strips[name] = makeStrip(rt, name, e.b === 'ohat' ? 'hat' : e.b));
     const vo = rt.track.voices?.[e.i] || rt.track.voices?.[e.b] || {};
-    const dur = e.len * rt.stepDur;
+    const dur = e.len * part.stepDur;
     if (!e.rat) {
       playEvent(rt.r, out, t, e, dur, e.v, vo);
       continue;
     }
     // ratchet: e.rat hits across the token's own span; the last one carries the rest of the note
-    const sub = (e.span * rt.stepDur) / e.rat;
+    const sub = (e.span * part.stepDur) / e.rat;
     for (let h = 0; h < e.rat; h++) {
       const last = h === e.rat - 1;
       playEvent(rt.r, out, t + h * sub, e, last ? dur - h * sub : sub * 0.8, last ? e.v : e.v * 0.62, vo);
@@ -1558,13 +1607,13 @@ export function startTrack(r, name, when, { fade = 0, part = null, only = null }
     p.setValueAtTime(fade > 0 ? 0.0001 : level, when);
     if (fade > 0) p.linearRampToValueAtTime(level, when + fade);
   }
-  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stepDur: c.stepDur, stopAt: Infinity, only: only && new Set(only) };
+  const rt = { r, name, track: tr, c, out, strips: {}, seqIdx: 0, step: 0, next: when, stopAt: Infinity, only: only && new Set(only) };
   if (c.once) rt.stopAt = when + c.introSeconds + c.loopSeconds;
   else {
     const i = part ? c.loop.indexOf(part) : -1;
     if (i >= 0) rt.seqIdx = c.intro.length + i;
     // a sting borrows the shared delay as it is; a looping track syncs it to its own tempo
-    r.setDelay((tr.delay ?? 0.75) * (60 / tr.bpm), when);
+    syncDelay(rt, partAt(rt), when);
   }
   return rt;
 }
@@ -1699,21 +1748,86 @@ const VAULT_LEAD = ['D#5 - - - E#5 - F#5', 'G#5 - - - E#5 - -', 'F#5 - - - D#5 -
   'B5 - - - A#5 - G#5', 'E#5 - - - G#5 - C#6', 'A#5 - - - F#5 - D#5', 'E#5 - - - - - -'];
 const GLITCH_HAT = ['x . x . x . x . x . x x*2 x .', 'x . x*3 . x . x . x . x . x*2 x*2'];
 
+// The Heart, Ab major: F minor's relative, so the WARDEN theme sits in it untransposed (degrees 1 3 6 5 4 5 of Ab).
+// The ascent planes choir chords up over an Ab pedal, the top voice climbing a scale with one dark step (Cb); the
+// second chord is the Choir chord on Ab.
+const HEART_ASCENT = ['Ab1: Ab2 Eb3 Ab3 C4 Eb4', 'Ab1: Ab2 Eb3 Bb3 Db4 F4', 'Ab1: Ab2 Eb3 C4 Eb4 G4', 'Ab1: Ab2 F3 Db4 F4 Ab4',
+  'Ab1: Ab2 Eb3 G3 Eb4 Bb4', 'Ab1: Ab2 E3 B3 E4 B4', 'Ab1: Ab2 Gb3 Db4 Bb4 Db5', 'Ab1: Ab2 Eb3 C4 Ab4 Eb5'];
+// The hymn: I - IV - ii7 - vi | bVII - V - iv (minor) - IVmaj7, so the theme ends on F over Db, never at rest.
+const HEART_HYMN = {
+  chords: ['Ab1: Eb3 Ab3 C4', 'Db2: F3 Ab3 Db4', 'Bb1: F3 Ab3 Db4', 'F1: F3 Ab3 C4', 'Gb1: Gb3 Bb3 Db4', 'Eb2: G3 Bb3 Eb4',
+    'Db2: Fb3 Ab3 Db4', 'Db2: F3 Ab3 C4'],
+  tune: ['Ab4 - - - C5 - - -', 'F5 - - - Eb5 - - -', 'Db5 - - Eb5 - - Db5 -', 'C5 - - - - - - -', 'Bb4 - - - Db5 - - -',
+    'G5 - - - F5 - - -', 'Eb5 - - Db5 - - Eb5 -', 'F5 - - - - - - -'],
+};
+
+// final_boss, 7/8 (2+2+3): a 3/4 bar's long-short with its last beat stretched, so each bar of the lullaby or of
+// the WARDEN theme becomes one 7/8 bar.
+const WARDEN_78 = ['Ab4 - - - C5 - -', 'F5 - - - Eb5 - -', 'Db5 - Eb5 - Db5 - -', 'C5 - - - - - -',
+  'Bb4 - - - Db5 - -', 'G5 - - - F5 - -', 'Eb5 - Db5 - Eb5 - -', 'F5 - - - - - -'];
+const WARDEN_78B = ['C5 - - - Ab5 - -', 'G5 - - - F5 - -', 'Bb5 - - - Ab5 - -', 'G5 - - - - - -',
+  'Ab4 - - - C5 - -', 'F5 - - - Eb5 - -', 'Db5 - C5 - G4 - -', 'F4 - - - - - -'];
+const LULLABY_78 = ['A4 - - - C5 - -', 'F5 - - - E5 - -', 'D5 - E5 - D5 - -', 'C5 - - - - - -'];
+const WARDEN_78_CHORDS = ['F2: F3 Ab3 C4', 'F2: F3 Ab3 C4', 'Bb1: F3 Ab3 Db4', 'C2: E3 G3 C4', 'Bb1: F3 Bb3 Db4', 'Eb2: G3 Bb3 Eb4',
+  'Db2: F3 Ab3 Db4', 'F2: F3 Ab3 C4'];
+const LOCK_78_CHORDS = ['Db2: F3 Ab3 C4', 'Bb1: F3 Bb3 Db4', 'Ab1: Eb3 Ab3 C4', 'C2: E3 G3 C4', 'F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4',
+  [...rep(4, 'Bb1: F3 Bb3 Db4'), ...rep(3, 'C2: E3 G3 C4')], 'F2: F3 Ab3 C4'];
+const DRIVE_78 = 'R . R R R . R R R . R . O .';
+const PULSE_78 = 'R . . . R . . . F . . . R .';
+
+// final_boss_2: the Choir chord (root, fifth, ninth, eleventh, thirteenth: a 6/9 cluster) voiced inside F minor on
+// Db and Bb, on C under the lullaby quote, and at last on F as F 6/9: the Choir's gold turning to morning.
+const CHOIR_DB = 'Db2: Db3 Ab3 Eb4 F4 Bb4';
+const CHOIR_BB = 'Bb1: Bb2 F3 C4 Eb4 Ab4';
+const CHOIR_C = 'C2: C3 G3 D4 F4 A4';
+const CHOIR_F = 'F1: F2 C3 G3 A3 D4';
+const twice = (list) => list.flatMap((x) => [x, x]);
+// Its lines: A's desperate climb over F minor; the lullaby's first phrase and its second (in F major) with each
+// 3/4 bar stretched across two 6/8 bars; Theo's figure from F, G, A, then E (over Db, Eb, F and C).
+const UNBOUND_A = ['F5 - - - - -', 'G5 - - Ab5 - -', 'F5 - - - - -', 'Eb5 - - Db5 - -', 'Db5 - - - - -', 'F5 - - Bb5 - -', 'G5 - - - - -',
+  'E5 - - - - -', 'Ab5 - - - - -', 'C6 - - Bb5 - -', 'Ab5 - - - - -', 'F5 - - - - -', 'Gb5 - - - - -', 'Bb5 - - Db6 - -', 'C6 - - - - -',
+  'G5 - - E5 - -'];
+const UNBOUND_LULLABY = ['A4 - - - - -', '- - C5 - - -', 'F5 - - - - -', '- - E5 - - -', 'D5 - - - E5 -', '- - D5 - - -', 'C5 - - - - -',
+  '- - - - - -', 'Bb4 - - - - -', '- - D5 - - -', 'G5 - - - - -', '- - F5 - - -', 'E5 - - - D5 -', '- - E5 - - -', 'F5 - - - - -', '- - - - - -'];
+const UNBOUND_HOME = ['C5 - - - - -', '- - A5 - - -', 'G5 - - - - -', '- - F5 - - -', 'Bb5 - - - - -', '- - A5 - - -', 'G5 - - - - -',
+  '- - - - - -', 'A4 - - - - -', '- - C5 - - -', 'F5 - - - - -', '- - E5 - - -', 'D5 - - - C5 -', '- - G4 - - -', 'F4 - - - - -', '- - - - - -'];
+const THEO_RISE = ['F4 - Ab4 - Db5 -', 'Eb5 - - F5 - -', 'G4 - Bb4 - Eb5 -', 'F5 - - G5 - -', 'A4 - C5 - F5 -', 'G5 - - A5 - -',
+  'E5 - G5 - C6 -', 'D6 - - E6 - -'];
+
+// Ione, D major: the Ringborn motif on E (A Mixolydian is D major's own scale) and HALCYON's lullaby a minor third
+// down, at last at home in a major key. ION_A rings the Ringborn motif twice; ION_LULL is the lullaby's first phrase.
+const ION_A = {
+  chords: ['D2: A3 D4 E4', 'G2: B3 D4 E4', 'B1: A3 D4 F#4', 'A1: E3 A3 C#4', 'B1: F#3 B3 D4', 'G2: B3 D4 F#4', 'E2: G3 B3 D4', 'A1: E3 G3 C#4'],
+  tune: ['E5 - - A5 - - G5 -', 'E5 - D5 - B4 - A4 -', 'D5 - - - - - C#5 -', 'A4 - - - - - . .',
+    'F#5 - - B5 - - A5 -', 'F#5 - E5 - C#5 - B4 -', 'B4 - - - - - D5 -', 'C#5 - - - - - . .'],
+};
+const ION_LULL = {
+  chords: ['D2: D3 F#3 A3', 'D2: D3 F#3 A3', 'E2: D3 G3 B3', 'A1: C#3 E3 A3', 'G1: D3 G3 B3', 'E2: D3 G3 B3', 'A1: C#3 E3 G3', 'D2: D3 F#3 A3'],
+  tune: ['F#4 - - - - - A4 -', 'D5 - - - - - C#5 -', 'B4 - - C#5 - - B4 -', 'A4 - - - - - - -',
+    'G4 - - - - - B4 -', 'E5 - - - - - D5 -', 'C#5 - - B4 - - C#5 -', 'D5 - - - - - - -'],
+};
+// An organ lead: 8' square and flute, a 4' flute and a soft 16' reed.
+const ORGAN = [['square', 0, 0.55], ['sine', 0, 0.8], ['sine', 1200, 0.45], ['square', -1200, 0.3]];
+
 export const TRACKS = {
   // D minor, i-VI-III-VII colour; celesta bell melody over drifting pads and a slow harp. Melancholy, wistful.
+  // C9-gamma: after B, a 4-bar memory (L) where the celesta rests and a music box plays one phrase of HALCYON's
+  // lullaby at its own pitch (A C F E D E sits in D minor), rising for a moment into F major before A returns.
   title: {
     key: 'D minor',
     bpm: 72,
     gain: 0.95,
     delay: 0.75,
+    motifs: ['lullaby'],
     voices: {
       pad: { cutoff: 950, attack: 1.4, release: 2.0, level: 0.15, air: 0.03 },
       bell: { decay: 2.4, level: 0.24 },
+      bell2: { synth: 'box', oct: 12, level: 0.3, decay: 2.4 },
       harp: { decay: 1.6, level: 0.15 },
       bass: { soft: true, level: 0.24 },
     },
-    sends: { bell: { wet: 0.55, echo: 0.32 } },
-    loop: ['A', 'B'],
+    sends: { bell: { wet: 0.55, echo: 0.32 }, bell2: { wet: 0.6, echo: 0.3, pan: -0.1 } },
+    loop: ['A', 'B', 'L'],
     parts: {
       A: {
         bars: 8,
@@ -1732,6 +1846,14 @@ export const TRACKS = {
           'Bb4 - D5 - G5 - F5 -', 'E5 - - - G5 - Bb5 -', 'A5 - - - - - G5 F5', 'E5 - - - - - . .'],
         harp: '0 1 2 3 4 3 2 1',
         bass: 'R - - - F - - -',
+      },
+      // the lullaby remembered: Dm9 - Bbmaj7 - C add9 - Am7, back into A's Dm
+      L: {
+        bars: 4,
+        chords: ['D2: F3 A3 C4 E4', 'Bb1: F3 A3 C4 D4', 'C2: E3 G3 C4 D4', ['A1: E3 A3 C4', 'A1: E3 G3 A3 C4']],
+        bell2: ['A4 - - - C5 - - -', 'F5 - - - E5 - - -', 'D5 - E5 - D5 - - -', 'C5 - - - - - . .'],
+        harp: '0 . 2 . 3 . 2 .',
+        bass: 'R - - - - - - -',
       },
     },
   },
@@ -2175,7 +2297,8 @@ export const TRACKS = {
     gain: 1.12,
     delay: 1,
     motifs: ['lullaby'],
-    choirSfx: [['F3', 'A3', 'C4', 'F4'], ['Bb2', 'F3', 'Bb3', 'D4'], ['D3', 'F3', 'A3', 'D4'], ['C3', 'G3', 'C4', 'E4']],
+    // WARDEN speaks over HALCYON's song in the dreams: its voice keeps a minor colour (Dm, Gm7, Am, Dm7) in F major
+    choirSfx: [['D3', 'F3', 'A3', 'D4'], ['Bb2', 'F3', 'G3', 'D4'], ['A2', 'E3', 'A3', 'C4'], ['D3', 'A3', 'C4', 'F4']],
     voices: {
       bell: { synth: 'box', oct: 12, level: 0.26, decay: 2.2 },
       harp: { synth: 'box', oct: 12, level: 0.085, decay: 1.3 },
@@ -2622,6 +2745,544 @@ export const TRACKS = {
     },
   },
 
+  // The Heart, Ab major 4/4 at 66: WARDEN's cathedral, vast, sacred and dreadful. I: a sub pedal and a far
+  // cathedral bell. A, the ascent: choir chords plane up over the Ab pedal (the second is the Choir chord), a harp
+  // climbs every bar and the pods glint like stars. B, the hymn: the choir sings the WARDEN theme in Ab major over a
+  // soft organ, through the minor iv. C, the dread: a giant heart beats while low strings carry the theme in F minor
+  // down to a bare C major, then climb again through Fb. D, the crown: the theme in octaves on choir, organ and star
+  // bells, the cathedral bell tolling every other bar, and back into the ascent.
+  heart: {
+    key: 'Ab major',
+    bpm: 66,
+    gain: 0.78,
+    delay: 1,
+    motifs: ['warden', 'choir'],
+    voices: {
+      pad: { synth: 'choir', vowel: 'oo', attack: 2.2, release: 3.4, level: 0.3, vib: 6 },
+      choir: { vowel: 'ah', attack: 0.45, release: 1.8, level: 0.3, vib: 8 },
+      choir2: { vowel: 'oh', attack: 0.5, release: 1.8, level: 0.22, vib: 7, oct: -12 },
+      stab: { synth: 'pad', wave: 'square', cutoff: 1300, attack: 0.3, release: 1.2, level: 0.05, drift: 0.2 },
+      bass: { synth: 'sub', level: 0.32, gate: 1, attack: 0.6, decay: 2.5, harm: 0.2 },
+      bass2: { synth: 'strings', level: 0.15, attack: 0.3, release: 0.6, cutoff: 900, vib: 8, bow: 0.3 },
+      harp: { decay: 2, level: 0.07, oct: 12 },
+      bell: { ratio: 3.5, index: 0.9, decay: 3, level: 0.07 },
+      bell2: { ratio: 1.41, index: 2.4, decay: 7, level: 0.14 },
+      bell3: { ratio: 3.5, index: 0.9, decay: 2.6, level: 0.06, oct: 12 },
+      kick: { f0: 70, f1: 32, sweep: 0.18, d: 0.7, vol: 0.55, click: 0.02 },
+      swell: { level: 0.16, tonal: 0.4, from: 200, to: 5000 },
+    },
+    sends: {
+      pad: { wet: 0.7 }, choir: { wet: 0.75, echo: 0.15 }, choir2: { wet: 0.7, echo: 0.1, pan: -0.15 }, stab: { wet: 0.6 },
+      bass2: { wet: 0.4, pan: -0.1 }, harp: { wet: 0.6, echo: 0.4, pan: 0.25 }, bell: { wet: 0.85, echo: 0.5, pan: -0.3 },
+      bell2: { wet: 0.95, echo: 0.2, pan: 0.2 }, bell3: { wet: 0.8, echo: 0.4, pan: -0.2 }, kick: { wet: 0.25 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      I: { bars: 2, chords: ['Ab1: Ab2 Eb3 Ab3'], bass: 'R - - -', bell2: ['Ab2 - - -', ''], swell: ['', 'x - - -'] },
+      A: {
+        bars: 8,
+        chords: HEART_ASCENT,
+        harp: '0 1 2 3 4 . 3 .',
+        bell: ['. . . . . Eb6 . .', '. . F6 . . . . Bb5', '. . . G6 . . . .', '. Ab5 . . . . F6 .', '. . . . Bb5 . . .', '. . B5 . . . . E6',
+          '. . . . Db6 . . .', '. Eb6 . . . . C6 .'],
+        bell2: ['Ab2 - - -', '', '', '', 'Ab2 - - -', '', '', ''],
+        bass: 'R - - -',
+      },
+      B: {
+        bars: 8,
+        chords: HEART_HYMN.chords,
+        choir: HEART_HYMN.tune,
+        stab: 'X - - -',
+        bell2: ['Ab2 - - -', '', '', '', 'Gb2 - - -', '', '', ''],
+        bass: 'R - - -',
+      },
+      C: {
+        bars: 8,
+        chords: ['F1: F3 Ab3 C4', 'Db2: F3 Ab3 Db4', 'Bb1: F3 Bb3 Db4', 'C2: E3 G3 C4', 'Db2: F3 Ab3 Db4', 'Eb2: G3 Bb3 Eb4', 'E2: E3 G#3 B3', 'Eb2: G3 Bb3 Db4'],
+        bass2: ['Ab2 - - - C3 - - -', 'F3 - - - Eb3 - - -', 'Db3 - - Eb3 - - Db3 -', 'C3 - - - - - - -',
+          'F3 - - - Ab3 - - -', 'G3 - - - Bb3 - - -', 'G#3 - - - B3 - - -', 'Bb3 - - - Db4 - - -'],
+        choir2: ['', '', '', '', 'Ab4 - - - - - - -', 'Bb4 - - - - - - -', 'B4 - - - - - - -', 'Db5 - - - - - - -'],
+        bell: ['', '. . . . . . C6 .', '', '. . . E6 . . . .', '', '. . . . . G6 . .', '', '. . Bb5 . . . . .'],
+        kick: 'X . o . . . . . X . o . . . . .',
+        bass: 'R - - -',
+        swell: [...rep(7, ''), 'x - - -'],
+      },
+      D: {
+        bars: 8,
+        chords: ['Ab1: Eb3 Ab3 C4 Eb4', 'Db2: F3 Ab3 Db4 F4', 'Bb1: F3 Ab3 Db4 F4', 'C2: E3 G3 C4 E4', 'Gb1: Gb3 Bb3 Db4 Gb4',
+          'Eb2: G3 Bb3 Eb4 G4', 'Db2: Fb3 Ab3 Db4 Fb4', ['Db2: F3 Ab3 Db4 F4', 'Ab1: Eb3 Ab3 C4 Eb4']],
+        choir: HEART_HYMN.tune,
+        choir2: HEART_HYMN.tune,
+        bell3: HEART_HYMN.tune,
+        stab: lastDiff(8, 'X - - -', 'X - X -'),
+        harp: '0 1 2 3 4 . 3 .',
+        bell2: ['Ab2 - - -', '', 'Bb2 - - -', '', 'Gb2 - - -', '', 'Db2 - - -', ''],
+        kick: 'X . o . . . . . X . o . . . . .',
+        bass: 'R - - -',
+      },
+    },
+  },
+
+  // WARDEN, THE MERCIFUL LOCK (final boss, form 1), F minor 7/8 (2+2+3) at 132: a hymn that fights. An organ and
+  // a choir in octaves state the WARDEN theme over a driving bass. In B the lullaby answers on violins in F major
+  // (the same tune with A, D and E raised), two bars each, until both land on the same C: they are one mind. C is the
+  // Lock itself: a soft choir sings the theme's second half while a music box rocks a cradle figure and the drums
+  // fall to a pulse, then a roll. D is the full weight: theme on organ and choir, the violins' descant forced into the
+  // minor, so form 1 always ends in WARDEN's key.
+  final_boss: {
+    key: 'F minor',
+    bpm: 132,
+    meter: '7/8',
+    gain: 0.7,
+    delay: 0.5,
+    motifs: ['warden', 'lullaby'],
+    voices: {
+      pad: { synth: 'choir', vowel: 'oo', attack: 0.3, release: 0.9, level: 0.16, vib: 6 },
+      stab: { synth: 'pad', wave: 'square', cutoff: 1900, attack: 0.03, release: 0.3, level: 0.075, drift: 0.12 },
+      lead: { layers: ORGAN, cutoff: 3000, base: 2200, q: 0.8, level: 0.13, attack: 0.02, release: 0.14, vib: 0 },
+      lead2: { synth: 'strings', oct: 12, level: 0.12, attack: 0.05, release: 0.3, cutoff: 3400, vib: 14, bow: 0.4 },
+      choir: { vowel: 'ah', oct: -12, attack: 0.12, release: 0.7, level: 0.3, vib: 7 },
+      choir2: { vowel: 'ah', attack: 0.02, release: 0.45, level: 0.3 },
+      choir3: { vowel: 'oo', attack: 0.25, release: 1.2, level: 0.42, vib: 9 },
+      bass: { cutoff: 1500, level: 0.3, q: 4.5, gate: 0.75 },
+      arp: { synth: 'box', oct: 24, level: 0.18, decay: 1.4 },
+      harp: { decay: 0.9, level: 0.1, oct: 12 },
+      bell2: { ratio: 1.41, index: 2.4, decay: 5, level: 0.13 },
+      kick: { vol: 1, punch: 0.35, d: 0.32 },
+      snare: { tone: 200, d: 0.2 },
+      tom: { pitch: 0.75 },
+      swell: { level: 0.2, tonal: 0.3, from: 300, to: 6000 },
+    },
+    mix: { hat: 0.6, crash: 0.8 },
+    sends: {
+      stab: { wet: 0.4 }, lead: { wet: 0.35, echo: 0.12 }, lead2: { wet: 0.35, echo: 0.15, pan: 0.2 }, choir: { wet: 0.55 },
+      choir2: { wet: 0.5, pan: -0.1 }, choir3: { wet: 0.75, echo: 0.2 }, arp: { wet: 0.5, echo: 0.3, pan: -0.25 },
+      harp: { pan: -0.25 }, bell2: { wet: 0.9, echo: 0.2, pan: 0.25 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      // the Lock opens: an organ chord swells under a cathedral bell, the choir holds F, toms roll in
+      I: {
+        bars: 2,
+        chords: ['F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4'],
+        stab: 'X - - - - - -',
+        bell2: ['F2 - - - - - -', ''],
+        choir: 'F5 - - - - - -',
+        tom: ['', 'l . l . m . m . h . h h h h'],
+        kick: ['X . . . . . . . . . . . . .', '. . . . . . . . X . X . X X'],
+        swell: ['', 'x - - - - - -'],
+      },
+      A: {
+        bars: 8,
+        chords: WARDEN_78_CHORDS,
+        lead: WARDEN_78,
+        choir: WARDEN_78,
+        stab: 'X - - - - - -',
+        choir2: 'X . . . . . .',
+        bass: DRIVE_78,
+        kick: 'X . . . . . . . X . X . . .',
+        snare: lastDiff(8, '. . . . X . . . . . . . X .', '. . . . X . . . X . X x X X'),
+        hat: 'X . x . X . x . X . x . x .',
+        crash: firstOnly(8, 'X'),
+        bell2: firstOnly(8, 'F2 - - - - - -'),
+      },
+      // the fight: the lullaby (violins, F major) and WARDEN (organ and choir, F minor) trade two bars at a time
+      B: {
+        bars: 8,
+        chords: ['F2: F3 A3 C4', 'F2: F3 A3 C4', 'F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4', 'G1: F3 Bb3 D4', 'C2: E3 G3 C4', 'Bb1: F3 Bb3 Db4', 'C2: E3 G3 Bb3 C4'],
+        lead2: [LULLABY_78[0], LULLABY_78[1], '', '', LULLABY_78[2], LULLABY_78[3], '', ''],
+        lead: ['', '', WARDEN_78[0], WARDEN_78[1], '', '', WARDEN_78[2], WARDEN_78[3]],
+        choir: ['', '', WARDEN_78[0], WARDEN_78[1], '', '', WARDEN_78[2], WARDEN_78[3]],
+        harp: ['0 1 2 3 2 1 2', '0 1 2 3 2 1 2', '', ''],
+        stab: ['', '', 'X - - - - - -', 'X - - - - - -'],
+        choir2: ['', '', 'X . . . X . .', 'X . . . X . .', '', '', 'X . . . X . .', 'X . X . X . X'],
+        bass: [PULSE_78, PULSE_78, DRIVE_78, DRIVE_78],
+        kick: ['X . . . . . . . X . . . . .', 'X . . . . . . . X . . . . .', 'X . . . . . . . X . X . . .', 'X . . . . . . . X . X . . .'],
+        snare: ['', '', '. . . . X . . . . . . . X .', '. . . . X . . . . . . . X .', '', '', '. . . . X . . . . . . . X .', '. . . . X . . . X . X x X X'],
+        hat: ['x . x . x . x . x . x . x .', 'x . x . x . x . x . x . x .', 'X . x . X . x . X . x . x .', 'X . x . X . x . X . x . x .'],
+        crash: ['X', '', 'X', '', '', '', 'X', ''],
+      },
+      // the Lock: a cradle figure on the music box, the theme's second half on a soft choir, a roll into D
+      C: {
+        bars: 8,
+        chords: LOCK_78_CHORDS,
+        choir3: WARDEN_78B,
+        arp: '0 1 2 1 0 1 2',
+        stab: [...rep(6, 'X - - - - - -'), 'X - - - X - -', 'X - - - - - -'],
+        bass: 'R . . . . . .',
+        kick: 'X . . . . . . . . . . . . .',
+        hat: '. . x . . . x . . . x . . .',
+        snare: [...rep(6, ''), 'o . o . o . o . x . x . x .', 'x x x x x x X X X X X X X X'],
+        tom: lastDiff(8, '', '. . . . . . . . h h m m l l'),
+        bell2: ['Db2 - - - - - -', '', '', '', 'F2 - - - - - -', '', '', ''],
+        swell: [...rep(7, ''), 'x - - - - - -'],
+      },
+      D: {
+        bars: 8,
+        chords: LOCK_78_CHORDS,
+        lead: WARDEN_78B,
+        choir: WARDEN_78B,
+        lead2: ['F5 - - - - - -', 'Eb5 - - - - - -', 'Eb5 - - - - - -', 'E5 - - - - - -', 'F5 - - - - - -', 'Db5 - - - - - -', 'Bb4 - - - E5 - -', 'Ab4 - - - - - -'],
+        stab: [...rep(6, 'X - - - - - -'), 'X - - - X - -', 'X - - - - - -'],
+        choir2: 'X . . . X . .',
+        bass: DRIVE_78,
+        kick: 'X . . . . . . . X . X . . .',
+        snare: lastDiff(8, '. . . . X . . . . . . . X .', '. . . . X . . . X . X x X X'),
+        hat: 'x x X x x x X x x x X x x x',
+        crash: ['X', '', '', '', 'X', '', '', ''],
+      },
+    },
+  },
+
+  // WARDEN, LULLABY UNBOUND (form 2), F minor 6/8 at 144, ending in F major: cosmic and desperate. A drives in F
+  // minor (organ, choir, rolling square arps, the Neapolitan Gb). B: the drive drops away and the Choir's voices come
+  // in over the Choir chord on Bb and Db; a child's voice (Theo) sings his figure in the minor. C: the lullaby, each
+  // of its bars stretched over two, sung by organ and choir over the Choir chord on C, slipping deceptively onto Db.
+  // D: Theo's figure rises in four statements, F, G, A, then E, through Db, Eb, F major and C. E: the resolution, the
+  // lullaby's second phrase in F major with Theo's voice on the descant, ending on F 6/9 (the Choir chord made major).
+  final_boss_2: {
+    key: 'F minor',
+    bpm: 144,
+    meter: '6/8',
+    gain: 0.72,
+    delay: 0.5,
+    motifs: ['lullaby', 'choir', 'theo'],
+    // WARDEN's voice in this fight is suspended: the chords F minor and F major share
+    choirSfx: [['F3', 'C4', 'G4', 'C5'], ['Bb2', 'F3', 'C4', 'F4'], ['C3', 'G3', 'C4', 'F4'], ['G3', 'C4', 'F4', 'Bb4']],
+    voices: {
+      pad: { synth: 'choir', vowel: 'ah', attack: 0.5, release: 1.4, level: 0.22, vib: 8 },
+      stab: { synth: 'pad', wave: 'square', cutoff: 2000, attack: 0.02, release: 0.25, level: 0.07, drift: 0.12 },
+      lead: { layers: ORGAN, cutoff: 3200, base: 2300, q: 0.8, level: 0.13, attack: 0.02, release: 0.16, vib: 0 },
+      choir: { vowel: 'ah', oct: -12, attack: 0.15, release: 0.9, level: 0.3, vib: 8 },
+      choir2: { vowel: 'oh', attack: 0.3, release: 1.2, level: 0.24, vib: 7 },
+      choir3: { vowel: 'ee', attack: 0.12, release: 0.8, level: 0.17, vib: 11 },
+      bass: { cutoff: 1600, level: 0.3, q: 4, gate: 0.7 },
+      arp: { wave: 'square', decay: 0.12, level: 0.06, oct: 12, cutoff: 3600 },
+      harp: { decay: 1.2, level: 0.09, oct: 24 },
+      bell: { ratio: 3.5, index: 1, decay: 2.5, level: 0.09, oct: 12 },
+      bell2: { ratio: 1.41, index: 2.4, decay: 5, level: 0.13 },
+      kick: { vol: 1, punch: 0.35, d: 0.3 },
+      snare: { tone: 210, d: 0.2 },
+      tom: { pitch: 0.8 },
+      swell: { level: 0.22, tonal: 0.35, from: 300, to: 8000 },
+    },
+    mix: { hat: 0.55, crash: 0.8 },
+    sends: {
+      pad: { wet: 0.6 }, stab: { wet: 0.4 }, lead: { wet: 0.35, echo: 0.14 }, choir: { wet: 0.55 }, choir2: { wet: 0.7, echo: 0.15, pan: -0.25 },
+      choir3: { wet: 0.7, echo: 0.3, pan: 0.2 }, arp: { wet: 0.3, echo: 0.3, pan: -0.25 }, harp: { wet: 0.7, echo: 0.5, pan: 0.3 },
+      bell: { wet: 0.7, echo: 0.4, pan: 0.15 }, bell2: { wet: 0.9, echo: 0.2, pan: -0.2 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D', 'E'],
+    parts: {
+      // the Choir floods in: a riser over the Choir chord, a bell, a lone voice, the toms
+      I: {
+        bars: 4,
+        chords: [CHOIR_DB],
+        swell: ['x - - - - -', '- - - - - -', '- - - - - -', '- - - - - -'],
+        bell2: ['F2 - - - - -', '', '', ''],
+        choir2: ['', 'F4 - - - - -', '- - - Ab4 - -', 'Bb4 - - - - -'],
+        bass: ['R - - - - -', '', '', '. . . R R R'],
+        tom: ['', '', '', 'l . l . m . m . h h h h'],
+      },
+      A: {
+        bars: 16,
+        chords: [...twice(['F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4', 'Bb1: F3 Bb3 Db4']), 'C2: E3 G3 C4', 'C2: E3 G3 Bb3',
+          ...twice(['F2: F3 Ab3 C4', 'Db2: F3 Ab3 Db4', 'Gb1: Gb3 Bb3 Db4']), 'C2: E3 G3 C4', 'C2: E3 G3 Bb3'],
+        lead: UNBOUND_A,
+        choir: UNBOUND_A,
+        arp: '0 1 2 3 2 1 0 1 2 3 2 1',
+        stab: ['X - - - - -', '- - - X . .'],
+        bass: ['R . R O . R', 'R . R O . F'],
+        kick: 'X . . . . x',
+        snare: lastDiff(8, '. . . X . .', '. . . X X X'),
+        hat: 'X x x X x x',
+        crash: ['X', '', '', '', '', '', '', '', 'X', '', '', '', '', '', '', ''],
+      },
+      // the Choir's voices: "Is it morning yet?"; then Theo, in the minor, over the Choir chord on Db
+      B: {
+        bars: 8,
+        chords: [CHOIR_BB, CHOIR_BB, CHOIR_BB, CHOIR_BB, CHOIR_DB, CHOIR_DB, CHOIR_DB, CHOIR_DB],
+        choir2: ['F4 - Ab4 - Bb4 -', 'C5 - - - - -', '', '', '', '', '', ''],
+        choir: ['', '', 'Eb5 - - C5 - -', 'Bb4 - - - - -', '', '', '', ''],
+        choir3: ['', '', '', '', 'F4 - Ab4 - Db5 -', 'Eb5 - - F5 - -', 'F5 - - - - -', '- - - - . .'],
+        stab: ['X - - - - -', '- - - - - -', '- - - - - -', '- - - - - -'],
+        harp: '0 . 2 . 4 .',
+        bell: ['', '. . . . F5 .', '', '. . Eb5 . . .', '', '. . . . Bb4 .', '', '. . Ab4 . . .'],
+        bass: 'R . . . . .',
+        kick: 'X . . . . .',
+        hat: '. . . x . .',
+        bell2: ['Bb1 - - - - -', '', '', '', 'Db2 - - - - -', '', '', ''],
+      },
+      // the lullaby quoted over the Choir chord on C, one of its bars across two
+      C: {
+        bars: 16,
+        chords: [...rep(8, CHOIR_C), 'Bb1: Bb2 F3 C4 D4 G4', 'Bb1: Bb2 F3 C4 D4 G4', 'G1: G2 D3 A3 C4 F4', 'G1: G2 D3 A3 C4 F4',
+          'C2: C3 G3 Bb3 D4 E4', 'C2: C3 G3 Bb3 D4 E4', CHOIR_DB, CHOIR_DB],
+        lead: UNBOUND_LULLABY,
+        choir: UNBOUND_LULLABY,
+        stab: ['X - - - - -', '- - - - - -'],
+        harp: '0 . 2 . 4 .',
+        bass: [...rep(8, 'R . . R . .'), ...rep(6, 'R . R R . R'), 'R . . . . .', 'R . . . . .'],
+        kick: 'X . . . . .',
+        hat: '. . x . . x',
+        snare: [...rep(12, ''), '. . . . . x', '. . . x . x', '. . . x x x', 'x x x X X X'],
+        crash: ['X', '', '', '', '', '', '', '', 'X', '', '', '', '', '', 'X', ''],
+      },
+      // Theo's figure rises: from F over Db, G over Eb, A over F major (the figure itself), E over C
+      D: {
+        bars: 8,
+        chords: ['Db2: F3 Ab3 Db4', 'Db2: F3 Ab3 Db4', 'Eb2: G3 Bb3 Eb4', 'Eb2: G3 Bb3 Eb4', 'F2: F3 A3 C4', 'F2: F3 A3 C4', 'C2: E3 G3 C4', 'C2: E3 G3 Bb3 C4'],
+        choir3: THEO_RISE,
+        bell: THEO_RISE,
+        lead: ['Ab4 - - - - -', '- - - - - -', 'Bb4 - - - - -', '- - - - - -', 'C5 - - - - -', '- - - - - -', 'C5 - - - - -', 'Bb4 - - - - -'],
+        stab: ['X - - - - -', '- - - X . .'],
+        arp: '0 1 2 3 2 1 0 1 2 3 2 1',
+        bass: 'R . R O . R',
+        kick: 'X . . X . .',
+        snare: ['. . . X . .', '. . . X . .', '. . . X . .', '. . . X . x', '. . . X . x', '. . x X . x', 'x . x X x x', 'x x x X X X'],
+        hat: 'X x x X x x',
+        tom: [...rep(7, ''), '. . . . . . h h m m l l'],
+        crash: ['X', '', '', '', 'X', '', '', ''],
+        swell: [...rep(6, ''), 'x - - - - -', '- - - - - -'],
+      },
+      // the resolution: the lullaby's second phrase in F major, Theo on the descant, home on F 6/9
+      E: {
+        bars: 16,
+        chords: twice(['D2: F3 A3 C4', 'Eb2: G3 Bb3 Eb4', 'G1: F3 Bb3 D4', 'C2: E3 G3 Bb3', 'F2: F3 A3 C4', 'D2: F3 A3 C4'])
+          .concat(['G1: F3 Bb3 D4', 'C2: E3 G3 Bb3', CHOIR_F, CHOIR_F]),
+        lead: UNBOUND_HOME,
+        choir: UNBOUND_HOME,
+        choir3: ['F5 - - - - -', '-', 'Eb5 - - - - -', '-', 'D5 - - - - -', '-', 'E5 - - - - -', '-', 'F5 - - - - -', '-', 'D5 - - - - -', '-',
+          'Bb4 - - - - -', '- - - E5 - -', 'A5 - - - - -', '- - - - - -'],
+        stab: [...rep(6, ['X - - - - -', '- - - - - -']).flat(), 'X - - - - -', 'X - - - - -', 'X - - - - -', '- - - - - -'],
+        harp: '0 . 2 . 4 .',
+        arp: [...rep(14, '0 1 2 3 2 1 0 1 2 3 2 1'), '', ''],
+        bass: [...rep(14, 'R . . R . F'), 'R - - - - -', '- - - - - -'],
+        kick: [...rep(14, 'X . . X . .'), 'X . . . . .', ''],
+        snare: [...rep(13, '. . . X . .'), '. . . X X X', '', ''],
+        hat: [...rep(14, 'X x x X x x'), '', ''],
+        crash: ['X', '', '', '', 'X', '', '', '', 'X', '', '', '', 'X', '', 'X', ''],
+        bell2: [...rep(14, ''), 'F2 - - - - -', ''],
+      },
+    },
+  },
+
+  // Ione's shore at dawn, D major 4/4 at 80: quiet and earned. I: the ice sings (the Shoals' gliding sine, Orion's
+  // "Listen. The ice is singing.") over a warm pad. A: a piano rings the Ringborn motif on E, then on F# over the
+  // relative minor. B: HALCYON's lullaby, at last in D major, on the piano with a music box an octave above. C: its
+  // second phrase, with the waking Choir humming under it and the Ringborn flat seventh (C) in the harmony. D: dawn:
+  // Theo's figure on glass bells, the Ringborn motif low on the piano, the ice singing again, and a plagal close.
+  ione: {
+    key: 'D major',
+    bpm: 80,
+    gain: 1,
+    delay: 0.75,
+    motifs: ['ringborn', 'lullaby', 'theo'],
+    voices: {
+      pad: { cutoff: 950, attack: 2.4, release: 3.2, level: 0.13, air: 0.035, drift: 0.35 },
+      bell: { synth: 'piano', level: 0.3, decay: 3.4 },
+      harp: { synth: 'piano', level: 0.1, decay: 2.6, pedal: true },
+      bell3: { synth: 'box', oct: 12, level: 0.1, decay: 2.2 },
+      bell2: { ratio: 3.5, index: 0.8, decay: 3, level: 0.09 },
+      lead: { layers: [['sine', 0, 1], ['triangle', 5, 0.25]], cutoff: 2400, level: 0.09, vib: 20, vibRate: 4.2, attack: 0.4, release: 0.9, glide: 0.45 },
+      choir: { vowel: 'ah', attack: 1.2, release: 2.2, level: 0.18, vib: 6 },
+      bass: { soft: true, level: 0.24 },
+    },
+    sends: {
+      pad: { wet: 0.45 }, bell: { wet: 0.38, echo: 0.12 }, harp: { wet: 0.4, echo: 0.08, pan: -0.2 }, bell3: { wet: 0.55, echo: 0.25, pan: 0.25 },
+      bell2: { wet: 0.7, echo: 0.45, pan: -0.3 }, lead: { wet: 0.6, echo: 0.35, pan: 0.15 }, choir: { wet: 0.6 },
+    },
+    intro: ['I'],
+    loop: ['A', 'B', 'C', 'D'],
+    parts: {
+      I: {
+        bars: 2,
+        chords: ['D2: A3 D4 E4 F#4', 'G2: B3 D4 E4 F#4'],
+        lead: ['A5 - - - - - ~D6 -', '- - - - ~B5 - - -'],
+        harp: '0 . 1 . 2 . 3 .',
+        bass: 'R - - - - - - -',
+      },
+      A: {
+        bars: 8,
+        chords: ION_A.chords,
+        bell: ION_A.tune,
+        harp: '0 . 2 . 1 . 2 .',
+        bell2: ['', '. . . . . . F#6 .', '', '', '', '. . . . . . . A6', '', ''],
+        bass: 'R - - - - - - -',
+      },
+      B: {
+        bars: 8,
+        chords: ION_LULL.chords,
+        bell: ION_LULL.tune,
+        bell3: ION_LULL.tune,
+        harp: '0 . 2 . 1 . 2 .',
+        bass: 'R - - - F - - -',
+      },
+      C: {
+        bars: 8,
+        chords: ['B1: D3 F#3 A3', 'C2: E3 G3 C4', 'E2: D3 G3 B3', 'A1: C#3 E3 G3', 'D2: D3 F#3 A3', 'B1: D3 F#3 A3',
+          ['E2: D3 G3 B3', 'A1: C#3 E3 G3'], 'D2: D3 F#3 A3'],
+        bell: ['A4 - - - - - F#5 -', 'E5 - - - - - D5 -', 'G5 - - - - - F#5 -', 'E5 - - - - - - -', 'F#4 - - - - - A4 -',
+          'D5 - - - - - C#5 -', 'B4 - - A4 - - E4 -', 'D4 - - - - - - -'],
+        choir: ['F#4 - - - - - - -', 'G4 - - - - - - -', 'G4 - - - - - - -', 'G4 - - - - - - -', 'F#4 - - - - - - -', 'F#4 - - - - - - -',
+          'G4 - - - - - - -', 'F#4 - - - - - - -'],
+        harp: '0 . 2 . 1 . 2 .',
+        bell2: ['', '', '', '. . . . E6 . A6 .', '', '', '', '. . . . . . F#6 .'],
+        bass: 'R - - - F - - -',
+      },
+      D: {
+        bars: 8,
+        chords: ['G2: B3 D4 F#4', 'D2: A3 D4 F#4', 'A1: E3 A3 C#4', 'G2: B3 D4 E4', 'D2: A3 D4 E4 F#4', 'D2: A3 D4 E4 F#4', 'G2: B3 D4 E4', 'D2: A3 D4 F#4'],
+        bell2: ['F#5 - - A5 - - D6 -', 'E6 - - - F#6 - - -', '', '', '', '', '', ''],
+        bell: ['', '', 'E4 - - A4 - - G4 -', 'E4 - D4 - B3 - A3 -', '', '. . . . . . F#5 -', 'B4 - - - - - - -', 'A4 - - - - - - -'],
+        lead: ['', '', '', '', 'A5 - - - - - ~D6 -', '- - - - ~E6 - ~F#6 -', '- - - - - - . .', ''],
+        harp: '0 . 2 . 1 . 2 .',
+        bass: 'R - - - - - - -',
+      },
+    },
+  },
+
+  // The credits, 2+ minutes: a suite that visits every chapter at its own tempo and metre (parts set bpm / meter),
+  // from F major to D major. L, HALCYON's lullaby on the music box (3/4, 76); T, the title's opening bars on the
+  // celesta (the prologue, D minor 72); R, the Ringborn jig twice, with a descant (G Mixolydian 6/8, 92); A, the
+  // Arboretum's flute and drips (D Dorian 3/4, 84); K, the Choir chord sung (56); S, the Spire's cello march (C minor
+  // 112); V, the Vault's stuttering lullaby in B Lydian (7/8, 120); W, WARDEN's theme on its sagging box that turns,
+  // halfway, into the lullaby's second half in F major (the merge, 3/4, 72); I, Ione: the Ringborn motif and the
+  // lullaby in D major on the piano (80); E, the shore: Theo's figure on glass bells over D add9.
+  credits: {
+    key: 'F major to D major',
+    bpm: 76,
+    meter: '3/4',
+    gain: 1,
+    delay: 0.75,
+    motifs: ['lullaby', 'ringborn', 'warden', 'choir', 'theo'],
+    voices: {
+      pad: { cutoff: 1000, attack: 1.4, release: 2.2, level: 0.12, air: 0.03 },
+      bell: { synth: 'box', oct: 12, level: 0.26, decay: 2.2 },
+      bell2: { decay: 2.4, level: 0.24 },
+      bell3: { synth: 'piano', level: 0.3, decay: 3.4 },
+      bell4: { synth: 'box', oct: 12, level: 0.24, decay: 2.6, droop: 12, beat: 5 },
+      bell5: { ratio: 3.5, index: 0.8, decay: 3, level: 0.1 },
+      bell6: { synth: 'box', oct: 12, level: 0.34, decay: 2, droop: 8, beat: 6 },
+      lead: { synth: 'flute', level: 0.15 },
+      lead2: { synth: 'harp', decay: 1.1, level: 0.3, cutoff: 4200 },
+      harp: { decay: 1.4, level: 0.12 },
+      harp2: { synth: 'piano', level: 0.1, decay: 2.6, pedal: true },
+      arp: { wave: 'triangle', decay: 0.18, level: 0.24, oct: 12, cutoff: 5200, spread: 14, crush: 5 },
+      arp2: { synth: 'drip', oct: 24, level: 0.24, decay: 0.5 },
+      choir: { vowel: 'oo', attack: 1.4, release: 2.4, level: 0.28, vib: 6 },
+      choir2: { vowel: 'ah', attack: 1.8, release: 2.8, level: 0.2, vib: 8 },
+      bass: { soft: true, level: 0.22 },
+      bass2: { synth: 'strings', level: 0.15, attack: 0.09, release: 0.35, cutoff: 1400, vib: 12, bow: 0.25 },
+      bass3: { synth: 'strings', level: 0.17, attack: 0.012, release: 0.07, gate: 0.55, cutoff: 1100, bow: 0.5, vib: 0 },
+      bass4: { synth: 'sub', level: 0.6, gate: 0.4, decay: 0.5, harm: 0.4 },
+      kick: { f0: 170, f1: 78, sweep: 0.05, d: 0.26, vol: 0.6, click: 0.1 },
+      kick2: { f0: 105, f1: 42, sweep: 0.14, d: 0.55, vol: 0.8, click: 0.08 },
+      snare: { f: 2900, tone: 250, d: 0.15 },
+      hat: { f: 6000, d: 0.035 },
+      hat2: { f: 9000, d: 0.025 },
+    },
+    mix: { hat: 0.55, hat2: 1, kick: 0.85 },
+    sends: {
+      bell: { wet: 0.5, echo: 0.22 }, bell2: { wet: 0.55, echo: 0.32 }, bell3: { wet: 0.38, echo: 0.12 }, bell4: { wet: 0.6, echo: 0.3 },
+      bell6: { wet: 0.55, echo: 0.3 },
+      bell5: { wet: 0.7, echo: 0.45, pan: -0.3 }, lead: { wet: 0.42, echo: 0.16 }, lead2: { wet: 0.3, echo: 0.12, pan: 0.1 },
+      harp: { pan: -0.2 }, harp2: { wet: 0.4, echo: 0.08, pan: -0.2 }, arp: { wet: 0.3, echo: 0.35, pan: -0.3 },
+      arp2: { wet: 0.45, echo: 0.55, pan: 0.3 }, choir: { wet: 0.7 }, choir2: { wet: 0.8, echo: 0.15, pan: 0.2 },
+      bass2: { wet: 0.3, pan: -0.15 }, bass3: { wet: 0.12 }, snare: { wet: 0.22 }, hat2: { pan: 0.2 },
+    },
+    loop: ['L', 'T', 'R', 'A', 'K', 'S', 'V', 'W', 'I', 'E'],
+    parts: {
+      L: { bars: 8, chords: LULLABY_A.chords, bell: LULLABY_A.tune, harp: '0 . 2 . 1 .', bass: 'R - -' },
+      T: {
+        bars: 4,
+        bpm: 72,
+        meter: '4/4',
+        chords: ['D2: F3 A3 C4 E4', 'Bb1: F3 A3 C4 D4', 'F2: F3 A3 C4 E4', 'C2: E3 G3 C4 D4'],
+        bell2: ['D5 - - - A4 - C5 D5', 'F5 - - - E5 - D5 -', 'C5 - - - - - A4 C5', 'E5 - - - D5 - - -'],
+        harp: '0 . 2 . 3 . 2 .',
+        bass: 'R - - - - - - -',
+      },
+      R: {
+        bars: 16,
+        bpm: 92,
+        meter: '6/8',
+        chords: DRIFT_A.chords,
+        lead2: DRIFT_A.tune,
+        bell5: [...rep(8, ''), ...DRIFT_A.descant],
+        harp: '0 1 2 3 2 1',
+        bass: 'R - - F - -',
+        kick: lastDiff(16, 'X . o x . .', 'X . x x x X'),
+        hat: 'x o o x o o',
+      },
+      A: { bars: 8, bpm: 84, chords: [ARB_A.chords[0], 'F2: F3 A3 C4 G4', ...ARB_A.chords.slice(2)], lead: ARB_A.tune, arp2: DRIPS, bass: 'R - -' },
+      K: {
+        bars: 2,
+        bpm: 56,
+        meter: '4/4',
+        chords: [CHOIR_CHORD],
+        choir: ['X - - -', '- - - .'],
+        choir2: ['. . F#4 -', '- - E4 -'],
+        bell5: ['. . . . . . . . . . . . E6 - . .', '. . . . . . B5 - . . . . . . . .'],
+        bass: ['R - - -', '- - - .'],
+        snare: ['', '. . . . . . . . . . . . o x x X'], // the field drum's pickup into the Spire
+      },
+      S: {
+        bars: 8,
+        bpm: 112,
+        meter: '4/4',
+        chords: SPIRE_B.chords,
+        bass3: MARCH,
+        bass2: SPIRE_B.cello,
+        snare: lastDiff(8, SNARE_MARCH, 'X . . o x . o . X . x*2 . X X X X'),
+        kick2: 'X . . . . . . . X . . . . . . .',
+      },
+      V: {
+        bars: 8,
+        bpm: 120,
+        meter: '7/8',
+        chords: ['B1: F#3 B3 D#4', 'B1: F#3 B3 D#4', 'C#2: G#3 C#4 E#4', 'F#1: F#3 A#3 C#4', 'G#1: G#3 B3 D#4', 'C#2: G#3 C#4 E#4', 'F#1: F#3 A#3 C#4', 'B1: F#3 B3 D#4'],
+        bell6: ['D#5*3 - - - F#5 - -', 'B5 - - - A#5*2 - -', 'G#5 - A#5 - G#5*4 - -', 'F#5 - - - - . .',
+          'E#5 - - - G#5 - -', 'C#6 - - - B5*3 - -', 'A#5 - G#5 - A#5 - -', 'B5 - - - . . B5*4'],
+        arp: [VAULT_ARP[0], '', VAULT_ARP[0], VAULT_ARP[1]],
+        bass4: 'R . . . R . . . R . . . . .',
+        hat2: 'x . . . x . . . x . . . x*2 .',
+      },
+      W: {
+        bars: 8,
+        bpm: 72,
+        chords: [...WARDEN_A.chords.slice(0, 3), 'C2: E3 G3 C4', ...LULLABY_A.chords.slice(4)],
+        bell4: [...WARDEN_A.tune.slice(0, 4), '', '', '', ''],
+        bell: ['', '', '', '', ...LULLABY_A.tune.slice(4)],
+        choir: ['x - -', 'x - -', 'x - -', 'x - -', '', '', '', ''],
+        harp: ['', '', '', '', '0 . 2 . 1 .', '0 . 2 . 1 .', '0 1 2 3 2 1', '0 . 2 . . .'],
+        bass: 'R - -',
+      },
+      I: {
+        bars: 12,
+        bpm: 80,
+        meter: '4/4',
+        chords: [...ION_A.chords.slice(0, 4), ...ION_LULL.chords],
+        bell3: [...ION_A.tune.slice(0, 4), ...ION_LULL.tune],
+        bell: [...rep(4, ''), ...ION_LULL.tune],
+        harp2: '0 . 2 . 1 . 2 .',
+        bass: 'R - - - - - - -',
+      },
+      E: {
+        bars: 2,
+        bpm: 80,
+        meter: '4/4',
+        chords: ['D2: A3 D4 E4 F#4'],
+        bell5: ['F#5 - - A5 - - D6 -', 'E6 - - - F#6 - - -'],
+        harp2: ['0 . 1 . 2 . 3 .', '4 - - - - - - -'],
+        bass: 'R - - - - - - -',
+      },
+    },
+  },
+
   // Chapter card sting (once): a riser and tom roll swell on A sus into a strike on D add9 as the title lands
   // (~1.2 s, with the card's own 'card' sfx), then the chord rings out under three bells. 2 bars, ~4.6 s.
   sting_chapter: {
@@ -2661,12 +3322,14 @@ export const TRACK_NAMES = Object.keys(TRACKS);
 
 // ------------------------------------------------------------------ motifs (TECH_PLAN 9)
 // Note sequences that give the score its identity; the Choir motif is a chord. The WARDEN theme is the
-// lullaby in the parallel minor. A track that carries one lists it in its `motifs`.
+// lullaby in the parallel minor. A track that carries one lists it in its `motifs`. Theo's figure (C9-gamma) is
+// the lullaby's opening that keeps climbing instead of settling back down: the child who wakes up.
 export const MOTIFS = {
   lullaby: ['A4', 'C5', 'F5', 'E5', 'D5', 'E5'],
   ringborn: ['D5', 'G5', 'F5', 'D5', 'C5', 'A4', 'G4'],
   warden: ['Ab4', 'C5', 'F5', 'Eb5', 'Db5', 'Eb5'],
   choir: ['A2', 'E3', 'B3', 'D4', 'F#4'],
+  theo: ['A4', 'C5', 'F5', 'G5', 'A5'],
 };
 const CHORD_MOTIFS = new Set(['choir']);
 
@@ -2925,6 +3588,8 @@ export const audio = {
   /** Debug: current music position { track, part, bar } or null. */
   position() {
     const rt = S.cur;
-    return rt ? { track: rt.name, part: partAt(rt), bar: Math.floor(rt.step / rt.c.barSteps) + 1, time: S.ctx.currentTime } : null;
+    if (!rt) return null;
+    const part = partAt(rt);
+    return { track: rt.name, part, bar: Math.floor(rt.step / rt.c.parts[part].barSteps) + 1, time: S.ctx.currentTime };
   },
 };

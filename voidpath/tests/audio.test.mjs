@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  audio, compileTrack, compiledTrack, findMotif, noteMidi, MOTIFS, TRACKS, TRACK_NAMES, SFX_NAMES,
+  audio, compileTrack, compiledTrack, findMotif, noteMidi, startTrack, pumpTrack, MOTIFS, TRACKS, TRACK_NAMES, SFX_NAMES,
 } from '../src/core/audio.js';
 
 // The POC tracks keep their shorter loops ("keep" in the section 9 table).
@@ -20,15 +20,16 @@ const TEMPO = {
   final_boss_2: [144, '6/8'], lullaby: [76, '3/4'], ione: [80, '4/4'],
 };
 
-// Section 9: the motifs a track must carry. The third column names the sub-wave that delivers a motif that
-// an existing track does not carry yet (skipped until then).
+// Section 9: the motifs a track must carry, plus the C9-gamma brief: the WARDEN theme and the lullaby fight in
+// final_boss, Theo's figure rises in final_boss_2, the credits recall WARDEN and the Choir too.
 const MOTIF_TABLE = [
-  ['title', 'lullaby', 'C9-gamma adds the lullaby phrase'],
+  ['title', 'lullaby'],
   ['driftmarket', 'ringborn'], ['meridian', 'ringborn'], ['arboretum', 'lullaby'], ['choir', 'choir'],
   ['vault', 'lullaby'], ['heart', 'warden'], ['warden', 'warden'], ['final_boss', 'warden'],
   ['final_boss_2', 'lullaby'], ['final_boss_2', 'choir'], ['lullaby', 'lullaby'], ['ione', 'ringborn'], ['ione', 'lullaby'],
   ['credits', 'lullaby'], ['credits', 'ringborn'],
   ['spire', 'warden:inverted'], // the WARDEN theme inverted in the alarm figure
+  ['heart', 'choir'], ['final_boss', 'lullaby'], ['final_boss_2', 'theo'], ['credits', 'warden'], ['credits', 'choir'],
 ];
 
 const NEW_SFX = ['emote', 'splash', 'valve', 'laser_on', 'laser_off', 'shard', 'transform', 'summon', 'submerge', 'emerge',
@@ -60,10 +61,11 @@ test('loops are whole bars, and new loops run 32 bars or more', () => {
     const c = compileTrack(TRACKS[name], name);
     assert.ok(Number.isInteger(c.loopBars) && c.loopBars >= 1, `${name} loop bars`);
     for (const [k, part] of Object.entries(c.parts)) {
-      assert.equal(part.steps.length, part.bars * c.barSteps, `${name}.${k} is ${part.bars} whole bars`);
+      assert.equal(part.steps.length, part.bars * part.barSteps, `${name}.${k} is ${part.bars} whole bars`);
+      assert.ok(Math.abs(part.seconds - part.steps.length * part.stepDur) < 1e-9, `${name}.${k} lasts its whole bars`);
     }
-    const barSec = c.barSteps * c.stepDur;
-    assert.ok(Math.abs(c.loopSeconds - c.loopBars * barSec) < 1e-9, `${name} loop length is a whole number of bars`);
+    const sum = c.loop.reduce((t, k) => t + c.parts[k].bars * c.parts[k].barSteps * c.parts[k].stepDur, 0);
+    assert.ok(Math.abs(c.loopSeconds - sum) < 1e-9, `${name} loop length is a whole number of bars`);
     if (!POC_TRACKS.has(name) && !c.once) assert.ok(c.loopBars >= 32, `${name}: ${c.loopBars}-bar loop (32+)`);
     if (name === 'credits') assert.ok(c.introSeconds + c.loopSeconds >= 120, 'credits run 2+ minutes');
   }
@@ -81,6 +83,35 @@ test('metres map to steps per bar and tempo as documented', () => {
   assert.ok(Math.abs(bar('7/8', 60).loopSeconds - 3.5) < 1e-9);
 });
 
+test('a part may set its own tempo and metre (a suite); a bad part tempo or metre fails naming the part', () => {
+  const c = compileTrack({ bpm: 60, meter: '3/4', loop: ['A', 'B'], parts: { A: { bars: 2 }, B: { bars: 1, bpm: 120, meter: '7/8', bell: 'C5 . . . . . .' } } }, 'suite');
+  assert.deepEqual([c.parts.A.barSteps, c.parts.B.barSteps], [12, 14]);
+  assert.ok(Math.abs(c.parts.A.seconds - 6) < 1e-9 && Math.abs(c.parts.B.seconds - 1.75) < 1e-9);
+  assert.ok(Math.abs(c.loopSeconds - 7.75) < 1e-9);
+  assert.equal(c.loopBars, 3);
+  assert.throws(() => compileTrack({ bpm: 60, loop: ['A'], parts: { A: { bars: 1, bpm: -1 } } }, 'suite'), /suite\.A: bpm/);
+  assert.throws(() => compileTrack({ bpm: 60, loop: ['A'], parts: { A: { bars: 1, meter: '5/16' } } }, 'suite'), /suite\.A: bad meter/);
+});
+
+test('the sequencer times each part at its own tempo and re-syncs the echo when the tempo changes', () => {
+  // a rig with no WebAudio: gains are inert and `only: []` plays no line, so only the clock runs
+  const param = () => ({ value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, cancelScheduledValues() {} });
+  const node = () => ({ gain: param(), connect: (x) => x, disconnect() {} });
+  const bus = () => ({ dry: node(), wet: node(), echo: node() });
+  const delays = [];
+  const rig = { ctx: { createGain: node }, music: bus(), bed: bus(), setDelay: (sec, when) => delays.push([+sec.toFixed(4), +when.toFixed(4)]) };
+  const c = compiledTrack('credits');
+  const rt = startTrack(rig, 'credits', 0, { only: [] });
+  const [L, T] = c.loop;
+  pumpTrack(rt, c.parts[L].seconds + 0.001);
+  assert.equal(rt.seqIdx, 1, `${L} is done after its own ${c.parts[L].seconds.toFixed(2)} s`);
+  assert.ok(Math.abs(rt.next - (c.parts[L].seconds + c.parts[T].stepDur)) < 1e-6, `${T} steps at its own tempo`);
+  const tempo = (k) => TRACKS.credits.parts[k].bpm ?? TRACKS.credits.bpm;
+  assert.deepEqual(delays.map((d) => d[0]), [0.75 * 60 / tempo(L), 0.75 * 60 / tempo(T)].map((x) => +x.toFixed(4)), 'the echo follows each part');
+  pumpTrack(rt, c.loopSeconds + 0.001);
+  assert.equal(rt.seqIdx, c.loop.length, 'one whole loop takes loopSeconds');
+});
+
 test('section 9 tempos and metres; locations never share key and tempo', () => {
   for (const [name, [bpm, meter]] of Object.entries(TEMPO)) {
     if (!TRACKS[name]) continue;
@@ -95,9 +126,8 @@ test('section 9 tempos and metres; locations never share key and tempo', () => {
   }
 });
 
-for (const [name, motif, later] of MOTIF_TABLE) {
-  const skip = !TRACKS[name] ? `track ${name} arrives in a later sub-wave` : later || false;
-  test(`${name} carries the ${motif} motif`, { skip }, () => {
+for (const [name, motif] of MOTIF_TABLE) {
+  test(`${name} carries the ${motif} motif`, () => {
     const hits = findMotif(compileTrack(TRACKS[name], name), motif);
     assert.ok(hits.length > 0, `${name} lacks MOTIFS.${motif}`);
     assert.ok((TRACKS[name].motifs || []).includes(motif), `${name} lists ${motif} in its motifs`);
@@ -189,6 +219,53 @@ test('section 9 leads: arboretum drips and hums, the choir sings, spire saws low
   }
 });
 
+// Section 9 and the C9-gamma brief for the finale's tracks.
+test('C-gamma leads: the heart ascends on choral pads, the Warden fights on organ and choir, Ione is pad and piano', () => {
+  const v = (name, line) => TRACKS[name].voices[line];
+  const c = (name) => compileTrack(TRACKS[name], name);
+  const top = (chord) => Math.max(...chord.split(':')[1].trim().split(/\s+/).map(noteMidi));
+  // the heart: choir pads whose ascent climbs bar by bar over the Ab pedal, the WARDEN theme sung
+  assert.equal(v('heart', 'pad').synth, 'choir');
+  const ascent = TRACKS.heart.parts.A.chords.map(top);
+  assert.ok(ascent.every((m, i) => i === 0 || m > ascent[i - 1]), 'the ascent climbs');
+  assert.ok(findMotif(c('heart'), 'warden').some((h) => h.line.startsWith('choir')), 'the choir sings the WARDEN theme');
+  // form 1: organ-like pads (a square-wave pad on the stab line) and a hymn, the lullaby answering on another line
+  for (const name of ['final_boss', 'final_boss_2']) {
+    assert.equal(v(name, 'stab').synth, 'pad');
+    assert.equal(v(name, 'stab').wave, 'square');
+    assert.ok(Object.keys(TRACKS[name].voices).some((l) => l.startsWith('choir')), `${name} has a choir`);
+  }
+  const fb = c('final_boss');
+  const lines = (motif) => new Set(findMotif(fb, motif).map((h) => h.line));
+  assert.ok([...lines('lullaby')].every((l) => !lines('warden').has(l)), 'the lullaby and the WARDEN theme fight on different voices');
+  // form 2: F minor, ending in F major on the Choir chord (an F 6/9)
+  const f2 = TRACKS.final_boss_2;
+  const last = f2.parts[f2.loop.at(-1)].chords.at(-1);
+  assert.match(last, /^F1:/);
+  const pcs = new Set(last.split(':')[1].trim().split(/\s+/).map((n) => noteMidi(n) % 12));
+  assert.ok(pcs.has(9) && !pcs.has(8), 'the last chord is F major (A, not Ab)');
+  assert.ok(f2.parts[f2.loop[0]].chords.some((ch) => /^F2: F3 Ab3/.test(ch)), 'it starts in F minor');
+  // Ione: a warm pad and a piano
+  assert.equal(v('ione', 'bell').synth, 'piano');
+  assert.ok(!v('ione', 'pad').synth && v('ione', 'pad').cutoff < 1200, 'a warm pad');
+});
+
+test('the credits are a 2+ minute suite through every chapter, from F major to D major', () => {
+  const tr = TRACKS.credits;
+  const c = compileTrack(tr, 'credits');
+  assert.ok(c.introSeconds + c.loopSeconds >= 120);
+  const first = tr.parts[tr.loop[0]];
+  const last = tr.parts[tr.loop.at(-1)];
+  assert.match([].concat(first.chords[0])[0], /^F2:/, 'opens in F major');
+  assert.match([].concat(last.chords.at(-1)).at(-1), /^D2:.*F#/, 'ends in D major');
+  // each chapter's tempo and metre: title, driftmarket, arboretum, choir, spire, vault, warden, ione
+  const tempos = tr.loop.map((k) => `${tr.parts[k].bpm ?? tr.bpm} ${tr.parts[k].meter ?? tr.meter}`);
+  for (const name of ['title', 'driftmarket', 'arboretum', 'choir', 'spire', 'vault', 'warden', 'ione']) {
+    const want = `${TRACKS[name].bpm} ${TRACKS[name].meter || '4/4'}`;
+    assert.ok(tempos.includes(want) || (name === 'choir' && tempos.some((t) => t.startsWith('56 '))), `the credits visit ${name} (${want})`);
+  }
+});
+
 test("WARDEN's choir sfx sings in the room's key: choirSfx chords parse and fit their track", () => {
   const pcs = (notes) => new Set(notes.map((n) => noteMidi(n) % 12));
   // the scale (pitch classes) each track's choirSfx must stay inside
@@ -209,6 +286,22 @@ test("WARDEN's choir sfx sings in the room's key: choirSfx chords parse and fit 
     }
   }
   for (const name of ['choir', 'spire', 'lullaby']) if (TRACKS[name]) assert.ok(TRACKS[name].choirSfx, `WARDEN speaks over ${name}`);
+  // over HALCYON's lullaby (the dreams) WARDEN keeps a minor colour: every chord holds a minor triad
+  const minor = (chord) => {
+    const p = new Set(chord.map((n) => noteMidi(n) % 12));
+    return [...p].some((r) => p.has((r + 3) % 12) && p.has((r + 7) % 12));
+  };
+  assert.ok(TRACKS.lullaby.choirSfx.every(minor), 'minor colour over lullaby');
+});
+
+test("MOTIFS.theo is the lullaby's opening that climbs on instead of settling", () => {
+  const lullaby = MOTIFS.lullaby.map(noteMidi);
+  const theo = MOTIFS.theo.map(noteMidi);
+  assert.deepEqual(theo.slice(0, 3), lullaby.slice(0, 3));
+  assert.ok(theo.every((m, i) => i === 0 || m > theo[i - 1]), 'it only rises');
+  // in final_boss_2 the child's voice states it from ever higher notes
+  const starts = findMotif(compileTrack(TRACKS.final_boss_2, 'final_boss_2'), 'theo').filter((h) => h.line === 'choir3' && h.part === 'D');
+  assert.ok(starts.length >= 3, 'three or more statements in the rise');
 });
 
 test('stings are once and every once track is a sting', () => {

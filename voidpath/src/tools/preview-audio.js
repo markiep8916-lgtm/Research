@@ -233,7 +233,8 @@ function drawSpectrogram(cv, buf) {
   }
 }
 
-// Piano roll of a whole track straight from the compiled note data (intro + one loop), motifs marked in gold.
+// Piano roll of a whole track straight from the compiled note data (intro + one loop), motifs marked in gold. The
+// x axis is time, so a part with its own tempo (the credits suite) takes its real share of the width.
 const ROLL = {
   pad: '#5b4fa8', choir: '#d9a94a', swell: '#b48cff', bass: '#4fd889', harp: '#3fd6d2', arp: '#3fd6d2', stab: '#ff63b6',
   bell: '#7fe3ff', lead: '#ffc560',
@@ -244,7 +245,7 @@ const MOTIF_COLOR = '#ff6fd8';
 function drawRoll(cv, c, hits) {
   const order = [...c.intro, ...c.loop];
   let labelEnd = -Infinity; // motif labels never overlap: a crowded marker keeps its line and drops its text
-  const total = order.reduce((n, k) => n + c.parts[k].steps.length, 0);
+  const total = order.reduce((n, k) => n + c.parts[k].seconds, 0);
   const W = cv.width;
   const H = cv.height;
   const g = cv.getContext('2d');
@@ -266,16 +267,16 @@ function drawRoll(cv, c, hits) {
   hi += 3;
   const noteH = (H - drumH - 4 - top) / (hi - lo);
   const y = (m) => H - drumH - 4 - (m - lo + 1) * noteH;
-  const sx = W / total;
-  let at = 0;
+  let x0 = 0; // the part's left edge in pixels; a step is sx pixels wide inside it
   for (const k of order) {
     const part = c.parts[k];
+    const sx = (W * part.stepDur) / total;
     g.fillStyle = 'rgba(140,214,255,.07)';
-    for (let b = 0; b < part.bars; b++) g.fillRect((at + b * part.barSteps) * sx, top, 1, H - top);
+    for (let b = 0; b < part.bars; b++) g.fillRect(x0 + b * part.barSteps * sx, top, 1, H - top);
     g.fillStyle = 'rgba(140,214,255,.5)';
-    g.fillRect(at * sx, 0, 1, H);
+    g.fillRect(x0, 0, 1, H);
     g.font = '600 15px ui-monospace, monospace';
-    g.fillText(k, at * sx + 6, 16);
+    g.fillText(k, x0 + 6, 16);
     for (const layer of LAYERS) {
       part.steps.forEach((evs, s) => {
         for (const e of evs) {
@@ -287,7 +288,7 @@ function drawRoll(cv, c, hits) {
           // a ratchet (stutter) draws each of its hits; the last one carries the note's extension
           const hits = e.rat ? Array.from({ length: e.rat }, (_, h) => [h * e.span / e.rat, h === e.rat - 1 ? e.len - h * e.span / e.rat : e.span / e.rat]) : [[0, e.len]];
           for (const m of notes) {
-            for (const [off, len] of hits) g.fillRect((at + s + off) * sx, y(m) - (tall - 1) * noteH * 0.5, Math.max(1.5, len * sx - 1), Math.max(2, noteH * tall));
+            for (const [off, len] of hits) g.fillRect(x0 + (s + off) * sx, y(m) - (tall - 1) * noteH * 0.5, Math.max(1.5, len * sx - 1), Math.max(2, noteH * tall));
           }
         }
       });
@@ -295,14 +296,14 @@ function drawRoll(cv, c, hits) {
     g.globalAlpha = 1;
     part.steps.forEach((evs, s) => {
       for (const e of evs) {
-        if (e.i === 'kick') { g.fillStyle = '#ff5a6a'; g.fillRect((at + s) * sx, H - drumH, 1.5, drumH * e.v); }
-        else if (e.i === 'snare' || e.i === 'tom') { g.fillStyle = '#ffe066'; g.fillRect((at + s) * sx, H - drumH * 0.75, 1.5, drumH * 0.75 * e.v); }
-        else if (e.i === 'hat' || e.i === 'ohat') { g.fillStyle = 'rgba(233,242,255,.5)'; g.fillRect((at + s) * sx, H - drumH * 0.4, 1, drumH * 0.4 * e.v); }
+        if (e.i === 'kick') { g.fillStyle = '#ff5a6a'; g.fillRect(x0 + s * sx, H - drumH, 1.5, drumH * e.v); }
+        else if (e.i === 'snare' || e.i === 'tom') { g.fillStyle = '#ffe066'; g.fillRect(x0 + s * sx, H - drumH * 0.75, 1.5, drumH * 0.75 * e.v); }
+        else if (e.i === 'hat' || e.i === 'ohat') { g.fillStyle = 'rgba(233,242,255,.5)'; g.fillRect(x0 + s * sx, H - drumH * 0.4, 1, drumH * 0.4 * e.v); }
       }
     });
     // motif markers: a gold flag at the bar where each statement starts
     for (const h of hits.filter((x) => x.part === k)) {
-      const x = (at + (h.bar - 1) * part.barSteps) * sx;
+      const x = x0 + (h.bar - 1) * part.barSteps * sx;
       g.fillStyle = MOTIF_COLOR;
       g.fillRect(x, top - 4, 2, H - top - drumH);
       g.font = '700 13px ui-monospace, monospace';
@@ -312,7 +313,7 @@ function drawRoll(cv, c, hits) {
         labelEnd = x + 5 + g.measureText(label).width + 8;
       }
     }
-    at += part.steps.length;
+    x0 += part.steps.length * sx;
   }
 }
 
@@ -414,8 +415,10 @@ function rmsDb(buf, t0, t1) {
   return db(Math.sqrt(sum / Math.max(1, 2 * (b - a))));
 }
 
-const describe = (tr, c) => [tr.key, `${tr.bpm} bpm`, tr.meter || '4/4', c.once ? 'once' : `${c.loopBars}-bar loop (${c.loopSeconds.toFixed(1)} s)`]
-  .filter(Boolean).join(' · ');
+// a suite whose parts set their own tempo or metre reads "varies"
+const varies = (c) => new Set(Object.values(c.parts).map((p) => `${p.stepDur}/${p.barSteps}`)).size > 1;
+const describe = (tr, c) => [tr.key, varies(c) ? `${tr.bpm} bpm (varies)` : `${tr.bpm} bpm`, varies(c) ? 'metre varies' : tr.meter || '4/4',
+  c.once ? 'once' : `${c.loopBars}-bar loop (${c.loopSeconds.toFixed(1)} s)`].filter(Boolean).join(' · ');
 
 function rollCard(name, c, hits) {
   const cv = el('canvas', { class: 'roll', width: 2200, height: 190 });
@@ -440,10 +443,9 @@ async function renderTrack(name, c, refs) {
   // the loop's level, and each section's, measured on the loop that follows the intro
   const t0 = c.once ? 0 : c.introSeconds;
   const loopRms = c.once ? a.rmsDb : rmsDb(buf, t0, seconds);
-  const barSec = c.barSteps * c.stepDur;
   let at = t0;
   const sections = c.loop.map((k) => {
-    const len = c.parts[k].bars * barSec;
+    const len = c.parts[k].seconds;
     const row = { part: k, rmsDb: +fmt(rmsDb(buf, at, at + len)) };
     at += len;
     return row;
