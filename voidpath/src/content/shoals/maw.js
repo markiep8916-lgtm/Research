@@ -265,8 +265,10 @@ function holeFront(r, cx, cy, rx, ry) {
     const a = (k / 10) * Math.PI;
     const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry;
     const w = 10 + R() * 9, h = 7 + R() * 8, lean = (R() - 0.5) * 6;
+    // each slab's foot is broken unevenly, so the base of the sheet has no straight edge
+    const foot = 3 + R() * 7, notch = (R() - 0.5) * w;
     r.begin();
-    r.poly([[x - w, y + 6], [x - w * 0.7 + lean, y - h], [x + w * 0.3 + lean, y - h - 2 - R() * 4], [x + w, y + 6]], BLACK,
+    r.poly([[x - w * 0.8, y + foot * 0.5], [x - w * 0.7 + lean, y - h], [x + w * 0.3 + lean, y - h - 2 - R() * 4], [x + w * 0.9, y + foot * 0.6], [x + notch, y + foot]], BLACK,
       { n: [Math.cos(a) * 0.3, -0.55, 0.78], bevel: 1, max: 7, spec: BLACK[7], specT: 0.97 });
     r.end(0.5);
     // frost on the slab's top edge and a thin glowing crack
@@ -298,7 +300,7 @@ function drawMaw(r, P) {
   const glow = P.glow ?? 1, sway = P.sway || 0;
   const tx = P.tx || 0, ty = P.ty || 0;
   r.translate(tx, ty);
-  const HC = [112, 208], HRX = 94, HRY = 14;
+  const HC = [112, 194], HRX = 92, HRY = 12;   // the breach sits above the frame's bottom edge
   holeBack(r, HC[0], HC[1], HRX, HRY, glow);
 
   // the tail (slam): erupting from the ice ahead of the head, behind it in depth
@@ -317,7 +319,7 @@ function drawMaw(r, P) {
   }
 
   // the coil of its back arching out of the ice behind the neck
-  const hump = P.hump || [[22, 216], [26, 132], [80, 128], [88, 216]];
+  const hump = P.hump || [[24, 200], [28, 120], [80, 116], [88, 200]];
   const B = spine(...hump, (t) => 17 + Math.sin(t * Math.PI) * 3, 48);
   tube(r, B, { skin: HIDE, belly: null, rime: true });   // frost on its back, so it reads on the black ice
   ridge(r, B, 0.18, 0.82, 5, { scale: 0.85, k: glow * 0.8, seed: 5, dim: true });
@@ -326,7 +328,7 @@ function drawMaw(r, P) {
   // the neck
   const n = P.neck || {};
   const p3 = [152 + (P.hx || 0), 66 + (P.hy || 0)];
-  const S = spine(n.p0 || [102, 222], n.p1 || [88 + sway, 150], n.p2 || [112 + sway * 0.6, 58 + (P.hy || 0) * 0.4], n.p3 || p3,
+  const S = spine(n.p0 || [102, 206], n.p1 || [88 + sway, 140], n.p2 || [112 + sway * 0.6, 56 + (P.hy || 0) * 0.4], n.p3 || p3,
     (t) => 32 - 9 * t + Math.sin(t * Math.PI) * 4);
   ridge(r, S, 0.16, 0.9, 5, { scale: 1.15, k: glow, seed: 2 });
   tube(r, S, { rime: true });
@@ -367,10 +369,10 @@ function drawMaw(r, P) {
 }
 
 const IDLE = [
-  { sway: 0, hx: 0, hy: 0, jaw: 0.08, pulse: 0, lamp: 1.2, barbel: 0, vapor: 0 },
-  { sway: 2, hx: 1, hy: -2, jaw: 0.12, pulse: 1.6, lamp: 0.4, barbel: 1.2, vapor: 41 },
-  { sway: 3, hx: 2, hy: -3, jaw: 0.16, pulse: 3.2, lamp: 1.2, barbel: 2.4, vapor: 0, headTilt: 0.03 },
-  { sway: 1, hx: 1, hy: -1, jaw: 0.1, pulse: 4.8, lamp: 0.4, barbel: 3.6, vapor: 43 },
+  { sway: -2, hx: -2, hy: 1, jaw: 0.08, pulse: 0, glow: 0.95, lamp: 1.2, barbel: 0, vapor: 39, headTilt: -0.03 },
+  { sway: 2, hx: 1, hy: -2, jaw: 0.14, pulse: 1.6, glow: 1.15, lamp: 0.4, barbel: 1.2, vapor: 41 },
+  { sway: 5, hx: 3, hy: -4, jaw: 0.18, pulse: 3.2, glow: 1.3, lamp: 1.2, barbel: 2.4, vapor: 45, headTilt: 0.04 },
+  { sway: 1, hx: 0, hy: -1, jaw: 0.1, pulse: 4.8, glow: 1.1, lamp: 0.4, barbel: 3.6, vapor: 43 },
 ];
 
 export const MAW = {
@@ -385,27 +387,27 @@ export const MAW = {
     ] },
     slam: { fps: 6, loop: false, order: [0, 0, 1, 1, 1], poses: [
       { sway: -5, hx: -16, hy: -8, headTilt: -0.2, jaw: 0.4, glow: 1.2, eyes: 1.3, pulse: 2,
-        tail: [[214, 228], [222, 150], [252, 112], [236, 40]] },
+        tail: [[204, 212], [212, 146], [236, 112], [224, 44]] },
       { sway: 3, hx: 2, hy: 6, headTilt: 0.12, jaw: 0.6, glow: 1.2, eyes: 1.2, pulse: 4, lamp: 0.4,
-        tail: [[202, 228], [206, 162], [248, 140], [252, 206]], impact: 23 },
+        tail: [[196, 212], [198, 160], [232, 140], [236, 196]], impact: 23 },
     ] },
     hurt: { fps: 6, loop: false, poses: [
       { sway: -8, hx: -12, hy: -6, headTilt: -0.36, jaw: 0.7, glow: 0.5, eyes: 0.4, pulse: 2, lamp: 0.2, barbel: 2 },
     ] },
     break: { fps: 3, loop: true, poses: [
       { sway: -10, hx: -8, hy: 58, headTilt: 0.62, jaw: 0.35, glow: 0.3, eyes: 0.3, crown: 0.3, pulse: 1, lamp: 0.2, motes: 3, vapor: 47,
-        neck: { p1: [80, 158], p2: [120, 96] } },
+        neck: { p1: [80, 150], p2: [120, 92] } },
       { sway: -10, hx: -8, hy: 59, headTilt: 0.64, jaw: 0.38, glow: 0.55, eyes: 0.6, crown: 0.5, pulse: 2.5, lamp: 0.8, motes: 9,
-        neck: { p1: [80, 158], p2: [120, 96] } },
+        neck: { p1: [80, 150], p2: [120, 92] } },
     ] },
     special: { fps: 5, loop: false, poses: [
       { glow: 1.3, eyes: 1.2, jaw: 0.3, pulse: 2, splash: 37, headTilt: 0.2,
-        neck: { p0: [96, 226], p1: [86, 120], p2: [196, 70], p3: [176, 168] } },
+        neck: { p0: [96, 210], p1: [86, 112], p2: [196, 66], p3: [176, 160] } },
     ] },
   },
   points: { center: [146, 112], muzzle: [222, 92], top: [134, 18], core: [190, 64] },
   icon: { x: 196, y: 70, scale: 0.3 },
-  fitBox: [92, 22, 150, 156],
+  fitBox: [104, 12, 126, 116],   // the head and neck: the camera keeps them in the focus band
 };
 
 // ---------------------------------------------------------------- the field art
@@ -439,6 +441,7 @@ function drawLurk(r, P) {
     tube(r, N, {});
   }
   head(r, hx, hy, (P.tilt || 0) + (rise > 0.3 ? -0.15 : 0.05), 0.78, P);
+  rimTop(r, 8, 168, 20, cy - 15);   // above the black-ice disc (its top edge is at cy - 15)
   // the ice lip in front of it
   r.begin();
   r.each(cx - 84, cy - 2, cx + 84, cy + 16, (mx, my, X, Y) => {
@@ -452,16 +455,32 @@ function drawLurk(r, P) {
   if (P.splash) sparks(r, P.splash, hx + 10, cy - 10, 30, 16, G_ICE);
 }
 
+/**
+ * A cold rim of light on the upper silhouette of the field art (G2 C3-9): in the dim hall the hide is
+ * near-black, so the first opaque texel of each column between rows y0 and y1 glows ice-blue.
+ */
+function rimTop(r, x0, x1, y0, y1) {
+  for (let X = x0; X < x1; X++) {
+    for (let Y = y0; Y < y1; Y++) {
+      if (!r.flg[Y * r.w + X]) continue;
+      r.put(X, Y, G_ICE[3], 0.35);
+      if (Y + 1 < y1 && r.flg[(Y + 1) * r.w + X]) r.put(X, Y + 1, RIME_C[4], 0.12);
+      break;
+    }
+  }
+}
+
 export const MAW_LURK = {
   w: 176, h: 112,
   bevel: 3,
   draw: drawLurk,
   anims: {
+    // eyes held low: on the field sprite (emissive x2.2) brighter eyes bloom into squares
     idle: { fps: 3, loop: true, poses: [
-      { jaw: 0, eyes: 1.0, glow: 1.1, barbel: 0 },
-      { jaw: 0.05, eyes: 1.2, glow: 1.2, barbel: 1, vapor: 51 },
-      { jaw: 0, eyes: 1.0, glow: 1.1, barbel: 2 },
-      { jaw: 0, eyes: 0.2, glow: 1.0, barbel: 3, vapor: 53 },
+      { jaw: 0, eyes: 0.65, glow: 0.9, barbel: 0 },
+      { jaw: 0.05, eyes: 0.8, glow: 1.0, barbel: 1, vapor: 51 },
+      { jaw: 0, eyes: 0.65, glow: 0.9, barbel: 2 },
+      { jaw: 0, eyes: 0.15, glow: 0.85, barbel: 3, vapor: 53 },
     ] },
     special: { fps: 4, loop: false, poses: [{ rise: 1, jaw: 0.9, eyes: 1.4, glow: 1.3, throat: 0.4, splash: 57 }] },
     attack: { fps: 4, loop: false, poses: [{ rise: 0.8, jaw: 1, eyes: 1.3, glow: 1.2, throat: 1 }] },

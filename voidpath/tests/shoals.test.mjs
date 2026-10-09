@@ -1,7 +1,9 @@
 // The Shoals and the Meridian (C3): both maps validate with their binding spawns and exits, the props,
 // chests and interactables stand on walkable cells, the quotas of 12.4 hold, the power puzzle gates
-// the quarters and the log gates the reactor hall, and THE MAW plays its dive: Submerge (untargetable),
-// Circling Below (telegraphed) and the Breach that surfaces it, plus the enrage at half health.
+// the quarters and the log gates the reactor hall (and the Journal names the lever still to pull),
+// the captain's log is staged to the camera, the visible eel fight teaches the dive before the Maw,
+// and THE MAW plays its dive: Submerge (untargetable), Circling Below (telegraphed) and the Breach
+// that surfaces it Exposed, plus the enrage at half health.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerAllData, REG, getMap } from '../src/content/data.js';
@@ -74,11 +76,47 @@ test('the power puzzle unseals the quarters; the captain\'s log unseals the reac
   }
 });
 
-/** Plays the Maw with the test policy; returns the event log and the model. */
-function fightMaw(seed, { level = 12 } = {}) {
-  applyJumpState(buildJumpState('ch1.maw', REG));
-  for (const p of gameState.party) assert.ok(p.level >= level - 2);
-  const model = new BattleModel({ party: gameState.party, encounterId: 'shoals_boss_maw', rng: makeRng(seed) });
+test('the first lever names the lever still to pull; the second leaves it to the power scene (11.8)', async () => {
+  for (const objective of ['ch1.power_eng', 'ch1.power_hold']) assert.ok(REG.objectives[objective], objective);
+  assert.equal(REG.objectives['ch1.power_eng'].target.interactable, 'lever_b');
+  assert.equal(REG.objectives['ch1.power_hold'].target.interactable, 'lever_a');
+  const run = async (lever, flags = []) => {
+    const set = [];
+    const cs = {
+      sfx() {}, shake() {}, objective: (id) => set.push(id), test: (f) => flags.includes(f),
+      actor: () => ({ x: 10, z: 5 }), gather: () => Promise.resolve(), say: () => Promise.resolve(),
+    };
+    await REG.scripts['shoals.lever'](cs, { interactable: { id: lever } });
+    return set;
+  };
+  assert.deepEqual(await run('lever_a'), ['ch1.power_eng']);
+  assert.deepEqual(await run('lever_b'), ['ch1.power_hold']);
+  assert.deepEqual(await run('lever_b', ['sw:meridian:lever_a']), []);
+});
+
+test('the captain\'s log plays to the camera: nobody stands in the hologram\'s column, Nyx beside it (G2 C3-4)', async () => {
+  const at = {};
+  let holo = null;
+  const ok = () => Promise.resolve();
+  const cs = new Proxy({
+    spawn: (id, def) => { holo = def; return ok(); },
+    gather: (slots) => { Object.assign(at, slots); return ok(); },
+    actor: () => null,
+    camera: { focus: ok },
+  }, { get: (t, k) => (k in t ? t[k] : () => ok()) });
+  await REG.scripts['shoals.varo_log'](cs);
+  assert.ok(holo && holo.hologram, 'the hologram is spawned');
+  for (const [id, [x, z]] of Object.entries(at)) {
+    assert.ok(!(Math.abs(x - holo.x) < 0.7 && z > holo.z), `${id} stands between the camera and the hologram`);
+  }
+  const [nx, nz] = at.nyx;
+  assert.ok(Math.abs(nz - holo.z) < 0.5 && Math.abs(nx - holo.x) < 2, 'Nyx stands level with her great-grandmother');
+});
+
+/** Plays an encounter with the test policy; returns the event log and the model. */
+function fight(encounterId, seed, jump = 'ch1.maw') {
+  applyJumpState(buildJumpState(jump, REG));
+  const model = new BattleModel({ party: gameState.party, encounterId, rng: makeRng(seed) });
   const memo = new Map();
   const log = [];
   const ev = (list) => { for (const e of list) log.push(e); return list; };
@@ -90,6 +128,21 @@ function fightMaw(seed, { level = 12 } = {}) {
   }
   return { log, model };
 }
+
+const fightMaw = (seed) => fight('shoals_boss_maw', seed);
+
+test('the void eels: a visible field fight at the Mouth, and an eel always dives (G2 C3-2)', () => {
+  const eels = getMap('shoals').bosses.find((b) => b.id === 'eels');
+  assert.equal(eels.encounter, 'shoals_eels');
+  assert.equal(eels.script, 'shoals.eels');
+  assert.match(eels.when, /!shoals:eels/);
+  assert.ok(getMap('shoals').areas.find((a) => a.id === 'mouth').rect[2] >= eels.x, 'it waits at the Mouth');
+  for (let seed = 1; seed <= 12; seed++) {
+    const { log } = fight('shoals_eels', seed, 'ch1.shoals');
+    const dive = log.findIndex((e) => e.type === 'untargetable' && e.on);
+    assert.ok(dive >= 0, `seed ${seed}: an eel dives`);
+  }
+});
 
 test('THE MAW: a boss with two actions a round, weak to thermal / lance / rifle', () => {
   const maw = ENEMIES.maw;
@@ -116,6 +169,12 @@ test('THE MAW dives: Submerge -> Circling Below (telegraphed) -> Breach on all, 
   const breachIdx = log.indexOf(breach);
   assert.ok(off > breachIdx, 'the breach brings it up');
   assert.ok(log.some((e) => e.type === 'telegraph'), 'the circling is telegraphed');
+  // Exposed: DEF down a stage more (the event carries the resulting stage, so a squad debuff can stack)
+  const exposed = log.slice(breachIdx).find((e) => e.type === 'status' && String(e.targetId).startsWith('e') && e.stat === 'def');
+  assert.ok(exposed && exposed.stage <= -1, 'it surfaces Exposed');
+  const dives = acts.filter((e) => e.actionId === 'maw_submerge').map((e) => log.indexOf(e));
+  const rounds = dives.map((k) => log.slice(0, k).filter((e) => e.type === 'roundStart').length);
+  for (let k = 1; k < rounds.length; k++) assert.ok(rounds[k] - rounds[k - 1] >= 4, 'it dives every fourth round at most');
 });
 
 test('THE MAW enrages at half health: the cue, Nyx\'s line and her ultimate', () => {

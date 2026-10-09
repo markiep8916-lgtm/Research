@@ -5,16 +5,28 @@
 // The Shoals
 //   shoals.tube        { x, z }                        Driftmarket's docking tube where it meets the ice (west edge)
 //   shoals.marker      { x, z, ribbon? }               a Ringborn route lantern on a pole in a snow cairn
-//   shoals.icePillar   { x, z, s = 1 }                 a stalagmite of glowing ice and a leaning shard
+//   shoals.icePillar   { x, z, s = 1 }                 a stalagmite of faceted ice, a leaning shard, chunks
 //   shoals.crystal     { x, z, s = 1 }                 a cluster of cyan crystals with a halo
 //   shoals.frozenCargo { x, z, rot, s = 1, rust? }     a Meridian cargo container sunk in an ice mound
 //   shoals.hullShard   { x, z, rot, s = 1 }            Meridian hull plates jutting from the ice
 //   shoals.icicles     { x0, x1, z, dark?, on?, y = 3 }  icicles along the top of a north wall face at z
-//   shoals.abyss       { x, z, w, d, y = -1.62 }       the glowing deep under a crevasse (drifting mist)
+//   shoals.abyss       { x, z, w, d, rim = 0.35, deep = -6, shafts = 2 }   a crevasse falling away under
+//                      its rims: ice walls into deep-blue fog, a slow mist layer, the glow at the
+//                      bottom and light shafts rising out of it
+//   shoals.bridgeIce   { x0, x1, z, y = -0.35 }        icicles hanging under a bridge slab's visible edge
+//   shoals.drift       { x, z, s = 2, rot }            a soft-edged snow drift decal (world-space, so
+//                      the floor cells do not stamp a motif)
 //   shoals.breach      { x, z }                        the torn hull mouth of the Meridian (east edge)
 //   shoals.lockbox     { x, z, openWhen }              a Meridian lockbox frozen into the wall; opens with the flag
 //   shoals.iceChest    chest: an ice-crusted cargo crate (rust: the Meridian's)          LivingProp setOpen
+// Both maps
+//   shoals.pool        { x, z, r = 2.4, color, k = 0.5, sx, sz, rot }   a soft pool of light on the floor:
+//                      reads on every quality tier, whatever the real point-light pool holds
+//   shoals.shaft       { x, z, y, h = 3.6, color, opacity = 0.12, tilt = 0 }   a slanted light shaft out of a
+//                      painted breach (the world builds them for window cells only)
 // The Meridian
+//   shoals.lampPost    { x, z, h = 1.55, rot }         a tripod emergency lamp with a caged sodium head
+//   shoals.iceSheet    { x, z, w, d, rot }             a soft-edged sheet of black ice over the deck
 //   shoals.ribbons     { x, z, w = 2 }                 prayer ribbons on a rail (north wall face at z), swaying
 //   shoals.emergencyLamp { x, z, on? }                 a caged sodium lamp on a north wall face, pulsing
 //   shoals.debris      { x, z, rot, s = 1 }            a fallen beam, plates and chunks
@@ -30,7 +42,7 @@
 //   shoals.powerLever  switch: an emergency bus lever                                 LivingProp setState
 
 import * as THREE from 'three';
-import { makeGlow } from '../../core/vfx.js';
+import { makeGlow, makeLightShaft } from '../../core/vfx.js';
 import { Batch, wrappedCylinder } from '../../world/geometry.js';
 import { textureSet } from '../../art/tiles.js';
 
@@ -107,8 +119,48 @@ function grained(color, { roughness = 0.6, metalness = 0.35, emissive = null, k 
 }
 const facet = (color, emissive, k) => grained(color, { roughness: 0.12, metalness: 0.1, emissive, k, flat: true });
 
+// Shared soft masks (they survive World.dispose): 'pool' a smooth radial falloff for light pools,
+// 'sheet' a ragged round edge for decals that must not read as square cells.
+const MASKS = {};
+function mask(kind) {
+  if (MASKS[kind]) return MASKS[kind];
+  const N = kind === 'sheet' ? 128 : 64;
+  const r = rnd(kind === 'sheet' ? 7 : 3);
+  const bumps = Array.from({ length: 5 }, () => [1 + Math.floor(r() * 5), r() * Math.PI * 2, 0.04 + r() * 0.07]);
+  const data = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = ((x + 0.5) / N) * 2 - 1, dy = ((y + 0.5) / N) * 2 - 1;
+    let d = Math.hypot(dx, dy), v;
+    if (kind === 'sheet') {
+      const a = Math.atan2(dy, dx);
+      for (const [f, ph, amp] of bumps) d *= 1 + Math.sin(a * f + ph) * amp;
+      v = 1 - THREE.MathUtils.smoothstep(d, 0.68, 1);
+    } else v = d >= 1 ? 0 : (1 - d * d) ** 2;
+    const i = (y * N + x) * 4;
+    data[i] = data[i + 1] = data[i + 2] = data[i + 3] = Math.round(v * 255);
+  }
+  const tex = new THREE.DataTexture(data, N, N);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  tex.userData.shared = true;
+  return (MASKS[kind] = tex);
+}
+
+/** A flat mesh lying on the floor at (x, y, z), turned by rot. */
+function floorMesh(G, mat, x, y, z, w, d, rot = 0) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  mesh.rotation.set(-Math.PI / 2, 0, rot);
+  mesh.scale.set(w, d, 1);
+  mesh.position.set(x, y, z);
+  mesh.renderOrder = 1;
+  G.add(mesh);
+  return mesh;
+}
+
 const LAZY = {
   crystal: facet('#8ae4f8', '#2fb8ff', 1.05),
+  iceFacet: facet('#a2d6ee', '#2a8fd0', 0.5),
   crystalDim: facet('#4aa6d8', '#1a6fb0', 0.8),
   crystalDark: facet('#2a3a5a', '#4a2a8a', 0.9),
   icicle: facet('#c8f2ff', '#4fc8ff', 0.8),
@@ -131,6 +183,7 @@ function mats(W) {
   const M = W.mats;
   W.shMats = {
     ice: M.tile('sh_ice_wall', { emissive: 2.4, roughness: 0.3, metalness: 0.05 }),
+    iceSide: M.tile('sh_ice_wall_side', { emissive: 2.4, roughness: 0.35, metalness: 0.05, cast: false }),
     iceCap: M.tile('sh_ice_cap', { emissive: 1.8, roughness: 0.35, metalness: 0.05 }),
     snow: M.tile('sh_snow', { emissive: 1.6, roughness: 0.85, metalness: 0 }),
     cargo: M.tile('sh_cargo_side', { roughness: 0.6, metalness: 0.35 }),
@@ -195,17 +248,21 @@ const marker = {
 };
 
 const icePillar = {
-  textures: ['sh_ice_wall'],
+  textures: ['sh_ice_cap'],
   build(W, p) {
-    const M = mats(W), B = W.batchFor(p.on);
+    const M = mats(W), B = W.batchFor(p.on), G = W.groupFor(p.on);
     const s = p.s || 1, r = rnd(p.x * 3.7 + p.z * 1.3);
-    const h = 2.2 * s;
-    put(B, M.ice, jitter(new THREE.CylinderGeometry(0.16 * s, 0.48 * s, h, 6, 3), 0.35, p.x), [p.x, h / 2, p.z], [0.04, r() * 6, -0.05]);
-    put(B, M.ice, new THREE.ConeGeometry(0.16 * s, 0.5 * s, 6), [p.x + 0.07 * s, h + 0.2 * s, p.z - 0.05 * s], [0.04, r() * 6, -0.05]);
-    // a leaning shard and a stub
-    put(B, M.ice, jitter(new THREE.CylinderGeometry(0.04, 0.24 * s, 1.3 * s, 5, 2), 0.3, p.z), [p.x + 0.42 * s, 0.55 * s, p.z + 0.16 * s], [0.18, r() * 6, -0.42]);
-    put(B, M.ice, new THREE.ConeGeometry(0.2 * s, 0.55 * s, 5), [p.x - 0.36 * s, 0.24 * s, p.z + 0.2 * s], [-0.2, r() * 6, 0.3]);
-    put(B, M.ice, hemisphere(), [p.x, 0, p.z], null, [0.72 * s, 0.14, 0.6 * s]);
+    // a stalagmite of faceted ice (flat-shaded, irregular, no texture bands): a jagged spire, a
+    // leaning shard, broken chunks at its foot and a cold glow trapped inside
+    const h = 2.3 * s;
+    put(B, M.iceFacet, jitter(new THREE.CylinderGeometry(0.1 * s, 0.5 * s, h, 5, 3), 0.45, p.x), [p.x, h / 2 - 0.05, p.z], [0.05, r() * 6, -0.06]);
+    put(B, M.iceFacet, jitter(new THREE.CylinderGeometry(0.03, 0.22 * s, 1.4 * s, 4, 2), 0.35, p.z), [p.x + 0.42 * s, 0.6 * s, p.z + 0.16 * s], [0.2, r() * 6, -0.45]);
+    for (let k = 0; k < 3; k++) {
+      const a = r() * Math.PI * 2, d = (0.35 + r() * 0.25) * s, c = (0.12 + r() * 0.12) * s;
+      put(B, k ? M.iceFacet : M.crystalDim, new THREE.IcosahedronGeometry(1, 0), [p.x + Math.cos(a) * d, c * 0.6, p.z + Math.sin(a) * d * 0.8], [r() * 3, r() * 3, r() * 3], [c, c * (1.2 + r()), c]);
+    }
+    put(B, M.iceCap, hemisphere(), [p.x, 0, p.z], null, [0.72 * s, 0.14, 0.6 * s]);
+    glow(W, G, '#5fd8ff', 1.3 * s, 0.32, p.x, h * 0.45, p.z + 0.2, false);
     W.addCircle(p.x, p.z, 0.46 * s);
   },
 };
@@ -298,19 +355,68 @@ const icicles = {
 };
 
 const abyss = {
-  textures: ['sh_abyss'],
+  textures: ['sh_abyss', 'sh_ice_wall_side'],
+  build(W, p) {
+    const M = mats(W), B = W.batchFor(p.on), G = W.groupFor(p.on);
+    const top = -(p.rim ?? 0.35), deep = p.deep ?? -6;
+    const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
+    // the crevasse walls fall away below the rims: the far wall faces the camera, the sides face in
+    // (the far wall starts at the floor where a wall row stands above the crevasse instead of a rim)
+    const h = top - deep, hf = (p.farTop ?? top) - deep;
+    B.faceZ(M.iceSide, x0, x1, deep, p.farTop ?? top, z0, 1, [0, 1 - hf / 3, p.w, 1]);
+    B.faceX(M.iceSide, z0, z1, deep, top, x0, 1, [0, 1 - h / 3, p.d, 1]);
+    B.faceX(M.iceSide, z0, z1, deep, top, x1, -1, [0, 1 - h / 3, p.d, 1]);
+    // the glow at the bottom, and a slower mist layer drifting halfway down
+    const k = p.k ?? 1.3;
+    const floorSet = textureSet('sh_abyss', { repeat: [p.w / 3, p.d / 3], layers: ['map'] });
+    floorMesh(G, new THREE.MeshBasicMaterial({ map: floorSet.map, color: new THREE.Color(k, k, k * 1.1) }), p.x, deep, p.z, p.w, p.d);
+    const mistSet = textureSet('sh_abyss', { repeat: [p.w / 5, p.d / 5], layers: ['map'] });
+    const mist = floorMesh(G, new THREE.MeshBasicMaterial({
+      map: mistSet.map, color: new THREE.Color(0.22, 0.42, 0.7), transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, fog: false,
+    }), p.x, (top + deep) * 0.45, p.z, p.w, p.d);
+    mist.renderOrder = 2;
+    const ph = p.x * 0.013;
+    W.addUpdater((dt, t) => {
+      floorSet.map.offset.set(ph + t * 0.004, t * 0.007);
+      mistSet.map.offset.set(ph - t * 0.011, -t * 0.006);
+    });
+    for (let z = z0 + 2; z < z1; z += 4) glow(W, G, '#2f7fff', 3.6, 0.38, p.x, deep + 0.8, z);
+    // light rising out of the deep
+    const n = p.shafts ?? 2;
+    for (let i = 0; i < n; i++) {
+      const s = makeLightShaft({ width: Math.min(1.6, p.w * 0.3), height: -deep + 1.4, color: '#7fc8ff', opacity: 0.11, spread: 1.6, floorY: deep - 4 });
+      s.position.set(p.x + (i % 2 ? 0.8 : -0.9), deep + 0.2, z0 + ((i + 0.6) / n) * p.d);
+      s.rotation.set(Math.PI + (i % 2 ? 0.12 : -0.1), 0, i % 2 ? -0.08 : 0.1);
+      G.add(s);
+    }
+  },
+};
+
+const bridgeIce = {
+  build(W, p) {
+    const M = mats(W), B = W.batchFor(p.on);
+    const r = rnd(p.x0 * 7 + p.z * 3);
+    const y = p.y ?? -0.35;
+    for (let x = p.x0 + 0.08; x < p.x1 - 0.05; x += 0.12 + r() * 0.2) {
+      const len = 0.18 + r() * r() * 1.1, rad = 0.035 + len * 0.05;
+      put(B, M.icicle, new THREE.ConeGeometry(rad, len, 5), [x, y - len / 2 + 0.02, p.z - 0.04 - r() * 0.05], [Math.PI, r() * 3, 0]);
+    }
+  },
+};
+
+const drift = {
+  textures: ['sh_drift'],
   build(W, p) {
     const G = W.groupFor(p.on);
-    const set = textureSet('sh_abyss', { repeat: [p.w / 2, p.d / 2], layers: ['map'] });
-    const mat = new THREE.MeshBasicMaterial({ map: set.map, color: new THREE.Color(p.k ?? 1.5, p.k ?? 1.5, (p.k ?? 1.5) * 1.1) });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(p.w, p.d), mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(p.x, p.y ?? -1.62, p.z);
-    G.add(mesh);
-    // the mist in the deep drifts slowly
-    const k = p.x * 0.013;
-    W.addUpdater((dt, t) => { set.map.offset.set(k + t * 0.006, t * 0.011); });
-    for (let z = p.z - p.d / 2 + 2; z < p.z + p.d / 2; z += 4) glow(W, G, '#2f7fff', 3.2, 0.42, p.x, (p.y ?? -1.62) + 0.5, z);
+    const set = textureSet('sh_drift', { layers: ['map', 'normal'] });
+    const mat = new THREE.MeshStandardMaterial({
+      map: set.map, normalMap: set.normalMap, transparent: true, depthWrite: false, roughness: 0.85, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    const s = p.s || 2;
+    const mesh = floorMesh(G, mat, p.x, 0.006, p.z, s * (p.sx || 1), s * (p.sz || 0.8), p.rot || 0);
+    mesh.receiveShadow = true;
   },
 };
 
@@ -440,6 +546,67 @@ const lockbox = {
 
 // ---------------------------------------------------------------- the Meridian
 
+const pool = {
+  build(W, p) {
+    const G = W.groupFor(p.on);
+    const r = p.r || 2.4;
+    const mat = new THREE.MeshBasicMaterial({
+      map: mask('pool'), color: new THREE.Color(p.color || '#ff8a2a').multiplyScalar(p.k ?? 0.5), transparent: true,
+      depthWrite: false, fog: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+    });
+    floorMesh(G, mat, p.x, p.y ?? 0.02, p.z, r * 2 * (p.sx || 1), r * 2 * (p.sz || 1), p.rot || 0);
+  },
+};
+
+const shaft = {
+  build(W, p) {
+    const s = makeLightShaft({
+      width: 1.45, height: p.h ?? 3.6, color: p.color || '#a8d8ff', opacity: p.opacity ?? 0.12, spread: 1.55, dust: 1.2, seed: p.x * 3.7,
+    });
+    // the same slant as the world's window shafts (along the key light)
+    s.position.set(p.x, p.y ?? 2.2, p.z);
+    s.rotation.set(-0.72 + (p.tilt || 0), 0, 0.42 - (p.tilt || 0));
+    W.groupFor(p.on).add(s);
+  },
+};
+
+const lampPost = {
+  textures: ['sh_ice_cap'],
+  build(W, p) {
+    const M = mats(W), B = W.batchFor(p.on), G = W.groupFor(p.on);
+    const h = p.h ?? 1.55, rot = p.rot || 0;
+    // a tripod stand frozen to the deck, a pole, a caged sodium head under a hood
+    for (let k = 0; k < 3; k++) {
+      const a = rot + k * (Math.PI * 2 / 3);
+      put(B, M.iron, new THREE.BoxGeometry(0.045, 0.66, 0.045), [p.x + Math.cos(a) * 0.17, 0.3, p.z + Math.sin(a) * 0.17], [0, -a, 0.55]);
+    }
+    put(B, M.iron, new THREE.CylinderGeometry(0.03, 0.04, h - 0.3, 6), [p.x, 0.3 + (h - 0.3) / 2, p.z]);
+    put(B, M.iceCap, jitter(hemisphere(), 0.3, p.x + p.z), [p.x, 0, p.z], null, [0.34, 0.1, 0.3]);
+    B.box(all(M.sodium), p.x, p.z, 0.17, 0.17, h - 0.08, h + 0.1, rot);
+    for (const d of [-0.07, 0.07]) {
+      B.box(all(M.ironDark), p.x + d, p.z + 0.09, 0.02, 0.02, h - 0.1, h + 0.12, 0);
+      B.box(all(M.ironDark), p.x + d, p.z - 0.09, 0.02, 0.02, h - 0.1, h + 0.12, 0);
+    }
+    put(B, M.iron, new THREE.ConeGeometry(0.17, 0.12, 8), [p.x, h + 0.17, p.z]);
+    glow(W, G, '#ff8a2a', 1.1, 0.9, p.x, h, p.z + 0.1);
+    W.addCircle(p.x, p.z, 0.24);
+  },
+};
+
+const iceSheet = {
+  textures: ['sh_mer_blackice'],
+  build(W, p) {
+    const G = W.groupFor(p.on);
+    const set = textureSet('sh_mer_blackice', { repeat: [p.w, p.d], layers: ['map', 'normal'] });
+    const mat = new THREE.MeshStandardMaterial({
+      // a broad sheen, not mirror-sharp: sharp highlights of the point lights bloom into bright squares
+      map: set.map, normalMap: set.normalMap, alphaMap: mask('sheet'), transparent: true, depthWrite: false,
+      roughness: 0.6, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    floorMesh(G, mat, p.x, 0.008, p.z, p.w, p.d, p.rot || 0).receiveShadow = true;
+  },
+};
+
 const ribbons = {
   textures: ['sh_ribbons'],
   build(W, p) {
@@ -526,9 +693,9 @@ const merPod = {
 };
 
 const fissureGlow = {
-  textures: ['sh_abyss'],
+  textures: ['sh_abyss', 'sh_ice_wall_side'],
   build(W, p) {
-    abyss.build(W, { ...p, y: p.y ?? -0.82, k: 1.2 });
+    abyss.build(W, { ...p, rim: p.rim ?? 0.8, deep: p.deep ?? -3.4, k: 1.2, shafts: 1 });
   },
 };
 
@@ -544,7 +711,8 @@ const captainDesk = {
     B.box(all(M.brass), p.x - 0.5, p.z - 0.12, 0.18, 0.03, 0.82, 1.04, 0.2);
     B.box(all(M.linen), p.x - 0.5, p.z - 0.105, 0.13, 0.01, 0.85, 1.01, 0.2);
     put(B, M.paint, new THREE.CylinderGeometry(0.05, 0.045, 0.1, 8), [p.x + 0.52, 0.87, p.z + 0.12]);
-    const holo = glow(W, G, '#7ff4ff', 0.9, 0.9, p.x, 1.05, p.z + 0.1, false);
+    // a small lens glow: a large one blooms over the hologram standing in front of the desk
+    const holo = glow(W, G, '#7ff4ff', 0.45, 0.6, p.x, 1.0, p.z + 0.1, false);
     W.addBox(p.x, p.z, 1.54, 0.74);
     return {
       kind: 'captainDesk',
@@ -587,13 +755,16 @@ const reactor = {
   textures: ['sh_reactor_ice', 'sh_coil', 'sh_ice_cap'],
   build(W, p) {
     const M = mats(W), B = W.batchFor(p.on), G = W.groupFor(p.on);
-    const core = W.mats.tile('sh_reactor_ice', { emissive: 2.8, roughness: 0.25, metalness: 0.2 });
+    const core = W.mats.tile('sh_reactor_ice', { emissive: 3.8, roughness: 0.25, metalness: 0.2 });
     // base ring, the frozen column, the cap and its struts
     put(B, M.iron, new THREE.CylinderGeometry(1.55, 1.7, 0.35, 22), [p.x, 0.175, p.z]);
     B.geometry(core, wrappedCylinder(1.2, 3.0, { arc: 2, texHeight: 2, y0: 0.35 }), _m.makeTranslation(p.x, 0, p.z));
     for (const y of [1.25, 2.35]) put(B, M.iron, new THREE.CylinderGeometry(1.25, 1.25, 0.14, 22, 1, true), [p.x, y, p.z]);
+    // a ring light still burning around the column, and sodium running lights on the lid's edge
+    put(B, M.lantern, new THREE.TorusGeometry(1.24, 0.05, 6, 32), [p.x, 1.8, p.z], [Math.PI / 2, 0, 0]);
     put(B, M.iron, new THREE.CylinderGeometry(1.35, 1.25, 0.4, 22), [p.x, 3.55, p.z]);
-    put(B, M.ironDark, new THREE.CylinderGeometry(0.7, 1.3, 0.3, 22), [p.x, 3.9, p.z]);
+    put(B, M.sodium, new THREE.TorusGeometry(1.36, 0.045, 6, 32), [p.x, 3.72, p.z], [Math.PI / 2, 0, 0]);
+    put(B, M.iron, new THREE.CylinderGeometry(0.7, 1.3, 0.3, 22), [p.x, 3.9, p.z]);
     for (const a of [0.7, 2.44, -0.7, -2.44]) {
       put(B, M.iron, new THREE.BoxGeometry(0.14, 3.2, 0.14), [p.x + Math.sin(a) * 1.3, 1.95, p.z + Math.cos(a) * 1.3]);
     }
@@ -652,8 +823,9 @@ const iceMound = {
     const w = p.w || 8, d = p.d || 3;
     put(B, M.blackIce, jitter(new THREE.SphereGeometry(1, 20, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0.18, 11), [p.x, -0.05, p.z], null, [w / 2, 0.3, d / 2]);
     const r = rnd(p.x + 3);
+    // crystals ring the back and the flanks only: nothing stands between the camera and the sleeper
     for (let k = 0; k < 9; k++) {
-      const a = (k / 9) * Math.PI * 2 + r() * 0.4;
+      const a = Math.PI * 0.85 + (k / 8) * Math.PI * 1.3 + r() * 0.2;
       const x = p.x + Math.cos(a) * w * 0.42, z = p.z + Math.sin(a) * d * 0.4;
       crystalCluster(B, M, x, z, 0.55 + r() * 0.4, 70 + k, { dark: true, n: 3 });
     }
@@ -762,6 +934,12 @@ export default {
   'shoals.hullShard': hullShard,
   'shoals.icicles': icicles,
   'shoals.abyss': abyss,
+  'shoals.bridgeIce': bridgeIce,
+  'shoals.drift': drift,
+  'shoals.pool': pool,
+  'shoals.shaft': shaft,
+  'shoals.lampPost': lampPost,
+  'shoals.iceSheet': iceSheet,
   'shoals.breach': breach,
   'shoals.lockbox': lockbox,
   'shoals.iceChest': iceChest,

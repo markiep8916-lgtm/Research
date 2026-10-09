@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ExploreState } from '../src/world/explore.js';
 import { gameState } from '../src/core/state.js';
+import { REG } from '../src/content/registry.js';
 
 function fieldWithBoss(r = 3) {
   const ex = new ExploreState({ engine: { quality: 'high' }, state: gameState });
@@ -61,4 +62,99 @@ test('a respawn inside the trigger radius does not confront at once', () => {
   ex._arrived({ kind: 'respawn', load: true });
   at(1);
   assert.equal(confronts.length, 1);
+});
+
+// W-1 (G2): encounter distance survives side rooms. A zoneless or puzzle room pauses the zone's
+// walked distance; the same zone continues it; a different zone, a battle or a map change resets it.
+function fieldWithZones() {
+  const ex = new ExploreState({
+    engine: { quality: 'high' }, state: gameState,
+    ui: { hud: { setDanger() {}, setArea() {} }, getSetting: () => null },
+  });
+  const areas = {
+    a: { id: 'a', zone: 'tz_a' }, b: { id: 'b', zone: 'tz_b' },
+    room: { id: 'room' }, puzzle: { id: 'puzzle', zone: 'tz_a', puzzle: true },
+  };
+  ex.world = { map: { id: 'fx', triggers: [] }, areaAt: () => ex.area, test: () => true, exitAt: () => null };
+  ex.mapId = 'fx';
+  ex.player = { x: 0, z: 0 };
+  ex._zoneRate = () => ({ grace: 1e6, sigma: 10 });   // no rolls: only the distance is under test
+  const walk = (area, units) => {
+    ex.area = areas[area];
+    for (let i = 0; i < units * 4; i++) ex._updateEncounters(0.25);
+  };
+  return { ex, walk };
+}
+
+test('zone distance continues after a zoneless room and a puzzle room (W-1)', () => {
+  const { ex, walk } = fieldWithZones();
+  walk('a', 10);
+  assert.equal(ex._walked, 10);
+  walk('room', 5);
+  assert.equal(ex._walked, 10, 'a zoneless room pauses the count');
+  walk('a', 2);
+  assert.equal(ex._walked, 12, 'back in zone A the count continues from 10');
+  walk('puzzle', 3);
+  walk('a', 1);
+  assert.equal(ex._walked, 13, 'a puzzle area pauses it too');
+});
+
+test('zone distance resets in a different zone, after a battle and on a map change (W-1)', () => {
+  const { ex, walk } = fieldWithZones();
+  walk('a', 10);
+  walk('room', 2);
+  walk('b', 3);
+  assert.equal(ex._walked, 3, 'zone B starts from 0');
+  walk('a', 1);
+  assert.equal(ex._walked, 1, 'and zone A starts over after B');
+  walk('a', 4);
+  ex._arrived({ kind: 'exit', load: false });   // every arrival (and a battle's resume) restarts the grace
+  assert.equal(ex._walked, 0);
+  walk('a', 2);
+  assert.equal(ex._walked, 2);
+});
+
+// W-3 (G2): the companion trails right beside the leader and must not steal the Talk prompt.
+test('the companion takes the prompt only when nothing else is in reach (W-3)', () => {
+  const ex = new ExploreState({ engine: { quality: 'high' }, state: gameState });
+  REG.companions.tbuddy = { sprite: 'bolt', name: 'BOLT' };
+  try {
+    const pip = { id: 'pip', kind: 'npc', x: 0, z: 1.1, r: 0, enabled: true };
+    const buddy = { id: 'tbuddy', kind: 'npc', x: 0.35, z: 0.55, r: 0, enabled: true };
+    ex.world = { interactables: [buddy, pip], exitAt: () => null };
+    ex.player = { x: 0, z: 0, dir: { x: 0, z: 1 } };
+    assert.equal(ex._pickTarget().id, 'pip', 'facing Pip with BOLT beside her, the prompt targets Pip');
+    pip.z = 3;   // out of reach
+    assert.equal(ex._pickTarget().id, 'tbuddy');
+  } finally {
+    delete REG.companions.tbuddy;
+  }
+});
+
+// F-2 (G2): a field boss confronted again after a Retry of its fight skips the pre-fight part.
+test('a field boss re-confronted after Retry runs its pre-fight part instantly (F-2)', () => {
+  const game = { retried: null };
+  const cutscenes = { autoSkip: null };
+  const ex = new ExploreState({ engine: { quality: 'high' }, state: gameState, game, cutscenes, audio: { sfx() {} } });
+  const runs = [];
+  ex._run = (script) => { runs.push({ name: typeof script === 'function' ? script.name : script, autoSkip: cutscenes.autoSkip }); return Promise.resolve(); };
+  const actor = { x: 0, z: 0, actor: { flash() {} } };
+  ex.world = {
+    bosses: {
+      maw: { actor, def: { encounter: 'enc_maw', script: 'st.maw' } },
+      drone: { actor, def: { encounter: 'enc_drone', talk: null } },
+    },
+    touch() {}, test: () => true,
+  };
+  ex.player = { face() {} };
+  ex._confront('maw');
+  assert.deepEqual(runs.pop(), { name: 'st.maw', autoSkip: null }, 'a first confrontation plays in full');
+  game.retried = { script: 'st.maw', encounter: 'enc_maw' };
+  ex._confront('maw');
+  assert.deepEqual(runs.pop(), { name: 'st.maw', autoSkip: 'st.maw' });
+  assert.equal(game.retried, null, 'the retry is used up');
+  cutscenes.autoSkip = null;
+  game.retried = { script: 'boss:drone', encounter: 'enc_drone' };
+  ex._confront('drone');
+  assert.deepEqual(runs.pop(), { name: 'boss:drone', autoSkip: 'boss:drone' }, 'a scriptless boss fight is a named script too');
 });

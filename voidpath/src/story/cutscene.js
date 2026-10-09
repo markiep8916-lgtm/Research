@@ -23,6 +23,8 @@
 //   autoSkip                  extra: script id that runs in instant mode up to its first cs.battle (Retry)
 //   skippable(fn, ready)      extra: travel's flight; Confirm switches it to instant once ready()
 //   get instant()             extra: the running script is in instant (player skip) mode
+//   onTrace                   extra (tools): (phase 'start' | 'end', scriptId, depth) for every script run,
+//                             nested ones included (the human-pace tool times scenes with it)
 // }
 // export class AbortError
 //
@@ -141,6 +143,7 @@ export class CutsceneRunner {
     this._skippable = null;
     this._fadeEl = null;
     this._scanEl = null;
+    this.onTrace = null;   // debug: (phase 'start' | 'end', scriptId, depth) for every script, nested ones too
     // script errors surface asynchronously (#vp-fatal) after the cleanup; tests replace this
     this.rethrow = (err) => setTimeout(() => { throw err; });
   }
@@ -256,6 +259,7 @@ export class CutsceneRunner {
   async _exec(s, fn, id, args, named) {
     const map = args.map ?? this._explore()?.mapId;
     s.depth++;
+    this.onTrace?.('start', id, s.depth);
     try {
       const value = await fn(new Cs(this, s, id, args, named), args);
       if (s.aborted) throw new AbortError();
@@ -265,6 +269,7 @@ export class CutsceneRunner {
       if (args.ptalk) s.flags.push(`ptalk:${args.ptalk}`);
       return value;
     } finally {
+      this.onTrace?.('end', id, s.depth);
       s.depth--;
     }
   }

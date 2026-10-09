@@ -1,7 +1,7 @@
 // Shop window: Buy / Sell tabs, credits, owned counts, a quantity stepper for consumables,
 // per-member comparison arrows for gear, and the keeper's portrait and lines in a dialog strip.
 // After buying gear that someone can wear and that beats their current piece, it asks "Equip now?"
-// with that member's portrait (ui.hooks.equipNow, else rules.equip).
+// with that member's portrait (ui.equipBox, shared with the field's chests).
 //
 //   ui.shop.open({ shop /* ShopDef */, stock /* shopStock(): [{ item, price, owned }] */ }) -> Promise
 //     resolves when the shop closes. ShopDef = { name, keeper, portrait, greeting, sellRate }.
@@ -345,25 +345,12 @@ export class Shop {
     if (this.tab === 'buy' && row.info.equip) this._offerEquip(row);
   }
 
-  /** "Equip now?" for the member who gains the most from the new piece (if anyone does). */
+  /** "Equip now?" (ui.equipBox) for the member who gains the most from the new piece, inside the shop window. */
   async _offerEquip(row) {
-    const slot = row.info.equip.slot;
-    const gain = (m) => {
-      const d = this.ui.rules.equipDelta(m, slot, row.id) || {};
-      return (d.atk || 0) + (d.def || 0) + (d.mag || 0) + (d.res || 0) + (d.spd || 0) + (d.maxHp || 0) / 10 + (d.maxEp || 0) / 5;
-    };
-    const best = (this.state.party || []).filter((m) => this.ui.rules.canEquip(m, row.id) && !(m.equip && m.equip[slot] === row.id))
-      .map((m) => ({ m, g: gain(m) })).filter((x) => x.g > 0).sort((a, b) => b.g - a.g)[0];
-    if (!best) return;
-    const m = best.m;
-    const k = await this.popup.open({
-      title: 'Equip now?', text: `${row.info.name} beats what ${m.name} is wearing.`,
-      portrait: m.id, options: [`Equip on ${m.name}`, 'Not now'], cancelIndex: 1,
-    });
-    if (k !== 0) return;
-    const res = this.ui.hooks.equipNow ? this.ui.hook('equipNow', m.id, row.id) : this.ui.rules.equip(m, slot, row.id);
-    this.ui.sfx(res && res.ok === false ? 'error' : 'equip');
-    this._say(res && res.ok === false ? (res.message || 'That didn’t fit.') : `${m.name} suits up. Looks good on you.`, !!(res && res.ok === false));
+    const res = await this.ui.equipBox.offer(row.id, { popup: this.popup });
+    if (!res || !this.isOpen) return;
+    const name = this.ui.memberName(res.member);
+    this._say(res.ok ? `${name} suits up. Looks good on you.` : (res.message || 'That didn’t fit.'), !res.ok);
     this._render();
   }
 }

@@ -66,7 +66,7 @@
   {"until": "S().state === 'explore' && !S().transitioning && !S().cutscene && !S().ui.blocking", "max": 600, "do": [{"wait": 1500}]},
   {"eval": "window.F3 = false, requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { window.F3 = true; })))"},
   {"waitFor": "window.F3", "timeout": 600000},
-  {"eval": "__VP.debug.teleport(47.5, 9.2, 'up')"},
+  {"eval": "__VP.debug.teleport(48.6, 7.8, 'up')"},
   {"waitFor": "S().cutscene === 'shoals.maw' || S().inBattle", "timeout": 900000},
   {"until": "S().map === 'driftmarket' && S().flags['story:nyx_for_real'] && !S().cutscene && !S().transitioning", "max": 1500, "do": [{"if": "S().ui.dialog || S().ui.screen || document.querySelector('.vb-say.is-on.is-done') || (S().battle && S().battle.results)", "then": [{"key": "Enter"}]}, {"wait": 900}]},
   {"waitFor": "S().flags['defeated:shoals_boss_maw'] && S().inventory.lattice_coil", "timeout": 900000},

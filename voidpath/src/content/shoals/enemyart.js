@@ -5,7 +5,9 @@
 // toolkit exported by prologue/enemyart.js. All sprites face RIGHT.
 //
 //   ice_mite    56x40   small scuttler; ice crystals on its back are its shell (packs of 4).
-//   void_eel    108x64  floating serpent of the rings; `special` arcs up and dives (Submerge).
+//   void_eel    120x80  floating serpent of the rings, reared in an S-curve; `special` arcs up and dives
+//                       (Submerge). Value contrast against cyan ice (G2 CA-1): a pale violet belly band,
+//                       a bright cyan lateral line and fin edge, a glowing rim along its back.
 //   rime_golem  96x96   a Meridian cargo loader buried in rime ice; `special` grows Frost Shell.
 //   salvage_bot 80x64   an 80-year-old Meridian salvage bot on treads; `special` welds itself (repair).
 //
@@ -26,6 +28,7 @@ const CHITIN = rp('#070b18', '#0e1630', '#16234a', '#20335f', '#2c4878', '#3f649
 const CHITIN_FAR = rp('#04060e', '#0a1022', '#111a36', '#192749', '#22365e', '#2f4a78');
 const VOID = rp('#06040c', '#0e0a1c', '#17112d', '#211941', '#2d2358', '#3c2f72', '#55448f', '#7d6ab8');
 const BELLY = rp('#1a1528', '#2e2642', '#463b5c', '#655878', '#8a7e9c', '#b3a9c2');
+const BELLY_L = rp('#3a2f58', '#584a80', '#7a6aa6', '#9c8cc6', '#bdb0e0', '#ddd4f4');
 const FIN = rp('#120a24', '#1e1238', '#2b1a4e', '#3a2468', '#4c3084', '#5f3d9c');
 const RUST = rp('#140b08', '#2a140c', '#46200f', '#6a3115', '#8f451c', '#b05e27', '#cf7d3a', '#e8a462');
 const PAINT = rp('#0e1a1b', '#16292a', '#1f3b3a', '#2b524e', '#3b6a64', '#52857c', '#77a69a');
@@ -195,16 +198,18 @@ const ICE_MITE = {
 /** Spine samples tail -> neck: { x, y, r, nx, ny } with (nx, ny) the belly-side normal. */
 function eelSpine(P) {
   const N = 96, out = [];
-  const ph = P.phase || 0, amp = P.amp ?? 6.5, bob = P.bob || 0;
+  const ph = P.phase || 0, amp = P.amp ?? 5.5, bob = P.bob || 0, rise = P.rise ?? 26;
   const [hx, hy] = P.head || [0, 0];
-  const x0 = 13, x1 = 62, base = 30 + bob;
+  // the tail floats low, the body rears in an S-curve and the head rides high above it
+  const x0 = 16, x1 = 70, base = 60 + bob;
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     const w = Math.sin(ph + t * 6.6) * amp * (0.25 + 0.75 * (1 - t)) * (1 - t * t * 0.5);
     const sag = (P.sag || 0) * Math.sin(t * Math.PI * 0.9);
+    const lift = rise * t * t * (3 - 2 * t);
     const x = x0 + (x1 - x0) * t + hx * t * t;
-    const y = base + w + sag + (P.arch || 0) * Math.sin(t * Math.PI) + hy * t * t * t + (P.tailY || 0) * (1 - t) * (1 - t);
-    let rad = 1 + 4.5 * Math.pow(Math.sin(Math.min(1, t / 0.6) * Math.PI / 2), 1.2);
+    const y = base - lift + w + sag + (P.arch || 0) * Math.sin(t * Math.PI) + hy * t * t * t + (P.tailY || 0) * (1 - t) * (1 - t);
+    let rad = 1.2 + 5 * Math.pow(Math.sin(Math.min(1, t / 0.6) * Math.PI / 2), 1.2);
     if (t > 0.84) rad *= 1 - (t - 0.84) * 0.6;
     out.push({ x, y, r: rad, t });
   }
@@ -222,43 +227,45 @@ function eelSpine(P) {
 function drawEel(r, P) {
   const glowK = P.glow ?? 1;
   const gv = glowK > 0.55 ? G_VIOLET : G_VIOLET_DIM;
+  const gc = glowK > 0.55 ? G_ICE : G_ICE_DIM;
   const S = eelSpine(P);
   const neck = S[S.length - 1];
   const finPh = (P.phase || 0) * 2;
+  const FLOOR = 77;
 
-  // dorsal fin membrane (behind the body), rippling with the wave; rays, then the glowing edge
+  // dorsal fin membrane (behind the body), rippling with the wave; rays, then the bright cyan edge
   const top = [], base = [];
   for (let i = 14; i <= 86; i += 3) {
-    const s = S[i], h = (1.6 + 3 * Math.sin(((i - 14) / 72) * Math.PI)) * (1 + 0.28 * Math.sin(finPh + i * 0.3));
+    const s = S[i], h = (1.8 + 3.4 * Math.sin(((i - 14) / 72) * Math.PI)) * (1 + 0.28 * Math.sin(finPh + i * 0.3));
     top.push([s.x - s.nx * (s.r + h) - s.dx * 1.2, s.y - s.ny * (s.r + h) - s.dy * 1.2]);
     base.push([s.x - s.nx * s.r * 0.4, s.y - s.ny * s.r * 0.4]);
   }
   r.begin();
-  r.poly([...top, ...[...base].reverse()], FIN, { n: [0, -0.3, 0.95], max: 4 });
+  r.poly([...top, ...[...base].reverse()], FIN, { n: [0, -0.3, 0.95], max: 5 });
   r.end(0.5);
   for (let k = 1; k < top.length - 1; k += 2) r.line(Math.round(base[k][0]), Math.round(base[k][1]), Math.round(top[k][0]), Math.round(top[k][1]), FIN[5]);
-  for (let k = 0; k < top.length - 1; k++) r.line(Math.round(top[k][0]), Math.round(top[k][1]), Math.round(top[k + 1][0]), Math.round(top[k + 1][1]), gv[2], 0.5 * glowK);
+  for (let k = 0; k < top.length - 1; k++) r.line(Math.round(top[k][0]), Math.round(top[k][1]), Math.round(top[k + 1][0]), Math.round(top[k + 1][1]), gc[3], 0.7 * glowK);
 
   // tail fin: a forked fan with a glowing rim
   const t0 = S[0], t1 = S[8];
-  const back = [t0.x - t0.dx * 6, t0.y - t0.dy * 6];
-  const finUp = [back[0] - t0.nx * 5.5 - 2, back[1] - t0.ny * 5.5 - 1.5], finDn = [back[0] + t0.nx * 4.5 - 2, back[1] + t0.ny * 4.5 + 1];
+  const back = [t0.x - t0.dx * 7, t0.y - t0.dy * 7];
+  const finUp = [back[0] - t0.nx * 6 - 2, back[1] - t0.ny * 6 - 1.5], finDn = [back[0] + t0.nx * 5 - 2, back[1] + t0.ny * 5 + 1];
   const notch = [back[0] + 1.5, back[1]];
   r.begin();
-  r.poly([[t1.x, t1.y - 1], finUp, notch, finDn, [t1.x, t1.y + 1]], FIN, { n: [0, -0.2, 1], max: 4 });
+  r.poly([[t1.x, t1.y - 1], finUp, notch, finDn, [t1.x, t1.y + 1]], FIN, { n: [0, -0.2, 1], max: 5 });
   r.end(0.5);
-  r.line(Math.round(finUp[0]), Math.round(finUp[1]), Math.round(notch[0]), Math.round(notch[1]), gv[2], 0.5 * glowK);
-  r.line(Math.round(notch[0]), Math.round(notch[1]), Math.round(finDn[0]), Math.round(finDn[1]), gv[2], 0.5 * glowK);
+  r.line(Math.round(finUp[0]), Math.round(finUp[1]), Math.round(notch[0]), Math.round(notch[1]), gc[3], 0.7 * glowK);
+  r.line(Math.round(notch[0]), Math.round(notch[1]), Math.round(finDn[0]), Math.round(finDn[1]), gc[3], 0.7 * glowK);
   r.line(Math.round(t1.x), Math.round(t1.y), Math.round(back[0]), Math.round(back[1]), FIN[4]);
 
-  // body: a swept tube shaded from its own normal; pale belly, a glowing lateral line
+  // body: a swept tube shaded from its own normal; a pale violet belly band, a glowing rim on the back
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const s of S) {
     x0 = Math.min(x0, s.x - s.r); x1 = Math.max(x1, s.x + s.r);
     y0 = Math.min(y0, s.y - s.r); y1 = Math.max(y1, s.y + s.r);
   }
-  const skin = { max: 6, spec: VOID[7], specT: 0.955, bounce: 0.3 };
-  const belly = { max: 5, bounce: 0.2 };
+  const skin = { max: 7, spec: VOID[7], specT: 0.95, bounce: 0.3, bias: 0.06 };
+  const belly = { max: 5, bounce: 0.2, bias: 0.08 };
   r.begin();
   r.each(x0 - 1, y0 - 1, x1 + 1, y1 + 1, (mx, my, X, Y) => {
     let best = Infinity, bs = null;
@@ -269,33 +276,34 @@ function drawEel(r, P) {
     if (best > 0) return;
     const sv = clamp(((mx - bs.x) * bs.nx + (my - bs.y) * bs.ny) / bs.r, -1, 1);
     const nz = Math.sqrt(1 - sv * sv) + 0.05;
-    if (sv > 0.42) r.lightPut(X, Y, bs.nx * sv, bs.ny * sv, nz, BELLY, belly);
+    if (sv < -0.8 && bs.t > 0.06) r.put(X, Y, sv < -0.9 ? '#b8a8f0' : '#8a74d0', 0.55 * glowK);
+    else if (sv > 0.3) r.lightPut(X, Y, bs.nx * sv, bs.ny * sv, nz, BELLY_L, belly);
     else r.lightPut(X, Y, bs.nx * sv, bs.ny * sv, nz, VOID, skin);
   });
   r.end(0.6);
   // belly plate seams
   for (let i = 30; i < 90; i += 5) {
     const s = S[i];
-    const a = [s.x + s.nx * s.r * 0.5, s.y + s.ny * s.r * 0.5], b = [s.x + s.nx * s.r * 0.95, s.y + s.ny * s.r * 0.95];
-    r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), BELLY[1]);
+    const a = [s.x + s.nx * s.r * 0.45, s.y + s.ny * s.r * 0.45], b = [s.x + s.nx * s.r * 0.95, s.y + s.ny * s.r * 0.95];
+    r.line(Math.round(a[0]), Math.round(a[1]), Math.round(b[0]), Math.round(b[1]), BELLY_L[1]);
   }
-  // lateral line: a chain of lights pulsing from head to tail
-  for (let i = 10; i <= 90; i += 6) {
+  // lateral line: a chain of cyan lights pulsing from head to tail
+  for (let i = 10; i <= 90; i += 5) {
     const s = S[i], pulse = 0.5 + 0.5 * Math.sin((P.pulse || 0) - s.t * 9);
-    const k = clamp(glowK * (0.35 + pulse * 0.75), 0.15, 1.3);
-    spot(r, s.x + s.nx * s.r * 0.15, s.y + s.ny * s.r * 0.15, s.r > 4.5 && pulse > 0.6 ? 2 : 1, gv, k);
+    const k = clamp(glowK * (0.55 + pulse * 0.7), 0.2, 1.4);
+    spot(r, s.x + s.nx * s.r * 0.1, s.y + s.ny * s.r * 0.1, s.r > 4.5 && pulse > 0.5 ? 2 : 1, gc, k);
   }
 
   // pectoral fin under the neck: a small fan with a glowing rim
   const pf = S[82], pa = P.pec || 0;
   const pRoot = [pf.x + pf.nx * pf.r * 0.5, pf.y + pf.ny * pf.r * 0.5];
-  const pTip = polar(...pRoot, 118 + pa, 7), pBack = polar(...pRoot, 160 + pa * 0.5, 6.5);
+  const pTip = polar(...pRoot, 118 + pa, 8), pBack = polar(...pRoot, 160 + pa * 0.5, 7.5);
   const pMid = along(pTip, pBack, 0.5, -1.6);
   r.begin();
   r.poly([pRoot, pTip, pMid, pBack], FIN, { n: [-0.2, 0.2, 0.95], max: 5 });
   r.end(0.5);
-  r.line(Math.round(pTip[0]), Math.round(pTip[1]), Math.round(pMid[0]), Math.round(pMid[1]), gv[2], 0.55 * glowK);
-  r.line(Math.round(pMid[0]), Math.round(pMid[1]), Math.round(pBack[0]), Math.round(pBack[1]), gv[2], 0.55 * glowK);
+  r.line(Math.round(pTip[0]), Math.round(pTip[1]), Math.round(pMid[0]), Math.round(pMid[1]), gc[3], 0.7 * glowK);
+  r.line(Math.round(pMid[0]), Math.round(pMid[1]), Math.round(pBack[0]), Math.round(pBack[1]), gc[3], 0.7 * glowK);
   r.line(Math.round(pRoot[0]), Math.round(pRoot[1]), Math.round(pMid[0]), Math.round(pMid[1]), FIN[5]);
 
   // head: long skull with a brow ridge, hinged lower jaw, needle teeth, glowing eye, trailing barbels
@@ -304,13 +312,13 @@ function drawEel(r, P) {
   r.save();
   r.rotate(ha, neck.x, neck.y);
   const hx = neck.x, hy = neck.y;
-  r.translate(hx, hy).scale(1.25).translate(-hx, -hy);
+  r.translate(hx, hy).scale(1.3).translate(-hx, -hy);
   if (jaw > 0.25 && glowK > 0.3) r.glow(hx + 13, hy + 2, 5 + jaw * 2, 2 + jaw * 3.4, gv, { k: 0.8 * glowK, bias: 0.3 });
   r.begin();
   r.save();
   r.rotate(jaw * 0.85, hx + 3, hy + 1.5);
-  r.poly([[hx + 1, hy + 0.5], [hx + 12, hy + 1], [hx + 21, hy + 2.6], [hx + 19, hy + 5], [hx + 9, hy + 6], [hx + 2, hy + 5]], VOID, { nf: dome(hx + 10, hy + 2, 12, 5), bevel: 1, max: 5 });
-  r.poly([[hx + 3, hy + 4], [hx + 18, hy + 4], [hx + 9, hy + 6], [hx + 2, hy + 5]], BELLY, { n: [0, 0.6, 0.8], max: 4 });
+  r.poly([[hx + 1, hy + 0.5], [hx + 12, hy + 1], [hx + 21, hy + 2.6], [hx + 19, hy + 5], [hx + 9, hy + 6], [hx + 2, hy + 5]], VOID, { nf: dome(hx + 10, hy + 2, 12, 5), bevel: 1, max: 6 });
+  r.poly([[hx + 3, hy + 4], [hx + 18, hy + 4], [hx + 9, hy + 6], [hx + 2, hy + 5]], BELLY_L, { n: [0, 0.6, 0.8], max: 4 });
   if (jaw > 0.2) for (let k = 0; k < 5; k++) r.dot(hx + 7 + k * 2.6, hy + 0.2 - (k & 1), RIME[6]);
   r.restore();
   r.end(0.55);
@@ -321,35 +329,38 @@ function drawEel(r, P) {
   r.begin();
   r.poly([[hx + 1, hy - 6], [hx + 9, hy - 6.6], [hx + 15, hy - 4.2], [hx + 9, hy - 4.2]], VOID, { n: [-0.2, -0.9, 0.4], bevel: 1, max: 7 });
   r.end(0.45);
+  // the glowing rim runs on over the brow
+  r.line(hx + 1, hy - 6, hx + 9, hy - 6.6, '#b8a8f0', 0.55 * glowK);
+  r.line(hx + 9, hy - 6.6, hx + 15, hy - 4.4, '#8a74d0', 0.5 * glowK);
   if (jaw > 0.2) for (let k = 0; k < 5; k++) r.dot(hx + 9 + k * 2.5, hy + 2 + (k & 1), RIME[5]);
   r.line(hx + 3, hy - 4, hx + 10, hy - 4, VOID[7]);
   const ek = clamp(glowK, 0.2, 1.4);
-  r.glow(hx + 10.5, hy - 2, 2.6, 2, gv, { k: ek, bias: glowK > 1 ? 0.6 : 0.25 });
+  r.glow(hx + 10.5, hy - 2, 2.8, 2.1, gc, { k: ek, bias: glowK > 1 ? 0.6 : 0.3 });
   if (glowK > 0.55) r.dot(hx + 11, hy - 2.5, WHITE, 1);
   for (let k = 0; k < 3; k++) r.line(hx - 1 - k * 2, hy - 2, hx - 2 - k * 2, hy + 2, VOID[1]);
   // barbels trailing from the snout under the jaw, tips glowing
   const bs = P.barbel ?? 0;
-  for (const [x0, y0, len, droop] of [[17, 2.4, 15, 0.9], [13, 3.4, 11, 1.3]]) {
-    let px = hx + x0, py = hy + y0;
+  for (const [bx, by, len, droop] of [[17, 2.4, 15, 0.9], [13, 3.4, 11, 1.3]]) {
+    let px = hx + bx, py = hy + by;
     for (let k = 1; k <= len; k++) {
-      const nx = hx + x0 - k * 1.05, ny = hy + y0 + k * droop * 0.45 + Math.sin(bs + k * 0.45) * k * 0.1;
+      const nx = hx + bx - k * 1.05, ny = hy + by + k * droop * 0.45 + Math.sin(bs + k * 0.45) * k * 0.1;
       const tip = k >= len - 1;
-      r.line(Math.round(px), Math.round(py), Math.round(nx), Math.round(ny), tip ? gv[3] : VOID[k < 4 ? 4 : 6], tip ? 0.8 * glowK : 0);
+      r.line(Math.round(px), Math.round(py), Math.round(nx), Math.round(ny), tip ? gc[3] : VOID[k < 4 ? 4 : 6], tip ? 0.8 * glowK : 0);
       px = nx; py = ny;
     }
   }
   r.restore();
 
   if (P.spit) {
-    const m = [neck.x + Math.cos(ha) * 28, neck.y + Math.sin(ha) * 28 + 2];
+    const m = [neck.x + Math.cos(ha) * 30, neck.y + Math.sin(ha) * 30 + 2];
     r.glow(m[0] + 2, m[1], P.spit, P.spit * 0.7, G_VIOLET, { fx: true, bias: 0.5 });
     for (let k = 0; k < 5; k++) spark(r, Math.round(m[0] + Math.cos(k * 1.3) * (P.spit + 3)), Math.round(m[1] + Math.sin(k * 1.3) * (P.spit + 2)), 1, G_VIOLET);
   }
   if (P.splash) {
     // the dive breaks the floor: a violet ring of light and ice chips under the head
     const fx = neck.x + Math.cos(ha) * 22;
-    r.glow(fx, 61, 11, 2.6, G_VIOLET, { fx: true, bias: 0.3, k: 0.9 });
-    sparks(r, P.splash, fx, 56, 9, 7, G_ICE);
+    r.glow(fx, FLOOR, 12, 2.6, G_VIOLET, { fx: true, bias: 0.3, k: 0.9 });
+    sparks(r, P.splash, fx, FLOOR - 5, 9, 7, G_ICE);
   }
   if (P.motes) for (let k = 0; k < 6; k++) {
     const R = rng(P.motes + k);
@@ -359,35 +370,35 @@ function drawEel(r, P) {
 }
 
 const VOID_EEL = {
-  w: 108, h: 64,   // room on the right for the lunge and the void spit
+  w: 120, h: 80,   // room above for the rearing head, on the right for the lunge and the void spit
   bevel: 3,
   draw: drawEel,
   anims: {
     idle: { fps: 6, loop: true, poses: [
-      { phase: 0, bob: 0, pulse: 0, pec: 0, barbel: 0 },
-      { phase: Math.PI / 2, bob: -1, pulse: 1.5, pec: 8, barbel: 1.5 },
-      { phase: Math.PI, bob: -2, pulse: 3, pec: 14, barbel: 3 },
-      { phase: Math.PI * 1.5, bob: -1, pulse: 4.5, pec: 6, barbel: 4.5 },
+      { phase: 0, bob: 0, rise: 24, pulse: 0, pec: 0, barbel: 0 },
+      { phase: Math.PI / 2, bob: -1, rise: 26, head: [1, -1], pulse: 1.5, pec: 8, barbel: 1.5 },
+      { phase: Math.PI, bob: -2, rise: 28, head: [2, -2], pulse: 3, pec: 14, barbel: 3 },
+      { phase: Math.PI * 1.5, bob: -1, rise: 26, head: [1, -1], pulse: 4.5, pec: 6, barbel: 4.5 },
     ] },
     attack: { fps: 8, loop: false, poses: [
-      { phase: 0.6, amp: 8.5, head: [-9, -5], headTilt: -0.3, jaw: 0.35, glow: 1.3, pulse: 2, barbel: 1 },
-      { phase: 1.6, amp: 4, head: [8, 3], headTilt: 0.1, jaw: 0.95, glow: 1.4, spit: 3.5, pulse: 4, barbel: 3 },
-      { phase: 2.2, amp: 5, head: [4, 1], jaw: 0.4, glow: 1.1, pulse: 5, barbel: 4 },
+      { phase: 0.6, amp: 7.5, rise: 30, head: [-9, -6], headTilt: -0.3, jaw: 0.35, glow: 1.3, pulse: 2, barbel: 1 },
+      { phase: 1.6, amp: 4, rise: 22, head: [10, 4], headTilt: 0.15, jaw: 0.95, glow: 1.4, spit: 3.5, pulse: 4, barbel: 3 },
+      { phase: 2.2, amp: 5, rise: 24, head: [5, 2], jaw: 0.4, glow: 1.1, pulse: 5, barbel: 4 },
     ] },
     hurt: { fps: 6, loop: false, poses: [
-      { phase: 2.6, amp: 9, head: [-8, -7], headTilt: -0.5, jaw: 0.6, glow: 0.45, bob: -2, barbel: 2 },
+      { phase: 2.6, amp: 8, rise: 20, head: [-8, -4], headTilt: -0.5, jaw: 0.6, glow: 0.45, bob: -2, barbel: 2 },
     ] },
     break: { fps: 4, loop: true, poses: [
-      { phase: 0.4, amp: 3, sag: 13, head: [-3, 7], headTilt: 0.32, jaw: 0.5, glow: 0.3, tailY: 6, motes: 3 },
-      { phase: 0.9, amp: 3, sag: 14, head: [-3, 8], headTilt: 0.35, jaw: 0.6, glow: 0.5, tailY: 7, motes: 9, barbel: 1 },
+      { phase: 0.4, amp: 3, rise: 6, sag: 6, head: [-3, 7], headTilt: 0.32, jaw: 0.5, glow: 0.3, tailY: 4, motes: 3 },
+      { phase: 0.9, amp: 3, rise: 6, sag: 7, head: [-3, 8], headTilt: 0.35, jaw: 0.6, glow: 0.5, tailY: 5, motes: 9, barbel: 1 },
     ] },
     special: { fps: 6, loop: false, poses: [
-      { phase: 1.2, amp: 5, arch: -9, head: [-6, -10], headTilt: -0.5, jaw: 0.2, glow: 1.3, pulse: 2, tailY: 6, barbel: 2 },
-      { phase: 2.4, amp: 4, arch: -6, head: [2, 20], headTilt: 1.2, jaw: 0.5, glow: 1.4, pulse: 4, tailY: -6, splash: 5, barbel: 4 },
+      { phase: 1.2, amp: 5, rise: 34, arch: -6, head: [-6, -6], headTilt: -0.5, jaw: 0.2, glow: 1.3, pulse: 2, tailY: 4, barbel: 2 },
+      { phase: 2.4, amp: 4, rise: 18, arch: -6, head: [2, 30], headTilt: 1.2, jaw: 0.5, glow: 1.4, pulse: 4, tailY: -4, splash: 5, barbel: 4 },
     ] },
   },
-  points: { center: [44, 30], muzzle: [88, 33], top: [56, 14] },
-  icon: { x: 79, y: 30, scale: 0.6 },
+  points: { center: [48, 44], muzzle: [100, 36], top: [64, 16] },
+  icon: { x: 86, y: 36, scale: 0.6 },
 };
 
 // ---------------------------------------------------------------- RIME GOLEM (96x96)

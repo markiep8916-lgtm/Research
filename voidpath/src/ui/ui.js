@@ -11,13 +11,14 @@
 //   each frame: input.update(); ui.update(dt); state.update(dt);
 //
 // Components: ui.dialog, ui.hud, ui.menu, ui.title, ui.screens, ui.cards, ui.shop, ui.starchart,
-// ui.saves (see each module's header). Game rules come from core/progression.js and core/shop.js;
+// ui.saves, ui.equipBox (see each module's header); ui.equipPrompt(itemId, members) asks "Equip now?"
+// in the field. Game rules come from core/progression.js and core/shop.js;
 // pass `rules` to override them (previews, tests).
 //
 // Hooks (TECH_PLAN 8.1; S2a wires them in main.js). Every hook is optional:
 //   setLeader(id), moveMember(id, toIndex)   Party tab formation (default: edit ui.state in place)
 //   optimize(memberId)                       Equip tab "Optimize" (default: rules.optimize + rules.equip)
-//   equipNow(memberId, itemId)               shop "Equip now?" (default: rules.equip)
+//   equipNow(memberId, itemId)               "Equip now?" in the shop and the field (default: rules.equip)
 //   journal() -> story.journal() shape       Journal tab
 //   mapData() -> MapData (see ui/map.js)     Map tab
 //   settings(patch)                          a game setting changed: { difficulty, encounters, battleSpeed,
@@ -39,6 +40,7 @@ import { Cards } from './cards.js';
 import { Shop } from './shop.js';
 import { Starchart } from './starchart.js';
 import { Saves } from './saves.js';
+import { EquipPrompt } from './equipPrompt.js';
 
 const QUALITIES = ['low', 'medium', 'high'];
 /** Settings the game applies (difficulty, encounter rate, battle speed, ...); the rest are UI / audio. */
@@ -89,6 +91,7 @@ export class UI {
     this.cards = new Cards(this);
     this.screens = new Screens(this);
     this.saves = new Saves(this);
+    this.equipBox = new EquipPrompt(this);
   }
 
   // ------------------------------------------------------------------ frame
@@ -105,12 +108,13 @@ export class UI {
     const top = this.saves.isOpen ? this.saves
       : this.cards.isBlocking ? this.cards
         : this.screens.isOpen ? this.screens
-          : this.shop.isOpen ? this.shop
-            : this.starchart.isOpen ? this.starchart
-              : this.dialog._active ? this.dialog
-                : this.menu.isOpen ? this.menu
-                  : this.title.isOpen ? this.title : null;
-    for (const c of [this.dialog, this.menu, this.title, this.screens, this.cards, this.shop, this.starchart, this.saves]) c.update(dt, top === c);
+          : this.equipBox.isOpen ? this.equipBox
+            : this.shop.isOpen ? this.shop
+              : this.starchart.isOpen ? this.starchart
+                : this.dialog._active ? this.dialog
+                  : this.menu.isOpen ? this.menu
+                    : this.title.isOpen ? this.title : null;
+    for (const c of [this.dialog, this.menu, this.title, this.screens, this.cards, this.shop, this.starchart, this.saves, this.equipBox]) c.update(dt, top === c);
     // never during a transition: a menu opened in the encounter shatter would stay over the battle
     const transitioning = !!(this.engine && this.engine.transitioning);
     if (!top && this.autoMenu && this.menuEnabled && !transitioning && inp.context === 'explore' && inp.pressed('menu')) {
@@ -123,7 +127,15 @@ export class UI {
   /** Field movement and interaction must pause while this is true. */
   isBlocking() {
     return this.dialog.isOpen || this.menu.isOpen || this.screens.isOpen || this.title.isOpen || this.cards.isBlocking
-      || this.shop.isOpen || this.starchart.isOpen || this.saves.isOpen;
+      || this.shop.isOpen || this.starchart.isOpen || this.saves.isOpen || this.equipBox.isOpen;
+  }
+
+  /**
+   * "Equip now?" outside the shop (a chest's gear): offers `itemId` to the member of `members`
+   * (default the party) who gains the most. Resolves { member, ok, message } or null (see equipPrompt.js).
+   */
+  equipPrompt(itemId, members) {
+    return this.equipBox.offer(itemId, { members });
   }
 
   // ------------------------------------------------------------------ hooks and speakers

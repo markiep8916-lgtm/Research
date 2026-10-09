@@ -428,6 +428,27 @@ test('a defeat without allowDefeat is a game over; Retry replays the trigger wit
   assert.equal(gameState.flags['seen:st_room:boss'], true);
 });
 
+test('Retry keeps Party Talks played since the checkpoint and rolls back the rest (G2 F-1)', async (t) => {
+  const ctx = fresh();
+  t.mock.method(console, 'error', () => {});
+  scripts['st.talk'] = async (cs) => { await cs.say('KADE', 'A talk.'); };
+  scripts['st.boss'] = async (cs) => { await cs.battle('drone_single'); };
+  ctx.game.setCheckpoint({ map: 'st_room', x: 1.5, z: 1.5, facing: 'down' });
+  await run(ctx, 'st.talk', { ptalk: 'st.kade_sera' });
+  assert.equal(gameState.flags['ptalk:st.kade_sera'], true);
+  gameState.flags['st:after_checkpoint'] = true;
+  const lost = run(ctx, 'st.boss');
+  while (!ctx.game.states.battle.params) await tick();
+  ctx.game.states.battle.params.onEnd('defeat');
+  await tick();
+  const over = ctx.log.find((l) => Array.isArray(l) && l[0] === 'gameOver');
+  await over[1].onRetry();
+  await lost;
+  assert.equal(gameState.flags['ptalk:st.kade_sera'], true, 'the Med-Station no longer offers the talk');
+  assert.equal(gameState.flags['st:after_checkpoint'], undefined, 'other progress since the checkpoint rolls back');
+  assert.deepEqual(ctx.game.retried, { script: 'st.boss', encounter: 'drone_single' });
+});
+
 test('allowDefeat resolves "defeat" with the fallen at 1 HP', async () => {
   const ctx = fresh();
   scripts['st.lose'] = async (cs) => cs.battle('drone_single', { allowDefeat: true });

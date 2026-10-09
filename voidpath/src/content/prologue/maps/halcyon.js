@@ -9,7 +9,8 @@
 // name it with `on`.
 //
 // Binding for other owners: spawns start, cryo, medbay, corridor, engineering, engineering_reactor,
-// antechamber, berth, bridge, bridge_starchart; anchors hub_stall (the berth, beside the Moth),
+// antechamber, berth, bridge, bridge_starchart (bulkhead, corridor_east, gallery, gallery_w stage the
+// prologue's scenes for the contact sheet); anchors hub_stall (the berth, beside the Moth),
 // hub_planters (Spine Corridor), hub_voss_post (antechamber), hub_halcyon (HALCYON's projector on
 // the bridge, NPC `halcyon`), memorial (Cryo Deck, south-west); interactables `starchart` (bridge),
 // `berth_chart` (berth), `fabricator` (antechamber shop), Med-Stations `med_cryo`, `med_bay`,
@@ -34,8 +35,8 @@ const MOOD = {
     key: 0.5, keyColor: '#ffb98a', fill: 0.34, exposure: 1.05, bloom: 1.0, saturation: 1.12,
   },
   gallery: {
-    fog: '#0c0a10', density: 0.03, sky: '#5a4868', ground: '#0d0a0f', hemi: 0.5,
-    key: 0.55, keyColor: '#ff9a6a', fill: 0.38, exposure: 1.1, bloom: 1.0, saturation: 1.1,
+    fog: '#0c0a10', density: 0.03, sky: '#5a4868', ground: '#0d0a0f', hemi: 0.64,
+    key: 0.6, keyColor: '#ff9a6a', fill: 0.48, exposure: 1.12, bloom: 1.0, saturation: 1.1,
   },
   control: {
     fog: '#100a14', density: 0.032, sky: '#5a4078', ground: '#0a070d', hemi: 0.4,
@@ -46,8 +47,8 @@ const MOOD = {
     key: 1.0, fill: 0.42, exposure: 1.04, bloom: 0.9, saturation: 1.08,
   },
   berth: {
-    fog: '#0b0a0c', density: 0.03, sky: '#6a5a48', ground: '#0a0807', hemi: 0.48,
-    key: 0.6, keyColor: '#ffd2a0', fill: 0.36, exposure: 1.05, bloom: 0.98, saturation: 1.08,
+    fog: '#0b0a0c', density: 0.03, sky: '#6a5a48', ground: '#0a0807', hemi: 0.62,
+    key: 0.7, keyColor: '#ffd2a0', fill: 0.46, exposure: 1.1, bloom: 0.98, saturation: 1.08,
   },
   bridge: {
     fog: '#05081a', density: 0.026, sky: '#3a5590', ground: '#07080f', hemi: 0.5,
@@ -71,10 +72,35 @@ const pods = PODS.map((x) => (x === 4.5
   ? { t: 'pro.openPod', x, z: 18.36, id: 'pod_07' }
   : { t: 'pod', x, z: 18.36, ...(x === 2.5 || x === 10.5 ? { status: 'story:revival_authorized', delay: x / 20 } : {}) }));
 const beds = [21.6, 25.6].flatMap((z) => [2.0, 3.25, 4.5, 9.5, 10.75, 12.0].map((x) => ({ t: 'bed', x, z })));
-const benches = [9, 18, 27].map((x) => ({ t: 'bench', x, z: 13.15, w: 1.9 }));
+const benches = [9, 18, 27].map((x) => ({ t: 'pro.bench', x, z: 13.15, w: 1.9 }));
 const corridorLamps = [4.5, 13.5, 22.5, 31.5].map((x) => ({ t: 'lamp', x, y: 2.5, z: 12.02 }));
 
+// Screens WARDEN takes over (cs.screens, the WARDEN speaker mood): one `screen` prop per monitor,
+// grouped per room (eng, bridge, cryo, corridor). A standing monitor is a pedestal plus its screen.
+const monitor = (group, x, z, on) => [
+  { t: 'pro.monitor', x, z, on },
+  { t: 'screen', group, x, z: z + 0.03, y: 1.0, w: 1.0, h: 0.6, on },
+];
+const wallScreen = (group, x, y, z, on) => ({ t: 'screen', group, x, y, z, w: 0.86, h: 0.5, on });
+const screens = [
+  // Engineering: two monitors flanking the reactor (the coil install's frame) and one by the door
+  ...monitor('eng', 22.3, 23.1),
+  ...monitor('eng', 28.7, 23.1),
+  wallScreen('eng', 23.5, 1.35, 18.03, 'south'),
+  // the bridge: over the helm and captain's consoles, on the window's screen panels
+  wallScreen('bridge', 35.5, 1.25, 2.03),
+  wallScreen('bridge', 46.5, 1.25, 2.03),
+  // the Cryo Deck: the stasis monitor by the Med-Station, and over the terminal
+  ...monitor('cryo', 12.7, 21.4),
+  wallScreen('cryo', 9.5, 2.3, 18.03, 'south'),
+  // the Spine Corridor: under the lamps between the windows
+  wallScreen('corridor', 13.5, 1.45, 12.03),
+  wallScreen('corridor', 22.5, 1.45, 12.03),
+];
+
 const props = [
+  ...screens,
+
   // ---- Cryo Deck
   ...pods,
   ...beds,
@@ -189,6 +215,11 @@ const props = [
   { t: 'decal', name: 'decal_grime', x: 31.0, z: 33.6, rot: 3 },
   { t: 'decal', name: 'decal_arrow', x: 30.9, z: 32.8, rot: 2 },
   { t: 'guide', x0: 16, x1: 33, z: 34.2, step: 1, color: '#ff9a4a' },
+  // the south rim below the tanks: amber floor-edge lamps, lit pipes in the foreground, and past the
+  // cutaway wall the machinery deck below
+  { t: 'guide', x0: 15.5, x1: 33.5, z: 37.8, step: 1, color: '#ffb04a' },
+  { t: 'pro.pipeRun', x0: 15, x1: 34, z: 38.55, y: 0.5, lamp: '#7fe3ff' },
+  { t: 'pro.underdeck', x0: 14, x1: 35, z: 39 },
 
   // ---- Bridge antechamber
   { t: 'lamp', x: 39.4, y: 2.5, z: 12.02, on: 'bridge' },
@@ -199,20 +230,24 @@ const props = [
   { t: 'decal', name: 'decal_arrow', x: 41.0, z: 14.2, rot: 0 },
   { t: 'guide', x0: 37.5, x1: 45.5, z: 15.9, step: 1, color: '#ffb54a' },
 
-  // ---- Moth Berth: Nyx's skiff in its docking cradle
-  { t: 'pro.moth', x: 43.4, z: 21.6, id: 'moth' },
+  // ---- Moth Berth: Nyx's skiff on its pad, a wing torn off until BOLT tapes her up after the SENTINEL
+  { t: 'pro.moth', x: 43.4, z: 21.6, pad: true, winged: true, when: '!story:prologue_done' },
+  { t: 'pro.moth', x: 43.4, z: 21.6, pad: true, when: 'story:prologue_done' },
   { t: 'lamp', x: 39.5, y: 2.5, z: 18.02, on: 'berth' },
   { t: 'lamp', x: 45.0, y: 2.5, z: 18.02, on: 'berth' },
   { t: 'crate', x: 36.7, z: 18.9, s: 0.85 },
   { t: 'crate', x: 37.6, z: 18.8, s: 0.7, rot: 0.3 },
   { t: 'crate', x: 36.8, z: 25.3, s: 0.9, rot: -0.1 },
+  // the south rim: amber floor-edge lamps; past the cutaway wall, the machinery deck below
+  { t: 'guide', x0: 37.5, x1: 46.5, z: 25.8, step: 1, color: '#ffb04a' },
+  { t: 'pro.underdeck', x0: 35, x1: 47, z: 27 },
   { t: 'decal', name: 'decal_scorch', x: 44.6, z: 24.2, rot: 2 },
   { t: 'decal', name: 'decal_oil', x: 40.6, z: 24.6, rot: 0 },
 
   // ---- Observation Bridge
   { t: 'chair', x: 41.6, z: 5.3 },
   { t: 'console', x: 37.15, z: 9.0 },
-  { t: 'bench', x: 36.6, z: 10.15, w: 2 },
+  { t: 'pro.bench', x: 36.6, z: 10.15, w: 2 },
   { t: 'decal', name: 'decal_grime', x: 38.6, z: 7.9, rot: 1 },
   { t: 'decal', name: 'decal_grime', x: 36.4, z: 9.6, rot: 2 },
   { t: 'decal', name: 'decal_scorch', x: 38.9, z: 5.6, rot: 1, when: 'story:prologue_done' },
@@ -359,17 +394,21 @@ export default {
     { id: 'medbay', name: 'Cryo Medical Bay', subtitle: 'Deck 2 · Stasis Medical', rect: [1, 29.4, 14, 36], cam: [32.4, 33.2], zone: null, mood: MOOD.medbay },
     { id: 'control', name: 'Reactor Control', subtitle: 'Deck 2 · Engineering', rect: [15, 29.4, 27, 33.6], cam: [31.6, 31.8], zone: null, mood: MOOD.control },
     {
-      id: 'gallery', name: 'Coolant Gallery', subtitle: 'Deck 2 · Engineering', rect: [15, 29.4, 34, 38], cam: [32.2, 35.4], mood: MOOD.gallery,
+      id: 'gallery', name: 'Coolant Gallery', subtitle: 'Deck 2 · Engineering', rect: [15, 29.4, 34, 38], cam: [32.2, 34.4], mood: MOOD.gallery,
       zone: [{ when: 'story:warden_speaks', zone: 'pro_late' }, { when: 'story:orion_joined', zone: 'pro_engineering' }],
     },
-    { id: 'berth', name: 'Moth Berth', subtitle: 'Deck 1 · Airlock 3', rect: [35.5, 17.4, 47, 26], cam: [20.6, 22.6], zone: null, mood: MOOD.berth },
+    { id: 'berth', name: 'Moth Berth', subtitle: 'Deck 1 · Airlock 3', rect: [35.5, 17.4, 47, 26], cam: [20.6, 22.2], zone: null, mood: MOOD.berth },
   ],
   spawns: {
     start: { x: 6.55, z: 20.3, facing: 'down' },
     cryo: { x: 6.6, z: 22.6, facing: 'down' },
     medbay: { x: 7.0, z: 31.2, facing: 'down' },
     corridor: { x: 17.0, z: 14.6, facing: 'right' },
+    bulkhead: { x: 9.0, z: 14.6, facing: 'right' },
+    corridor_east: { x: 34.0, z: 14.6, facing: 'right' },
     engineering: { x: 20.95, z: 19.6, facing: 'down' },
+    gallery: { x: 24.0, z: 35.6, facing: 'left' },
+    gallery_w: { x: 19.2, z: 36.2, facing: 'left' },
     engineering_reactor: { x: 25.5, z: 26.4, facing: 'up' },
     antechamber: { x: 41.0, z: 14.4, facing: 'up' },
     berth: { x: 40.1, z: 23.8, facing: 'up' },
@@ -433,6 +472,8 @@ export default {
     { x: 29.5, y: 2.3, z: 37.5, color: '#ffb04a', intensity: 10, distance: 4.5 },
     { x: 17.5, y: 2.3, z: 37.5, color: '#ffb04a', intensity: 10, distance: 4.5 },
     { x: 30.5, y: 0.45, z: 31.5, color: '#ff8a3a', intensity: 6, distance: 3.5, mode: 'pulse', amount: 0.35, speed: 1.6 },
+    { x: 20.5, y: 0.6, z: 37.7, color: '#ffa040', intensity: 9, distance: 5.5 },
+    { x: 26.5, y: 0.6, z: 37.7, color: '#45d4ff', intensity: 9, distance: 5.5, mode: 'pulse', amount: 0.2, speed: 1.1 },
     // antechamber (the door lamp turns from red to green once the bridge is unlocked)
     { x: 39.4, y: 2.15, z: 12.8, color: '#ffa64a', intensity: 15, distance: 7, on: 'bridge' },
     { x: 42.6, y: 2.15, z: 12.8, color: '#ffa64a', intensity: 15, distance: 7, on: 'bridge' },
@@ -446,11 +487,13 @@ export default {
     { x: 41.2, y: 1.2, z: 22.9, color: '#3fd6d2', intensity: 7, distance: 4.5 },
     { x: 43.4, y: 3.4, z: 22.4, color: '#ffe2b8', intensity: 14, distance: 7, on: 'berth' },
     { x: 45.8, y: 1.2, z: 22.9, color: '#ff5a5a', intensity: 7, distance: 4.5, mode: 'strobe', amount: 0.7, speed: 1.6, when: '!story:prologue_done' },
+    { x: 41.5, y: 2.4, z: 24.8, color: '#ffc27a', intensity: 12, distance: 8.5 },
     { x: 38.4, y: 1.4, z: 23.4, color: '#45d4ff', intensity: 9, distance: 5, mode: 'pulse', amount: 0.2, speed: 1.6 },
     // bridge
     { x: 43.8, y: 1.9, z: 7.4, color: '#45d4ff', intensity: 15, distance: 7, mode: 'pulse', amount: 0.18, speed: 1.6 },
     { x: 45.2, y: 0.8, z: 9.5, color: '#6fe9ff', intensity: 6, distance: 4 },
-    { x: 39.7, y: 1.3, z: 7.2, color: '#ff3b4e', intensity: 9, distance: 5.5, mode: 'pulse', amount: 0.4, speed: 1.3, tag: 'sentinel' },
+    { x: 39.7, y: 1.3, z: 7.2, color: '#ff3b4e', intensity: 9, distance: 5.5, mode: 'pulse', amount: 0.4, speed: 1.3, tag: 'sentinel', when: '!story:prologue_done' },
+    { x: 39.3, y: 1.0, z: 6.2, color: '#ff3b4e', intensity: 4, distance: 4, mode: 'pulse', amount: 0.5, speed: 0.6, when: 'story:prologue_done' },
     { x: 41.0, y: 2.6, z: 3.0, color: '#8fb8ff', intensity: 10, distance: 9 },
     { x: 35.6, y: 1.3, z: 3.0, color: '#45d4ff', intensity: 4, distance: 3.2, decorative: true },
     { x: 36.6, y: 1.3, z: 9.7, color: '#45d4ff', intensity: 5, distance: 3.5, decorative: true },
@@ -509,9 +552,13 @@ export default {
   triggers: [
     { id: 'tutorial', on: 'enter', rect: [4.6, 17.6, 9.4, 19.9], when: 'story:kade_awake & !story:sera_joined', once: true, script: 'prologue.tutorial' },
     { id: 'sera_wakes', on: 'enter', area: 'medbay', when: 'story:kade_awake & !story:sera_joined', once: true, script: 'prologue.sera_wakes' },
+    // Kade and Sera's first fight together: drones drop from the vent over the Spine's bulkhead (G2 C1-1)
+    { id: 'spine_drones', on: 'enter', rect: [9.6, 12, 12.4, 17], when: 'story:sera_joined & !story:orion_joined', once: true, script: 'prologue.spine_drones' },
     { id: 'hammering', on: 'enter', area: 'engineering', when: 'story:sera_joined & !story:orion_joined', once: true, script: 'prologue.hammering' },
     { id: 'orion_rescue', on: 'enter', rect: [15, 33.9, 27.4, 38], when: 'story:sera_joined & !story:orion_joined', once: true, script: 'prologue.orion_rescue' },
     { id: 'equip_tip', on: 'flag', when: 'story:orion_joined & item:eq_x_stim_chip & !tut:equip', once: true, script: 'prologue.equip_tip' },
+    // Orion's first fight: an ambush between the shutters and Brandt's crate (G2 C1-1)
+    { id: 'gallery_ambush', on: 'enter', rect: [15, 34.2, 18.4, 38], when: 'story:orion_joined & !item:keycard', once: true, script: 'prologue.gallery_ambush' },
     { id: 'nyx_door', on: 'enter', area: 'antechamber', when: 'story:orion_joined & !story:nyx_joined', once: true, script: 'prologue.nyx_door' },
     { id: 'bridge_open', on: 'flag', when: 'story:bridge_unlocked & !defeated:pro_boss_sentinel', once: true, script: 'prologue.bridge_open' },
   ],
@@ -535,7 +582,7 @@ export default {
     antechamber: { x: 41.0, z: 14.4, facing: 'up' },
     bridge: { x: 41.6, z: 8.9, facing: 'up' },
     medbay: { x: 7.0, z: 32.4, facing: 'down' },
-    gallery: { x: 24.0, z: 35.6, facing: 'left' },
+    gallery: { x: 26.5, z: 35.0, facing: 'left' },
     control: { x: 20.9, z: 31.4, facing: 'down' },
     berth: { x: 40.1, z: 23.8, facing: 'up' },
   },

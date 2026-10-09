@@ -1,0 +1,6 @@
+{
+  "note": "TECH_PLAN 10.2 92-human-pace: a wrapper around tools/human-pace.mjs (G2 T-1), which plays the route segments of tests/routes/*.mjs at human pace from New Journey on. Runs only when named (node tools/scenarios.mjs 92); add --start <jump> to args for one chapter.",
+  "tool": "tools/human-pace.mjs",
+  "args": ["--start", "title"],
+  "manual": true
+}

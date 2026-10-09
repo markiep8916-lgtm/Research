@@ -12,15 +12,18 @@
 // Spawns (binding): from_driftmarket, from_meridian. Every room is separated from the next by at
 // least three void rows, so no full-height wall ever stands between the camera and the leader.
 
+// Cold and bright where the ice glows (G2 C3-7): hemisphere fill about 0.9 with a cyan bounce off the
+// ice, a blue haze in place of black, cyan pools under every crystal and ice light, warm lantern pools
+// along the Ringborn route, and Tethys over the ring beyond the ice (the map's sky vista).
 const mood = (fog, sky, extra = {}) => ({
-  fog, density: 0.036, sky, ground: '#050a12', hemi: 0.62, key: 0.55, keyColor: '#bfe8ff', fill: 0.36,
-  exposure: 1.06, bloom: 1.0, saturation: 1.08, ...extra,
+  fog, density: 0.034, sky, ground: '#1a3450', hemi: 0.9, key: 0.6, keyColor: '#bfe8ff', fill: 0.42,
+  exposure: 1.14, bloom: 1.0, saturation: 1.08, ...extra,
 });
 const MOOD = {
-  mouth: mood('#081a2b', '#5f9fd0', { hemi: 0.72, key: 1.4, keyColor: '#ffe2b8', density: 0.03 }),
-  tunnels: mood('#061527', '#3f86c8', { density: 0.042 }),
-  deep: mood('#04101f', '#3f7fc8', { density: 0.036, hemi: 0.7, bloom: 1.05 }),
-  lair: mood('#06142a', '#5a8ee0', { density: 0.044, saturation: 1.0 }),
+  mouth: mood('#12304a', '#6fb0e0', { key: 1.4, keyColor: '#ffe2b8', density: 0.028 }),
+  tunnels: mood('#0f2a46', '#5aa0dc', { density: 0.036 }),
+  deep: mood('#0d2544', '#5596da', { bloom: 1.05 }),
+  lair: mood('#0f2546', '#6a9ee8', { density: 0.038, saturation: 1.0 }),
 };
 
 // ---------------------------------------------------------------- props
@@ -31,7 +34,20 @@ const crystal = (x, z, s = 1, extra = {}) => ({ t: 'shoals.crystal', x, z, s, ..
 const cargo = (x, z, extra = {}) => ({ t: 'shoals.frozenCargo', x, z, ...extra });
 const hull = (x, z, extra = {}) => ({ t: 'shoals.hullShard', x, z, ...extra });
 const icicles = (x0, x1, z, extra = {}) => ({ t: 'shoals.icicles', x0, x1, z, ...extra });
-const abyss = (x, z, w, d) => ({ t: 'shoals.abyss', x, z, w, d });
+const abyss = (x, z, w, d, extra = {}) => ({ t: 'shoals.abyss', x, z, w, d, ...extra });
+const bridgeIce = (x0, x1, z) => ({ t: 'shoals.bridgeIce', x0, x1, z });
+// snow drifts as world-space decals with their own turn and size (so no floor cell stamps a motif)
+const drift = ([x, z, s, rot]) => ({ t: 'shoals.drift', x, z, s, rot });
+const pool = (x, z, r, color, k) => ({ t: 'shoals.pool', x, z, r, color, k });
+const DRIFTS = [
+  [2.6, 3.0, 2.4, 0.3], [6.5, 1.8, 2.0, 1.1], [12.0, 2.2, 2.6, 2.0], [17.2, 3.0, 1.8, 0.6], [4.2, 8.0, 2.2, 2.6],
+  [11.6, 7.2, 1.6, 1.9], [15.0, 8.4, 2.4, 0.4], [24.8, 1.6, 1.8, 0.2], [30.0, 2.6, 2.2, 1.4], [22.0, 7.6, 2.0, 2.2],
+  [34.0, 5.0, 1.6, 0.9], [38.4, 7.4, 2.0, 1.6], [37.2, 10.8, 2.2, 0.5], [43.5, 12.2, 2.6, 2.4], [40.0, 14.2, 1.8, 1.0],
+  [5.0, 16.8, 2.4, 0.7], [11.4, 17.2, 2.0, 2.1], [18.0, 17.0, 2.6, 1.2], [26.0, 17.0, 2.2, 0.3], [33.4, 18.6, 2.0, 2.7],
+  [3.6, 19.6, 1.8, 1.5], [10.4, 23.0, 2.2, 0.8], [12.0, 27.0, 1.8, 2.2], [7.6, 31.0, 2.6, 0.4], [14.4, 36.0, 2.2, 1.8],
+  [9.0, 40.0, 2.0, 2.6], [31.4, 31.4, 2.4, 1.1], [33.0, 40.6, 2.0, 0.2], [47.0, 38.4, 2.6, 2.0], [52.0, 31.2, 2.2, 0.7],
+  [57.6, 36.6, 2.0, 1.4], [48.0, 42.6, 1.8, 2.9], [49.6, 24.2, 2.2, 0.8], [55.0, 27.4, 2.0, 2.3],
+];
 
 const props = [
   // ---- Shoals Mouth
@@ -60,8 +76,10 @@ const props = [
   icicles(2, 9, 14),
   crystal(9.8, 26.0, 0.8), pillar(13.4, 23.0, 0.7), marker(11.4, 28.4),
 
-  // ---- The Deep Ice: two crevasses over the abyss, frozen hull plates, the breach east
-  abyss(23.5, 37.0, 6, 14), abyss(39.5, 37.0, 6, 14),
+  // ---- The Deep Ice: two crevasses falling away into the abyss (their far ends start under the wall
+  // row), crossed by slab bridges with icicles; frozen hull plates, the breach east
+  abyss(24.0, 37.0, 6, 14, { farTop: 0 }), abyss(40.0, 37.0, 6, 14, { farTop: 0, shafts: 3 }),
+  bridgeIce(21, 27, 41), bridgeIce(37, 43, 34),
   pillar(8.0, 31.2, 1.2), pillar(16.6, 42.6, 1.0), pillar(30.4, 30.8, 1.3), pillar(35.0, 42.6, 0.9),
   pillar(47.4, 31.2, 1.1), pillar(58.8, 42.6, 1.2), pillar(54.6, 30.6, 0.9),
   crystal(19.4, 31.0, 1.2), crystal(28.0, 42.6, 1.1), crystal(44.8, 42.4, 1.4), crystal(56.2, 38.6, 0.9),
@@ -78,8 +96,16 @@ const props = [
 
 // ---------------------------------------------------------------- lights (virtual)
 
-const ice = (x, z, intensity = 12, color = '#4fc8ff', extra = {}) => ({ x, y: 1.3, z, color, intensity, distance: 7, ...extra });
-const lantern = (x, z) => ({ x, y: 1.6, z, color: '#ffae4a', intensity: 9, distance: 5, mode: 'flicker', amount: 0.25, speed: 5 });
+// every ice light and lantern also lays a pool on the floor (readable on every quality tier)
+const pools = [];
+const ice = (x, z, intensity = 12, color = '#4fc8ff', extra = {}) => {
+  if ((extra.y ?? 1.3) > 0) pools.push(pool(x, z + 0.4, 1.4 + intensity * 0.08, color, 0.3));
+  return { x, y: 1.3, z, color, intensity, distance: 7, ...extra };
+};
+const lantern = (x, z) => {
+  pools.push(pool(x, z + 0.3, 1.9, '#ffae4a', 0.3));
+  return { x, y: 1.6, z, color: '#ffae4a', intensity: 9, distance: 5, mode: 'flicker', amount: 0.25, speed: 5 };
+};
 
 const lights = [
   // Mouth: Tethys light through the arches, lantern glow, a crystal
@@ -88,6 +114,8 @@ const lights = [
   lantern(3.2, 3.6), lantern(8.8, 8.0), lantern(14.2, 3.4), lantern(18.6, 6.9),
   ice(10.4, 8.4, 9, '#5fe0ff'),
   { x: 1.2, y: 1.8, z: 5.5, color: '#ffb35a', intensity: 10, distance: 5 },
+  // the eels' hole in the throat: violet light welling up until they are beaten
+  { x: 19.4, y: 0.5, z: 5.2, color: '#8a5cff', intensity: 9, distance: 4.5, mode: 'pulse', amount: 0.35, speed: 1.3, when: '!shoals:eels' },
   // tunnels
   ice(28.6, 2.0, 11, '#4fe3ff', { distance: 8, mode: 'pulse', amount: 0.25, speed: 1.2 }),
   ice(25.0, 7.2, 10, '#3fb8ff'), ice(30.6, 7.0, 8, '#8fe8ff'),
@@ -100,16 +128,18 @@ const lights = [
   ice(7.6, 15.0, 12, '#5fe0ff'), ice(3.4, 19.0, 6, '#9a7aff'),
   ice(9.8, 25.8, 9), lantern(11.4, 28.6),
   // Deep Ice: the abyss glows from below, crystals, hull plates catching amber
-  { x: 23.5, y: -1.5, z: 36.0, color: '#2f7fff', intensity: 26, distance: 11, mode: 'pulse', amount: 0.3, speed: 0.8 },
-  { x: 39.5, y: -1.5, z: 37.0, color: '#2f7fff', intensity: 26, distance: 11, mode: 'pulse', amount: 0.3, speed: 0.7 },
+  { x: 24.0, y: -2.2, z: 36.0, color: '#2f7fff', intensity: 26, distance: 11, mode: 'pulse', amount: 0.3, speed: 0.8 },
+  { x: 40.0, y: -2.2, z: 37.0, color: '#2f7fff', intensity: 26, distance: 11, mode: 'pulse', amount: 0.3, speed: 0.7 },
   ice(19.4, 31.4, 14, '#4fe3ff'), ice(28.0, 42.2, 12, '#5fe8ff'), ice(44.8, 42.0, 16, '#4fe3ff'), ice(56.2, 38.6, 10, '#7fd8ff'),
   ice(8.6, 36.0, 8, '#3fa0e8'), ice(14.0, 41.0, 7, '#a07aff'),
   lantern(19.6, 40.8), lantern(28.6, 39.4), lantern(35.6, 32.6), lantern(44.6, 32.6), lantern(59.6, 33.8),
   { x: 62.4, y: 1.4, z: 35.8, color: '#ff8a2a', intensity: 18, distance: 7, mode: 'pulse', amount: 0.35, speed: 1.1 },
   ice(52.0, 36.0, 8, '#9fe8ff'),
-  // Rime Hollow
+  // Rime Hollow, and a cold rim on the colossus so its silhouette reads against the ice
   ice(48.6, 24.0, 16, '#4fe3ff'), ice(56.2, 24.8, 12, '#7fd8ff'), ice(52.0, 28.6, 8, '#2f8fff'),
+  { x: 52.0, y: 3.0, z: 24.0, color: '#b8f0ff', intensity: 9, distance: 4.5, when: '!defeated:shoals_elite_colossus' },
 ];
+props.push(...pools, ...DRIFTS.map(drift));
 
 // ---------------------------------------------------------------- ambient
 
@@ -121,8 +151,8 @@ const ambient = [
   snow(23, 17.5, 28, 3.5, 6), { preset: 'drip', x: 22, y: 2.8, z: 16.6, area: [24, 0.1, 0.4], rate: 2 },
   snow(5.5, 17.5, 7, 7, 2), snow(11, 25, 4, 9, 2),
   snow(33, 36.5, 54, 13, 12),
-  { preset: 'frost', x: 23.5, y: -0.6, z: 37, area: [5, 1.4, 13], rate: 6 },
-  { preset: 'frost', x: 39.5, y: -0.6, z: 37, area: [5, 1.4, 13], rate: 6 },
+  { preset: 'frost', x: 24, y: -1.2, z: 37, area: [5, 2.4, 13], rate: 8 },
+  { preset: 'frost', x: 40, y: -1.2, z: 37, area: [5, 2.4, 13], rate: 8 },
   { preset: 'drip', x: 33, y: 2.8, z: 30.6, area: [50, 0.1, 0.4], rate: 3 },
   { preset: 'spark', x: 62.4, y: 1.4, z: 35.8, area: [0.4, 0.8, 1.2], rate: 0.6, burst: 6 },
   snow(52, 26, 10, 6, 3), { preset: 'frost', x: 52, y: 1.0, z: 24.5, area: [9, 1.2, 2], rate: 4 },
@@ -194,11 +224,14 @@ export default {
     W: { t: 'window', tex: 'sh_ice_arch', backdrop: 'sh_bd_ring' },
     '.': { t: 'floor', tex: 'sh_ice_floor', mix: [['sh_ice_floor_b', 0.28], ['sh_ice_floor_c', 0.05]], roughness: 0.3, metalness: 0.1, emissive: 2.2 },
     ',': { t: 'floor', tex: 'sh_snow', mix: [['sh_snow_b', 0.4]], roughness: 0.85, metalness: 0.0, emissive: 1.8 },
-    ':': { t: 'floor', tex: 'sh_ice_deep', roughness: 0.2, metalness: 0.15, emissive: 2.6 },
-    _: { t: 'pit', edge: 'sh_ice_edge', thickness: 1.6, emissive: 2.4 },
+    ':': { t: 'floor', tex: 'sh_ice_deep', rot: 'random', roughness: 0.2, metalness: 0.15, emissive: 2.6 },
+    _: { t: 'pit', edge: 'sh_ice_edge', thickness: 0.35, emissive: 2.4 },   // a slab rim; the abyss prop builds the depth
   },
   wallTex: { side: 'sh_ice_wall_side', cap: 'sh_ice_cap', low: 'sh_ice_low' },
   backdrop: { texture: 'sh_bd_ring', stars: 'stars_layer', tint: [1, 1.02, 1.08] },
+  sky: { texture: 'sh_bd_ring', stars: 'stars_layer', horizonV: 0.6, edge: 'north', parallax: 0.12, tint: [0.92, 0.98, 1.08] },
+  // past the ice, looking down: deep blue ice and drifting mist, not open stars (G2 C3-8)
+  underlay: { texture: 'sh_abyss', y: -6.5, repeat: [6, 6], scroll: [0.0015, 0.003], color: [0.85, 1.0, 1.25] },
   areas: [
     { id: 'mouth', name: 'Shoals Mouth', subtitle: 'The Shoals · Ring Ice', rect: [0, 0, 20, 10.5], cam: [3.6, 7.0], zone: null, mood: MOOD.mouth },
     { id: 'tunnels', name: 'Blue Tunnels', subtitle: 'The Shoals · Frozen Cargo', rect: [20, 0, 49, 15.6], zone: 'shoals_tunnels', mood: MOOD.tunnels },
@@ -243,6 +276,12 @@ export default {
     { id: 'enter', on: 'load', when: 'chapter>=ch1 & !story:varo_log', once: true, script: 'shoals.enter' },
   ],
   bosses: [
+    // the void eels in the throat between the Mouth and the tunnels: a visible, deterministic eel fight
+    // that teaches the dive before the Maw (G2 C3-2); gone once beaten
+    {
+      id: 'eels', art: 'void_eel', name: 'VOID EELS', x: 19.4, z: 4.8, facing: 'left', encounter: 'shoals_eels',
+      script: 'shoals.eels', triggerRadius: 2.8, radius: 0.9, when: 'chapter>=ch1 & !shoals:eels',
+    },
     // M3: the optional elite guarding the Ice Heart
     {
       id: 'colossus', art: 'rime_golem', name: 'RIME COLOSSUS', x: 52.0, z: 24.6, facing: 'left',

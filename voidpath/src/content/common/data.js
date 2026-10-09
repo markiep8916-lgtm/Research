@@ -17,7 +17,10 @@ const gear = (id, name, desc, price, equip) => ({
   id, name, desc, target: null, battle: false, key: false, price, icon: equip.slot, effect: {},
   equip: { stats: {}, ...equip },
 });
-const weapon = (id, name, desc, price, owner, stats, effect = {}) => gear(id, name, desc, price, { slot: 'weapon', for: [owner], stats, ...effect });
+// A weapon's icon is its damage type (blade, rifle, gauntlet, lance), not the slot's sword.
+const weapon = (id, name, desc, price, owner, type, stats, effect = {}) => ({
+  ...gear(id, name, desc, price, { slot: 'weapon', for: [owner], stats, ...effect }), icon: type,
+});
 const armor = (id, name, desc, price, stats) => gear(id, name, desc, price, { slot: 'armor', stats });
 const accessory = (id, name, desc, price, stats, effect) => gear(id, name, desc, price, { slot: 'accessory', stats, ...effect });
 
@@ -45,30 +48,30 @@ const items = {
   command_key: keyItem('command_key', 'Command Key', 'Commander Voss\'s key. Opens the AI core antechamber.'),
 
   // ---- weapons: tier 1 (starting kits), tier 2 (shops, ch1), tier 3-4 (one effect each)
-  eq_w_kade_1: weapon('eq_w_kade_1', 'Service Blade', 'Security Corps issue. Reliable, unremarkable.', 100, 'kade', { atk: 6 }),
-  eq_w_nyx_1: weapon('eq_w_nyx_1', 'Salvage Carbine', 'Ringborn scrap, rebuilt three times. Shoots straight.', 100, 'nyx', { atk: 5, spd: 2 }),
-  eq_w_orion_1: weapon('eq_w_orion_1', 'Field Gauntlet', 'A maintenance glove with a capacitor sewn in.', 100, 'orion', { atk: 2, mag: 6 }),
-  eq_w_sera_1: weapon('eq_w_sera_1', 'Medic\'s Lance', 'A defibrillator staff with a sharpened tip.', 100, 'sera', { atk: 3, mag: 4 }),
-  eq_w_kade_2: weapon('eq_w_kade_2', 'Arc Saber', 'A ring-forged blade with a live arc in the edge.', 460, 'kade', { atk: 14 }),
-  eq_w_nyx_2: weapon('eq_w_nyx_2', 'Ring Rifle', 'Long barrel, iced sights. Ruse swears it is legal.', 460, 'nyx', { atk: 12, spd: 3 }),
-  eq_w_orion_2: weapon('eq_w_orion_2', 'Coil Gauntlet', 'Fabricated from a spare reactor coil. Hums politely.', 460, 'orion', { atk: 4, mag: 14 }),
-  eq_w_sera_2: weapon('eq_w_sera_2', 'Lumen Lance', 'Its tip glows the colour of a clean bill of health.', 460, 'sera', { atk: 6, mag: 11 }),
+  eq_w_kade_1: weapon('eq_w_kade_1', 'Service Blade', 'Security Corps issue. Reliable, unremarkable.', 100, 'kade', 'blade', { atk: 6 }),
+  eq_w_nyx_1: weapon('eq_w_nyx_1', 'Salvage Carbine', 'Ringborn scrap, rebuilt three times. Shoots straight.', 100, 'nyx', 'rifle', { atk: 5, spd: 2 }),
+  eq_w_orion_1: weapon('eq_w_orion_1', 'Field Gauntlet', 'A maintenance glove with a capacitor sewn in.', 100, 'orion', 'gauntlet', { atk: 2, mag: 6 }),
+  eq_w_sera_1: weapon('eq_w_sera_1', 'Medic\'s Lance', 'A defibrillator staff with a sharpened tip.', 100, 'sera', 'lance', { atk: 3, mag: 4 }),
+  eq_w_kade_2: weapon('eq_w_kade_2', 'Arc Saber', 'A ring-forged blade with a live arc in the edge.', 460, 'kade', 'blade', { atk: 14 }),
+  eq_w_nyx_2: weapon('eq_w_nyx_2', 'Ring Rifle', 'Long barrel, iced sights. Ruse swears it is legal.', 460, 'nyx', 'rifle', { atk: 12, spd: 3 }),
+  eq_w_orion_2: weapon('eq_w_orion_2', 'Coil Gauntlet', 'Fabricated from a spare reactor coil. Hums politely.', 460, 'orion', 'gauntlet', { atk: 4, mag: 14 }),
+  eq_w_sera_2: weapon('eq_w_sera_2', 'Lumen Lance', 'Its tip glows the colour of a clean bill of health.', 460, 'sera', 'lance', { atk: 6, mag: 11 }),
   eq_w_kade_3: weapon('eq_w_kade_3', 'Ringforged Lance', 'Ringborn smiths folded wreck steel into it. Lance damage +12%.', 1300,
-    'kade', { atk: 24 }, { boost: { lance: 0.12 } }),
+    'kade', 'lance', { atk: 24 }, { boost: { lance: 0.12 } }),
   eq_w_nyx_3: weapon('eq_w_nyx_3', 'Varo\'s Long Gun', 'Captain Ines Varo\'s rifle, eighty years cold. Rifle damage +12%.', 1800,
-    'nyx', { atk: 22, spd: 4 }, { boost: { rifle: 0.12 } }),
+    'nyx', 'rifle', { atk: 22, spd: 4 }, { boost: { rifle: 0.12 } }),
   eq_w_orion_3: weapon('eq_w_orion_3', 'Lattice Fist', 'Built around a sliver of the lattice coil. Cryo damage +12%.', 1300,
-    'orion', { atk: 6, mag: 24 }, { boost: { cryo: 0.12 } }),
+    'orion', 'gauntlet', { atk: 6, mag: 24 }, { boost: { cryo: 0.12 } }),
   eq_w_sera_3: weapon('eq_w_sera_3', 'Seedling Spear', 'Grown, not forged, in the Arboretum. Photon damage +12%.', 1300,
-    'sera', { atk: 10, mag: 20 }, { boost: { photon: 0.12 } }),
+    'sera', 'lance', { atk: 10, mag: 20 }, { boost: { photon: 0.12 } }),
   eq_w_kade_4: weapon('eq_w_kade_4', 'Oathkeeper', 'The blade he was sworn in with. Volt damage +15%.', 2600,
-    'kade', { atk: 36 }, { boost: { volt: 0.15 } }),
+    'kade', 'blade', { atk: 36 }, { boost: { volt: 0.15 } }),
   eq_w_nyx_4: weapon('eq_w_nyx_4', 'Horizon Rifle', 'Fires rounds that never quite arrive. Void damage +15%.', 2600,
-    'nyx', { atk: 33, spd: 5 }, { boost: { void: 0.15 } }),
+    'nyx', 'rifle', { atk: 33, spd: 5 }, { boost: { void: 0.15 } }),
   eq_w_orion_4: weapon('eq_w_orion_4', 'Empathy Engine', 'A gauntlet that feels the heat it makes. Thermal damage +15%.', 2600,
-    'orion', { atk: 8, mag: 36 }, { boost: { thermal: 0.15 } }),
+    'orion', 'gauntlet', { atk: 8, mag: 36 }, { boost: { thermal: 0.15 } }),
   eq_w_sera_4: weapon('eq_w_sera_4', 'Dawnspear', 'It wakes whoever carries it. Halves the chance of sleep.', 2600,
-    'sera', { atk: 14, mag: 32 }, { ailmentResist: { sleep: 0.5 } }),
+    'sera', 'lance', { atk: 14, mag: 32 }, { ailmentResist: { sleep: 0.5 } }),
 
   // ---- armor (anyone)
   eq_a_1: armor('eq_a_1', 'Crew Jumpsuit', 'Standard wake-crew coveralls. Many pockets.', 80, { def: 4, res: 4, maxHp: 20 }),
@@ -112,43 +115,53 @@ const TIER1 = {
 };
 const outfit = (armorId, gearByMember) => Object.fromEntries(Object.entries(gearByMember)
   .map(([id, [weaponId, accessoryId]]) => [id, { weapon: weaponId, armor: armorId, accessory: accessoryId }]));
+const withArmor = (member, armorId, equip) => ({ ...equip, [member]: { ...equip[member], armor: armorId } });
 
 // jumpTo starter kits (10.1): what a player following the critical path holds when the chapter starts.
-// ch1 and ch2 match how tests/campaign.mjs's route ends the chapter before (`npm run balance` prints
-// kit and route side by side); ch3 onwards are first-pass until their chapters are simulated.
+// ch1 to the finale match how tests/campaign.mjs's route ends the chapter before (`npm run balance
+// -- --verbose` prints kit and route side by side, and the route as a kit); the epilogue is first-pass.
 const kits = {
-  prologue: { equip: TIER1, items: { medigel: 3, ether: 1 }, credits: 0 },
+  prologue: { equip: TIER1, items: { medigel: 3, ether: 1, revive: 1 }, credits: 0 },
   ch1: {
     equip: { ...TIER1, kade: { ...TIER1.kade, accessory: 'eq_x_stim_chip' } },
-    items: { medigel: 4, ether: 3, revive: 1, stim: 2 }, credits: 1100,
+    items: { medigel: 4, ether: 4, revive: 1, stim: 2 }, credits: 1250,
   },
   ch2: {
     equip: outfit('eq_a_2', {
       kade: ['eq_w_kade_2', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
-      orion: ['eq_w_orion_2', 'eq_x_focus_lens'], sera: ['eq_w_sera_2', 'eq_x_frost_charm'],
+      orion: ['eq_w_orion_2', null], sera: ['eq_w_sera_2', 'eq_x_frost_charm'],
     }),
-    items: { medigel: 5, medigel_plus: 2, ether: 3, ether_plus: 1, revive: 2, stim: 4, cryo_charge: 2 }, credits: 350,
+    items: { medigel: 5, medigel_plus: 2, ether: 4, ether_plus: 1, revive: 2, stim: 4, cryo_charge: 2 }, credits: 300,
   },
   ch3: {
-    equip: outfit('eq_a_3', {
-      kade: ['eq_w_kade_3', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
-      orion: ['eq_w_orion_3', 'eq_x_focus_lens'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
+    equip: outfit('eq_a_2', {
+      kade: ['eq_w_kade_2', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
+      orion: ['eq_w_orion_2', 'eq_x_ember_charm'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
     }),
-    items: { medigel_plus: 4, ether: 3, ether_plus: 1, revive: 2, stim: 3, nanomist: 1 }, credits: 900,
+    items: { medigel: 2, medigel_plus: 1, ether: 2, ether_plus: 4, revive: 1, stim: 2, cryo_charge: 2, thermal_charge: 2 },
+    credits: 4400,
   },
   ch4: {
-    equip: outfit('eq_a_4', {
-      kade: ['eq_w_kade_4', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
-      orion: ['eq_w_orion_3', 'eq_x_focus_lens'], sera: ['eq_w_sera_3', 'eq_x_vital_core'],
-    }),
-    items: { medigel_plus: 5, ether_plus: 2, revive: 2, revive_plus: 1, stim: 3, nanomist: 2 }, credits: 1200,
+    equip: withArmor('kade', 'eq_a_4', outfit('eq_a_2', {
+      kade: ['eq_w_kade_4', 'eq_x_vital_core'], nyx: ['eq_w_nyx_3', 'eq_x_varo_compass'],
+      orion: ['eq_w_orion_3', 'eq_x_stim_chip'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
+    })),
+    items: {
+      medigel: 2, medigel_plus: 3, ether: 1, ether_plus: 3, revive: 2, stim: 5, nanomist: 1,
+      cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
+    },
+    credits: 5700,
   },
   finale: {
-    equip: outfit('eq_a_4', {
-      kade: ['eq_w_kade_4', 'eq_x_stim_chip'], nyx: ['eq_w_nyx_4', 'eq_x_varo_compass'],
-      orion: ['eq_w_orion_4', 'eq_x_null_ward'], sera: ['eq_w_sera_3', 'eq_x_ether_core'],
-    }),
-    items: { medigel_plus: 5, medigel_max: 2, ether_plus: 3, revive_plus: 2, stim: 4, nanomist: 2 }, credits: 1500,
+    equip: withArmor('nyx', 'eq_a_2', outfit('eq_a_4', {
+      kade: ['eq_w_kade_4', 'eq_x_vital_core'], nyx: ['eq_w_nyx_4', 'eq_x_varo_compass'],
+      orion: ['eq_w_orion_4', 'eq_x_ether_core'], sera: ['eq_w_sera_3', 'eq_x_photon_prism'],
+    })),
+    items: {
+      medigel: 1, medigel_plus: 1, medigel_max: 1, ether: 1, ether_plus: 3, revive: 1, revive_plus: 1, stim: 7,
+      nanomist: 1, cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
+    },
+    credits: 7400,
   },
   epilogue: {
     equip: outfit('eq_a_5', {

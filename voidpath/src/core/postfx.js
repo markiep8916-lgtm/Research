@@ -119,32 +119,48 @@ uniform float uBaseSigma;   // sigma the kernel below was built for
 uniform float uCenter;
 uniform float uOffsets[PAIRS];
 uniform float uWeights[PAIRS];
+uniform float uKnee;        // 1 on the first (horizontal) pass: soft-knee HDR highlights before blurring
 varying vec2 vUv;
 
 // Interleaved gradient noise: decorrelates the sparse taps of very wide blurs (no ghost copies).
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+
+// Soft knee on the brightest channel (hue kept): values up to KNEE_T pass, brighter ones approach
+// KNEE_T + KNEE_R. An HDR lamp spread by the truncated separable kernel would stay above white out
+// to the kernel's square support and print a hard square; kneed, it fades out well inside the
+// support, so out-of-focus lamps become soft round discs (G2 E-1). w fades the knee in with the blur.
+const float KNEE_T = 1.0;
+const float KNEE_R = 1.5;
+vec4 knee(vec4 s, float w) {
+  float m = max(max(s.r, s.g), s.b);
+  if (m <= KNEE_T) return s;
+  float e = m - KNEE_T;
+  return vec4(s.rgb * mix(1.0, (KNEE_T + e / (1.0 + e / KNEE_R)) / m, w), s.a);
+}
 
 void main() {
   float k = smoothstep(uBand, uBand + uFalloff, abs(vUv.y - uFocusY));
   float scale = uSigma * k / uBaseSigma;
   vec4 c = texture2D(tDiffuse, vUv);
   if (scale < 0.03) { gl_FragColor = c; return; }
+  float w = uKnee * smoothstep(0.03, 0.5, scale);
   // Above ~1.3x the taps are more than two texels apart: jitter them a little.
   float jitter = 1.0 + (ign(gl_FragCoord.xy) - 0.5) * 0.45 * smoothstep(1.3, 2.6, scale);
   vec2 stepUv = uDir * uTexel * scale * jitter;
-  vec4 sum = c * uCenter;
+  vec4 sum = knee(c, w) * uCenter;
   for (int i = 0; i < PAIRS; i++) {
     vec2 o = stepUv * uOffsets[i];
-    sum += (texture2D(tDiffuse, vUv + o) + texture2D(tDiffuse, vUv - o)) * uWeights[i];
+    sum += (knee(texture2D(tDiffuse, vUv + o), w) + knee(texture2D(tDiffuse, vUv - o), w)) * uWeights[i];
   }
   gl_FragColor = sum;
 }`;
 
 /**
  * Octopath-style tilt-shift: separable Gaussian whose radius grows with the distance from a
- * horizontal focus band. Radius is specified at 1080p and scaled with the render height so the
- * look is identical at any resolution. Two internal draws (H into writeBuffer, V back into
- * readBuffer), so the composer does not swap.
+ * horizontal focus band; HDR highlights are soft-kneed before the blur so defocused lamps are
+ * round. Radius is specified at 1080p and scaled with the render height so the look is identical
+ * at any resolution. Two internal draws (H into writeBuffer, V back into readBuffer), so the
+ * composer does not swap.
  */
 export class TiltShiftPass extends Pass {
   constructor({ taps = 13 } = {}) {
@@ -154,6 +170,7 @@ export class TiltShiftPass extends Pass {
     this.band = 0.14;
     this.falloff = 0.30;
     this.maxBlur = 1.0;
+    this.knee = true;   // soft-knee highlights before blurring (round bokeh); false shows the raw blur
     /** Blur sigma in pixels at 1080p for maxBlur = 1. */
     this.pxAt1080 = 7.0;
     this.width = 1;
@@ -172,6 +189,7 @@ export class TiltShiftPass extends Pass {
         uCenter: { value: 0 },
         uOffsets: { value: [] },
         uWeights: { value: [] },
+        uKnee: { value: 1 },
       },
       defines: { PAIRS: 6 },
       vertexShader: FS_VERT,
@@ -221,11 +239,14 @@ export class TiltShiftPass extends Pass {
 
     u.tDiffuse.value = readBuffer.texture;
     u.uDir.value.set(1, 0);
+    u.uKnee.value = this.knee ? 1 : 0;
     renderer.setRenderTarget(writeBuffer);
     this.fsQuad.render(renderer);
 
+    // the vertical pass reads samples already kneed
     u.tDiffuse.value = writeBuffer.texture;
     u.uDir.value.set(0, 1);
+    u.uKnee.value = 0;
     renderer.setRenderTarget(this.renderToScreen ? null : readBuffer);
     this.fsQuad.render(renderer);
   }

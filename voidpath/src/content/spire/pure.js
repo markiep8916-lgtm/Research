@@ -1,6 +1,7 @@
 // spire: LocationDef (PURE, TECH_PLAN 2.2), assembled from data.js, story.js and maps/.
 import data from './data.js';
 import story from './story.js';
+import spire from './maps/spire.js';
 
 export default {
   id: 'spire',
@@ -8,5 +9,5 @@ export default {
   name: 'Security Spire',
   data,
   story,
-  maps: {},
+  maps: { spire },
 };

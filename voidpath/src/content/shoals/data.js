@@ -6,13 +6,17 @@
 //   rime_golem   big shield, Frost Shell after every break        teaches Break timing
 //   salvage_bot  repairs itself                                   teaches focus fire
 // Boss THE MAW (7.9): two actions a round; Ice Breath (cryo, all), Tail Slam (one, DEF down); every
-// third round it submerges (untargetable), circles under the ice behind the telegraph band and
-// breaches at its next action (void, all), surfacing with the blow; at 50% it enrages and Nyx's
-// ultimate awakens.
+// fourth round it submerges (untargetable) with the round's last action, circles under the ice
+// behind the telegraph band and breaches at the end of the next round (void, all), surfacing Exposed
+// (DEF and RES down) with the blow, so a squad that defended the breach can counter-Break it; at 50%
+// it enrages and Nyx's ultimate awakens.
 // M3: the Rime Colossus (optional elite of the Deep Ice, guards eq_x_ice_heart) and a rare Glimmer
 // Mite (big drops).
 //
 // Zones: shoals_tunnels (Blue Tunnels), shoals_deep (The Deep Ice), meridian_spine (the wreck).
+// The eel's dive is taught deterministically (7.7, G2): `shoals_eels` is a visible field encounter at
+// the east end of the Shoals Mouth (map boss `eels`), and the first eel to act dives by script, so
+// the `untargetable` tip always shows before the Maw.
 // Numbers come from statLine (balance.js); C10 tunes them through overrides.
 
 import { statLine } from '../balance.js';
@@ -23,7 +27,7 @@ const act = (id, name, kind, desc, extra = {}) => ({
 const hit = (id, name, type, power, weight, desc, extra = {}) => act(id, name, 'attack', desc, { type, power, weight, ...extra });
 
 // A diver surfaces with its first blow: a dive lasts through the next round, so without this it would
-// stay under after breaching. Shared by the eels and the Maw (any blow an enemy deals while under).
+// stay under after its lunge. The eels' onHit (the Maw's own also leaves it Exposed).
 function surfaceOnBlow(api, h) {
   const e = api.enemy(h.attackerId);
   if (e && e.side === 'enemy' && e.untargetable > 0) api.setUntargetable(e.id, false);
@@ -79,8 +83,9 @@ const enemies = {
 
   // ---- THE MAW (7.9)
   maw: {
-    kind: 'maw', name: 'The Maw', art: 'maw', boss: true, ai: 'basic', script: 'maw', stage: { scale: 1.12 },
-    ...statLine(12, 'boss'), shield: 8, maxShieldCap: 14, actionsPerRound: 2,
+    kind: 'maw', name: 'The Maw', art: 'maw', boss: true, ai: 'basic', script: 'maw',
+    stage: { scale: 1.0, slot: [-3.2, 1.4] },   // forward and right of the boss slot: its head in the focus band
+    ...statLine(12, 'boss'), shield: 5, maxShieldCap: 10, actionsPerRound: 2,
     weaknesses: ['thermal', 'lance', 'rifle'],
     actions: [
       hit('maw_ice_breath', 'Ice Breath', 'cryo', 0.82, 40, 'A freezing exhalation across the whole squad.', {
@@ -129,14 +134,16 @@ const enemies = {
 // ---------------------------------------------------------------- boss scripts (7.3)
 
 const bossScripts = {
-  // Every third round the Maw dives with its first action; with its second it circles under the ice
-  // (the band warns the squad) and its next action breaches, surfacing with the blow. So everyone
-  // gets a turn while it is under. Otherwise it mixes Ice Breath and Tail Slam, never two breaths in
-  // one round. At 50% it enrages and Nyx's ultimate awakens.
+  // Every fourth round (from round 2) the Maw dives with the round's last action; it circles under the
+  // ice with its first action of the next round (the band warns the squad) and breaches with that
+  // round's last, surfacing with the blow, Exposed (DEF and RES down) for two turns. So the squad has
+  // a full round to Defend, the Maw is out of reach about one round in seven, and a squad that
+  // defended the breach hits back into a Break. Otherwise it mixes Ice Breath and Tail Slam, never two
+  // breaths in one round. At 50% it enrages and Nyx's ultimate awakens.
   maw: {
     thresholds: [0.5],
     onBegin(api) {
-      api.mem.nextDive = 3;
+      api.mem.nextDive = 2;
       api.mem.acted = {};
     },
     chooseAction(api, e) {
@@ -146,8 +153,9 @@ const bossScripts = {
         api.telegraph(e.id, null, 'The ice groans beneath the squad...');
         return { actionId: 'maw_circle', targetId: e.id };
       }
-      if (api.round >= api.mem.nextDive && n === 1 && !e.broken) {
-        api.mem.nextDive = api.round + 3;
+      // the dive takes the round's last action (see above)
+      if (api.round >= api.mem.nextDive && n === 2 && !e.broken) {
+        api.mem.nextDive = api.round + 4;
         api.mem.diving = true;
         return { actionId: 'maw_submerge', targetId: e.id };
       }
@@ -158,7 +166,17 @@ const bossScripts = {
       }
       return { actionId: 'maw_tail_slam' };
     },
-    onHit: surfaceOnBlow,
+    onHit(api, h) {
+      const e = api.enemy(h.attackerId);
+      if (!e || e.side !== 'enemy' || !(e.untargetable > 0)) return;
+      api.setUntargetable(e.id, false);
+      api.status(e.id, { stats: ['def', 'res'], stage: -1, turns: 2 });
+      api.message('The Maw surfaces, its hide torn open!');
+    },
+    // a Maw that recovers from a Break stays up for two rounds before it dives again
+    onRecover(api) {
+      api.mem.nextDive = Math.max(api.mem.nextDive, api.round + 2);
+    },
     onThreshold(api, e) {
       api.mem.enraged = true;
       api.cue('maw_enrage', { targetId: e.id });
@@ -167,8 +185,16 @@ const bossScripts = {
       api.status(e.id, { stats: ['atk'], stage: 1, turns: 3 });
     },
   },
-  // Eels surface with their lunge (their dive lasts through the next round).
-  void_eel: { onHit: surfaceOnBlow },
+  // Eels surface with their lunge (their dive lasts through the next round). The first eel to act
+  // dives by script, once per battle, so every eel fight shows the dive (a Break only delays it).
+  void_eel: {
+    onHit: surfaceOnBlow,
+    chooseAction(api, e) {
+      if (api.mem.dived || e.untargetable > 0) return null;
+      api.mem.dived = true;
+      return { actionId: 'eel_dive', targetId: e.id };
+    },
+  },
   // Frost Shell on round 2 and again after every recovery from a break: break it before it hardens.
   rime_golem: {
     onRecover(api, e) {
@@ -229,7 +255,13 @@ const zones = {
   meridian_spine: ['meridian_bots', 'meridian_bot_golem', 'meridian_bot_mites', 'meridian_scrap', 'meridian_bots', 'meridian_bot_mites'],
 };
 
-// The spine is short and dense: a little more often than the default (about one fight per 30 units).
-const zoneRates = { meridian_spine: { grace: 8, sigma: 18 } };
+// Rates from the measured critical-path distance (G2 C3-2, with W-1's walked distance surviving side
+// rooms): about 2.9 fights over the tunnels' 66 units, 2.5 over the deep's 59 and 2.8 over the spine's
+// 61, so with the eel field fight and the Maw chapter 1 has 10-11 fights.
+const zoneRates = {
+  shoals_tunnels: { grace: 6, sigma: 11 },
+  shoals_deep: { grace: 6, sigma: 11 },
+  meridian_spine: { grace: 6, sigma: 10 },
+};
 
 export default { enemies, encounters, zones, zoneRates, bossScripts };

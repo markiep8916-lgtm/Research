@@ -5,6 +5,8 @@
 //   const { context, page, report } = await openPage(browser, url, { mobile, size: [w, h], dpr, reducedMotion, onConsole, onError })
 //   pageUrlOf(arg) -> file:// or http(s) URL (a ?query / #hash on a file path is kept)
 //   ROOT                the voidpath folder
+//   VP_LOAD_TIMEOUT     ms to wait for a page's load event (default 600000: on a loaded machine the
+//                       2 MB single-file page takes minutes to parse, past Playwright's 30 s default)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const THREE_LOCAL = path.join(ROOT, 'node_modules/three/build/three.module.min.js');
+const LOAD_TIMEOUT = Number(process.env.VP_LOAD_TIMEOUT) || 600000;
 
 export function loadPlaywright() {
   const req = createRequire(import.meta.url);
@@ -67,6 +70,6 @@ export async function openPage(browser, url, { mobile, size, dpr, reducedMotion,
     report.errors.push(msg);
     onError?.(msg);
   });
-  await page.goto(url, { waitUntil: 'load' });
+  await page.goto(url, { waitUntil: 'load', timeout: LOAD_TIMEOUT });
   return { context, page, report };
 }

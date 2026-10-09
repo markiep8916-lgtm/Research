@@ -6,13 +6,18 @@
 //               heavy shot next round: teaches Defend), pro_sentinel (the boss: POC 'sentinel' AI),
 //               pro_patrol_mk1 / pro_patrol_drone (the pro_late patrols after WARDEN speaks in ch1),
 //               M3: pro_parade_drone (rare, big drops), pro_rigged_crawler (optional elite, Power Band)
-//   encounters  pro_tutorial, pro_orion_rescue, pro_sentinel_squad, pro_boss_sentinel (scripted);
-//               pro_c* (Spine Corridor, Kade and Sera), pro_e* (after Orion joins), pro_l* (late),
-//               pro_elite_crawler (the berth's field elite, prologue.rigged)
-//   zones       pro_corridor, pro_engineering, pro_late (areas pick them by story flags, halcyon.js)
+//   encounters  scripted: pro_tutorial, pro_spine_drones (Kade and Sera's first fight together),
+//               pro_orion_rescue, pro_gallery_ambush (Orion's first fight), pro_sentinel_squad,
+//               pro_boss_sentinel; random: pro_c* (Spine Corridor, Kade and Sera), pro_e* (after
+//               Orion joins), pro_l* (late); pro_elite_crawler (the berth's field elite, prologue.rigged)
+//   zones       pro_corridor, pro_engineering, pro_late (areas pick them by story flags, halcyon.js),
+//               with zoneRates sized for the plan's 8 prologue fights (TECH_PLAN 11.7, G2 C1-2)
+//   bossScripts pro_sentinel: the mid-battle beat at 50% (cue sentinel_alarm; the bridge strobes red)
 //
-// Encounter tips (WRITING.md 9.1): Sera's healing tip on her first fights, Orion's area tip on his,
-// Nyx's Expose tip in the squad fight. The global tips (reveal, break, bp3, telegraph) are common's.
+// The onboarding schedule is deterministic (TECH_PLAN 7.7, WRITING 9.1, G2 C1-1): reveal and break in
+// the tutorial (which holds `bp3` back), Sera's items tip and `bp3` in the spine drones, Orion's area
+// tip in the gallery ambush, Nyx's Expose and the global telegraph in the squad. Random rolls carry no
+// tip. The global tips (reveal, break, bp3, telegraph) are common's.
 
 import { statLine } from '../balance.js';
 
@@ -93,8 +98,9 @@ const enemies = {
     kind: 'sentinel_mk1', name: 'Sentinel Mk-I', art: 'sentinel_mk1', ...statLine(6, 'brute'), shield: 4,
     weaknesses: ['rifle', 'volt', 'photon'], actions: MK1_ACTIONS, drops: [{ id: 'ether', chance: 0.25, n: 1 }],
   },
+  // the POC boss AI (lock-on, beam, overcharge) plus a script for the 50% beat
   pro_sentinel: {
-    kind: 'pro_sentinel', name: 'SENTINEL', art: 'sentinel', ai: 'sentinel', boss: true, ...statLine(7, 'boss'),
+    kind: 'pro_sentinel', name: 'SENTINEL', art: 'sentinel', ai: 'sentinel', script: 'pro_sentinel', boss: true, ...statLine(7, 'boss'),
     shield: 6, maxShieldCap: 12, actionsPerRound: 2,
     weaknesses: ['lance', 'rifle', 'volt', 'photon'], actions: SENTINEL_ACTIONS, drops: [{ id: 'revive', chance: 1, n: 1 }],
   },
@@ -135,24 +141,26 @@ const enc = (id, list, backdrop, extra = {}) => ({ id, enemies: list, backdrop, 
 
 const encounters = {
   // ---- scripted
-  pro_tutorial: enc('pro_tutorial', ['pro_drone_glitch'], 'cryo', { canFlee: false }),
-  pro_orion_rescue: enc('pro_orion_rescue', ['pro_drone_ram', 'pro_drone_ram', 'pro_drone_ram'], 'engineering', { canFlee: false, tips: [TIP_SERA] }),
+  // an empty bp3 tip holds the Boost lesson back for the second fight
+  pro_tutorial: enc('pro_tutorial', ['pro_drone_glitch'], 'cryo', { canFlee: false, tips: [{ on: 'bp3', lines: [] }] }),
+  pro_spine_drones: enc('pro_spine_drones', ['pro_drone', 'pro_drone'], 'corridor', { canFlee: false, tips: [TIP_SERA] }),
+  pro_orion_rescue: enc('pro_orion_rescue', ['pro_drone_ram', 'pro_drone_ram', 'pro_drone_ram'], 'engineering', { canFlee: false }),
+  pro_gallery_ambush: enc('pro_gallery_ambush', ['pro_crawler', 'pro_drone'], 'engineering', { canFlee: false, tips: [TIP_ORION] }),
   pro_sentinel_squad: enc('pro_sentinel_squad', ['sentinel_mk1', 'pro_drone', 'sentinel_mk1'], 'corridor', { canFlee: false, tips: [TIP_NYX] }),
   pro_boss_sentinel: {
-    id: 'pro_boss_sentinel', enemies: ['pro_sentinel'], backdrop: 'bridge', boss: true, canFlee: false, music: 'boss',
+    id: 'pro_boss_sentinel', enemies: ['pro_sentinel'], backdrop: 'pro_bridge', boss: true, canFlee: false, music: 'boss',
     intro: { title: 'SENTINEL', subtitle: 'Bridge Guardian', lines: [{ speaker: 'SENTINEL', text: 'NONCOMPLIANCE LOGGED. I AM SORRY.' }] },
     outro: { lines: [{ speaker: 'SENTINEL', text: 'PLEASE... RETURN... TO YOUR...' }] },
   },
   // ---- Spine Corridor (Kade and Sera)
-  pro_c_drone: enc('pro_c_drone', ['pro_drone'], 'corridor', { tips: [TIP_SERA] }),
-  pro_c_drones: enc('pro_c_drones', ['pro_drone', 'pro_drone'], 'corridor', { tips: [TIP_SERA] }),
-  pro_c_crawler: enc('pro_c_crawler', ['pro_crawler'], 'corridor', { tips: [TIP_SERA] }),
-  pro_c_mixed: enc('pro_c_mixed', ['pro_drone', 'pro_crawler'], 'corridor', { tips: [TIP_SERA] }),
+  pro_c_drone: enc('pro_c_drone', ['pro_drone'], 'corridor'),
+  pro_c_drones: enc('pro_c_drones', ['pro_drone', 'pro_drone'], 'corridor'),
+  pro_c_crawler: enc('pro_c_crawler', ['pro_crawler'], 'corridor'),
+  pro_c_mixed: enc('pro_c_mixed', ['pro_drone', 'pro_crawler'], 'corridor'),
   // ---- Engineering and the corridor once Orion leads the way (three or four travelers)
-  pro_e_pair: enc('pro_e_pair', ['pro_crawler', 'pro_drone'], 'engineering', { tips: [TIP_ORION] }),
-  pro_e_crawlers: enc('pro_e_crawlers', ['pro_crawler', 'pro_crawler'], 'engineering', { tips: [TIP_ORION] }),
-  pro_e_turret: enc('pro_e_turret', ['pro_drone', 'pro_turret', 'pro_drone'], 'engineering', { tips: [TIP_ORION] }),
-  pro_e_patrol: enc('pro_e_patrol', ['sentinel_mk1', 'pro_drone'], 'engineering', { tips: [TIP_ORION] }),
+  pro_e_pair: enc('pro_e_pair', ['pro_crawler', 'pro_drone'], 'engineering'),
+  pro_e_crawlers: enc('pro_e_crawlers', ['pro_crawler', 'pro_crawler'], 'engineering'),
+  pro_e_turret: enc('pro_e_turret', ['pro_drone', 'pro_turret', 'pro_drone'], 'engineering'),
   // ---- the late patrols (from ch1, after WARDEN speaks)
   pro_l_mk1: enc('pro_l_mk1', ['pro_patrol_mk1'], 'corridor'),
   pro_l_pair: enc('pro_l_pair', ['pro_patrol_mk1', 'pro_patrol_drone'], 'corridor'),
@@ -166,14 +174,39 @@ const encounters = {
   },
 };
 
+// the SENTINEL's mid-battle beat (TECH_PLAN 11.2): the lock-on AI keeps choosing ('sentinel'), the
+// script only speaks at half health and sounds the alarm the bridge arena strobes to
+const bossScripts = {
+  pro_sentinel: {
+    thresholds: [0.5],
+    chooseAction() {
+      return null;
+    },
+    onThreshold(api, e) {
+      api.cue('sentinel_alarm', { targetId: e.id });
+      api.say('SENTINEL', 'NONCOMPLIANCE ESCALATED. I AM SORRY.');
+    },
+  },
+};
+
+// Encounter pace (G2 C1-2): the Spine's short stretch about one fight, Engineering's long loop one or
+// two (with explore.js keeping a zone's distance across side rooms, W-1)
+const zoneRates = {
+  pro_corridor: { grace: 6, sigma: 10 },
+  pro_engineering: { grace: 10, sigma: 14 },
+};
+
 export default {
   enemies,
   encounters,
+  bossScripts,
+  zoneRates,
   zones: {
     pro_corridor: ['pro_c_drone', 'pro_c_drones', 'pro_c_crawler', 'pro_c_mixed', 'pro_c_drones'],
-    // the parade drone is one roll in nine
-    pro_engineering: ['pro_e_pair', 'pro_e_pair', 'pro_e_crawlers', 'pro_e_crawlers', 'pro_e_turret', 'pro_e_turret',
-      'pro_e_patrol', 'pro_e_patrol', 'pro_e_parade'],
+    // the parade drone is one roll in nine; no Sentinel Mk-I before the squad marches in, so its charge
+    // and the telegraph tip arrive together there (G2 C1-1)
+    pro_engineering: ['pro_e_pair', 'pro_e_pair', 'pro_e_crawlers', 'pro_e_crawlers', 'pro_e_crawlers', 'pro_e_turret', 'pro_e_turret',
+      'pro_e_turret', 'pro_e_parade'],
     pro_late: ['pro_l_mk1', 'pro_l_pair', 'pro_l_drones', 'pro_l_squad'],
   },
 };

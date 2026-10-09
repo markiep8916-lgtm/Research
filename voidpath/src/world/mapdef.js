@@ -18,10 +18,11 @@
 // `lines` (legacy POC lines, poc maps and dev only).
 //
 // CellSpec
-//   { t: 'wall',   tex, side?, cap?, low?, height?, upper? }
+//   { t: 'wall',   tex, side?, cap?, low?, height?, upper?, rot? }   rot: 'random' turns each cap a random quarter turn
 //   { t: 'window', tex, backdrop? }                       horizontal pairs in a wall row: floor south, void north
 //   { t: 'door',   tex, lockedTex?, floor?, lock?: { flag, item?, id, label?, toast?, talk? } }   pairs
-//   { t: 'floor',  tex, mix?: [[tex, chance]], grime?, stripe?, gate?, roughness?, metalness?, emissive? }
+//   { t: 'floor',  tex, mix?: [[tex, chance]], grime?, stripe?, gate?, roughness?, metalness?, emissive?, rot? }
+//                  rot: 'random' turns each cell's texture a random (per-cell hash) quarter turn (G2 W-4)
 //   { t: 'water',  tex, bank, depth = 0.35, drain?: cond, path?: tex }
 //   { t: 'pit',    edge, thickness = 0.4 }
 //   { t: 'void' }
@@ -192,6 +193,7 @@ export function validateMap(def) {
   for (const [ch, spec] of Object.entries(legend)) {
     if (!spec || !CELL_TYPES.has(spec.t)) err(`legend "${ch}": unknown cell type ${spec && spec.t}`);
     else if (spec.t !== 'void' && spec.t !== 'pit' && !spec.tex) err(`legend "${ch}": ${spec.t} needs tex`);
+    if (spec && spec.rot !== undefined && (spec.rot !== 'random' || (spec.t !== 'floor' && spec.t !== 'wall'))) err(`legend "${ch}": rot must be 'random' on a floor or wall`);
     if (spec && spec.t === 'water') cond(spec.drain, `legend "${ch}" drain`);
     if (spec && spec.lock && !spec.lock.id) err(`legend "${ch}": lock needs an id`);
     if (spec && spec.lock) cond(spec.lock.flag, `legend "${ch}" lock`);

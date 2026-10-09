@@ -179,6 +179,7 @@ export class ExploreState {
     }
     this._active = true;
     this._busy = false;
+    if (params.resume) this._walked = 0;   // any battle, random or scripted, restarts the grace
     if (this.player.id !== this._leaderId()) this.setLeader(this._leaderId());
     this._quality = engine.quality;
     this.rig.setQuality(engine.quality);
@@ -279,6 +280,7 @@ export class ExploreState {
     this.player.setPosition(p.x, p.z, p.facing || this.player.facing);
     this.world.snap(this.player.x, this.player.z);
     this._walked = 0;
+    this._zone = null;
     this._detectArea(true);
     this.camera.snap();
     this._focusY = this._playerFocusY();
@@ -658,9 +660,13 @@ export class ExploreState {
 
   // ------------------------------------------------------------------ interaction
 
+  /**
+   * The interactable the leader faces within reach. The companion trails right beside the leader,
+   * so it takes the prompt only when nothing else is in reach (G2 W-3).
+   */
   _pickTarget() {
     const p = this.player;
-    let best = null, bestScore = Infinity;
+    let best = null, bestScore = Infinity, buddy = null, buddyScore = Infinity;
     for (const it of this.world.interactables) {
       if (!it.enabled) continue;
       let qx, qz, d;
@@ -678,7 +684,9 @@ export class ExploreState {
       const dot = ((qx - p.x) * p.dir.x + (qz - p.z) * p.dir.z) / len;
       if (dot < 0.3 && d > 0.45) continue;
       const score = d - dot * 0.45;
-      if (score < bestScore) { bestScore = score; best = it; }
+      if (REG.companions[it.id]) {
+        if (score < buddyScore) { buddyScore = score; buddy = it; }
+      } else if (score < bestScore) { bestScore = score; best = it; }
     }
     // a prompted (non-auto) exit the leader stands in
     if (!best) {
@@ -688,7 +696,7 @@ export class ExploreState {
         best = this._exitTarget;
       }
     }
-    return best;
+    return best || buddy;
   }
 
   _prompt(it) {
@@ -838,11 +846,14 @@ export class ExploreState {
     }, { interactable: it.def });
   }
 
-  /** Chests (3.5): flag chest:<map>:<id>, item or credits, POC toast and sparkle; optional talk. */
-  _openChest(it) {
+  /**
+   * Chests (3.5): flag chest:<map>:<id>, item or credits, POC toast and sparkle; optional talk. Gear
+   * that beats what a member wears is then offered through "Equip now?" (ui.equipPrompt, G2 W-2).
+   */
+  async _openChest(it) {
     const { ui, audio, state } = this.ctx;
     const c = it.chest;
-    if (it.opened) return Promise.resolve();
+    if (it.opened) return;
     this.player.face(c.x, c.z);
     if (c.item) addItem(c.item, c.n || 1);
     if (c.credits) state.credits = (state.credits || 0) + c.credits;
@@ -855,7 +866,15 @@ export class ExploreState {
       ui.hud.toast(`Obtained *${item ? item.name : c.item}*${n > 1 ? ` ×${n}` : ''}`, { icon: (item && item.icon) || c.item });
     }
     if (c.credits) ui.hud.toast(`Obtained *${c.credits} credits*`, { icon: 'credits' });
-    return this._runTalk(this._pickTalk(c.talk), { chest: c });
+    await this._runTalk(this._pickTalk(c.talk), { chest: c });
+    if (c.item && ITEMS[c.item] && ITEMS[c.item].equip && ui.equipPrompt) {
+      this._busy = true;
+      try {
+        await ui.equipPrompt(c.item);
+      } finally {
+        this._busy = false;
+      }
+    }
   }
 
   _lockedDoor(it) {
@@ -942,22 +961,36 @@ export class ExploreState {
     }
   }
 
-  /** A boss confronts the party: its script (which calls cs.battle), or its lines and the battle. */
+  /**
+   * A boss confronts the party: its script (which calls cs.battle), or its lines and the battle.
+   * Confronted again after a Retry of that fight, the pre-fight part plays instantly (G2 F-2), as
+   * a scripted battle's Retry does.
+   */
   _confront(id) {
-    const { audio } = this.ctx;
+    const { audio, game, cutscenes } = this.ctx;
     const b = this.world.bosses[id];
     this._armed.set(id, false);
     this.player.face(b.actor.x, b.actor.z);
     this.world.touch(id);
-    if (b.def.script) return this._run(b.def.script, { boss: b.def });
+    const retried = !!(game && game.retried && game.retried.encounter === b.def.encounter);
+    if (retried) game.retried = null;
+    if (b.def.script) {
+      if (retried) cutscenes.autoSkip = b.def.script;
+      return this._run(b.def.script, { boss: b.def });
+    }
     audio.sfx('charge');
     b.actor.actor.flash('#ff3b4e', 0.35);
     const talk = this._pickTalk(b.def.talk);
-    return this._run(async (cs) => {
+    const fight = async (cs) => {
       if (talk && talk.script) await cs.run(talk.script, { boss: b.def });
       else if (talk) await cs.say(this._lines(talk.lines));
       await cs.battle(b.def.encounter);
-    }, { boss: b.def });
+    };
+    // a named script, so Retry and autoSkip address this fight and no other inline script
+    const name = `boss:${id}`;
+    Object.defineProperty(fight, 'name', { value: name });
+    if (retried) cutscenes.autoSkip = name;
+    return this._run(fight, { boss: b.def });
   }
 
   // ------------------------------------------------------------------ companions (3.6)
@@ -1069,15 +1102,21 @@ export class ExploreState {
     return k;
   }
 
+  /**
+   * Random encounters (3.5, 11.7). The walked distance belongs to the last zone walked in: a visit to
+   * a zoneless or `puzzle` area (a hold, an engineering bay, quarters) pauses it, and coming back to
+   * the same zone continues the count. It resets after a battle, on a map change or arrival, and on
+   * entering a different zone.
+   */
   _updateEncounters(moved) {
     const { ui } = this.ctx;
     const zone = this._staged ? null : this._zoneOf(this.area);
-    const inZone = zone && this.world.areaAt(this.player.x, this.player.z) === this.area;
-    if ((inZone ? zone : null) !== this._zone) {
-      this._zone = inZone ? zone : null;
+    const inZone = !!zone && this.world.areaAt(this.player.x, this.player.z) === this.area;
+    if (inZone && zone !== this._zone) {
+      this._zone = zone;
       this._walked = 0;
     }
-    if (!this._zone || !this.encountersEnabled) {
+    if (!inZone || !this.encountersEnabled) {
       this._danger = 0;
       ui.hud.setDanger(0);
       return;

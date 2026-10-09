@@ -1,5 +1,5 @@
 [
-  {"note": "Prologue with other leaders (C1, 11.3), battles resolved through the model (autoResolve): jumpTo('pro.lower') -> Sera leads Orion's rescue -> Orion leads to Brandt's keycard and Nyx's door -> Sera finds Kade's coded locker (leader hint) -> Sera leads into the SENTINEL -> the CHAPTER ONE card (Nyx leads) -> the Starchart and the Moth's first flight to Driftmarket"},
+  {"note": "Prologue with other leaders (C1, 11.3), battles resolved through the model (autoResolve): jumpTo('pro.lower') -> Sera leads Orion's rescue -> Orion leads into the gallery ambush, to Brandt's keycard and Nyx's door -> Sera finds Kade's coded locker (leader hint) -> Sera leads into the SENTINEL -> the CHAPTER ONE card (Nyx leads) -> the Starchart and the Moth's first flight to Driftmarket"},
   {"waitFor": "window.__VP && window.__VP.ready", "timeout": 300000},
   {"eval": "window.S = () => window.__VP.debug.state()"},
   {"eval": "window.BATTLE = () => S().state === 'battle' && !!(S().battle && S().battle.results || document.querySelector('.vb-say.is-on.is-done'))"},
@@ -24,6 +24,12 @@
 
   {"note": "Orion leads: Brandt's keycard, then the antechamber (Nyx and the squad)"},
   {"waitFor": "LEAD('orion')", "timeout": 10000},
+  {"note": "Orion leads into the gallery ambush (he speaks as the leader, no step-out)"},
+  {"eval": "window.B0 = S().stats.battles, true"},
+  {"eval": "__VP.debug.teleport(19.6, 36.2, 'left')"},
+  {"until": "S().cutscene === 'prologue.gallery_ambush' || S().inBattle", "max": 40, "do": [{"hold": "ArrowLeft", "ms": 1500}]},
+  {"waitFor": "S().state === 'explore' && !S().inBattle && !S().transitioning && !S().cutscene && S().stats.battles === B0 + 1 && S().flags['seen:halcyon:gallery_ambush']", "timeout": 600000},
+  {"eval": "__VP.debug.heal()"},
   {"eval": "__VP.debug.interact('brandt')"},
   {"waitFor": "S().inventory.keycard === 1 && S().objective === 'pro.reach_bridge' && !S().cutscene", "timeout": 400000},
   {"eval": "__VP.debug.heal()"},

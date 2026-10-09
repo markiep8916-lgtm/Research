@@ -1984,7 +1984,7 @@ export class BattleUI {
     const r = this._rect;
     const plates = this._plates;
     plates.length = 0;
-    // phones: a plate that would end up under the open command menu moves beside its foe instead
+    // phones: the open command menu is an obstacle for plates
     const menuTop = this.compact && this.cmd && this.cmd.screen !== 'target' && this._menuSize
       ? this.H - this._partyH - 16 - this._menuSize.h : Infinity;
     for (const v of this.view.values()) {
@@ -1996,10 +1996,7 @@ export class BattleUI {
           v.foeW = v.foe.offsetWidth || 120;
           v.foeH = v.foe.offsetHeight || 40;
         }
-        const pl = v.plate ||= { v, x: 0, y: 0 };
-        pl.x = clamp(r.cx / z - v.foeW / 2, 4, this.W - v.foeW - 4);
-        pl.y = (r.y + r.h) / z + 6;
-        plates.push(pl);
+        plates.push(v.plate ||= { v, x: 0, y: 0, choice: -1 });
       }
       v.hitLast ||= { x: -1e4, y: -1e4, w: 0, h: 0 };
       this._setPos(v.hitbox, r.x / z, r.y / z, v.hitLast);
@@ -2027,44 +2024,7 @@ export class BattleUI {
       this._helpBottom ??= this.top.offsetTop + this.top.offsetHeight + 8;
       topMin = Math.max(topMin, this._helpBottom);
     }
-    // a plate that would cover another foe (a back-row foe's plate over a front-row sprite) slides to
-    // its left when that keeps it near its own foe (never far right, toward the party); else it nudges
-    // right just past the other foe, or sits above its own foe's head (adds beside a big boss)
-    for (const p of plates) {
-      const w = p.v.foeW, h = p.v.foeH;
-      const hits = (x, y) => plates.find((o) => {
-        if (o === p) return false;
-        const ox = o.v.rectX / z + 6, ow = o.v.rectW / z - 12, oy = o.v.rectY / z + 6, oh = o.v.rectH / z - 12;
-        return !(x >= ox + ow || x + w <= ox || y >= oy + oh || y + h <= oy);
-      });
-      const o = hits(p.x, p.y);
-      if (!o) continue;
-      const own = p.v.rectCx / z;
-      const ox = o.v.rectX / z + 6, ow = o.v.rectW / z - 12;
-      const cands = [[ox - w - 2, p.y, Math.abs(ox - w / 2 - 2 - own) <= w], [ox + ow + 2, p.y, ox + ow + 2 - p.x <= 0.6 * w], [p.x, p.v.rectY / z - h - 4, true]];
-      for (const [x, y, ok] of cands) {
-        if (!ok || x < 4 || x + w > this.W - 4 || y < topMin || hits(x, y)) continue;
-        p.x = x;
-        p.y = y;
-        break;
-      }
-    }
-    // plates that would overlap (crowded phone formations) are pushed down below the one above
-    plates.sort((p, q) => p.y - q.y);
-    for (let i = 0; i < plates.length; i++) {
-      const p = plates[i];
-      for (let j = 0; j < i; j++) {
-        const q = plates[j];
-        if (p.x < q.x + q.v.foeW && q.x < p.x + p.v.foeW && p.y < q.y + q.v.foeH + 2) p.y = q.y + q.v.foeH + 2;
-      }
-      if (p.y + p.v.foeH > menuTop) {
-        const v = p.v;
-        p.x = Math.min((v.rectX + v.rectW) / z + 4, this.W - v.foeW - 4);
-        p.y = (v.rectY + v.rectH / 2) / z - v.foeH / 2;
-      }
-      p.v.foeLast ||= { x: -1e4, y: -1e4 };
-      this._setPos(p.v.foe, p.x, p.y, p.v.foeLast);
-    }
+    this._placePlates(plates, topMin, menuTop);
     for (const cur of this.cursors) {
       if (!cur.classList.contains('is-on')) continue;
       const v = this.view.get(cur.dataset.id);
@@ -2090,6 +2050,62 @@ export class BattleUI {
       this._panelH = this._partyH;
       this.root.style.setProperty('--vb-party-h', `${Math.round(this._partyH)}px`);
       if (this.compact) document.documentElement.style.setProperty('--vb-panel', `${Math.round(this._partyH * z)}px`);
+    }
+  }
+
+  /**
+   * Plate placement (G2 B-1). Front foes first, each plate takes the first free spot: below its
+   * foe's opaque bounds, nudged down past other plates, then beside the foe (toward the party
+   * first), then above its head. A spot is free when it covers no combatant sprite, no plate placed
+   * before it, the top bar, the party panel or the open command menu (whose top is `menuTop`).
+   * With no free spot it takes the one covering the least; last frame's spot wins ties (no jitter).
+   */
+  _placePlates(plates, topMin, menuTop) {
+    const z = this.zoom;
+    // foes' opaque bounds slightly inset (big sprites have empty corners); travelers kept 4 px clear
+    const sprites = [];
+    for (const o of this.view.values()) {
+      if (o.gone || o.rectW == null) continue;
+      const m = o.foe ? 4 : -4;
+      sprites.push({ x0: o.rectX / z + m, y0: o.rectY / z + m, x1: (o.rectX + o.rectW) / z - m, y1: (o.rectY + o.rectH) / z - m });
+    }
+    const menu = Number.isFinite(menuTop) && this._menuSize ? { x0: 0, y0: menuTop, x1: 16 + this._menuSize.w, y1: this.H } : null;
+    const bottom = this.H - (this._partyH || 0) - 8;
+    const placed = [];
+    const area = (a, x0, y0, x1, y1) => Math.max(0, Math.min(a.x1, x1) - Math.max(a.x0, x0)) * Math.max(0, Math.min(a.y1, y1) - Math.max(a.y0, y0));
+    const cost = (p, x, y) => {
+      const w = p.v.foeW, h = p.v.foeH, x1 = x + w, y1 = y + h;
+      let c = 0;
+      for (const r of sprites) c += 3 * area(r, x, y, x1, y1);
+      for (const q of placed) c += 2 * area({ x0: q.x - 2, y0: q.y - 2, x1: q.x + q.v.foeW + 2, y1: q.y + q.v.foeH + 2 }, x, y, x1, y1);
+      if (menu) c += 2 * area(menu, x, y, x1, y1);
+      if (y < topMin) c += (topMin - y) * w * 4;
+      if (y1 > bottom) c += (y1 - bottom) * w * 4;
+      return c;
+    };
+    plates.sort((a, b) => (b.v.rectY + b.v.rectH) - (a.v.rectY + a.v.rectH));
+    for (const p of plates) {
+      const v = p.v, w = v.foeW, h = v.foeH;
+      const x0 = v.rectX / z, y0 = v.rectY / z, x1 = (v.rectX + v.rectW) / z, y1 = (v.rectY + v.rectH) / z;
+      const cx = clamp((x0 + x1) / 2 - w / 2, 4, this.W - w - 4), cy = (y0 + y1) / 2 - h / 2;
+      const cands = [
+        [cx, y1 + 6], [cx, y1 + 6 + h * 0.6], [cx, y1 + 8 + h * 1.2],
+        [Math.min(x1 + 4, this.W - w - 4), cy], [Math.max(4, x0 - w - 4), cy],
+        [Math.min(x1 + 4, this.W - w - 4), y1 - h], [Math.max(4, x0 - w - 4), y1 - h],
+        [cx, y0 - h - 4],
+      ];
+      let best = -1, bestCost = Infinity;
+      const order = p.choice >= 0 ? [p.choice, ...cands.keys()] : [...cands.keys()];
+      for (const i of order) {
+        const c = cost(p, cands[i][0], cands[i][1]);
+        if (c < bestCost - 1) { best = i; bestCost = c; }
+        if (c === 0) break;
+      }
+      p.choice = best;
+      [p.x, p.y] = cands[best];
+      placed.push(p);
+      v.foeLast ||= { x: -1e4, y: -1e4 };
+      this._setPos(v.foe, p.x, p.y, v.foeLast);
     }
   }
 

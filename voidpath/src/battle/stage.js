@@ -60,6 +60,10 @@ const PARTY_POINTS = {
 const NYX_MUZZLE = [7, 27];
 const HOVER = { drone: 0.08, sentinel: 0.05 };
 const KO_TINT = '#7d8699';
+// frames taller than this flash as an additive-style tint pulse at about 60% (G2 B-2): a flat
+// fill would blank a huge boss's detail
+const TALL_FLASH_PX = 160;
+const TALL_FLASH_K = 0.6;
 
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
@@ -69,6 +73,50 @@ const _corners = Array.from({ length: 4 }, () => new THREE.Vector3());
 const _scr = { x: 0, y: 0, visible: false };
 
 const preset = (name, fallback) => (hasPreset(name) ? name : fallback);
+const _flashTint = new THREE.Color();
+
+/**
+ * A battle sprite. On frames taller than TALL_FLASH_PX a hit flash (from the Director or a content
+ * fx) brightens the albedo by its colour at TALL_FLASH_K and fades out, so the art keeps its
+ * detail; tints set meanwhile become the colour the pulse returns to. Smaller sprites keep the
+ * SpriteActor flash.
+ */
+class BattleSprite extends SpriteActor {
+  constructor(sheet, opts) {
+    super(sheet, opts);
+    this._tall = sheet.frameH > TALL_FLASH_PX;
+    this._restTint = new THREE.Color(1, 1, 1);
+    this._pulse = null;   // { color, t, dur }
+  }
+
+  setTint(color) {
+    if (color == null) this._restTint.setRGB(1, 1, 1);
+    else this._restTint.set(color);
+    if (!this._pulse) super.setTint(color);
+  }
+
+  flash(color = '#ffffff', duration = 0.12) {
+    if (!this._tall) {
+      super.flash(color, duration);
+      return;
+    }
+    this._pulse = { color: new THREE.Color(color), t: 0, dur: Math.max(0.001, duration) };
+  }
+
+  update(dt) {
+    super.update(dt);
+    const p = this._pulse;
+    if (!p) return;
+    p.t += dt;
+    const k = p.t / p.dur;
+    if (k >= 1) {
+      this._pulse = null;
+      super.setTint(this._restTint);
+      return;
+    }
+    super.setTint(_flashTint.copy(p.color).multiplyScalar(TALL_FLASH_K * (1 - k * k)).add(this._restTint));
+  }
+}
 
 /** Art key of an enemy combatant (or kind). */
 export function enemyArt(c) {
@@ -142,7 +190,7 @@ export class BattleActor {
     const old = this.sprite;
     const prev = old ? { flipX: old.flipX, opacity: old.opacity, hologram: old.hologram } : null;
     this.sheet = sheet;
-    this.sprite = new SpriteActor(sheet, { tilt: TILT, emissiveIntensity: this.emissive, shadowScale: this.art === 'drone' ? 0.8 : 1 });
+    this.sprite = new BattleSprite(sheet, { tilt: TILT, emissiveIntensity: this.emissive, shadowScale: this.art === 'drone' ? 0.8 : 1 });
     if (old) {
       old.object3d.removeFromParent();
       old.dispose();

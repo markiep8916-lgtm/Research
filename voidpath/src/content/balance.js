@@ -16,19 +16,30 @@
 // It is idempotent, so registering twice changes nothing (scale always starts from the numbers
 // the content registered).
 //
-// How the curves were tuned (C10-alpha, tests/campaign.mjs: `npm run balance`): a standard enemy
-// of the party's level takes about as many party hits to kill at every level (`tough`), hits about
-// as hard against party HP and defences (`fierce`: steeper, because party HP and gear grow faster
-// than party ATK) and acts early enough in the round to land its blows before a Break (`quick`).
-// Rewards follow the level curve: about 0.15 of a level per standard enemy from level 8 on, more in
-// the prologue (a level a fight while the party forms); a boss is worth a little under a level.
+// How the curves were tuned (C10-alpha and C10-beta, tests/campaign.mjs: `npm run balance`): a
+// standard enemy of the party's level takes about as many party hits to kill at every level
+// (`tough`), hits about as hard against party HP and defences (`fierce`: steeper, because party HP
+// and gear grow faster than party ATK) and acts early enough in the round to land its blows before a
+// Break (`quick`). Past level 12 (`LATE`) foes gain a little more HP and offence per level, because
+// area skills, tier-3/4 gear and ultimates make the party stronger faster than its stats grow.
+// Rewards follow the level curve on the fights the maps deliver (G2 C10-1/C10-2: the simulator
+// derives each chapter's fight count from its critical-path distance and zone rates): the party
+// meets each boss at its chapter's end level, and a boss is worth about half a level.
 //
-// Lines the alpha chapters use (a chapter's regular enemies sit 1-4 levels above its start level,
-// its boss at its end level, elites 2 above the boss's level with `elite`):
+// Lines the chapters use (regular enemies sit 1-4 levels above the chapter's start level, its boss
+// at its end level, elites 2 above the boss's level with `elite`):
 //   prologue  pro_drone_glitch 1 swarm, pro_drone 3 standard, pro_crawler 4 brute, pro_turret 5
-//             armored, sentinel_mk1 6 brute, pro_sentinel 7 boss (shield 6, cap 12)
-//   ch1       ice_mite 8 swarm, void_eel 9 caster, rime_golem 10 armored, salvage_bot 11 standard,
-//             maw 12 boss (shield 8, cap 14, two actions)
+//             armored, sentinel_mk1 6 brute, pro_sentinel 7 boss
+//   ch1       ice_mite 8 swarm, void_eel 9, rime_golem 10 armored, salvage_bot 11, maw 12 boss
+//   ch2       spore_drone 13 caster, rootling 13 swarm, bloom_mantis 14 brute, feral_caretaker 15,
+//             gardener 17 boss
+//   ch3       sec_trooper 18, riot_drone 18 caster, laser_turret 19 armored, sentinel_mk3 20 brute,
+//             voss / voss_overclock 22 boss (+ voss_escort 20)
+//   ch4       data_wraith 23 caster, glitch_swarm 23, firewall_golem 24 armored, corrupted_memory 25
+//             caster, echo 27 boss
+// Per-kind `overrides` below carry what the curves cannot: lesson foes that must live long enough,
+// chapter XP that lands the party on each boss's level, and every boss's 8-10 rounds with two
+// Breaks against a first-timer's gear (G2 C10-3, bar rule 7).
 
 import { BATTLE_RULES, ENEMIES, PARTY_DEFS } from '../battle/data.js';
 
@@ -43,6 +54,10 @@ const SPEED = 1.45;     // SPD at level 10 against the POC drone
 const tough = (level) => (level + 9.3) / 19.3;               // HP, DEF, RES
 const fierce = (level) => (OFFENSE * (level + 5)) / 15;      // ATK, MAG
 const quick = (level) => (SPEED * (level + 30)) / 40;        // SPD
+// Past level 12 the party gains area skills, tier-3 and tier-4 gear and ultimates faster than the
+// curves above grow, so foes of the later chapters get a little more HP and offence per level.
+const LATE = { hp: 0.03, offense: 0.015 };
+const late = (level, k) => 1 + k * Math.max(0, level - 12);
 
 export function xpAt(level) {
   return Math.round((8.5 * level + 10) * (1 + 0.1 * Math.max(0, 8 - level)));
@@ -66,23 +81,29 @@ export function statLine(level, archetype = 'standard') {
   const a = ARCHETYPES[archetype];
   if (!a) throw new Error(`balance: unknown archetype "${archetype}"`);
   const t = tough(level);
-  const f = fierce(level);
+  const f = fierce(level) * late(level, LATE.offense);
   const stat = (key, k) => Math.max(1, Math.round(ANCHOR[key] * k * a[key]));
   return {
     level,
-    maxHp: Math.max(1, Math.round((ANCHOR.maxHp * t * a.hp) / 10) * 10),
+    maxHp: Math.max(1, Math.round((ANCHOR.maxHp * t * late(level, LATE.hp) * a.hp) / 10) * 10),
     stats: { atk: stat('atk', f), def: stat('def', t), mag: stat('mag', f), res: stat('res', t), spd: stat('spd', quick(level)) },
     xp: Math.round(xpAt(level) * a.xp),
     credits: Math.round(creditsAt(level) * a.credits),
   };
 }
 
-const PROLOGUE_XP = 1.35;   // the party forms over eight fights and still reaches level 7
+const PROLOGUE_XP = 1.31;   // the party forms over eight fights and reaches level 7 at the SENTINEL
+
+// The enemies battle/data.js defines (the POC's): their numbers stay the POC's.
+const POC_KINDS = new Set(Object.keys(ENEMIES));
 
 // Every key is optional.
 //   party:    { [memberId]: { base?: { maxHp, ... }, growth?: { ... } } }
 //   scale:    { [kind]: { maxHp?, atk?, def?, mag?, res?, spd?, xp?, credits? } }   multipliers
 //   enemies:  { [kind]: { maxHp?, stats?: { atk, ... }, shield?, xp?, ... } }        absolute values
+//   xpByLevel: [[fromLevel, toLevel, factor]]   XP of every content enemy (not the POC's) of that
+//             level band, on top of `scale`: each chapter's foes sit in its own band, so this lands
+//             the party on the chapter's boss level with the fights its maps deliver (G2 C10-2)
 //   rules:    { partyScale?, difficulty?, ultimateBp? }
 //   zoneRate: { grace?, sigma? }
 // A kind that no location registers is reported (console.error), so list registered kinds only.
@@ -95,15 +116,33 @@ export const overrides = {
     pro_crawler: { xp: PROLOGUE_XP },
     pro_turret: { xp: PROLOGUE_XP },
     sentinel_mk1: { xp: PROLOGUE_XP, maxHp: 1.4 },     // the squad lasts until a rail charge fires
-    pro_sentinel: { xp: PROLOGUE_XP, maxHp: 1.07, atk: 1.11, mag: 1.11 },
+    pro_sentinel: { maxHp: 1.07, atk: 1.11, mag: 1.11 },  // no PROLOGUE_XP: a boss is worth about half a level
     rime_golem: { maxHp: 1.5 },                        // must be Broken, not just outlasted
-    maw: { maxHp: 0.85, atk: 1.1, mag: 1.1 },          // two actions a round: shorter, sharper
+    maw: { maxHp: 1.25, atk: 1.12, mag: 1.12 },        // 8-10 rounds against a first-timer (G2 C10-3)
+    // the Arboretum's foes sleep and summon more than they hit: they hit harder to cost 15-35% HP
+    spore_drone: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
+    bloom_mantis: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
+    rootling: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
+    feral_caretaker: { atk: 2, mag: 2, maxHp: 1.4 },
+    gardener: { xp: 0.3 },                             // the chapter ends at 17 (her numbers are C4's)
+    honour_guard: { xp: 0.35 },                        // three of them: worth about a level, like the other rare finds
+    // Voss: a first-timer must still lose sometimes (route check 85-95%); worth about half a level
+    voss: { xp: 0.8, atk: 1.14, mag: 1.14 },
+    voss_overclock: { xp: 0.8, atk: 1.14, mag: 1.14 },
+    voss_escort: { xp: 0.15 },
+    corrupted_memory: { mag: 0.85 },                   // the Overwrite lesson costs at most a third of the squad's HP
+    echo: { maxHp: 1.5, atk: 1.18, mag: 1.18 },        // 9-10 rounds, two Severances, a third cancelled
   },
   enemies: {
     pro_drone_glitch: { xp: 100 },   // the tutorial levels Kade up before Sera joins
     sentinel_mk1: { shield: 5 },     // its rail charge must sometimes fire: the Defend lesson
     rime_golem: { shield: 5 },       // breakable before it falls: the Break-timing lesson
+    maw: { shieldGain: 1 },          // two Breaks in a first-timer's fight (G2 bar rule 7)
+    voss_overclock: { shield: 3 },   // her second form breaks once more before she falls
+    echo: { shield: 5, shieldGain: 1 },   // two Breaks against a first-timer, one in time for a Severance
   },
+  // chapter 1, 2, 3 and 4 foes (their bosses too)
+  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.14], [23, 28, 0.83]],
   // Duos lack area skills and a spare healer, so their foes shrink more than in the POC.
   rules: { partyScale: { hp: [0, 0.45, 0.5, 0.85, 1], dmg: [0, 0.7, 0.7, 0.92, 1] } },
   zoneRate: {},
@@ -126,6 +165,8 @@ const registered = new WeakMap();
 function scaleEnemy(def, mult) {
   let base = registered.get(def);
   if (!base) registered.set(def, (base = { maxHp: def.maxHp, xp: def.xp, credits: def.credits, stats: { ...def.stats } }));
+  Object.assign(def, { maxHp: base.maxHp, xp: base.xp, credits: base.credits });
+  Object.assign(def.stats, base.stats);
   for (const [key, m] of Object.entries(mult)) {
     if (key in base.stats) def.stats[key] = Math.max(1, Math.round(base.stats[key] * m));
     else if (key === 'maxHp') def.maxHp = Math.max(10, Math.round((base.maxHp * m) / 10) * 10);
@@ -151,9 +192,12 @@ export function applyBalance() {
     if (o.base) Object.assign(def.base, o.base);
     if (o.growth) Object.assign(def.growth, o.growth);
   }
-  for (const [kind, mult] of Object.entries(overrides.scale || {})) {
-    const def = enemyDef(kind);
-    if (def) scaleEnemy(def, mult);
+  for (const kind of Object.keys(overrides.scale || {})) enemyDef(kind);
+  for (const [kind, def] of Object.entries(ENEMIES)) {
+    const mult = { ...(overrides.scale?.[kind] || {}) };
+    const band = !POC_KINDS.has(kind) && (overrides.xpByLevel || []).find(([lo, hi]) => def.level >= lo && def.level <= hi);
+    if (band) mult.xp = (mult.xp ?? 1) * band[2];
+    if (Object.keys(mult).length || registered.has(def)) scaleEnemy(def, mult);
   }
   for (const [kind, o] of Object.entries(overrides.enemies)) {
     const def = enemyDef(kind);

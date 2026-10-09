@@ -28,6 +28,8 @@
 //   bounded   a story trigger (once, or running a scene) or an extends trigger/npc/talk/interactable/
 //             chest/prop whose `when` has no story: or chapter term (poc maps and dev are exempt)
 //   inline    inline (legacy) lines on a map without poc: true, outside dev
+//   staging   (warning) a `key: true` scenes entry with neither `jump` nor `at`: the contact sheet
+//             would frame it on its chapter's start map instead of where it is staged
 //   id        extends ids without the adding location's code, script ids without '<loc>.',
 //             encounter and zone ids without the location prefix (2.7), map NPCs whose id is a
 //             party member id (a world NPC wins actor lookups in scripts, so a hidden map NPC
@@ -281,6 +283,8 @@ export function lintContent(reg, { written = [], reads = [] } = {}) {
       const [m, sp] = typeof sc.at === 'string' ? sc.at.split(':') : [sc.at.map, sc.at.spawn];
       checkTarget(m, sp, sc.loc, `scene "${sc.id}" at`);
     }
+    // G2 T-2: without them the contact sheet frames a key scene on the chapter's start map
+    if (sc.key && !sc.jump && !sc.at) warn('staging', sc.loc, `key scene "${sc.id}" has no jump or at: the contact sheet frames it on its chapter's start map`);
   }
   for (const [id, s] of entries(REG.scripts)) {
     const loc = ownerOf('scripts', id);

@@ -10,7 +10,9 @@
 //                                     resolves after the field has faded back in; a defeat without allowDefeat
 //                                     is a game over and leaves the promise pending (Retry from the second form
 //                                     resolves it with that battle's result; anything else aborts the script)
-//   game.retry(); game.toTitle()      both abortAll first
+//   game.retry(); game.toTitle()      both abortAll first; retry keeps Party Talks played since the
+//                                     checkpoint and sets `retried` = { script, encounter } (a field boss
+//                                     confronted again skips its pre-fight part, G2 F-2)
 //   game.finish() -> Promise          credits, THE END, stats; resolves 'ione' (Return to Ione) or 'title'
 // extras:
 //   requestCheckpoint(); requestAutosave()   queued while a script runs (6.2), else applied now
@@ -51,6 +53,7 @@ export class Game {
     this._battle = null;        // { encounterId, opts, resolve, start, transformed }
     this._snapshot = null;      // serialize() of the last checkpoint (Retry)
     this._snapCp = null;        // the gameState.checkpoint object that snapshot belongs to
+    this.retried = null;        // { script, encounter } of the battle the last Retry replays (F-2)
     this._noticed = false;
   }
 
@@ -154,6 +157,7 @@ export class Game {
     this._snapshot = null;
     this._snapCp = null;
     this._battle = null;
+    this.retried = null;
     this.inBattle = false;
   }
 
@@ -385,10 +389,17 @@ export class Game {
     });
   }
 
-  /** Retry from the checkpoint snapshot (4.4); before the first checkpoint, a new journey. */
+  /**
+   * Retry from the checkpoint snapshot (4.4); before the first checkpoint, a new journey. The lost
+   * battle's outermost script replays its pre-fight part instantly (cutscenes.autoSkip), and so does a
+   * field boss confronted again (`retried`, read by ExploreState). Party Talks played since the
+   * checkpoint stay played (G2 F-1).
+   */
   async retry() {
     const { cutscenes } = this.ctx;
-    const script = this._battle?.script || null;
+    const b = this._battle;
+    const script = b?.script && b.script !== 'inline' ? b.script : null;
+    this.retried = b ? { script, encounter: b.encounterId } : null;
     cutscenes.abortAll();
     await this._idle();
     const snap = this._snapshot;
@@ -403,7 +414,9 @@ export class Game {
       kind: 'respawn',
       onCover: () => {
         this._closeScreens();
+        const talks = Object.keys(gameState.flags).filter((f) => f.startsWith('ptalk:') && gameState.flags[f]);
         deserialize(snap, { keep: ['stats', 'played'] });
+        for (const f of talks) gameState.flags[f] = true;
         this._snapCp = gameState.checkpoint;
         healParty();
         this._battle = null;

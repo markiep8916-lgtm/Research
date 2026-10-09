@@ -409,7 +409,8 @@ export class World {
             this._exposed(B, panel, c, r, h, dv, nc, r, dir > 0 ? 'x+' : 'x-');
           }
         }
-        B.faceY(cap, c, c + 1, r, r + 1, h);
+        // rot: 'random' turns each cap a random quarter turn so a frosted cap never prints a row (W-4)
+        B.faceY(cap, c, c + 1, r, r + 1, h, null, spec.rot === 'random' ? Math.floor(hash(c, r, 9) * 4) : 0);
       }
     }
     for (const m of ceiling.build(this.root)) {
@@ -455,6 +456,8 @@ export class World {
         if (h < acc) { name = tex; break; }
       }
     }
+    // rot: 'random' turns each cell's texture a random quarter turn, so a per-cell motif cannot stamp (W-4)
+    if (!door && spec.rot === 'random') rot = Math.floor(hash(c, r, 7) * 4);
     if (!door && spec.stripe) {
       // stripe toward the neighbouring door (or wall): N, E, S, W
       const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
