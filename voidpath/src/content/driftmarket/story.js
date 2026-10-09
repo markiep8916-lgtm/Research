@@ -212,6 +212,7 @@ const scripts = {
     cs.anim('orion', 'kneel');
     await cs.say('ORION', 'Easy, old girl. New heart. Well, borrowed.', { expr: 'smile' });
     cs.take('lattice_coil');
+    cs.flag('dm:reactor_up');
     cs.sfx('unlock');
     cs.flash('#ffd27a', 0.4, 0.45);
     cs.particles('boost', [25.5, 1.4, 24.6], { count: 26 });
@@ -240,7 +241,7 @@ const scripts = {
     cs.flag('dm:warden_light', false);
     cs.screens(null);
     cs.flash('#ffe2b8', 0.25, 0.3);
-    cs.fx({ grade: { exposure: 1, saturation: 1.08 } });
+    cs.fx({ grade: { exposure: 1.16, saturation: 1.12 } });
     // Sera goes to the nearest monitor for the manifest; the camera keeps her in a phone's frame
     cs.face('kade', 'nyx');
     const toConsole = bg(cs.move('sera', [[22.7, 24.1]], { speed: 2.6 }));
@@ -623,8 +624,11 @@ export default {
       ],
       lights: [
         { x: 39.4, y: 2.0, z: 20.8, color: '#ffa24a', intensity: 9, distance: 5, mode: 'flicker', amount: 0.2, speed: 5, when: 'story:ch1_done' },
+        // the drive warms once the coil is seated (coil_install) and stays warm
+        { x: 25.5, y: 1.6, z: 24.4, color: '#ff9a6a', intensity: 14, distance: 7, mode: 'pulse', amount: 0.15, speed: 1.4,
+          when: 'dm:reactor_up | story:coil_installed' },
         // WARDEN's first words (coil_install): soft gold by the reactor and its screens, breathing while it speaks
-        { x: 25.5, y: 2.4, z: 24.9, color: '#ffd27a', intensity: 30, distance: 9, mode: 'pulse', amount: 0.4, speed: 2.2,
+        { x: 25.5, y: 2.4, z: 24.9, color: '#ffd27a', intensity: 36, distance: 9, mode: 'pulse', amount: 0.3, speed: 2.2,
           when: 'dm:warden_light & !story:coil_installed' },
       ],
       talk: {

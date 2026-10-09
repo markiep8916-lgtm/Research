@@ -14,11 +14,11 @@ const weave = (ends, a, b, step, z0, z1) => ends.flatMap((x, i) => {
 // The lessons' drones and caretaker stand in a corridor and block it until they are fought, so the
 // path walks up to each one first (inside its trigger radius of 2.4).
 const fernWeave = weave([18, 23, 28, 33, 38, 43, 48, 53], -0.4, 2.4, 1, 52.5, 45.5);
-const FERN = [[16, 50], ...fernWeave.slice(0, 2), [21.4, 49.2], ...fernWeave.slice(2), [56, 47.5]];
+const FERN = [[16, 50], ...fernWeave.slice(0, 2), [21.5, 48.4], ...fernWeave.slice(2), [56, 47.5]];
 // the Glasshouse runs west, so its near sides are the beds' east edges (the start is already under the first)
 const GLASS = [[64.5, 41], ...weave([65, 60, 55, 50, 45, 40, 35, 30, 25], -0.4, 2.4, -1, 39.5, 31.5).slice(1), [21, 35.5]];
 const stasisWeave = weave([21, 26, 31, 36, 41, 46, 51], -0.4, 2.4, 1, 25.5, 17.5);
-const STASIS = [...stasisWeave.slice(0, 2), [24.4, 23.3], ...stasisWeave.slice(2), [54, 20]];
+const STASIS = [...stasisWeave.slice(0, 2), [24.0, 22.6], ...stasisWeave.slice(2), [54, 20]];
 
 export default {
   segments: {
@@ -38,7 +38,11 @@ export default {
         await d.pump(d.F('arb:valve_a_said'));
         await d.journal('journal-ch2-valve-a');
         // the Fern Walk east: the spore drones' lesson waits on the path
-        for (const [x, z] of FERN) await d.go(x, z);
+        for (const [x, z] of FERN.slice(0, 4)) await d.go(x, z);
+        await d.pump(d.F('arb:spores'));
+        await d.vwait(1);
+        await d.eval(() => window.__PACE.invalidate());
+        for (const [x, z] of FERN.slice(4)) await d.go(x, z);
         d.milestone('fern walk');
         await d.use('fern_cache', { optional: true });
         // valve B (twist): the pump canal drains, and the hall's basin floods
@@ -82,7 +86,11 @@ export default {
         await d.pump(d.F('seen:arboretum:stasis'), { maxVt: 300 });
         d.milestone('stasis gardens');
         await d.shot('c03-stasis', { hi: true });
-        for (const [x, z] of STASIS.slice(0, 8)) await d.go(x, z);
+        for (const [x, z] of STASIS.slice(0, 3)) await d.go(x, z);
+        await d.pump(d.F('arb:caretaker'));
+        await d.vwait(1);
+        await d.eval(() => window.__PACE.invalidate());
+        for (const [x, z] of STASIS.slice(3, 8)) await d.go(x, z);
         await d.use('esme', { optional: true });
         await d.use('stasis_cache', { optional: true });
         for (const [x, z] of STASIS.slice(8)) await d.go(x, z);

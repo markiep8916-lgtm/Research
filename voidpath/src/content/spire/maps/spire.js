@@ -353,6 +353,9 @@ const interactables = [
     label: 'Quartermaster', icon: 'shop', when: 'story:cadets_freed',
   },
   medStation('med_cells', 68.5, 35.34, { when: 'story:cadets_freed' }),
+  // between the Mk-III's deck and the Training Hall: three fights on Deck 5 with no rest wore a
+  // first-timer's squad down (measured at human pace)
+  medStation('med_stairs', 5.2, 25.34),
   medStation('med_lobby', 57.5, 2.34),
   // logs and the leader's lines
   terminal('term_checkpoint', 15.5, 48.36, 'spire.term_checkpoint'),

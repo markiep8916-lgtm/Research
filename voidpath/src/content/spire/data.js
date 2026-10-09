@@ -17,13 +17,14 @@
 // Zones: spire_barracks (Checkpoint, Barracks, Armory, the cell block until the cadets are free),
 // spire_upper (Officers' Deck, Training Hall, Firing Range). Shop `quartermaster` opens when the
 // cadets are freed. Numbers come from statLine (balance.js); C10 tunes them through overrides.
-// Measured with tests/campaign.mjs (the ch3 route and the first-timer route): XP at 0.78 of the line
-// lands the party on about 22 at Voss and 22-23 at the end; Voss's shield 4 (two Breaks a fight), HP 0.81
-// and attack 1.05 of the boss line: the first-timer wins 79% in a median of 10 rounds with 2 Breaks.
+// Measured with tests/campaign.mjs walking the legs of tests/routes/spire.mjs (lessons included): XP at
+// 0.86 of the line lands the party on 22.3 at Voss and 23 at the end; Voss's shield 4 (two Breaks a
+// fight), HP 0.81 and attack 1.05 of the boss line: the first-timer wins 83% at level 22 in a median of
+// 10 rounds with 2 Breaks.
 
 import { statLine } from '../balance.js';
 
-const CH3_XP = 0.78;
+const CH3_XP = 0.86;
 /** statLine with chapter 3's XP, optionally scaling HP and attack. */
 const line = (level, archetype, { hp = 1, atk = 1 } = {}) => {
   const s = statLine(level, archetype);
@@ -317,12 +318,12 @@ const shops = {
   },
 };
 
-// From the critical path with its chest detours (tests/routes/spire.mjs legs): about 190 units in the
-// lower decks and 146 on Deck 5, for four or five random fights beside the troopers, the riot drone, the
-// Mk-III and Voss (the human-pace walker steers round props and covers a little more ground).
+// From the critical path with the chests on the way (tests/routes/spire.mjs legs, expected-fights): 175
+// units in the lower decks and 139 on Deck 5 give 4.5 random fights, so with the troopers, the riot
+// drone, the Mk-III and Voss chapter 3 has 8-9 fights (11.7: 8-10).
 const zoneRates = {
-  spire_barracks: { grace: 18, sigma: 36 },
-  spire_upper: { grace: 18, sigma: 36 },
+  spire_barracks: { grace: 15, sigma: 28 },
+  spire_upper: { grace: 15, sigma: 28 },
 };
 
 export default { enemies, encounters, zones, zoneRates, bossScripts, shops };

@@ -174,9 +174,9 @@ const lights = [
   { x: 30.0, y: 1.8, z: 21.0, color: '#ffd27a', intensity: 16, distance: 10, tag: 'stasis_gold', when: 'arb:stasis_gold' },
   { x: 45.0, y: 1.8, z: 21.0, color: '#ffd27a', intensity: 16, distance: 10, tag: 'stasis_gold', when: 'arb:stasis_gold' },
   // choir gate
-  sun(64.0, 24.5, { intensity: 18, distance: 9 }), teal(59.0, 20.0), violet(69.0, 20.0), pink(59.0, 26.0), teal(69.0, 26.0),
+  sun(64.0, 24.5, { intensity: 12, distance: 9 }), teal(59.0, 20.0), violet(69.0, 20.0), pink(59.0, 26.0), teal(69.0, 26.0),
   { x: 64.0, y: 1.6, z: 15.6, color: '#ffd27a', intensity: 9, distance: 5, mode: 'pulse', amount: 0.3, speed: 0.4 },
-  { x: 64.0, y: 0.8, z: 19.4, color: '#8fe08a', intensity: 10, distance: 5, tag: 'gardener', when: '!defeated:arb_boss_gardener' },
+  { x: 64.0, y: 0.8, z: 20.6, color: '#8fe08a', intensity: 4, distance: 5, tag: 'gardener', when: '!defeated:arb_boss_gardener' },
   // choir chamber: white-gold pod glow on black, soft gold haze
   gold(59.6, 6.0, { intensity: 6 }), gold(68.4, 6.0, { intensity: 6 }), gold(59.6, 10.5, { intensity: 6 }), gold(68.4, 10.5, { intensity: 6 }),
   gold(64.0, 2.4, { intensity: 8, distance: 5, mode: 'pulse', amount: 0.25, speed: 0.35 }),
