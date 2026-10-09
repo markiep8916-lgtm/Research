@@ -12,6 +12,10 @@ never renames them.
 I2b owns it in Wave I. Location owners do not edit it: if a proposal here does not fit your maps,
 implement the closest version and say so in your milestone report.
 
+**G2 amendments.** Gate G2 played the prologue and chapter 1 at human pace (`docs/gates/G2.md`).
+Its lessons are marked **(G2)** below: in 1.6, 1.7, 1.8, 5.2, 5.3, 5.10, 6, 8, 9.1 and 9.3. Where
+an earlier proposal in this file caused a G2 failure, the proposal has been replaced.
+
 **How binding is each part?**
 
 | Mark | Meaning |
@@ -107,6 +111,18 @@ realises her brother is trapped."
 - Nobody calls WARDEN evil or a monster. Characters may judge it harshly early (Orion's "tumour"),
   and the story proves them wrong.
 - Swearing: Ringborn "slag" (mild); Varo's "God forgive me" is canon. Nothing stronger.
+- **(G2) No UI instructions in a character's mouth.** Menu paths, button names and system words
+  ("Pause menu", "Party", "Restore", "checkpoint") never go in a line. The character says the
+  in-world version, and `cs.caption` carries the menu path. For example, NYX: "Out here, anyone can
+  lead." then `cs.caption('Pause menu · Party · Leader')`. The prologue's equip tip is the pattern.
+  Bad: "Pause menu, Party." Bad: "Restore and checkpoint. Use it."
+- **(G2) Name a thing on screen before anyone refers to it.** Use a key-item toast (`cs.give`), a
+  narration box, or the prop in frame. Ruse's data spike was only particles and a code comment until
+  Orion spoke of it as if the player had seen it.
+- **(G2) Lines must fit the state and the branch they run in.** A line must not offer what a card
+  has already done ("Make it me" after the CH1 card had made Nyx leader). Every choice branch must
+  leave the following lines something to point at ("So I'll keep this one" after no promise was
+  made). Do not give one distinctive line to two speakers in the same chapter ("Then walk faster.").
 
 ### 1.7 Staging
 
@@ -125,8 +141,19 @@ Key scenes need two staging devices besides text (TECH_PLAN 11.3). The inventory
 - Scripts never assume who leads (TECH_PLAN 4.2). Gather every traveler who speaks; address the
   leader as `'leader'`.
 - WARDEN is never an actor before the crown. It is a voice with the gold sigil, the choir sfx, soft
-  gold light and sigil screens (all automatic through its speaker style). Do not spawn a WARDEN body
-  in chapters 1-4.
+  gold light and sigil screens. Do not spawn a WARDEN body in chapters 1-4. **(G2)** The speaker
+  style does only part of this automatically: the sigil portrait, the slow text, the choir, a
+  soft-gold grade, and switching every `screen` prop on the map to the sigil while WARDEN speaks.
+  - **A map without `screen` (or pod status) props shows no sigil.** Every place where WARDEN speaks
+    needs screens in the speaking frame. The coil install had none.
+  - **The grade only colours what is lit.** A scene that kills the lights must add a gold light
+    source (`cs.light`, about `#ffd27a`, pulsing with WARDEN's boxes) and must not leave WARDEN on a
+    grey grade.
+- **(G2) Frame the reveal.** Gather travelers to the sides of a hologram, a pod, a window or a body,
+  never between it and the camera, and never put a speaker directly behind another actor. Check the
+  frame on a phone with the dialog box open: speakers sit above the box and inside the tilt band.
+  The Varo log first played to the back of Nyx's head.
+- **(G2) Staging runs under the lines**, inside the scene's staging seconds (1.8).
 - Show, not tell: the flare report is a hologram of a star, the memories are hologram actors with
   music, Ione is a new node on the Starchart.
 
@@ -156,6 +183,26 @@ From TECH_PLAN 11.7, plus the small-script budgets this bible sets.
   brackets, the real duration including walks, camera moves, waits and cards. The dry run's seconds are
   reading time plus `cs.wait`; the plan is what the player sits through. Chapter story time (5.10) is
   the sum of plans on the critical path.
+- **(G2) Staging seconds.** G2 measured C-alpha's critical-path story at about 1.5 times the plan:
+  424 s against 331 in the prologue, 552 s against 358 in chapter 1. Every box budget passed. The
+  overrun was staging awaited one step after another (pans, gathers, walk-ins, fades, waits), not
+  text. From C-beta on:
+  - The plan is reading time (1.1) plus **staging seconds**. Before you stage a key scene, work out
+    its reading time from its boxes. Whatever the plan has left is all the staging you may await.
+  - Run walks, emotes, camera moves and light changes **under the lines**: start them without
+    `await` (or wrap them in the `bg()` helper of `prologue/story.js`). Await only what the next
+    line needs, such as a speaker who must be on screen.
+  - Camera moves outside the cold open take about 1 s. An arrival's establishing pan takes 3 s at
+    most.
+  - Do not pad lines with `cs.wait`. Allow one deliberate silence of 2 s or less per key scene, and
+    only where it does work.
+  - When the previous scene ends with the party together, start the next one already gathered. Fade
+    straight to the next set, with fades of 0.6 s or less.
+  - The test: at human pace (`debug.pacing()` and G2's human-pace tool) each critical-path scene
+    lands within its plan **+15%**, and so does the chapter's story total (5.10).
+  - Optional talk adds to a first-timer's time: Driftmarket's townsfolk and Party Talks added 7.5
+    minutes to chapter 1. That is fine because each beat is 2-3 boxes. Keep later echoes and
+    townsfolk to the same size.
 - **Stretches and chains.** The dry run checks a budget per stretch between battles (a battle gives
   control back), and the boxes of every script you `cs.run` count in the caller's stretch. So a chain
   (an aftermath that runs another owner's scene) must fit as a whole. Every chain in this inventory
@@ -719,7 +766,9 @@ Tips live in `common` too (9.1); they are battle lines, not scenes.
 | `prologue.new_journey` B K | `REG.newJourney` = `exterior:view` (game.newJourney); `cs.goto('halcyon', 'start')` after the card | Cold open over Tethys (20-30 s); PROLOGUE card; Kade wakes in pod 07; BOLT | WARDEN, BOLT, KADE | 10 / 90 (65) | CAM pan, MUSIC, POSE, EMOTE, LIGHT | `warden`, silence, `explore` | `story:kade_awake`; card `prologue` (save lands at `halcyon:start`); objective `pro.wake` |
 | `prologue.tutorial` | `halcyon` · enter `tutorial` (Cryo Deck exit) · `story:kade_awake & !story:sera_joined` | A sparking Sec-Drone; three `mech` boxes; `cs.battle('pro_tutorial')`; the medbay alarm | BOLT, KADE | 5 / 40 (25) | MOVE, EMOTE, CAM | map | objective `pro.medbay` |
 | `prologue.sera_wakes` B K | `halcyon` · enter `sera_wakes`, area `medbay` · `story:kade_awake & !story:sera_joined` | Sera in her half-forced pod; pod 2271; the choice; the Med-Station; "Call me Sera" | SERA, KADE, BOLT | 9 / 70 (45) | MUSIC, CAM, POSE, EMOTE, MOVE | silence, map | `story:sera_joined`; `pro:promised` on choice 0; objective `pro.reach_engineering` |
+| `prologue.spine_drones` (G2) | `halcyon` · enter `spine_drones` (Spine Corridor bulkhead), once · `story:sera_joined & !story:orion_joined` | Kade and Sera's first fight together; `cs.battle('pro_spine_drones')`, a drone pair carrying Sera's items tip, where `bp3` first shows | narration | 1 / 10 (8) | MOVE (drones drop in) | map | none |
 | `prologue.orion_rescue` B K | `halcyon` · enter `orion_rescue` (before the reactor-control shutters) · `story:sera_joined & !story:orion_joined` | Drones hammer the shutters; `cs.battle('pro_orion_rescue')`; Orion soothes the reactor; his watchdog; Brandt's crate | ORION, KADE | 8 / 70 (40) | CAM, MOVE (gather), POSE, LIGHT | map | `sw:halcyon:control_shutter`, `story:orion_joined`; objective `pro.find_keycard` |
+| `prologue.gallery_ambush` (G2) | `halcyon` · enter `gallery_ambush` (Coolant Gallery, on the way to Brandt's crate), once · `story:orion_joined & !item:keycard` | Orion's first fight; `cs.battle('pro_gallery_ambush')` carrying his area-skills tip | ORION | 1 / 10 (8) | MOVE, EMOTE | map | none |
 | `prologue.equip_tip` | `halcyon` · flag `equip_tip` · `story:orion_joined & item:eq_x_stim_chip & !tut:equip` | Equipment tip after the Stimulus Chip chest | ORION | 2 / 15 (8) | POSE | map | `tut:equip` |
 | `prologue.keycard` | `halcyon` · flag `keycard` · `story:orion_joined & item:keycard & !story:nyx_joined` | The keycard in hand | KADE, ORION | 2 / 15 (8) | EMOTE | map | objective `pro.reach_bridge` |
 | `prologue.nyx_door` K | `halcyon` · enter `nyx_door`, area `antechamber` · `story:orion_joined & !story:nyx_joined` | Nyx caught at the bridge door; the winged Moth; the beacon; a Sentinel squad; truce; `cs.join('nyx')`; `cs.battle('pro_sentinel_squad')` | NYX, KADE, BOLT | 10 / 80 (50) | CAM, MOVE, EMOTE, POSE | map | `story:nyx_joined`; objective `pro.open_bridge` |
@@ -751,11 +800,18 @@ Tips live in `common` too (9.1); they are battle lines, not scenes.
 
 `prologue.sera_wakes`: the worked example of TECH_PLAN 4.6, plus: when Sera says her pod was forced
 *Halfway*, BOLT shows `sweat` and says nothing (callback 2). After the choice: SERA: "Call me Sera.
-Lindqvist is Theo's name too." She points Kade to the Med-Station ("Restore and checkpoint. Use it.").
+Lindqvist is Theo's name too." She points Kade to the Med-Station: "That's a Med-Station. Patches you up, remembers where you
+were. Use it." (G2: replaces "Restore and checkpoint. Use it.", which was menu jargon.)
 
 `prologue.orion_rescue`: the worked example of 4.6, plus after the join: KADE: "How are you awake,
 Sall?" ORION: "A watchdog. My own code. It woke me three hours ago and won't say why." ORION: "The
 keycard? Brandt kept it in a supply crate. She never trusted drawers."
+
+(G2) The two scripted fights get a 1-box lead-in each. It is staged under the box and kept in the same
+script as the `cs.battle`, so Retry skips it:
+- `prologue.spine_drones`, narration: "Two Sec-Drones drop from the vent above the bulkhead, sparking."
+- `prologue.gallery_ambush`, ORION (to the drones, `!` emote): "Easy, friends. Easy. ...No. They're not
+  listening."
 
 `prologue.nyx_door`
 1. Nyx crouched at the bridge door panel; she turns (`!`). NYX: "Relax, ship-people. I'm just
@@ -787,10 +843,18 @@ keycard? Brandt kept it in a supply crate. She never trusted drawers."
   "NONCOMPLIANCE LOGGED. I AM SORRY."; outro SENTINEL: "PLEASE... RETURN... TO YOUR..." The lock-on
   banner keeps the POC model text ("SENTINEL locks on to NYX!"). fx `sentinel.defeat` (sparks,
   collapse) plays before the outro; the wreck stays on the bridge for HALCYON.
+  (G2) Mid-battle beat at 50% (boss script threshold), SENTINEL: "NONCOMPLIANCE ESCALATED. I AM SORRY."
+  It rides cue `sentinel_alarm`: the bridge strobes red and throws sparks. Every boss needs one such
+  beat (TECH_PLAN 11.2).
 - `sentinel_mk1` charge telegraph: "Sentinel Mk-I is charging..."
-- Encounter tips (`playerTurn`): the first `pro_corridor` fight with Sera (healing and items, SERA),
-  the first fight with Orion (area skills, ORION), `pro_sentinel_squad` (Expose, NYX; plus the global
-  `telegraph` tip). Lines in 9.1.
+- Encounter tips (`playerTurn`), **(G2) all on scripted fights**:
+  - `pro_spine_drones`: healing and items, SERA. The global `bp3` tip also first shows here, because
+    `pro_tutorial` suppresses it with an empty encounter tip.
+  - `pro_gallery_ambush`: area skills, ORION.
+  - `pro_sentinel_squad`: Expose, NYX, plus the global `telegraph` tip.
+  - Lines in 9.1.
+  - Random `pro_c_*` / `pro_e_*` rolls carry no tip: at the rates of the prologue's short zones,
+    Orion's tip never showed in the G2 run.
 
 **Field scripts**
 
@@ -822,7 +886,7 @@ your desires. Within reason."
 | `driftmarket.ruse_maw` | `driftmarket` · NPC `ruse` talk entry · `story:ruse_met & !story:maw_lore` | The coil sits in the Meridian's core; the Maw nests by reactor heat | RUSE, ORION, SERA | 8 / 60 (35) | POSE, CAM | map | `story:maw_lore`; objective `ch1.reach_wreck` |
 | `shoals.enter` | `shoals` · load `enter` · `chapter>=ch1 & !story:varo_log` | The singing ice | NYX, ORION | 2 / 15 (10) | CAM pan, LIGHT | `shoals` | none |
 | `shoals.meridian_arrival` K | `meridian` · load `arrival` · `chapter>=ch1 & !story:meridian_power` | The broken spine; 80 years of emergency lights; ribbons; "Not all hands"; the two levers | NYX, KADE, SERA, ORION | 7 / 60 (30) | CAM pan, POSE, LIGHT | `meridian` | objective `ch1.restore_power` |
-| `shoals.lever` | lever switches (args) | first lever only: ORION "One. She's listening." | ORION | 1 / 6 (4) | none | map | none |
+| `shoals.lever` | lever switches (args) | first lever only: ORION "One. She's listening." | ORION | 1 / 6 (4) | none | map | (G2) first lever: objective `ch1.power_eng` or `ch1.power_hold`, naming the lever still to pull (9.3, TECH_PLAN 11.8) |
 | `shoals.power_restored` | `meridian` · flag `power` · `chapter>=ch1 & sw:meridian:lever_a & sw:meridian:lever_b & !story:meridian_power` | Lights come on down the spine; the reactor hall door shows; Nyx wants the quarters | ORION, NYX | 2 / 15 (12) | LIGHT, CAM (reveal) | map | `story:meridian_power`; objective `ch1.varo_quarters` |
 | `shoals.varo_log` B K | `meridian` · terminal `varo_log`, Captain's Quarters · `story:meridian_power & !story:varo_log` | A hologram log of Ines Varo; the Lullaby Directive named; Nyx sees her great-grandmother | NYX, VARO, KADE, ORION, SERA | 12 / 150 (60) | HOLO, MUSIC, POSE, CAM | silence, `meridian` | `story:varo_log`; objective `ch1.find_coil` |
 | `shoals.maw` K | `meridian` · field boss `maw` (encounter `shoals_boss_maw`), Reactor Hall | Approach; battle; the Maw sinks, wounded; the coil; `cs.save()`; `cs.goto('driftmarket', 'dock')`; `cs.run('driftmarket.return')` | NYX, BOLT, KADE, ORION, SERA | 16 / 120 (40) | CAM, LIGHT (frost), MOVE, POSE | map | `ult:nyx` (boss script at 50%), `defeated:shoals_boss_maw` (model); `cs.give('lattice_coil')`; `cs.save()` |
@@ -837,7 +901,8 @@ boxes, about 75 s, so `shoals.maw` carries a 16 / 120 budget; `driftmarket.retur
 **Beats and anchor lines**
 
 `driftmarket.arrival`
-1. The Moth docks; slow pan over lanterns, ribbons and Tethys filling the windows. No narration.
+1. The Moth docks; a pan over lanterns, ribbons and Tethys filling the windows. No narration. (G2: 3 s at
+   most; the first build's 6 s pan and its walk-ins awaited one after another took the scene to 81 s.)
 2. Townsfolk turn (`...` and `!`). PIP (singing, offscreen or by the stalls): "Hush, hush, the Lock
    is singing, the ships all go to sleep..."
 3. HARL: "Ship-people. Back in your can." NYX: "Easy, Harl. They're with me."
@@ -846,8 +911,10 @@ boxes, about 75 s, so `shoals.maw` carries a 16 / 120 budget; `driftmarket.retur
 5. RUSE (to the party): "And you brought strays. Ship-people. Always waking up late." (FIXED)
 6. KADE: "Lieutenant Kade Arden, ISV Halcyon. We need a lattice coil." RUSE: "Course you do. Come see
    me at my stall. Bring credits."
-7. NYX (tips, two boxes): "Ruse's stall is the shop. And anyone can lead out here. Pause menu,
-   Party." / "...Make it me. I know where everything is."
+7. NYX (two boxes): "Ruse's stall is where the credits go. Out here, anyone can lead." / "...Today that's
+   me. I know where everything is." Then `cs.caption('Pause menu · Party · Leader')`. (G2: replaces "Pause
+   menu, Party." / "Make it me", which put a UI instruction in Nyx's mouth after the CH1 card had
+   already made her leader.)
 
 `driftmarket.ruse_maw`: RUSE: "The Meridian had two coils. One's still in her core." / "Her core runs
 warm, even now. Warm draws the Maw." ORION: "The Maw?" RUSE: "Big. Hungry. Lives in the dark between
@@ -866,6 +933,8 @@ ORION: "Emergency loop only. Two levers on the spine would wake the main bus."
 
 `shoals.varo_log`
 1. Nyx at the terminal. A hologram flickers up: Ines Varo, older, Nyx's face. NYX: "...Great-grandma."
+   (G2: frame Ines beside Nyx, not behind her. The others stand to the sides, out of the hologram's
+   column; see 1.7.)
 2. VARO: "Captain's log. Ines Varo. The reactor's gone. We're not going anywhere."
 3. VARO: "The Warden invoked the *Lullaby Directive*. Everyone sleeps until a new home is confirmed."
 4. VARO: "Nobody is coming to confirm anything. It means forever."
@@ -887,12 +956,14 @@ us." NYX: "Sorry, great-grandma. Borrowing." SERA: "Can we leave before it remem
 
 `driftmarket.return`
 1. RUSE: "Well. You're all still attached to yourselves." NYX: "Got the coil. The Maw's got a sore head."
-2. RUSE: "Then you've earned the rest. Walk with me." (MOVE to `viewport`; CAM on Ione)
+2. RUSE: "Then you've earned the rest. Walk with me." (MOVE to `viewport`; CAM on Ione) (G2: start the dock
+   exchange already gathered, and fade straight to the viewport instead of walking the whole way.)
 3. RUSE: "See that moon? Ione. Ice on top, ocean under. Eighty years we've been seeding it." / "Algae.
    Krill. The Meridian's stores, a little at a time." / "Slime and stubborn fish, so far. A world needs
    more than that."
-4. She hands Nyx a ribboned data spike. RUSE: "Eighty years of soundings. Ask your ship what it
-   carries." (FIXED)
+4. She hands Nyx a ribboned data spike. RUSE: "Eighty years of soundings, on this spike. Ask your ship
+   what it carries." (FIXED clause kept) (G2) `cs.give('data_spike')`: a key item, "Ringborn Data
+   Spike", whose toast names it on screen.
 5. KADE: "Varo, the Moth's ready when you are." NYX: "It's Nyx. Varo was my great-grandmother."
 6. NYX (determined): "If your Warden's the same as ours, it doesn't stop. So neither do I." (FIXED)
 7. RUSE: "Go on, then. Spin safe. Come back owing me."
@@ -900,7 +971,10 @@ us." NYX: "Sorry, great-grandma. Borrowing." SERA: "Can we leave before it remem
 `driftmarket.coil_install`
 1. ORION (kneels at the socket): "Easy, old girl. New heart. Well, borrowed." The reactor brightens.
 2. ORION: "Coil's seated. Drive's warm. Ruse's spike is in the nav core. Now we just need the helm."
-3. Every light dies. Silence. Every screen shows the gold sigil. WARDEN: "You should not be awake." /
+   (G2) `cs.take('data_spike')`.
+3. Every light dies. Silence. Every screen shows the gold sigil. (G2: this needs the Halcyon's
+   `screen` props in the engineering frame, plus a soft-gold light that pulses with each WARDEN box,
+   because with the lights dead the grade alone leaves the frame grey; see 1.7.) WARDEN: "You should not be awake." /
    "Please. Go back to sleep." (FIXED, two boxes)
 4. Narration: "Somewhere above, heavy feet begin to march." (the `pro_late` zone takes over)
 5. KADE: "That was WARDEN." NYX: "Polite, isn't it. Ours was polite too."
@@ -915,7 +989,10 @@ us." NYX: "Sorry, great-grandma. Borrowing." SERA: "Can we leave before it remem
   all of us. *Defend*."; 50% NYX: "Great-grandma fought worse than you. I read her log." (FIXED, then
   the awakening); outro NYX: "Go on. Sink. Tell the others we're coming through." No lines over the
   fx `maw.ice_breath` and `maw.breach`; `maw.defeat` (it sinks, wounded) plays before the outro.
-- `void_eel` (global `untargetable` tip, 9.1).
+- `void_eel` (global `untargetable` tip, 9.1). (G2) The tip must show before the Maw. The eel dives
+  with its first action of round 2 by script, and the first Shoals stretch guarantees an eel fight.
+  In the G2 run, three eel fights produced no dive, and the Maw's Submerge was the first dive the
+  player saw.
 
 **Field scripts**
 
@@ -1375,7 +1452,7 @@ Talks are not counted; the dry run reports the real numbers.
 
 | Chapter | Critical-path scenes (plan, s) | Story | 11.7 target |
 |---|---|---|---|
-| Prologue | new_journey 65, tutorial 25, sera_wakes 45, orion_rescue 40, equip_tip 8, keycard 8, nyx_door 50, bridge_open 5, sentinel 85 | 331 s (5.5 min) | ~5 min |
+| Prologue | new_journey 65, tutorial 25, sera_wakes 45, spine_drones 8 (G2), orion_rescue 40, gallery_ambush 8 (G2), equip_tip 8, keycard 8, nyx_door 50, bridge_open 5, sentinel 85 | 347 s (5.8 min) | ~5 min |
 | Ch1 | flight 6, arrival 50, ruse_maw 35, shoals.enter 10, meridian_arrival 30, power 12, varo_log 60, maw 40, return 50, flight 5, coil_install 60 | 358 s (6.0 min) | 5-6 min |
 | Ch2 | flight 8, arrival 40, drained 12, stasis 30, gardener 70, theo 120 | 280 s (4.7 min) | 4-6 min |
 | Ch3 | flight 5, arrival 45, cadets 50, quarters 12, oath 55, voss 145 | 312 s (5.2 min) | 4-6 min |
@@ -1383,8 +1460,25 @@ Talks are not counted; the dry run reports the real numbers.
 | Finale | night_before 5 (declined) or 90, flight 5, heart.arrival 40, four dreams 240, crown lift 5, crown 190 | 485 s (8.1 min); 570 s (9.5 min) with the night | ~8 min |
 | Epilogue | epilogue.main 150, then the credits (about 150 s, music only) | about 300 s | ~5 min |
 
-If a chapter runs long at G2/G3, cut in this order: optional lines in key scenes, then boxes in the
-longest non-key scene, then the night before (cut list item 8). Never cut a FIXED line.
+**(G2) Measured at human pace.** Critical-path story was 424 s in the prologue and 552 s in chapter 1,
+about 1.5 times the plan. Scenes over their plan + 15%:
+
+| Chapter | Scene: measured (plan) |
+|---|---|
+| Prologue | tutorial 46 (25), orion_rescue 58 (40), sentinel 16 + 86 (85) |
+| Ch1 | arrival 81 (50), ruse_maw 52 (35), meridian_arrival 47 (30), varo_log 90 (60), Maw aftermath and return 114 (90) |
+
+The text fitted. The staging did not (1.8, staging seconds). From C-beta on, the test is each scene
+within its plan + 15% at human pace, and the chapter's story within this table's sum + 15%:
+prologue 399 s, ch1 412 s, ch2 322 s, ch3 359 s, ch4 391 s, finale 558 s (656 s with the night).
+
+If a chapter runs long at G2/G3, cut in this order:
+1. (G2) Awaited staging: serial walk-ins, pans over 1 s, `cs.wait` padding, slow fades.
+2. Optional lines in key scenes.
+3. Boxes in the longest non-key scene.
+4. The night before (cut list item 8).
+
+Never cut a FIXED line.
 
 ---
 
@@ -1397,7 +1491,7 @@ chapter's traveler.
 
 | Id | Script | Members | Title | `when` | Subject and anchor lines | Boxes |
 |---|---|---|---|---|---|---|
-| `pro.kade_sera` | `prologue.pt_kade_sera` | kade, sera | Promises | `story:sera_joined` | Sera holds him to what he said (or did not say, `pro:promised`) about Theo. SERA: "Theo draws on everything. Walls. Pods. Me." KADE: "I don't make promises I can't keep. So I'll keep this one." | 8 |
+| `pro.kade_sera` | `prologue.pt_kade_sera` | kade, sera | Promises | `story:sera_joined` | Sera holds him to what he said (or did not say, `pro:promised`) about Theo. SERA: "Theo draws on everything. Walls. Pods. Me." KADE: "I don't make promises I can't keep. So I'll keep this one." (G2) In the branch without the promise (`!pro:promised`), Kade first says "Then here's one. We find him.", so "this one" has something to point at. | 8 |
 | `ch1.kade_nyx` | `driftmarket.pt_kade_nyx` B | kade, nyx | Ship-People | `story:ruse_met` | Ship versus Ringborn: the beacon nobody answered, the ship that betrayed her family. KADE: "Ships don't betray people. People give orders." NYX: "And who gave yours?" | 10 |
 | `ch1.nyx_orion` | `driftmarket.pt_nyx_orion` | nyx, orion | Thinking Machines | `story:varo_log` | Trusting AI. Nyx never says please to a machine; Orion apologises to drones. ORION: "I designed HALCYON's empathy." NYX: "So you taught it to love us. Look how that went." | 10 |
 | `ch2.nyx_sera` | `arboretum.pt_nyx_sera` | nyx, sera | Who Waits | `story:coil_installed` | Family. Sera's brother who draws; Nyx's great-grandmother she only knows from a log, and Ruse. NYX: "Somebody waited for her too. Eighty years of somebodies." | 10 |
@@ -1479,7 +1573,12 @@ The Halcyon bridge is the hub. Each chapter owner adds 1-2 visible changes at th
 **WARDEN before the finale** (TECH_PLAN 11.3 and 12.3): the cold open (prologue); every speaker on
 the ship and the sigil on every screen at the coil (ch1); the gold sigil glowing on the Choir pods and
 its voice at Theo's pod (ch2); the Spire's propaganda screens and looped voice (ch3); its first words
-in the Severance memory (ch4).
+in the Severance memory (ch4). (G2) Each of these needs sigil surfaces in the speaking frame and a
+gold light source (1.7):
+- ch1: the Halcyon's `screen` props (C1);
+- ch2: pod status props or screens on the Choir pods (C4);
+- ch3: the Spire's propaganda screens as `screen` props (C5);
+- ch4: the memory set's screens (C6).
 
 **Halcyon zone after ch1:** `pro_late` (Sentinel Mk-I patrols tighten their hold). No lines; the
 narration "Somewhere above, heavy feet begin to march." in `driftmarket.coil_install` sets it up.
@@ -1494,16 +1593,27 @@ Voice: at most 3 boxes, one instruction per box, the keyword in `*emphasis*`, sa
 traveler who would know. Clarity beats jokes: a tip may carry one character beat at the end, never in
 the middle. Global tips are C1's (`common/story.js`); encounter tips belong to the encounter's owner.
 
+**(G2) Tips appear deterministically.** In the G2 run Orion's tip never appeared, because it hung on a
+random roll. The eel's dive tip never appeared before the Maw, because the dive was picked by weight.
+The tutorial taught 7 boxes of mechanics in 90 s. So:
+- A tip's "First appears" is a scripted fight or a visible field encounter, never a random roll.
+- The enemy that teaches a mechanic uses it in round 1 or 2 by script (`chooseAction`), not by
+  weight: the Spore Drone's sleep, the Feral Caretaker's summon, the Trooper's mark, the Riot
+  Drone's jam, the Data Wraith's phase, the Corrupted Memory's charge. The Glitch Swarm's shift
+  needs a Break first, so it belongs in a scripted fight where a Break comes easily.
+- Teach one new mechanic per fight. An empty encounter tip (`{ on, lines: [] }`) holds a global tip
+  back for that fight.
+
 | Tip key | Owner | First appears | Speaker | Sample |
 |---|---|---|---|---|
 | `reveal` | common | `pro_tutorial` | BOLT | "A *weakness*! Hits of that type crack the shield. I'll remember it for next time." |
 | `break` | common | `pro_tutorial` | BOLT | "*BROKEN*! It skips its turns and takes double damage. Now hit it with everything." |
-| `bp3` | common | the second prologue fight | BOLT | "Three *Boost Points*! Boost before you act: more hits, stronger skills." / "Boost on a *Broken* foe. That's the whole trick. Mostly." |
-| `playerTurn` (encounter) | prologue | first fight with Sera | SERA | "Hurt? *Nanoheal*, or a Medi-Gel from Items. I'd rather you didn't bleed." |
-| `playerTurn` (encounter) | prologue | first fight with Orion | ORION | "My skills hit *every* foe at once. Thermal for the drones, cryo for the crawlers." |
+| `bp3` | common | the second prologue fight, `pro_spine_drones` (G2: `pro_tutorial` holds it back) | BOLT | "Three *Boost Points*! Boost before you act: more hits, stronger skills." / "Boost on a *Broken* foe. That's the whole trick. Mostly." |
+| `playerTurn` (encounter) | prologue | first fight with Sera: `pro_spine_drones` (G2) | SERA | "Hurt? *Nanoheal*, or a Medi-Gel from Items. I'd rather you didn't bleed." |
+| `playerTurn` (encounter) | prologue | first fight with Orion: `pro_gallery_ambush` (G2) | ORION | "My skills hit *every* foe at once. Thermal for the drones, cryo for the crawlers." |
 | `playerTurn` (encounter) | prologue | `pro_sentinel_squad` | NYX | "*Expose* strips their defences. Then everybody hits harder. You're welcome." |
 | `telegraph` | common | Sentinel Mk-I charge | KADE | "It's charging. Next round, it fires. *Defend*, or Break it first." |
-| `untargetable` | common | Void Eel | NYX | "Eel's under. Can't hit what isn't there. *Defend*, heal, wait for it." |
+| `untargetable` | common | Void Eel, in the guaranteed eel fight at the Shoals mouth; it dives in round 2 (G2) | NYX | "Eel's under. Can't hit what isn't there. *Defend*, heal, wait for it." |
 | `untargetable` (encounter, `tut:phase`) | vault | Data Wraith | ORION | "It's *phasing*. Out of step with us. It can't hold that for long." |
 | `status:sleep` | common | Spore Drone | SERA | "Spores. A sleeper loses turns. A *Stim* wakes them. So does a hit. I prefer the Stim." |
 | `summon` | common | Feral Caretaker | ORION | "It's calling little friends. Silence the caller first, or we'll be here all day." |
@@ -1537,6 +1647,17 @@ Fallback lines when the objective has none, one per chapter (C1 writes them in `
 Objective `text` is an imperative under 60 characters; `hint` says where, under 90; `boltHint` is in
 BOLT's voice (9.2). Binding ids are marked B; the location owner writes the final text.
 
+**(G2) The Journal follows every puzzle step** (TECH_PLAN 11.8). G2 failed the Meridian levers
+because after one lever the Journal still asked for both. Give each step its own objective, set by
+the switch script, so the hint and BOLT name only what is left. For the ch1 levers, use
+`ch1.power_eng` / `ch1.power_hold` below. Later chapters follow the same pattern:
+- `ch2.drain`: the three valve steps, ids `ch2.drain_2`, `ch2.drain_3`;
+- `ch3.grids`: the three grid steps, ids `ch3.grids_2`, `ch3.grids_3`, the last naming Kade's
+  override;
+- `ch4.crystals`: the crystals left ("Two crystals left." / "One crystal left.").
+
+The owner writes the texts.
+
 | Id | Owner | Text | Hint | boltHint |
 |---|---|---|---|---|
 | `pro.wake` B | prologue | Find out why the ship is so quiet. | The Cryo Deck exit is north of the pods. | "The door is that way. I would point, but I have no fingers." |
@@ -1549,7 +1670,9 @@ BOLT's voice (9.2). Binding ids are marked B; the location owner writes the fina
 | `ch1.go_driftmarket` B | driftmarket | Fly the Moth to Driftmarket. | Use the Starchart on the bridge. | "The Starchart is the glowing table. Glowing tables are friendly." |
 | `ch1.ask_ruse` | driftmarket | Ask Old Mother Ruse about a lattice coil. | Her stall is by the big viewport. | "Ruse is the one everybody moves out of the way for." |
 | `ch1.reach_wreck` | driftmarket | Reach the Meridian wreck. | Through the Shoals, east of the docks. | "The wreck is past the ice. The cold part. I checked twice." (FIXED) |
-| `ch1.restore_power` | shoals | Restore the Meridian's emergency power. | Two levers along the broken spine. | "Two levers. Pull both. I'd help, but: arms." |
+| `ch1.restore_power` | shoals | Restore the Meridian's emergency power. | Two levers: the cargo hold and engineering. | "Two levers. Pull both. I'd help, but: arms." |
+| `ch1.power_eng` (G2) | shoals | Pull the engineering lever. | One lever left: engineering, south of the spine. | "One more lever. Engineering. Orion says she's listening." |
+| `ch1.power_hold` (G2) | shoals | Pull the cargo hold lever. | One lever left: the cargo hold, north of the spine. | "One more lever. The cargo hold. Mind the ice. I didn't." |
 | `ch1.varo_quarters` | shoals | Search Captain Varo's quarters. | The captain's quarters, off the spine. | "The captain's room has power now. Nyx went quiet. I noticed." |
 | `ch1.find_coil` | shoals | Find the lattice coil in the reactor hall. | The reactor hall at the end of the spine. | "The coil is where the heat is. So is the Maw. Sorry." |
 | `ch1.install_coil` | driftmarket | Install the lattice coil in Engineering. | Fly back to the Halcyon; Engineering is south of the Spine. | "Coil goes in the reactor. Orion knows the way. He's humming." |
