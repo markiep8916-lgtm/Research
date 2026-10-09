@@ -186,8 +186,9 @@ function shoals(kit) {
 
 // ---------------------------------------------------------------- the Meridian
 
+// the background shows below the near edge of the deck on a phone: a warm dusk, not black
 const MERIDIAN_THEME = {
-  background: '#140e10', fog: '#221816', fogDensity: 0.026,
+  background: '#2c201e', fog: '#2c201e', fogDensity: 0.026,
   hemi: ['#a39488', '#30241e', 1.05], key: ['#ffd8b0', 1.0, [-7, 12, 10]],
   rimParty: ['#ffb25a', 22], rimEnemy: ['#ff7a2a', 24], fill: ['#9fb8e8', 0.36],
 };
@@ -248,7 +249,7 @@ function meridian(kit) {
 // ---------------------------------------------------------------- the Maw's lair
 
 const LAIR_THEME = {
-  background: '#0a0c1c', fog: '#121632', fogDensity: 0.024,
+  background: '#181c36', fog: '#181c36', fogDensity: 0.024,
   hemi: ['#6a7ab8', '#1a1830', 1.0], key: ['#b8d4ff', 1.1, [-6, 13, 10]],
   rimParty: ['#ffb25a', 22], rimEnemy: ['#8a8cff', 18], fill: ['#a8c0ff', 0.5],
 };

@@ -342,7 +342,9 @@ test('every binding item and equipment id exists and is well formed', () => {
     assert.ok(it.name && it.desc && it.price >= 0 && !it.battle && it.target === null, `${id} fields`);
     const slot = id.startsWith('eq_w_') ? 'weapon' : id.startsWith('eq_a_') ? 'armor' : 'accessory';
     assert.equal(it.equip.slot, slot, `${id} slot`);
-    assert.equal(it.icon, slot);
+    // weapons show their damage type (G2 C10-4); armour and accessories show their slot
+    if (slot === 'weapon') assert.ok(['blade', 'rifle', 'gauntlet', 'lance'].includes(it.icon), `${id} icon ${it.icon}`);
+    else assert.equal(it.icon, slot);
     if (slot === 'weapon') assert.deepEqual(it.equip.for, [id.split('_')[2]], `${id} owner`);
     else assert.equal(it.equip.for, undefined, `${id} fits anyone`);
     assert.ok(gearTypesValid(id), `${id} damage types`);

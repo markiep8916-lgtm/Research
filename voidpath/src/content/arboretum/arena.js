@@ -170,7 +170,9 @@ function fernWalk(kit) {
     arb_court: { roughness: 0.6, metalness: 0.2 }, arb_court_b: { roughness: 0.6, metalness: 0.2 },
     arb_moss: { roughness: 0.78, metalness: 0.08, emissiveIntensity: 2.0 }, arb_moss_b: { roughness: 0.78, metalness: 0.08, emissiveIntensity: 2.0 },
   });
-  glassWall(kit, [-8, 2]);
+  // two lit panes right behind the foes' back slot (wide enough for the phone's camera too), so a
+  // green mantis stands against warm glass
+  glassWall(kit, [-5, -3, 3]);
   kit.wallRun(['arb_wall'], { y: WALL_H, opts: { arb_wall: { emissiveIntensity: 2.2 } } });
   vines(kit, -15, 15, WALL_H * 2, WALL_Z + 0.05);
   bed(kit, -10.5, WALL_Z + 0.9, 8, 1.4, ['a', 'b', 'leaf', 'pink', 'tall', 'tuft']);
@@ -185,7 +187,7 @@ function fernWalk(kit) {
   decal(kit, 'petals', -3.5, 2.2, 2.4, 2.4, 0.6);
   decal(kit, 'mossPatch', 4.5, -1.2, 2.6, 2.6, 1.1);
   decal(kit, 'litterA', -1.2, -2.2, 2, 2, 0.3);
-  for (const x of [-7, 3]) kit.shaft([x, 4.2, WALL_Z + 0.4], { color: '#ffd090', opacity: 0.14, lean: x < 0 ? 0.3 : 0.18 });
+  for (const x of [-3, 4]) kit.shaft([x, 4.2, WALL_Z + 0.4], { color: '#ffd090', opacity: 0.14, lean: x < 0 ? 0.3 : 0.18 });
   // a sprinkler standpipe raining onto the bed, glowing at its head
   const pipe = kit.plain('#4a5a5e', 0.5, 0.5);
   kit.box([0.12, 2.6, 0.12], pipe, [6.6, 0, -4.6]);
@@ -194,10 +196,10 @@ function fernWalk(kit) {
   atlasMats(kit).B.build(kit.root);
   const water = kit.pointLight({ color: '#3fe0c0', intensity: 14, distance: 9, decay: 1.6, position: [-2, 0.4, WALL_Z + 2.2] });
   kit.flickers.push(makeFlicker(water, { mode: 'pulse', amount: 0.25, speed: 0.8 }));
+  // a warm key on the foes' side, in front of them (second in the pool, so phones keep it too)
+  kit.pointLight({ color: '#ffeccf', intensity: 12, distance: 7, decay: 1.6, position: [-4.0, 2.6, 2.6] });
   kit.pointLight({ color: '#ffc070', intensity: 16, distance: 10, decay: 1.6, position: [3, 3.2, WALL_Z + 1.6] });
   kit.pointLight({ color: '#ff6fae', intensity: 10, distance: 6, decay: 1.7, position: [-9.2, 1.0, -2.2] });
-  // a warm key on the foes' side, in front of them
-  kit.pointLight({ color: '#ffeccf', intensity: 12, distance: 7, decay: 1.6, position: [-4.0, 2.6, 2.6] });
   return {
     dust: '#ffe0a8',
     emitters: [

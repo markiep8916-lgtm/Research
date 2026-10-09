@@ -70485,7 +70485,8 @@ var mood = (fog, sky, extra = {}) => ({
   ...extra
 });
 var MOOD3 = {
-  mouth: mood("#12304a", "#6fb0e0", { key: 1.4, keyColor: "#ffe2b8", density: 0.028 }),
+  // the mouth has Tethys's warm key light through the arches: less fill, or it washes out
+  mouth: mood("#0e2a42", "#6fb0e0", { key: 1.3, keyColor: "#ffe2b8", density: 0.028, hemi: 0.7, exposure: 1.04 }),
   tunnels: mood("#0f2a46", "#5aa0dc", { density: 0.036 }),
   deep: mood("#0d2544", "#5596da", { bloom: 1.05 }),
   lair: mood("#0f2546", "#6a9ee8", { density: 0.038, saturation: 1 })
@@ -71528,7 +71529,7 @@ function iceFloor(t, seed, { vein = 0, frost = 0, base = 3.5 } = {}) {
   }
   for (let i = 0; i < 2; i++) t.px(Math.floor(r() * 32), Math.floor(r() * 32), RIME[2]);
 }
-function snowFloor(t, seed, { base = 2.2, ridges = 0.12 } = {}) {
+function snowFloor(t, seed, { base = 1.6, ridges = 0.12 } = {}) {
   const W8 = 32, H4 = 32;
   const r = rng(seed);
   for (let y = 0; y < H4; y++) for (let x = 0; x < W8; x++) {
@@ -72253,7 +72254,7 @@ var TEXTURES2 = {
   sh_ice_floor_b: { ...floor3, strength: 1.6, paint: (t) => iceFloor(t, 23, { vein: 1 }) },
   sh_ice_floor_c: { ...floor3, strength: 1.6, paint: (t) => iceFloor(t, 37, { frost: 1 }) },
   sh_snow: { ...floor3, strength: 1.2, paint: (t) => snowFloor(t, 41) },
-  sh_snow_b: { ...floor3, strength: 1.2, paint: (t) => snowFloor(t, 53, { base: 2.4, ridges: 0.18 }) },
+  sh_snow_b: { ...floor3, strength: 1.2, paint: (t) => snowFloor(t, 53, { base: 1.8, ridges: 0.18 }) },
   sh_ice_deep: { ...floor3, strength: 1.4, paint: (t) => deepIce(t, 61) },
   sh_ice_wall: { ...wall4, strength: 2.2, paint: (t) => iceWall(t, 71) },
   sh_ice_wall_b: { ...wall4, strength: 2.2, paint: (t) => iceWall(t, 79, { crystals: true }) },
@@ -73809,7 +73810,8 @@ function mats2(W8) {
     hull: M.tile("sh_mer_wall", { emissive: 2.2, roughness: 0.6, metalness: 0.4 }),
     hullSide: M.tile("sh_mer_wall_side", { roughness: 0.65, metalness: 0.4 }),
     merCap: M.tile("sh_mer_cap", { roughness: 0.7, metalness: 0.35 }),
-    blackIce: M.tile("sh_mer_blackice", { emissive: 1.6, roughness: 0.12, metalness: 0.3 }),
+    blackIce: M.tile("sh_mer_blackice", { emissive: 1.6, roughness: 0.45, metalness: 0.15 }),
+    // broad sheen: sharp point-light highlights bloom into squares
     hole: M.plain("#020306", { roughness: 1, metalness: 0 })
   };
   for (const [k, make] of Object.entries(LAZY)) {
@@ -74749,11 +74751,11 @@ function shoals(kit) {
   };
 }
 var MERIDIAN_THEME = {
-  background: "#0e0a0c",
-  fog: "#1a1210",
+  background: "#140e10",
+  fog: "#221816",
   fogDensity: 0.026,
-  hemi: ["#8a7a78", "#1a120e", 0.85],
-  key: ["#ffd8b0", 0.95, [-7, 12, 10]],
+  hemi: ["#a39488", "#30241e", 1.05],
+  key: ["#ffd8b0", 1, [-7, 12, 10]],
   rimParty: ["#ffb25a", 22],
   rimEnemy: ["#ff7a2a", 24],
   fill: ["#9fb8e8", 0.36]
@@ -74791,6 +74793,8 @@ function meridian(kit) {
   const pools3 = kit.pointLight({ color: "#ff8a2a", intensity: 16, distance: 8, decay: 1.5, position: [-3.4, 1.4, 1.2] });
   kit.flickers.push(makeFlicker(pools3, { mode: "pulse", amount: 0.25, speed: 0.8 }));
   for (const [x, z] of [[-3.6, -1.2], [-2.6, 2.6]]) floorPool(kit, x, z, 2.6, "#ff8a2a", 0.38);
+  floorPool(kit, -0.6, 5.4, 3.4, "#ff9a3a", 0.26);
+  floorPool(kit, 5.2, 6.2, 3, "#6fa8ff", 0.2);
   kit.floorDecal("sh_decal_rust", [-3, 2], 0.6, 2);
   kit.floorDecal("sh_decal_blackice", [4.5, -3], 1.2, 3.4);
   for (const [x, rot, sz] of [[-9.5, 0.4, 3.2], [-1.5, 2.1, 2.6], [8.5, 1.3, 3.6]]) kit.floorDecal("sh_decal_blackice", [x, WALL_Z3 + 0.9], rot, sz);
@@ -74824,6 +74828,8 @@ function lair(kit) {
   for (const [x, z, rot, s] of [[-4.4, -0.4, 0.3, 9], [-8.6, -2.6, 1.9, 5.5], [0.4, 0.8, 2.6, 5], [-5.2, 3.2, 1.1, 4.5]]) {
     kit.floorDecal("sh_decal_blackice", [x, z], rot, s);
   }
+  floorPool(kit, -2.4, 5, 3.4, "#8a6aff", 0.22);
+  floorPool(kit, 4.4, 6, 3, "#ff9a3a", 0.2);
   const wall7 = { sh_mer_wall_lamp: { emissiveIntensity: 2.6 } };
   wallWithGaps(kit, ["sh_mer_wall_pipes", "sh_mer_wall", "sh_mer_wall_lamp", "sh_mer_wall_mark", "sh_mer_wall_pipes", "sh_mer_wall", "sh_mer_wall_lamp", "sh_mer_wall"], [-1, 6], wall7);
   windowAt(kit, "sh_mer_breach", -1);
@@ -80476,8 +80482,9 @@ var FERN_THEME = {
   fogDensity: 0.024,
   hemi: ["#8fd8c0", "#0a140e", 0.78],
   key: ["#ffd8a0", 1.1, [-6, 12, 10]],
+  // a warm rim on the foes: green sprites on green moss still read at phone size (G2 rule 21)
   rimParty: ["#ffb25a", 22],
-  rimEnemy: ["#4dffd2", 22],
+  rimEnemy: ["#ffcfe6", 26],
   fill: ["#bfe8d0", 0.4]
 };
 function fernWalk(kit) {
@@ -80494,7 +80501,7 @@ function fernWalk(kit) {
     arb_moss: { roughness: 0.78, metalness: 0.08, emissiveIntensity: 2 },
     arb_moss_b: { roughness: 0.78, metalness: 0.08, emissiveIntensity: 2 }
   });
-  glassWall(kit, [-8, 2]);
+  glassWall(kit, [-5, -3, 3]);
   kit.wallRun(["arb_wall"], { y: WALL_H2, opts: { arb_wall: { emissiveIntensity: 2.2 } } });
   vines2(kit, -15, 15, WALL_H2 * 2, WALL_Z3 + 0.05);
   bed(kit, -10.5, WALL_Z3 + 0.9, 8, 1.4, ["a", "b", "leaf", "pink", "tall", "tuft"]);
@@ -80509,7 +80516,7 @@ function fernWalk(kit) {
   decal2(kit, "petals", -3.5, 2.2, 2.4, 2.4, 0.6);
   decal2(kit, "mossPatch", 4.5, -1.2, 2.6, 2.6, 1.1);
   decal2(kit, "litterA", -1.2, -2.2, 2, 2, 0.3);
-  for (const x of [-7, 3]) kit.shaft([x, 4.2, WALL_Z3 + 0.4], { color: "#ffd090", opacity: 0.14, lean: x < 0 ? 0.3 : 0.18 });
+  for (const x of [-3, 4]) kit.shaft([x, 4.2, WALL_Z3 + 0.4], { color: "#ffd090", opacity: 0.14, lean: x < 0 ? 0.3 : 0.18 });
   const pipe = kit.plain("#4a5a5e", 0.5, 0.5);
   kit.box([0.12, 2.6, 0.12], pipe, [6.6, 0, -4.6]);
   const head3 = kit.add(makeGlow("#7ff4e0", 0.8, 0.8));
@@ -80517,9 +80524,9 @@ function fernWalk(kit) {
   atlasMats(kit).B.build(kit.root);
   const water = kit.pointLight({ color: "#3fe0c0", intensity: 14, distance: 9, decay: 1.6, position: [-2, 0.4, WALL_Z3 + 2.2] });
   kit.flickers.push(makeFlicker(water, { mode: "pulse", amount: 0.25, speed: 0.8 }));
+  kit.pointLight({ color: "#ffeccf", intensity: 12, distance: 7, decay: 1.6, position: [-4, 2.6, 2.6] });
   kit.pointLight({ color: "#ffc070", intensity: 16, distance: 10, decay: 1.6, position: [3, 3.2, WALL_Z3 + 1.6] });
   kit.pointLight({ color: "#ff6fae", intensity: 10, distance: 6, decay: 1.7, position: [-9.2, 1, -2.2] });
-  kit.pointLight({ color: "#a070ff", intensity: 8, distance: 6, decay: 1.7, position: [11.4, 1, 0.8] });
   return {
     dust: "#ffe0a8",
     emitters: [

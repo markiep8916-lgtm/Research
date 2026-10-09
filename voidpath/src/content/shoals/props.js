@@ -191,7 +191,7 @@ function mats(W) {
     hull: M.tile('sh_mer_wall', { emissive: 2.2, roughness: 0.6, metalness: 0.4 }),
     hullSide: M.tile('sh_mer_wall_side', { roughness: 0.65, metalness: 0.4 }),
     merCap: M.tile('sh_mer_cap', { roughness: 0.7, metalness: 0.35 }),
-    blackIce: M.tile('sh_mer_blackice', { emissive: 1.6, roughness: 0.12, metalness: 0.3 }),
+    blackIce: M.tile('sh_mer_blackice', { emissive: 1.6, roughness: 0.45, metalness: 0.15 }),   // broad sheen: sharp point-light highlights bloom into squares
     hole: M.plain('#020306', { roughness: 1, metalness: 0 }),
   };
   for (const [k, make] of Object.entries(LAZY)) {

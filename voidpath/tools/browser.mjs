@@ -33,11 +33,66 @@ export function pageUrlOf(arg, cwd = process.cwd()) {
   return pathToFileURL(path.resolve(cwd, arg.slice(0, arg.length - suffix.length))).href + suffix;
 }
 
+// Machine-wide browser slots. SwiftShader renders on the CPU, so a dozen headless browsers on a
+// 4-core machine all crawl (a frame took minutes at load 150+) and every run times out. Each
+// launch first takes one of VP_BROWSER_SLOTS (default 3) lock directories under shots/, waiting
+// in line if all are taken; a slot whose owner process is gone is reclaimed.
+const SLOT_DIR = process.env.VP_BROWSER_SLOT_DIR || path.join(ROOT, 'shots', '.browser-slots');
+const MAX_SLOTS = Math.max(1, Number(process.env.VP_BROWSER_SLOTS) || 3);
+const heldSlots = new Set();
+
+function slotIsStale(lock) {
+  let pid;
+  try { pid = Number(fs.readFileSync(path.join(lock, 'pid'), 'utf8')); } catch {
+    // a slot just created may not have its pid file yet; only an old one without it is stale
+    try { return Date.now() - fs.statSync(lock).mtimeMs > 30000; } catch { return true; }
+  }
+  try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; }
+}
+
+async function acquireSlot() {
+  fs.mkdirSync(SLOT_DIR, { recursive: true });
+  let announced = false;
+  for (;;) {
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const lock = path.join(SLOT_DIR, `slot${i}`);
+      try {
+        fs.mkdirSync(lock);
+        fs.writeFileSync(path.join(lock, 'pid'), String(process.pid));
+        heldSlots.add(lock);
+        return lock;
+      } catch {
+        if (slotIsStale(lock)) fs.rmSync(lock, { recursive: true, force: true });
+      }
+    }
+    if (!announced) {
+      console.log(`waiting for a browser slot (${MAX_SLOTS} machine-wide, VP_BROWSER_SLOTS)`);
+      announced = true;
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
+function releaseSlot(lock) {
+  if (!heldSlots.delete(lock)) return;
+  fs.rmSync(lock, { recursive: true, force: true });
+}
+
+process.on('exit', () => { for (const lock of [...heldSlots]) releaseSlot(lock); });
+
 export async function launchBrowser() {
   const { chromium } = loadPlaywright();
-  return chromium.launch({
-    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-rasterization', '--autoplay-policy=no-user-gesture-required'],
-  });
+  const lock = await acquireSlot();
+  try {
+    const browser = await chromium.launch({
+      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-gpu-rasterization', '--autoplay-policy=no-user-gesture-required'],
+    });
+    browser.on('disconnected', () => releaseSlot(lock));
+    return browser;
+  } catch (e) {
+    releaseSlot(lock);
+    throw e;
+  }
 }
 
 export async function newContext(browser, { mobile = false, size = [1280, 720], dpr, reducedMotion = false } = {}) {

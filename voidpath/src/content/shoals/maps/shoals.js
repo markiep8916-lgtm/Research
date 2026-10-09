@@ -20,7 +20,8 @@ const mood = (fog, sky, extra = {}) => ({
   exposure: 1.14, bloom: 1.0, saturation: 1.08, ...extra,
 });
 const MOOD = {
-  mouth: mood('#12304a', '#6fb0e0', { key: 1.4, keyColor: '#ffe2b8', density: 0.028 }),
+  // the mouth has Tethys's warm key light through the arches: less fill, or it washes out
+  mouth: mood('#0e2a42', '#6fb0e0', { key: 1.3, keyColor: '#ffe2b8', density: 0.028, hemi: 0.7, exposure: 1.04 }),
   tunnels: mood('#0f2a46', '#5aa0dc', { density: 0.036 }),
   deep: mood('#0d2544', '#5596da', { bloom: 1.05 }),
   lair: mood('#0f2546', '#6a9ee8', { density: 0.038, saturation: 1.0 }),

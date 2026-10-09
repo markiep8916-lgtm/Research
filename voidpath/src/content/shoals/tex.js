@@ -84,7 +84,7 @@ function iceFloor(t, seed, { vein = 0, frost = 0, base = 3.5 } = {}) {
   for (let i = 0; i < 2; i++) t.px(Math.floor(r() * 32), Math.floor(r() * 32), RIME[2]);
 }
 
-function snowFloor(t, seed, { base = 2.2, ridges = 0.12 } = {}) {
+function snowFloor(t, seed, { base = 1.6, ridges = 0.12 } = {}) {
   const W = 32, H = 32;
   const r = rng(seed);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -925,7 +925,7 @@ export const TEXTURES = {
   sh_ice_floor_b: { ...floor, strength: 1.6, paint: (t) => iceFloor(t, 23, { vein: 1 }) },
   sh_ice_floor_c: { ...floor, strength: 1.6, paint: (t) => iceFloor(t, 37, { frost: 1 }) },
   sh_snow: { ...floor, strength: 1.2, paint: (t) => snowFloor(t, 41) },
-  sh_snow_b: { ...floor, strength: 1.2, paint: (t) => snowFloor(t, 53, { base: 2.4, ridges: 0.18 }) },
+  sh_snow_b: { ...floor, strength: 1.2, paint: (t) => snowFloor(t, 53, { base: 1.8, ridges: 0.18 }) },
   sh_ice_deep: { ...floor, strength: 1.4, paint: (t) => deepIce(t, 61) },
   sh_ice_wall: { ...wall, strength: 2.2, paint: (t) => iceWall(t, 71) },
   sh_ice_wall_b: { ...wall, strength: 2.2, paint: (t) => iceWall(t, 79, { crystals: true }) },
