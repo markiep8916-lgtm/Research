@@ -645,7 +645,7 @@ const lanternTree = {
     // the crown: a jar of Tethys-blue glass in a brass cage, the one cold light among the lanterns
     cyl(B, M.jar, 0.16, 0.2, 0.42, 8, x, h + 0.25, z);
     cyl(B, M.brass, 0.22, 0.22, 0.05, 8, x, h + 0.48, z);
-    glow(W, G, '#7fe8f0', 1.4, 0.8, x, h + 0.25, z + 0.05);
+    glow(W, G, '#7fe8f0', 2.2, 1.1, x, h + 0.25, z + 0.05);
     W.addEmitter('dm_spark', { position: [x, h, z], area: [1.6, 0.3, 1.6], rate: 0.8 });
     W.addCircle(x, z, 1.12);
   },

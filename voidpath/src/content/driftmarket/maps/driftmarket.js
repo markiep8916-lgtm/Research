@@ -237,16 +237,17 @@ export default {
     { x: 21.0, y: 1.7, z: 10.0, color: '#ffcf7a', intensity: 11, distance: 6, mode: 'flicker', amount: 0.25, speed: 6 },
     { x: 27.5, y: 1.5, z: 9.8, color: '#ff4f5e', intensity: 7, distance: 5 },
     { x: 34.0, y: 2.2, z: 10.0, color: '#ffe0a8', intensity: 12, distance: 6 },
-    lantern(22.5, 14.0, 3.0, 18, 7), lantern(31.0, 14.0, 3.0, 18, 7), lantern(40.0, 14.0, 3.0, 18, 7), lantern(48.5, 14.0, 3.0, 18, 7),
+    lantern(22.5, 14.0, 3.0, 18, 7), lantern(31.0, 14.0, 3.0, 18, 7), lantern(44.0, 14.0, 3.0, 18, 7), lantern(48.5, 14.0, 3.0, 18, 7),
     lantern(19.5, 18.8, 2.4, 12), lantern(36.5, 18.8, 2.4, 12), lantern(46.0, 18.8, 2.4, 12),
     { x: 39.5, y: 2.4, z: 8.6, color: '#ffb54a', intensity: 10, distance: 5 },
     // the Lantern Tree's crown of Tethys glass: a cold pool in the middle of the warm Row
-    { x: 40.2, y: 3.4, z: 13.6, color: '#7fe8f0', intensity: 13, distance: 7 },
+    { x: 40.2, y: 3.4, z: 13.6, color: '#7fe8f0', intensity: 20, distance: 7.5 },
+    { x: 39.0, y: 0.9, z: 12.6, color: '#4fd8cf', intensity: 10, distance: 4 },
     { x: 57.6, y: 1.6, z: 14.0, color: '#7fd8ff', intensity: 9, distance: 6, mode: 'pulse', amount: 0.2, speed: 0.6 },
     { x: 53.0, y: 1.2, z: 17.5, color: '#7ddf7a', intensity: 7, distance: 4.5 },
     { x: 55.2, y: 1.5, z: 9.9, color: '#4fd8cf', intensity: 8, distance: 4.5 },
     { x: 36.7, y: 1.9, z: 9.0, color: '#ffb04a', intensity: 7, distance: 3.5 },
-    rim(19.4, 7.5), rim(25.0, 7.6), rim(31.6, 7.5), rim(49.6, 7.6), rim(55.6, 7.8),
+    rim(19.4, 7.5), rim(25.0, 7.6), rim(31.6, 7.5), rim(35.2, 7.6), rim(49.6, 7.6), rim(55.6, 7.8),
     { x: 30.6, y: 1.2, z: 18.6, color: '#4fd8cf', intensity: 8, distance: 4.5 },
     { x: 35.4, y: 1.2, z: 18.6, color: '#4fd8cf', intensity: 8, distance: 4.5 },
     // the rime by the hatch glows faintly cold from the floor
@@ -265,7 +266,7 @@ export default {
     { x: 20.0, y: 2.0, z: 24.6, color: '#ffa24a', intensity: 9, distance: 5 },
     { x: 29.0, y: 2.0, z: 25.0, color: '#ff6a5a', intensity: 7, distance: 4.5 },
     // the inn's kelp tank: the one cold light in a warm room
-    { x: 28.3, y: 1.7, z: 22.9, color: '#4fd8cf', intensity: 6, distance: 5 },
+    { x: 28.3, y: 1.3, z: 23.2, color: '#4fd8cf', intensity: 9, distance: 4.5 },
   ],
   ambient: [
     // drifting ice crystals everywhere the station opens to the ring, lantern sparks over the market

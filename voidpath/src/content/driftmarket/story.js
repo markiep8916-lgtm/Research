@@ -149,10 +149,12 @@ const scripts = {
     cs.letterbox(true);
     if (args.trigger) await cs.goto('driftmarket', 'dock');
     cs.music('driftmarket');
-    // the dock exchange starts gathered: Ruse steps over from the gate as the travelers climb out
+    // the dock exchange starts gathered: Ruse steps over from the gate as the travelers climb out,
+    // and the camera eases right to hold her and the party in a phone's frame
+    bg(cs.camera.focus([12.0, 11.8], { ms: 500 }));
     const gathering = bg(cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11.0], sera: [10.0, 12.2], orion: [11.2, 12.6] }));
-    bg(cs.spawn('ruse_walk', { sprite: 'ruse', x: 14.4, z: 11.8, facing: 'left', name: 'RUSE' }));
-    bg(cs.move('ruse_walk', [[13.4, 11.6]], { speed: 1.8, face: 'nyx' }));
+    bg(cs.spawn('ruse_walk', { sprite: 'ruse', x: 14.2, z: 11.9, facing: 'left', name: 'RUSE' }));
+    bg(cs.move('ruse_walk', [[13.2, 11.6]], { speed: 1.8, face: 'nyx' }));
     await cs.say([
       { speaker: 'RUSE', text: 'Well. You\'re all still attached to yourselves.' },
       { speaker: 'NYX', text: 'Got the coil. The Maw\'s got a sore head.', expr: 'smile' },

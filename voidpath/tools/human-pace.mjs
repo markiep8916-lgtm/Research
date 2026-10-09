@@ -194,7 +194,8 @@ function pickChoice(rows) {
 async function handle(s) {
   if (s.results) { if (readyFor('results', 4.0, s)) { await press('Enter'); seenAt.delete('results'); await vwait(0.3); } return true; }
   if (s.say) {
-    if (s.say.done && readyFor('say|' + s.say.text, readSec(s.say.text) + 0.3, s)) { await press('Enter'); await vwait(0.15); }
+    // readyFor runs first so the reading clock starts when the box opens, not when typing ends
+    if (readyFor('say|' + s.say.text, readSec(s.say.text) + 0.3, s) && s.say.done) { await press('Enter'); await vwait(0.15); }
     return true;
   }
   if (s.screen) {
@@ -219,7 +220,7 @@ async function handle(s) {
         seenAt.delete(key);
         await vwait(0.2);
       }
-    } else if (s.dlg.waiting && readyFor(key, readSec(s.dlg.text) + 0.3, s)) {
+    } else if (readyFor(key, readSec(s.dlg.text) + 0.3, s) && s.dlg.waiting) {
       await press('Enter'); seenAt.delete(key); await vwait(0.1);
     }
     return true;
