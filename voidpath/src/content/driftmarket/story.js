@@ -44,30 +44,35 @@ async function bring(cs, args, members, { dz = 1.6, dx = 1.2 } = {}) {
   if (Object.keys(layout).length) await cs.gather(layout);
 }
 
+// Staging runs under the lines (WRITING 1.8): walks, emotes and camera moves start without `await`
+// unless the next line needs them done; a script's end releases the letterbox, the camera and the
+// stepped-out travelers itself, so scenes do not await an ungather or a reset on the way out.
 const scripts = {
   // ------------------------------------------------------------------ the arrival (K)
   'driftmarket.arrival': async (cs) => {
     cs.letterbox(true);
     cs.music('driftmarket');
-    // the Moth settles; a slow look over lanterns, ribbons and Tethys beyond the rail
-    await cs.camera.pan([[9.5, 9.5], [22, 5.5], [31, 4.5], [24, 10.5]], { sec: 6 });
-    await cs.camera.focus([11.2, 11.8], { zoom: 0.9, ms: 900 });
-    await cs.gather({ nyx: [10.8, 11.4], kade: [9.6, 11.0], sera: [9.0, 12.2], orion: [10.2, 12.6] });
-    cs.face('juno', 'leader');
-    cs.face('marta', 'leader');
-    await cs.emote('juno', '...', { wait: false });
-    await cs.emote('marta', '!', { wait: false });
-    await cs.emote('oona', '?');
+    // the Moth settles; Pip's song carries over a short look at lanterns, ribbons and Tethys beyond
+    // the rail while the travelers climb out and Harl comes over from the gate
+    const gathering = bg(cs.gather({ nyx: [10.8, 11.4], kade: [9.6, 11.0], sera: [9.0, 12.2], orion: [10.2, 12.6] }));
+    const looking = bg(cs.camera.pan([[8.6, 8.0], [16.5, 4.6], [11.4, 11.6]], { sec: 3 }));
+    const harlIn = bg(cs.move('harl', [[13.0, 11.8]], { speed: 2.2, face: 'nyx' }));
+    for (const id of ['juno', 'marta']) cs.face(id, 'leader');
+    bg(cs.emote('juno', '...', { wait: false }));
+    bg(cs.emote('marta', '!', { wait: false }));
+    bg(cs.emote('oona', '?', { wait: false }));
     await cs.say({ speaker: 'PIP', text: 'Hush, hush, the Lock is singing, the ships all go to sleep...' });
-    await cs.move('harl', [[13.0, 11.8]], { speed: 2.2, face: 'nyx' });
+    await Promise.all([looking, gathering, harlIn]);
+    bg(cs.camera.focus([11.6, 11.8], { zoom: 0.9, ms: 800 }));
+    // Ruse pushes through from the gate, around Harl, while he has his say
+    bg(cs.spawn('ruse_walk', { sprite: 'ruse', x: 16.6, z: 12.6, facing: 'left', name: 'RUSE' }));
+    const ruseIn = bg(cs.move('ruse_walk', [[14.6, 13.4], [12.2, 12.2]], { speed: 1.8, face: 'nyx' }));
     await cs.say([
       { speaker: 'HARL', text: 'Ship-people. Back in your can.' },
       { speaker: 'NYX', text: 'Easy, Harl. They\'re with me.' },
     ]);
-    // Ruse pushes through from the gate
-    await cs.spawn('ruse_walk', { sprite: 'ruse', x: 16.6, z: 12.6, facing: 'left', name: 'RUSE' });
-    await cs.move('harl', [[13.4, 13.2]], { speed: 2.6 });
-    await cs.move('ruse_walk', [[12.2, 12.2]], { speed: 1.8, face: 'nyx' });
+    bg(cs.move('harl', [[14.2, 11.2]], { speed: 2.4, face: 'ruse_walk' }));
+    await ruseIn;
     cs.anim('nyx', 'arms_crossed');
     await cs.say([
       { speaker: 'RUSE', text: 'Nyx Varo. You took the Moth.' },
@@ -77,31 +82,33 @@ const scripts = {
     cs.anim('nyx', null);
     cs.face('ruse_walk', 'kade');
     await cs.say([
-      { speaker: 'RUSE', text: 'And you brought strays.' },
-      { speaker: 'RUSE', text: 'Ship-people. Always waking up late.' },
+      { speaker: 'RUSE', text: 'And you brought strays. Ship-people. Always waking up late.' },
       { speaker: 'KADE', text: 'Lieutenant Kade Arden, ISV Halcyon. We need a lattice coil.' },
       { speaker: 'RUSE', text: 'Course you do. Come see me at my stall. Bring credits.' },
     ]);
+    // Ruse heads back to her stall under Nyx's tip (the CH1 card has already made Nyx the leader)
     const leaving = bg(cs.move('ruse_walk', [[16.6, 12.4], [19.0, 10.4]], { speed: 1.8 }));
     cs.face('nyx', 'kade');
+    // the second box fits whoever leads: the card made it Nyx, but the player may have changed it
+    const lead = cs.test('leader:nyx') ? '...Today that\'s me.' : '...You\'ll want it to be me.';
     await cs.say([
-      { speaker: 'NYX', text: 'Ruse\'s stall is the shop. And anyone can lead out here. Pause menu, Party.' },
-      { speaker: 'NYX', text: '...Make it me. I know where everything is.', expr: 'smile' },
+      { speaker: 'NYX', text: 'Ruse\'s stall is where the credits go. Out here, anyone can lead.' },
+      { speaker: 'NYX', text: `${lead} I know where everything is.`, expr: 'smile' },
     ]);
     await leaving;
-    await cs.despawn('ruse_walk');
+    bg(cs.despawn('ruse_walk'));
     cs.flag('story:ruse_met');
     cs.objective('ch1.ask_ruse');
-    await cs.ungather();
-    cs.letterbox(false);
+    bg(cs.caption('Pause menu · Party · Leader'));
   },
 
   // ------------------------------------------------------------------ Ruse
   'driftmarket.ruse_maw': async (cs, args = {}) => {
     cs.letterbox(true);
-    await bring(cs, args, ['orion', 'sera', 'nyx', 'kade'], { dz: 2.0, dx: 1.3 });
     cs.face('ruse', 'leader');
-    await cs.camera.focus([40.6, 4.4], { zoom: 0.85, ms: 700 });
+    // Orion and Sera step up to the counter while Ruse starts in
+    bg(bring(cs, args, ['orion', 'sera', 'nyx', 'kade'], { dz: 2.0, dx: 1.3 }));
+    bg(cs.camera.focus([40.6, 4.4], { zoom: 0.85, ms: 700 }));
     await cs.say([
       { speaker: 'RUSE', text: 'The Meridian had two coils. One\'s still in her core.' },
       { speaker: 'RUSE', text: 'Her core runs warm, even now. Warm draws the Maw.' },
@@ -111,20 +118,16 @@ const scripts = {
       { speaker: 'RUSE', text: 'I send nobody anywhere, Doctor. People go.' },
     ]);
     cs.face('ruse', 'nyx');
-    await cs.emote('nyx', 'sweat', { wait: false });
-    await cs.say([
-      { speaker: 'RUSE', text: 'The Shoals hatch is at the east end of the Row. Bring the girl back. She owes me rent.' },
-      { speaker: 'RUSE', text: 'And keep the kettle off my counter.' },
-    ]);
-    if (cs.actor('bolt')) await cs.emote('bolt', 'sweat');
+    bg(cs.emote('nyx', 'sweat', { wait: false }));
+    await cs.say({ speaker: 'RUSE', text: 'Shoals are east of the docks. Bring the girl back. She owes me rent.' });
+    if (cs.actor('bolt')) bg(cs.emote('bolt', 'sweat', { wait: false }));
+    await cs.say({ speaker: 'RUSE', text: 'And keep the kettle off my counter.' });
     cs.flag('story:maw_lore');
     cs.objective('ch1.reach_wreck');
     // the hatch rolls up at the far end of the Row
     cs.sfx('unlock');
-    await cs.camera.focus([56.5, 14.0], { zoom: 1, ms: 1200 });
-    await cs.wait(1.4);
-    await cs.camera.reset({ ms: 900 });
-    cs.letterbox(false);
+    await cs.camera.focus([56.5, 14.0], { zoom: 1, ms: 900 });
+    await cs.wait(0.8);
   },
 
   'driftmarket.ruse_talk': async (cs) => {
@@ -146,39 +149,41 @@ const scripts = {
     cs.letterbox(true);
     if (args.trigger) await cs.goto('driftmarket', 'dock');
     cs.music('driftmarket');
-    await cs.spawn('ruse_walk', { sprite: 'ruse', x: 13.4, z: 11.6, facing: 'left', name: 'RUSE' });
-    await cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11.0], sera: [10.0, 12.2], orion: [11.2, 12.6] });
-    cs.face('ruse_walk', 'nyx');
+    // the dock exchange starts gathered: Ruse steps over from the gate as the travelers climb out
+    const gathering = bg(cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11.0], sera: [10.0, 12.2], orion: [11.2, 12.6] }));
+    bg(cs.spawn('ruse_walk', { sprite: 'ruse', x: 14.4, z: 11.8, facing: 'left', name: 'RUSE' }));
+    bg(cs.move('ruse_walk', [[13.4, 11.6]], { speed: 1.8, face: 'nyx' }));
     await cs.say([
       { speaker: 'RUSE', text: 'Well. You\'re all still attached to yourselves.' },
       { speaker: 'NYX', text: 'Got the coil. The Maw\'s got a sore head.', expr: 'smile' },
       { speaker: 'RUSE', text: 'Then you\'ve earned the rest. Walk with me.' },
     ]);
-    const walking = bg(cs.move('ruse_walk', [[16.4, 11.2]], { speed: 1.8 }));
-    await cs.fadeOut({ ms: 700 });
-    await walking;
+    await gathering;
+    // a fade straight to the rail: Ruse, the party, and Tethys filling the sky with Ione small in front
+    await cs.fadeOut({ ms: 500 });
     await cs.despawn('ruse_walk', { fade: 0 });
     await cs.goto('driftmarket', 'viewport', { transition: 'none' });
-    // the rail: Ruse, the party, and Tethys filling the sky with Ione small in front of it
     await cs.spawn('ruse_walk', { sprite: 'ruse', x: 30.2, z: 1.7, facing: 'up', name: 'RUSE', fade: 0 });
-    await cs.gather({ nyx: [31.2, 1.9], kade: [32.5, 2.5], sera: [33.5, 2.9], orion: [29.2, 2.8] });
-    for (const id of ['nyx', 'kade', 'sera', 'orion']) if (cs.test(`party:${id}`)) cs.face(id, 'up');
+    const atRail = bg(cs.gather({ nyx: [31.2, 1.9], kade: [32.5, 2.5], sera: [33.5, 2.9], orion: [29.2, 2.8] }).then(() => {
+      for (const id of ['nyx', 'kade', 'sera', 'orion']) if (cs.test(`party:${id}`)) cs.face(id, 'up');
+    }));
     await cs.camera.view({ pitch: 15, dist: 12, ms: 1 });
     await cs.camera.focus([31.0, 1.4], { zoom: 1, ms: 1 });
-    await cs.fadeIn({ ms: 900 });
-    await cs.wait(1.2);
+    await cs.fadeIn({ ms: 500 });
     await cs.say([
       { speaker: 'RUSE', text: 'See that moon? Ione. Ice on top, ocean under. Eighty years we\'ve been seeding it.' },
       { speaker: 'RUSE', text: 'Algae. Krill. The Meridian\'s stores, a little at a time.' },
       { speaker: 'RUSE', text: 'Slime and stubborn fish, so far. A world needs more than that.' },
     ]);
-    // the data spike, tied with a ribbon, pressed into Nyx's hand
-    await cs.camera.reset({ ms: 900 });
+    // the data spike, tied with a ribbon, pressed into Nyx's hand (its toast names it on screen)
+    await atRail;
+    bg(cs.camera.reset({ ms: 900 }));
     cs.face('ruse_walk', 'nyx');
     cs.face('nyx', 'ruse_walk');
     cs.anim('nyx', 'hand_to_chest');
     cs.particles('holo', [31.2, 1.0, 2.1], { count: 12 });
-    await cs.say({ speaker: 'RUSE', text: 'Eighty years of soundings. Ask your ship what it carries.' });
+    await cs.give('data_spike');
+    await cs.say({ speaker: 'RUSE', text: 'Eighty years of soundings, on this spike. Ask your ship what it carries.' });
     cs.anim('nyx', null);
     cs.face('kade', 'nyx');
     cs.face('nyx', 'kade');
@@ -193,18 +198,17 @@ const scripts = {
     cs.flag('story:ringborn_seeding');
     cs.flag('story:nyx_for_real');
     cs.objective('ch1.install_coil');
-    await cs.move('ruse_walk', [[34.8, 4.6], [37.6, 8.6]], { speed: 1.6 });
-    await cs.despawn('ruse_walk');
-    await cs.ungather();
-    cs.letterbox(false);
+    // Ruse heads back to her stall and is lost in the crowd
+    bg(cs.move('ruse_walk', [[34.8, 4.6], [37.6, 8.6]], { speed: 1.6 }));
+    await cs.despawn('ruse_walk', { fade: 0.8 });
   },
 
   // ------------------------------------------------------------------ the coil (B, K), on the Halcyon
   'driftmarket.coil_install': async (cs) => {
     cs.letterbox(true);
+    bg(cs.camera.focus([25.5, 24.8], { zoom: 0.85, ms: 900 }));
     await cs.gather({ orion: [25.5, 25.5], kade: [24.1, 26.7], nyx: [26.9, 26.7], sera: [22.9, 26.2] });
     cs.face('orion', 'up');
-    await cs.camera.focus([25.5, 24.8], { zoom: 0.85, ms: 900 });
     cs.anim('orion', 'kneel');
     await cs.say('ORION', 'Easy, old girl. New heart. Well, borrowed.', { expr: 'smile' });
     cs.take('lattice_coil');
@@ -212,30 +216,40 @@ const scripts = {
     cs.flash('#ffd27a', 0.4, 0.45);
     cs.particles('boost', [25.5, 1.4, 24.6], { count: 26 });
     cs.fx({ grade: { exposure: 1.16 } });
-    await cs.wait(0.8);
+    cs.take('data_spike');
     await cs.say('ORION', 'Coil\'s seated. Drive\'s warm. Ruse\'s spike is in the nav core. Now we just need the helm.');
     cs.anim('orion', null);
-    // every light dies; every screen shows the gold sigil; WARDEN speaks for the first time
+    // every light dies; every screen in the room wakes to the gold sigil and stays on through the beat,
+    // while the camera eases back to take in the screens either side of the reactor
     cs.music(null, { fade: 0.3 });
     cs.sfx('rumble');
-    cs.fx({ grade: { exposure: 0.32, saturation: 0.55 } });
+    cs.fx({ grade: { exposure: 0.3, saturation: 0.5 } });
     cs.screens('warden_sigil');
+    bg(cs.camera.focus([25.5, 24.4], { zoom: 1.15, ms: 1200 }));
     await cs.wait(1.4);
+    // WARDEN speaks for the first time: a soft gold light by the reactor breathes with its voice
+    cs.flag('dm:warden_light');
     cs.music('warden', { fade: 1.5 });
     await cs.say([
       { speaker: 'WARDEN', text: 'You should not be awake.' },
       { speaker: 'WARDEN', text: 'Please. Go back to sleep.' },
     ]);
-    await cs.wait(0.8);
     cs.shake(0.05, 1.2);
     await cs.narrate('Somewhere above, heavy feet begin to march.');
-    cs.fx({ grade: { exposure: 0.7, saturation: 0.8 } });
+    // the lights stutter back; the screens let go of the sigil
+    cs.flag('dm:warden_light', false);
+    cs.screens(null);
+    cs.flash('#ffe2b8', 0.25, 0.3);
+    cs.fx({ grade: { exposure: 1, saturation: 1.08 } });
+    // Sera goes to the nearest monitor for the manifest; the camera keeps her in a phone's frame
     cs.face('kade', 'nyx');
+    const toConsole = bg(cs.move('sera', [[22.7, 24.1]], { speed: 2.6 }));
+    bg(cs.camera.focus([24.3, 24.6], { zoom: 1, ms: 900 }));
     await cs.say([
       { speaker: 'KADE', text: 'That was WARDEN.', expr: 'determined' },
       { speaker: 'NYX', text: 'Polite, isn\'t it. Ours was polite too.' },
     ]);
-    await cs.move('sera', [[20.4, 25.4]], { speed: 2.6 });
+    await toConsole;
     cs.face('sera', 'up');
     await cs.say([
       { speaker: 'SERA', text: 'The manifest just updated. Pod 2271...' },
@@ -246,13 +260,11 @@ const scripts = {
     cs.flag('story:warden_speaks');
     cs.flag('unlock:arboretum');
     cs.flag('story:ch1_done');
-    cs.screens(null);
-    cs.fx({ grade: { exposure: 1, saturation: 1.08 } });
-    await cs.ungather();
+    // the travelers fall in behind the card (the bridge is on this map, so nobody is left standing here)
+    bg(cs.ungather());
     await cs.card('ch2');
     await cs.goto('halcyon', 'bridge_starchart');
     objectiveIfKnown(cs, 'ch2.go_arboretum');
-    cs.letterbox(false);
   },
 
   // ------------------------------------------------------------------ townsfolk (WRITING.md 7, chapter 1)
@@ -539,13 +551,15 @@ const scripts = {
 
 export default {
   scripts,
+  // `jump` / `at`: where the contact sheet stands to frame each scene's first box (TECH_PLAN deviations)
   scenes: [
-    { id: 'driftmarket.arrival', chapter: 'ch1', key: true, order: 10, budget: { boxes: 12, sec: 90 } },
-    { id: 'driftmarket.ruse_maw', chapter: 'ch1', order: 20, budget: { boxes: 8, sec: 60 } },
-    { id: 'driftmarket.pt_kade_nyx', chapter: 'ch1', order: 25, budget: { boxes: 10, sec: 75 } },
-    { id: 'driftmarket.pt_nyx_orion', chapter: 'ch1', order: 65, budget: { boxes: 10, sec: 75 } },
-    { id: 'driftmarket.return', chapter: 'ch1', key: true, order: 80, budget: { boxes: 11, sec: 80 } },
-    { id: 'driftmarket.coil_install', chapter: 'ch1', key: true, order: 90, budget: { boxes: 11, sec: 120 } },
+    { id: 'driftmarket.arrival', chapter: 'ch1', key: true, order: 10, budget: { boxes: 12, sec: 90 }, jump: 'ch1', at: 'driftmarket:dock' },
+    { id: 'driftmarket.ruse_maw', chapter: 'ch1', order: 20, budget: { boxes: 8, sec: 60 }, jump: 'ch1', at: 'driftmarket:counter' },
+    { id: 'driftmarket.pt_kade_nyx', chapter: 'ch1', order: 25, budget: { boxes: 10, sec: 75 }, jump: 'ch1', at: 'driftmarket:inn' },
+    { id: 'driftmarket.pt_nyx_orion', chapter: 'ch1', order: 65, budget: { boxes: 10, sec: 75 }, jump: 'ch1.return', at: 'driftmarket:inn' },
+    { id: 'driftmarket.return', chapter: 'ch1', key: true, order: 80, budget: { boxes: 11, sec: 80 }, jump: 'ch1.return', at: 'driftmarket:dock' },
+    { id: 'driftmarket.coil_install', chapter: 'ch1', key: true, order: 90, budget: { boxes: 11, sec: 120 }, jump: 'ch1.coil',
+      at: 'halcyon:engineering_reactor' },
   ],
   speakers: {
     RUSE: { portrait: 'ruse', accent: '#e8a25a' },
@@ -609,6 +623,9 @@ export default {
       ],
       lights: [
         { x: 39.4, y: 2.0, z: 20.8, color: '#ffa24a', intensity: 9, distance: 5, mode: 'flicker', amount: 0.2, speed: 5, when: 'story:ch1_done' },
+        // WARDEN's first words (coil_install): soft gold by the reactor and its screens, breathing while it speaks
+        { x: 25.5, y: 2.4, z: 24.9, color: '#ffd27a', intensity: 30, distance: 9, mode: 'pulse', amount: 0.4, speed: 2.2,
+          when: 'dm:warden_light & !story:coil_installed' },
       ],
       talk: {
         bolt: [{ when: 'chapter>=ch1 & !story:ch1_done & !dm:bolt_hub', script: 'driftmarket.bolt_hub' }],
@@ -650,7 +667,7 @@ export default {
       chapter: 'ch1', map: 'halcyon', spawn: 'engineering_reactor', level: 12,
       flags: ['story:ruse_met', 'story:maw_lore', 'story:varo_log', 'story:meridian_power', 'defeated:shoals_boss_maw', 'ult:nyx',
         'story:ringborn_seeding', 'story:nyx_for_real', 'seen:driftmarket:arrival', 'talk:driftmarket:ruse', 'visited:driftmarket'],
-      items: { lattice_coil: 1 }, objective: 'ch1.install_coil',
+      items: { lattice_coil: 1, data_spike: 1 }, objective: 'ch1.install_coil',
     },
   },
   doneFlags: {

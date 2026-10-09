@@ -29,6 +29,8 @@ const MOOD = {
 const lantern = (x, z, y = 2.6, intensity = 16, distance = 6.5) => ({ x, y, z, color: '#ffa24a', intensity, distance, mode: 'flicker', amount: 0.18, speed: 3 });
 const ribbonGlow = (x, z) => ({ x, y: 1.2, z, color: '#ff4f5e', intensity: 6, distance: 4 });
 const tethys = (x, z) => ({ x, y: 1.6, z, color: '#4fd8cf', intensity: 9, distance: 7 });
+// cold Tethys light spilling from the promenade onto the Row: a rim on the backs of the north stalls
+const rim = (x, z) => ({ x, y: 2.2, z, color: '#6fe0ec', intensity: 9, distance: 5.5 });
 
 export default {
   id: 'driftmarket',
@@ -76,11 +78,13 @@ export default {
     n: { t: 'wall', tex: 'dm_inn_wall', side: 'dm_hull_a' },
     r: { t: 'wall', tex: 'dm_rail', low: 'dm_rail', cap: 'dm_rail_cap', height: 0.5 },
     D: { t: 'door', tex: 'dm_door', lockedTex: 'dm_door', floor: 'dm_planks_a' },
-    '.': { t: 'floor', tex: 'dm_deck_a', mix: [['dm_deck_b', 0.12]], grime: 0.05, roughness: 0.58, metalness: 0.32, emissive: 2.2 },
+    // three different patch plates, one cell in six (only one in twenty carries the M7 stencil)
+    '.': { t: 'floor', tex: 'dm_deck_a', mix: [['dm_deck_b', 0.05], ['dm_deck_c', 0.06], ['dm_deck_d', 0.05]], grime: 0.05, roughness: 0.58, metalness: 0.32, emissive: 2.2 },
     ',': { t: 'floor', tex: 'dm_planks_a', grime: 0.04, roughness: 0.7, metalness: 0.12, emissive: 2.0 },
     '=': { t: 'floor', tex: 'dm_grate', roughness: 0.5, metalness: 0.4, emissive: 1.0 },
     o: { t: 'floor', tex: 'dm_pad', roughness: 0.62, metalness: 0.3, emissive: 2.0 },
-    i: { t: 'floor', tex: 'dm_frost', roughness: 0.4, metalness: 0.2, emissive: 1.0 },
+    // the deck by the Shoals hatch, glossy with melt; the rime is one world-space decal over it (props)
+    i: { t: 'floor', tex: 'dm_deck_a', roughness: 0.36, metalness: 0.3, emissive: 2.2 },
   },
   wallH: 3,
   lowH: 0.75,
@@ -111,6 +115,7 @@ export default {
     from_shoals: { x: 57.0, z: 14.0, facing: 'left' },
     viewport: { x: 31.5, z: 2.6, facing: 'up' },
     ruse_front: { x: 40.5, z: 9.4, facing: 'up' },
+    counter: { x: 40.6, z: 5.7, facing: 'up' },
     inn: { x: 25.0, z: 24.2, facing: 'up' },
     beacon: { x: 51.0, z: 6.0, facing: 'up' },
   },
@@ -176,13 +181,16 @@ export default {
     { t: 'dm.post', x: 26.4, z: 19.5, h: 3.0, glow: false },
     { t: 'dm.sign', x: 25.0, z: 19.5, y: 2.85, w: 2.4, h: 0.6, tex: 'dm_sign_inn', drop: 0.15 },
     { t: 'dm.kelp', x: 30.6, z: 19.3 },
-    { t: 'dm.crates', x: 36.4, z: 19.3, n: 3 },
+    { t: 'dm.kelp', x: 35.4, z: 19.3 },
+    { t: 'dm.crates', x: 37.2, z: 19.3, n: 3 },
     { t: 'dm.barrels', x: 41.2, z: 19.3, n: 3 },
     { t: 'dm.kelp', x: 52.6, z: 19.2 },
     { t: 'dm.crates', x: 55.6, z: 19.3, n: 2 },
     { t: 'dm.crates', x: 57.8, z: 10.2, n: 2 },
     { t: 'dm.barrels', x: 57.6, z: 16.9, n: 2, crate: false },
     { t: 'dm.lantern_tree', x: 40.2, z: 13.6 },
+    // rime creeping in from the Shoals hatch: one sheet over the frosted deck and the planks' edge
+    { t: 'floorPlane', x: 57.0, z: 14.0, w: 6, d: 5.5, tex: 'dm_frost', emissive: 0.8 },
     { t: 'floorPlane', x: 27.8, z: 14.7, w: 1.5, d: 3.0, tex: 'dm_chalk' },
     { t: 'dm.board', x: 36.7, z: 8.3, on: 'shop' },
     // ---- Ruse's Salvage
@@ -203,6 +211,7 @@ export default {
     // ---- the Lantern (inn)
     { t: 'dm.counter', x: 25.2, z: 22.7, w: 3.4, goods: 'noodles', front: 'dm_planks_a' },
     { t: 'dm.hearth', x: 31.2, z: 21.6 },
+    { t: 'dm.kelp', x: 27.9, z: 21.45 },
     { t: 'dm.bunk', x: 19.6, z: 25.8 },
     { t: 'dm.bunk', x: 30.4, z: 25.8 },
     { t: 'dm.table', x: 20.8, z: 23.2 },
@@ -217,7 +226,7 @@ export default {
     { x: 12.0, y: 0.5, z: 9.6, color: '#ffb54a', intensity: 7, distance: 4, mode: 'pulse', amount: 0.4, speed: 1.6 },
     { x: 13.6, y: 1.6, z: 4.0, color: '#45d4ff', intensity: 9, distance: 5 },
     { x: 7.0, y: 3.4, z: 7.0, color: '#ffd2a0', intensity: 16, distance: 7.5 },
-    lantern(2.2, 12.6), lantern(13.8, 12.6), lantern(8.0, 17.5, 2.4, 14),
+    lantern(2.2, 12.6), lantern(13.8, 12.6), lantern(8.0, 15.8, 2.6, 18, 8),
     { x: 4.5, y: 1.3, z: 19.6, color: '#7ddf7a', intensity: 6, distance: 4 },
     ribbonGlow(13.5, 1.6),
     // the viewport: Tethys light along the rail, lanterns on the pylons, ribbons
@@ -231,10 +240,17 @@ export default {
     lantern(22.5, 14.0, 3.0, 18, 7), lantern(31.0, 14.0, 3.0, 18, 7), lantern(40.0, 14.0, 3.0, 18, 7), lantern(48.5, 14.0, 3.0, 18, 7),
     lantern(19.5, 18.8, 2.4, 12), lantern(36.5, 18.8, 2.4, 12), lantern(46.0, 18.8, 2.4, 12),
     { x: 39.5, y: 2.4, z: 8.6, color: '#ffb54a', intensity: 10, distance: 5 },
+    // the Lantern Tree's crown of Tethys glass: a cold pool in the middle of the warm Row
+    { x: 40.2, y: 3.4, z: 13.6, color: '#7fe8f0', intensity: 13, distance: 7 },
     { x: 57.6, y: 1.6, z: 14.0, color: '#7fd8ff', intensity: 9, distance: 6, mode: 'pulse', amount: 0.2, speed: 0.6 },
     { x: 53.0, y: 1.2, z: 17.5, color: '#7ddf7a', intensity: 7, distance: 4.5 },
     { x: 55.2, y: 1.5, z: 9.9, color: '#4fd8cf', intensity: 8, distance: 4.5 },
     { x: 36.7, y: 1.9, z: 9.0, color: '#ffb04a', intensity: 7, distance: 3.5 },
+    rim(19.4, 7.5), rim(25.0, 7.6), rim(31.6, 7.5), rim(49.6, 7.6), rim(55.6, 7.8),
+    { x: 30.6, y: 1.2, z: 18.6, color: '#4fd8cf', intensity: 8, distance: 4.5 },
+    { x: 35.4, y: 1.2, z: 18.6, color: '#4fd8cf', intensity: 8, distance: 4.5 },
+    // the rime by the hatch glows faintly cold from the floor
+    { x: 56.2, y: 1.4, z: 15.0, color: '#9fe8ff', intensity: 6, distance: 4.5 },
     // the beacon: its lamp turns, its horn glows
     { x: 52.5, y: 4.6, z: 3.2, color: '#ffb54a', intensity: 26, distance: 9, mode: 'pulse', amount: 0.55, speed: 0.9, tag: 'dm_beacon' },
     tethys(48.0, 1.4), tethys(56.5, 1.4),
@@ -248,6 +264,8 @@ export default {
     { x: 25.2, y: 2.4, z: 22.4, color: '#ffc070', intensity: 14, distance: 6 },
     { x: 20.0, y: 2.0, z: 24.6, color: '#ffa24a', intensity: 9, distance: 5 },
     { x: 29.0, y: 2.0, z: 25.0, color: '#ff6a5a', intensity: 7, distance: 4.5 },
+    // the inn's kelp tank: the one cold light in a warm room
+    { x: 28.3, y: 1.7, z: 22.9, color: '#4fd8cf', intensity: 6, distance: 5 },
   ],
   ambient: [
     // drifting ice crystals everywhere the station opens to the ring, lantern sparks over the market
@@ -309,7 +327,7 @@ export default {
   ],
   viewpoints: {
     docks: { x: 9.6, z: 9.8, facing: 'up' },
-    viewport: { x: 27.5, z: 4.0, facing: 'up' },
+    viewport: { x: 25.6, z: 4.2, facing: 'up' },
     row: { x: 34.5, z: 14.6, facing: 'up' },
     ruse: { x: 40.5, z: 5.8, facing: 'up' },
     beacon: { x: 51.0, z: 6.4, facing: 'up' },

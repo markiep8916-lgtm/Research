@@ -317,11 +317,12 @@ const shops = {
   },
 };
 
-// From the measured critical path (tests/routes/spire.mjs): about 155 units in the lower decks and 146
-// on Deck 5, for about five random fights beside the troopers, the riot drone, the Mk-III and Voss.
+// From the critical path with its chest detours (tests/routes/spire.mjs legs): about 190 units in the
+// lower decks and 146 on Deck 5, for four or five random fights beside the troopers, the riot drone, the
+// Mk-III and Voss (the human-pace walker steers round props and covers a little more ground).
 const zoneRates = {
-  spire_barracks: { grace: 11, sigma: 21 },
-  spire_upper: { grace: 11, sigma: 21 },
+  spire_barracks: { grace: 18, sigma: 36 },
+  spire_upper: { grace: 18, sigma: 36 },
 };
 
 export default { enemies, encounters, zones, zoneRates, bossScripts, shops };

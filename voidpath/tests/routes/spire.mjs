@@ -7,8 +7,9 @@
 // the Checkpoint's barricades alternate north and south, so the lane weaves between them
 const SLALOM = [[20, 52.5], [22.5, 52.5], [29, 49], [31.5, 49], [38, 52.5], [40.5, 52.5], [47, 49], [49.5, 49], [56, 52.5],
   [58.5, 52.5], [66.5, 48.5]];
-// the Barracks' locker partitions: round the east one by the north wall, the west one by the south wall
-const BARRACKS = [[66.5, 45.5], [55, 42.6], [50, 42.6], [44, 44], [36, 45.8], [31, 45.8], [24, 43.4]];
+// the Barracks: the aisle between the bunks (north) and the pillar and mess table (south), then under
+// the west partition
+const BARRACKS = [[66.5, 45.5], [60, 43.6], [53, 43.6], [46, 43.8], [40, 44], [35, 45.6], [31, 45.6], [24, 43.6]];
 // the Training Hall's obstacle walls: under the first, over the second, under the third
 const HALL = [[3, 21.5], [18, 21.5], [20.5, 21], [24.5, 15.6], [33, 16], [37, 16], [50, 21.5], [52.5, 21.5], [66.5, 15.6]];
 
@@ -41,6 +42,10 @@ export default {
         for (const [x, z] of BARRACKS.slice(4)) await d.go(x, z);
         await d.use('grid_t1');
         await d.pump(d.F('spire:said_t1'));
+        if (!(await d.eval(() => !!window.__VP.ctx.state.flags['sw:spire:grid_a']))) {
+          await d.use('grid_t1');
+          await d.pump();
+        }
         await d.journal('journal-ch3-grids');
         await d.go(16.5, 42.5, { label: 'deck 4' });
       },
@@ -50,11 +55,16 @@ export default {
       level: 19,
       next: 'ch3.upper',
       async run(d) {
+        // the armory's Security Plate sits at its far west end: a side trip, not the critical path
         await d.go(16.5, 39.5);
-        await d.use('armory_plate', { optional: true });
         await d.go(29, 38.5);
         await d.use('grid_t2');
         await d.pump();
+        // a toggle: a second press swaps the grids back, and the player presses it again
+        if (!(await d.eval(() => !!window.__VP.ctx.state.flags['sw:spire:grid_swap']))) {
+          await d.use('grid_t2');
+          await d.pump();
+        }
         await d.journal('journal-ch3-swap');
         await d.go(33.5, 38);
         await d.use('grid_t3');
@@ -92,7 +102,8 @@ export default {
         for (const [x, z] of HALL.slice(0, 3)) await d.go(x, z);
         await d.shot('c04-training', { hi: true });
         await d.use('recording');
-        await d.pump(d.F('story:flare_report') + ' || ' + d.F('seen:spire:oath_recording'), { maxVt: 900 });
+        // the recording ends on the climb's last step: the Journal names the command deck
+        await d.pump('window.__VP.ctx.state.story.objective === "ch3.command"', { maxVt: 900 });
         d.milestone('oath recording');
         for (const [x, z] of HALL.slice(4)) await d.go(x, z);
         await d.use('lift_hall');
@@ -127,26 +138,32 @@ export default {
     },
   },
 
+  // the same walking as the segments above, chest detours included (expected-fights splits it by zone)
   legs: [
     {
-      chapter: 'ch3', label: 'Checkpoint: dock -> barracks door', map: 'spire', flags: [],
-      points: [[6, 51], [14, 51], [16.5, 51], { fight: 'spire_troopers' }, [18, 51], ...SLALOM, [66.5, 46.5]],
+      chapter: 'ch3', label: 'Checkpoint: dock -> cache -> barracks door', map: 'spire', flags: [],
+      points: [[6, 51], [14, 51], [16, 51], { fight: 'spire_troopers' }, [18, 51], [22.5, 49.4], ...SLALOM, [66.5, 46.5]],
     },
     {
-      chapter: 'ch3', label: 'Barracks: door -> the first grid', map: 'spire', flags: [],
-      points: [...BARRACKS.slice(0, 3), [46, 43], { fight: 'spire_riot' }, ...BARRACKS.slice(3)],
+      chapter: 'ch3', label: 'Barracks: door -> bunk locker -> the first grid', map: 'spire', flags: [],
+      points: [...BARRACKS.slice(0, 4), { fight: 'spire_riot' }, [37, 43.4], ...BARRACKS.slice(4), [23.5, 43.4]],
     },
     {
       chapter: 'ch3', label: 'Deck 4: the grid -> armory -> junction -> cells', map: 'spire', flags: ['sw:spire:grid_a'],
-      points: [[24, 43.4], [16.5, 42.5], [16.5, 39.5], [29, 38.5], [33.5, 38], [38.5, 38.5], [60.5, 39.5], [61, 36.2], [68.5, 36.2], [69, 38.5]],
+      points: [[23.5, 43.4], [16.5, 42.5], [16.5, 39.5], [29, 38.5], [30.5, 36.2], [33.5, 38], [34.5, 36.2], [50, 39], [61, 36.4]],
+    },
+    {
+      chapter: 'ch3', label: 'Holding Cells: the console -> Med-Station -> lift', map: 'spire', flags: ['story:cadets_freed'],
+      points: [[61, 36.4], [68.5, 36.1], [69, 38.4]],
     },
     {
       chapter: 'ch3', label: 'Officers\' Deck: lift -> quarters -> stairwell', map: 'spire', flags: ['story:cadets_freed'],
-      points: [[67, 32], [42.5, 31.6], { fight: 'spire_mk3_guard' }, [10.5, 31.6], [10.5, 27.5], [13, 26.4], [10.5, 30.5], [2.5, 30.5], [2.5, 22.5]],
+      points: [[67, 32], [42.5, 31.6], { fight: 'spire_mk3_guard' }, [10.5, 31.6], [10.5, 27.5], [13.6, 26.3], [11.5, 26.6], [10.5, 30.5],
+        [2.5, 30.5], [2.5, 26.5], [2.5, 22.5]],
     },
     {
       chapter: 'ch3', label: 'Training Hall: stairwell -> recording -> lift', map: 'spire', flags: ['story:cadets_freed'],
-      points: [[2.5, 22.5], ...HALL],
+      points: [[2.5, 22.5], ...HALL.slice(0, 3), [24.5, 15.4], ...HALL.slice(4)],
     },
   ],
 };

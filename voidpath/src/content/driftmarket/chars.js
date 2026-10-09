@@ -172,7 +172,10 @@ const LONG = {
 const P_BUN = [['ball', 11.6, 9.0, 4.0, 4.6], ['ball', 8.6, 5.6, 7.2, 4.6], ['ball', 12.8, 2.6, 3.4, 3.0], [3.6, 5.2, 2.4, 9.6, 1.8, 0.8]];
 const P_CROP = [['ball', 11.8, 8.4, 3.8, 4.4], ['ball', 8.6, 5.2, 7.0, 4.2], [4.2, 4.0, 1.6, 6.4, 1.8, 0.5]];
 const P_CURLS = [['ball', 11.8, 8.4, 4.4, 4.8], ['ball', 8.4, 4.8, 7.4, 4.6], ['ball', 4.0, 3.6, 2.8, 2.6], ['ball', 13.4, 4.0, 2.6, 2.6]];
-const P_BALD = [['ball', 12.4, 9.4, 2.6, 3.4], [13.2, 6.6, 12.8, 11.0, 1.4, 0.8]];
+// a bald crown's fringe: thin locks behind the ear (a round mass over the ear read as a headset)
+const P_BALD = [[14.2, 6.6, 13.6, 10.6, 1.0, 0.6], [12.8, 6.4, 13.9, 7.6, 0.9, 0.5]];
+// Ruse: the bun without the lock that fell over her far eye, so both eyes and brows act
+const P_RUSE = P_BUN.slice(0, 3);
 const P_LONG = [['ball', 11.6, 9.4, 4.4, 5.2], ['ball', 8.5, 5.8, 7.4, 5.0], [12.6, 8.0, 13.6, 15.0, 2.6, 2.0], [2.4, 5.6, 1.6, 9.4, 1.6, 0.8]];
 
 // ---------------------------------------------------------------- portrait parts
@@ -201,8 +204,8 @@ const RUSE = {
       if (sk.view === 'down') f.tpl(['.M.', 'MtM', '.M.'], sk.cx - 1, Math.floor(sk.sh) + 3, {});
     },
   },
-  hairLocks: P_BUN,
-  hairline: 6.4,
+  hairLocks: P_RUSE,
+  hairline: 5.4,   // the bun pulled back off a high forehead, so her brows sit clear of the hair
   portrait: {
     bust: bust('main'),
     collar: (f) => {
@@ -211,6 +214,32 @@ const RUSE = {
     },
     after: null,
     over: [],
+  },
+  // her own faces (edits of the portrait face, art/characters.js FACE_P rows: 8-10 brows, 11-13 eyes,
+  // 17-19 mouth): heavy brows that do the talking, a sideways smirk, never a grin
+  expressions: {
+    neutral: [[12, 6, 'w'], [18, 15, 'qqqqw']],                                  // a crow's foot, a flat mouth
+    smile: [
+      [9, 15, 'eeee'], [8, 15, 'aaaa'], [7, 17, 'aa'],                     // the far brow cocked
+      [13, 8, 'iii'], [13, 16, 'ii'],                                      // a crinkled squint
+      [18, 15, 'wqqqq'], [17, 19, 'q'], [17, 20, 'w'],                     // one corner up: a smirk
+    ],
+    sad: [
+      [9, 10, 'ee'], [8, 9, 'aaa'], [9, 15, 'e'], [8, 15, 'aa'],          // inner ends lifted
+      [12, 8, 'iii'], [12, 16, 'ii'],                                      // heavy lids, gaze down
+      [18, 15, 'eqqqe'], [19, 15, 'q'], [19, 19, 'q'],                     // corners down
+    ],
+    determined: [
+      [8, 7, 'aa'], [9, 7, 'ee'], [9, 10, 'ee'], [10, 10, 'aa'],           // brows drawn down to the nose
+      [10, 15, 'a'], [9, 15, 'e'], [8, 17, 'aa'], [9, 17, 'ee'],
+      [13, 8, 'iii'], [13, 16, 'ii'],                                      // narrowed
+      [18, 14, 'qqqqqq'], [19, 16, 'ww'],                                  // a hard, set mouth
+    ],
+    surprised: [
+      [9, 7, 'eeeee'], [8, 7, 'aaaaa'], [9, 15, 'eeee'], [8, 15, 'aaaa'],  // brows up
+      [10, 8, 'iii'], [11, 8, 'ipo'], [10, 16, 'ii'], [11, 16, 'ip'],      // eyes wide
+      [17, 16, 'qqq'], [18, 15, 'qlllq'], [19, 16, 'qqq'],                 // an open mouth
+    ],
   },
 };
 
@@ -237,10 +266,18 @@ const ELDER = {
   },
   hairLocks: P_BALD,
   hairline: 8,
+  // a white moustache and beard around the mouth (rows 17-21 of the face, under the eyes)
   portrait: {
     bust: bust('main'),
     collar: collarOf('acc'),
-    over: [[11, 18, ['.........ssssssss.......', '........sdffffffds......', '.........sdffffds.......', '..........sddds.........']]],
+    over: [[11, 23, [
+      '..............sffffs....',
+      '.........sdds.....ds....',
+      '.......sdfffdddddffs....',
+      '........sdffffffffds....',
+      '..........sdffffds......',
+      '............sdds........',
+    ]]],
   },
 };
 
@@ -466,7 +503,13 @@ const GUARD = {
   hooks: { behind: null },
   hairLocks: P_BALD,
   hairline: 8,
-  portrait: { over: [[11, 18, ['.........sssssss........', '..........sdddds........']]] },
+  // a short beard on the jaw, under the mouth (the eyes stay clear)
+  portrait: { over: [[11, 24, [
+    '........sdd......dds....',
+    '.......sdddsssssdddds...',
+    '........sdddddddddds....',
+    '..........sddddddds.....',
+  ]]] },
 };
 
 export const CHARACTERS = {

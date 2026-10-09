@@ -40,10 +40,14 @@ export default {
       level: 12,
       next: 'ch1.coil',
       async run(d) {
+        // a jump arrives without the load trigger (debug.jumpTo goes as a 'goto'): play the return as it would
+        if (d.jumped) await d.eval(() => { window.__VP.debug.runScript('driftmarket.return', { trigger: true }); });
         await d.pump(d.F('story:nyx_for_real'), { maxVt: 600 });
         d.milestone('maw + return');
         await d.shot('c06-after-return', { hi: true });
         await d.fly('starchart', 'Halcyon');
+        // settle on the Halcyon before walking: the flight's cockpit map can still answer the first snapshot
+        await d.pump('window.__PACE.snap().map === "halcyon"', { minVt: 1.5 });
         d.milestone('halcyon');
       },
     },

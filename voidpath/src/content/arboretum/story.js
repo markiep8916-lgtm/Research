@@ -153,15 +153,13 @@ const scripts = {
     await cs.camera.focus(BASIN, { zoom: 0.92, ms: 800 });
     cs.particles('steam', [8.0, 0.2, 26.0], { count: 30 });
     await cs.wait(1.6);
-    // the walkway is up; past it, the Stasis Gardens
-    bg(cs.camera.focus([10.5, 19.5], { zoom: 0.95, ms: 900 }));
-    await beside(cs, 'orion');
+    // back to the party at the sluice (Orion walks up under the pan), so the speakers are on screen
+    await Promise.all([beside(cs, 'orion'), cs.camera.reset({ ms: 800 })]);
     await cs.say('ORION', 'Every channel on the deck just drained. Sluices are honest machines.', { expr: 'smile' });
     await beside(cs, 'sera', 0.95);
     await cs.say('SERA', 'The Stasis Gardens are across. If they moved Theo, he\'s in there.', { expr: 'determined' });
     cs.objective('ch2.stasis');
     await cs.ungather();
-    await cs.camera.reset({ ms: 600 });
   },
 
   'arboretum.basin_note': async (cs) => {

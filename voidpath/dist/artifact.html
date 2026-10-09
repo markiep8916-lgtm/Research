@@ -11808,7 +11808,7 @@ var EquipPage = class {
       return;
     }
     const accent = this.menu.accent(m);
-    const strip2 = el("div", { class: "vp-eq-strip" }, [
+    const strip3 = el("div", { class: "vp-eq-strip" }, [
       this.party.length > 1 ? el("span", { class: "vp-eq-arrow", text: "\u25C0" }) : null,
       ...this.party.map((p, i) => {
         const por = this.ui.portraitEl(p.id, { size: 34, accent: this.menu.accent(p) });
@@ -11821,7 +11821,7 @@ var EquipPage = class {
     const who = el("div", { class: "vp-eq-who" }, [
       this.ui.portraitEl(m.id, { size: 64, accent }),
       el("div", {}, [el("b", { text: m.name }), el("small", { class: "vp-cap", text: `Lv ${m.level ?? 1} \xB7 ${m.cls || ""}` })]),
-      strip2
+      strip3
     ]);
     who.style.setProperty("--acc", accent);
     this._slotRows = SLOTS2.map(([slot, label], i) => {
@@ -22344,8 +22344,8 @@ function paintWindowFrame(t) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const cx = Math.min(x - x0, x1 - x), cy = Math.min(y - y0, y1 - y);
       if (cx + cy < cut) continue;
-      const rim = cx === 0 || cy === 0 || cx + cy === cut;
-      if (rim) {
+      const rim2 = cx === 0 || cy === 0 || cx + cy === cut;
+      if (rim2) {
         const lit = x - x0 > (x1 - x0) / 2 && cx === 0 || y - y0 > (y1 - y0) / 2 && cy === 0 || cx + cy === cut && x > x0 + 11 && y > y0 + 28;
         t.put(x, y, lit ? S3[5] : S3[0], lit ? 0.5 : 0.3);
       } else t.put(x, y, null, 0.2);
@@ -34597,14 +34597,14 @@ function paintValveWheel(t) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const dx = x - c, dy = y - c, d = Math.hypot(dx, dy);
     const a = Math.atan2(dy, dx);
-    const rim = d > 11.5 && d < 15;
+    const rim2 = d > 11.5 && d < 15;
     const spoke = d <= 11.5 && d > 3.5 && [0, 1, 2, 3].some((k2) => Math.abs(Math.sin(a - k2 * Math.PI / 2 - Math.PI / 4)) * d < 1.4);
     const hub = d <= 4;
-    if (!(rim || spoke || hub)) continue;
+    if (!(rim2 || spoke || hub)) continue;
     const l = -(dx + dy) / (d || 1);
     const ramp2 = hub ? S4 : CR2;
-    const k = hub ? d < 2 ? 6 : 4 : rim ? l > 0.5 ? 4 : l > -0.3 ? 3 : 2 : 3;
-    t.px(x, y, ramp2[k], rim ? 0.75 - Math.abs(d - 13.2) * 0.12 : 0.65);
+    const k = hub ? d < 2 ? 6 : 4 : rim2 ? l > 0.5 ? 4 : l > -0.3 ? 3 : 2 : 3;
+    t.px(x, y, ramp2[k], rim2 ? 0.75 - Math.abs(d - 13.2) * 0.12 : 0.65);
   }
   for (let k = 0; k < 8; k++) {
     const a = k * Math.PI / 4;
@@ -34791,10 +34791,10 @@ var MINI = {
 function paintPodStatus(t, f) {
   const ok = f === 1;
   const bg7 = ok ? ["#03150a", "#041c0e"] : ["#160306", "#1e050a"];
-  const ink = ok ? "#7dffb4" : "#ff6b7a", rim = ok ? GN2[2] : CR2[2];
+  const ink = ok ? "#7dffb4" : "#ff6b7a", rim2 = ok ? GN2[2] : CR2[2];
   for (let y = 0; y < 14; y++) for (let x = 0; x < 40; x++) {
     const border = x === 0 || y === 0 || x === 39 || y === 13;
-    t.glow(x, y, border ? rim : bg7[y % 2]);
+    t.glow(x, y, border ? rim2 : bg7[y % 2]);
   }
   const line4 = (str, y) => {
     let x = Math.floor((40 - textWidth(str, MINI)) / 2);
@@ -43125,6 +43125,18 @@ var prologue_default = { ...pure_default2, art: art_default2, enemyArt: enemyart
 
 // src/content/driftmarket/data.js
 var data_default3 = {
+  items: {
+    data_spike: {
+      id: "data_spike",
+      name: "Ringborn Data Spike",
+      desc: "Eighty years of Ringborn soundings of Ione, tied with a red ribbon.",
+      target: null,
+      battle: false,
+      key: true,
+      effect: {},
+      icon: "keycard"
+    }
+  },
   shops: {
     ruse: {
       name: "Ruse's Salvage",
@@ -43139,6 +43151,8 @@ var data_default3 = {
         { item: "stim" },
         { item: "eq_w_kade_2", when: "chapter>=ch1" },
         { item: "eq_w_nyx_2", when: "chapter>=ch1" },
+        { item: "eq_w_orion_2", when: "chapter>=ch1" },
+        { item: "eq_w_sera_2", when: "chapter>=ch1" },
         { item: "eq_a_2", when: "chapter>=ch1" },
         { item: "eq_x_swift_band", when: "chapter>=ch1" },
         { item: "eq_w_kade_3", when: "chapter>=ch2" },
@@ -43180,23 +43194,24 @@ var scripts3 = {
   "driftmarket.arrival": async (cs) => {
     cs.letterbox(true);
     cs.music("driftmarket");
-    await cs.camera.pan([[9.5, 9.5], [22, 5.5], [31, 4.5], [24, 10.5]], { sec: 6 });
-    await cs.camera.focus([11.2, 11.8], { zoom: 0.9, ms: 900 });
-    await cs.gather({ nyx: [10.8, 11.4], kade: [9.6, 11], sera: [9, 12.2], orion: [10.2, 12.6] });
-    cs.face("juno", "leader");
-    cs.face("marta", "leader");
-    await cs.emote("juno", "...", { wait: false });
-    await cs.emote("marta", "!", { wait: false });
-    await cs.emote("oona", "?");
+    const gathering = bg2(cs.gather({ nyx: [10.8, 11.4], kade: [9.6, 11], sera: [9, 12.2], orion: [10.2, 12.6] }));
+    const looking = bg2(cs.camera.pan([[8.6, 8], [16.5, 4.6], [11.4, 11.6]], { sec: 3 }));
+    const harlIn = bg2(cs.move("harl", [[13, 11.8]], { speed: 2.2, face: "nyx" }));
+    for (const id of ["juno", "marta"]) cs.face(id, "leader");
+    bg2(cs.emote("juno", "...", { wait: false }));
+    bg2(cs.emote("marta", "!", { wait: false }));
+    bg2(cs.emote("oona", "?", { wait: false }));
     await cs.say({ speaker: "PIP", text: "Hush, hush, the Lock is singing, the ships all go to sleep..." });
-    await cs.move("harl", [[13, 11.8]], { speed: 2.2, face: "nyx" });
+    await Promise.all([looking, gathering, harlIn]);
+    bg2(cs.camera.focus([11.6, 11.8], { zoom: 0.9, ms: 800 }));
+    bg2(cs.spawn("ruse_walk", { sprite: "ruse", x: 16.6, z: 12.6, facing: "left", name: "RUSE" }));
+    const ruseIn = bg2(cs.move("ruse_walk", [[14.6, 13.4], [12.2, 12.2]], { speed: 1.8, face: "nyx" }));
     await cs.say([
       { speaker: "HARL", text: "Ship-people. Back in your can." },
       { speaker: "NYX", text: "Easy, Harl. They're with me." }
     ]);
-    await cs.spawn("ruse_walk", { sprite: "ruse", x: 16.6, z: 12.6, facing: "left", name: "RUSE" });
-    await cs.move("harl", [[13.4, 13.2]], { speed: 2.6 });
-    await cs.move("ruse_walk", [[12.2, 12.2]], { speed: 1.8, face: "nyx" });
+    bg2(cs.move("harl", [[14.2, 11.2]], { speed: 2.4, face: "ruse_walk" }));
+    await ruseIn;
     cs.anim("nyx", "arms_crossed");
     await cs.say([
       { speaker: "RUSE", text: "Nyx Varo. You took the Moth." },
@@ -43206,30 +43221,29 @@ var scripts3 = {
     cs.anim("nyx", null);
     cs.face("ruse_walk", "kade");
     await cs.say([
-      { speaker: "RUSE", text: "And you brought strays." },
-      { speaker: "RUSE", text: "Ship-people. Always waking up late." },
+      { speaker: "RUSE", text: "And you brought strays. Ship-people. Always waking up late." },
       { speaker: "KADE", text: "Lieutenant Kade Arden, ISV Halcyon. We need a lattice coil." },
       { speaker: "RUSE", text: "Course you do. Come see me at my stall. Bring credits." }
     ]);
     const leaving = bg2(cs.move("ruse_walk", [[16.6, 12.4], [19, 10.4]], { speed: 1.8 }));
     cs.face("nyx", "kade");
+    const lead = cs.test("leader:nyx") ? "...Today that's me." : "...You'll want it to be me.";
     await cs.say([
-      { speaker: "NYX", text: "Ruse's stall is the shop. And anyone can lead out here. Pause menu, Party." },
-      { speaker: "NYX", text: "...Make it me. I know where everything is.", expr: "smile" }
+      { speaker: "NYX", text: "Ruse's stall is where the credits go. Out here, anyone can lead." },
+      { speaker: "NYX", text: `${lead} I know where everything is.`, expr: "smile" }
     ]);
     await leaving;
-    await cs.despawn("ruse_walk");
+    bg2(cs.despawn("ruse_walk"));
     cs.flag("story:ruse_met");
     cs.objective("ch1.ask_ruse");
-    await cs.ungather();
-    cs.letterbox(false);
+    bg2(cs.caption("Pause menu \xB7 Party \xB7 Leader"));
   },
   // ------------------------------------------------------------------ Ruse
   "driftmarket.ruse_maw": async (cs, args = {}) => {
     cs.letterbox(true);
-    await bring(cs, args, ["orion", "sera", "nyx", "kade"], { dz: 2, dx: 1.3 });
     cs.face("ruse", "leader");
-    await cs.camera.focus([40.6, 4.4], { zoom: 0.85, ms: 700 });
+    bg2(bring(cs, args, ["orion", "sera", "nyx", "kade"], { dz: 2, dx: 1.3 }));
+    bg2(cs.camera.focus([40.6, 4.4], { zoom: 0.85, ms: 700 }));
     await cs.say([
       { speaker: "RUSE", text: "The Meridian had two coils. One's still in her core." },
       { speaker: "RUSE", text: "Her core runs warm, even now. Warm draws the Maw." },
@@ -43239,19 +43253,15 @@ var scripts3 = {
       { speaker: "RUSE", text: "I send nobody anywhere, Doctor. People go." }
     ]);
     cs.face("ruse", "nyx");
-    await cs.emote("nyx", "sweat", { wait: false });
-    await cs.say([
-      { speaker: "RUSE", text: "The Shoals hatch is at the east end of the Row. Bring the girl back. She owes me rent." },
-      { speaker: "RUSE", text: "And keep the kettle off my counter." }
-    ]);
-    if (cs.actor("bolt")) await cs.emote("bolt", "sweat");
+    bg2(cs.emote("nyx", "sweat", { wait: false }));
+    await cs.say({ speaker: "RUSE", text: "Shoals are east of the docks. Bring the girl back. She owes me rent." });
+    if (cs.actor("bolt")) bg2(cs.emote("bolt", "sweat", { wait: false }));
+    await cs.say({ speaker: "RUSE", text: "And keep the kettle off my counter." });
     cs.flag("story:maw_lore");
     cs.objective("ch1.reach_wreck");
     cs.sfx("unlock");
-    await cs.camera.focus([56.5, 14], { zoom: 1, ms: 1200 });
-    await cs.wait(1.4);
-    await cs.camera.reset({ ms: 900 });
-    cs.letterbox(false);
+    await cs.camera.focus([56.5, 14], { zoom: 1, ms: 900 });
+    await cs.wait(0.8);
   },
   "driftmarket.ruse_talk": async (cs) => {
     cs.face("ruse", "leader");
@@ -43271,37 +43281,38 @@ var scripts3 = {
     cs.letterbox(true);
     if (args.trigger) await cs.goto("driftmarket", "dock");
     cs.music("driftmarket");
-    await cs.spawn("ruse_walk", { sprite: "ruse", x: 13.4, z: 11.6, facing: "left", name: "RUSE" });
-    await cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11], sera: [10, 12.2], orion: [11.2, 12.6] });
-    cs.face("ruse_walk", "nyx");
+    const gathering = bg2(cs.gather({ nyx: [11.6, 11.4], kade: [10.4, 11], sera: [10, 12.2], orion: [11.2, 12.6] }));
+    bg2(cs.spawn("ruse_walk", { sprite: "ruse", x: 14.4, z: 11.8, facing: "left", name: "RUSE" }));
+    bg2(cs.move("ruse_walk", [[13.4, 11.6]], { speed: 1.8, face: "nyx" }));
     await cs.say([
       { speaker: "RUSE", text: "Well. You're all still attached to yourselves." },
       { speaker: "NYX", text: "Got the coil. The Maw's got a sore head.", expr: "smile" },
       { speaker: "RUSE", text: "Then you've earned the rest. Walk with me." }
     ]);
-    const walking = bg2(cs.move("ruse_walk", [[16.4, 11.2]], { speed: 1.8 }));
-    await cs.fadeOut({ ms: 700 });
-    await walking;
+    await gathering;
+    await cs.fadeOut({ ms: 500 });
     await cs.despawn("ruse_walk", { fade: 0 });
     await cs.goto("driftmarket", "viewport", { transition: "none" });
     await cs.spawn("ruse_walk", { sprite: "ruse", x: 30.2, z: 1.7, facing: "up", name: "RUSE", fade: 0 });
-    await cs.gather({ nyx: [31.2, 1.9], kade: [32.5, 2.5], sera: [33.5, 2.9], orion: [29.2, 2.8] });
-    for (const id of ["nyx", "kade", "sera", "orion"]) if (cs.test(`party:${id}`)) cs.face(id, "up");
+    const atRail = bg2(cs.gather({ nyx: [31.2, 1.9], kade: [32.5, 2.5], sera: [33.5, 2.9], orion: [29.2, 2.8] }).then(() => {
+      for (const id of ["nyx", "kade", "sera", "orion"]) if (cs.test(`party:${id}`)) cs.face(id, "up");
+    }));
     await cs.camera.view({ pitch: 15, dist: 12, ms: 1 });
     await cs.camera.focus([31, 1.4], { zoom: 1, ms: 1 });
-    await cs.fadeIn({ ms: 900 });
-    await cs.wait(1.2);
+    await cs.fadeIn({ ms: 500 });
     await cs.say([
       { speaker: "RUSE", text: "See that moon? Ione. Ice on top, ocean under. Eighty years we've been seeding it." },
       { speaker: "RUSE", text: "Algae. Krill. The Meridian's stores, a little at a time." },
       { speaker: "RUSE", text: "Slime and stubborn fish, so far. A world needs more than that." }
     ]);
-    await cs.camera.reset({ ms: 900 });
+    await atRail;
+    bg2(cs.camera.reset({ ms: 900 }));
     cs.face("ruse_walk", "nyx");
     cs.face("nyx", "ruse_walk");
     cs.anim("nyx", "hand_to_chest");
     cs.particles("holo", [31.2, 1, 2.1], { count: 12 });
-    await cs.say({ speaker: "RUSE", text: "Eighty years of soundings. Ask your ship what it carries." });
+    await cs.give("data_spike");
+    await cs.say({ speaker: "RUSE", text: "Eighty years of soundings, on this spike. Ask your ship what it carries." });
     cs.anim("nyx", null);
     cs.face("kade", "nyx");
     cs.face("nyx", "kade");
@@ -43316,17 +43327,15 @@ var scripts3 = {
     cs.flag("story:ringborn_seeding");
     cs.flag("story:nyx_for_real");
     cs.objective("ch1.install_coil");
-    await cs.move("ruse_walk", [[34.8, 4.6], [37.6, 8.6]], { speed: 1.6 });
-    await cs.despawn("ruse_walk");
-    await cs.ungather();
-    cs.letterbox(false);
+    bg2(cs.move("ruse_walk", [[34.8, 4.6], [37.6, 8.6]], { speed: 1.6 }));
+    await cs.despawn("ruse_walk", { fade: 0.8 });
   },
   // ------------------------------------------------------------------ the coil (B, K), on the Halcyon
   "driftmarket.coil_install": async (cs) => {
     cs.letterbox(true);
+    bg2(cs.camera.focus([25.5, 24.8], { zoom: 0.85, ms: 900 }));
     await cs.gather({ orion: [25.5, 25.5], kade: [24.1, 26.7], nyx: [26.9, 26.7], sera: [22.9, 26.2] });
     cs.face("orion", "up");
-    await cs.camera.focus([25.5, 24.8], { zoom: 0.85, ms: 900 });
     cs.anim("orion", "kneel");
     await cs.say("ORION", "Easy, old girl. New heart. Well, borrowed.", { expr: "smile" });
     cs.take("lattice_coil");
@@ -43334,29 +43343,35 @@ var scripts3 = {
     cs.flash("#ffd27a", 0.4, 0.45);
     cs.particles("boost", [25.5, 1.4, 24.6], { count: 26 });
     cs.fx({ grade: { exposure: 1.16 } });
-    await cs.wait(0.8);
+    cs.take("data_spike");
     await cs.say("ORION", "Coil's seated. Drive's warm. Ruse's spike is in the nav core. Now we just need the helm.");
     cs.anim("orion", null);
     cs.music(null, { fade: 0.3 });
     cs.sfx("rumble");
-    cs.fx({ grade: { exposure: 0.32, saturation: 0.55 } });
+    cs.fx({ grade: { exposure: 0.3, saturation: 0.5 } });
     cs.screens("warden_sigil");
+    bg2(cs.camera.focus([25.5, 24.4], { zoom: 1.15, ms: 1200 }));
     await cs.wait(1.4);
+    cs.flag("dm:warden_light");
     cs.music("warden", { fade: 1.5 });
     await cs.say([
       { speaker: "WARDEN", text: "You should not be awake." },
       { speaker: "WARDEN", text: "Please. Go back to sleep." }
     ]);
-    await cs.wait(0.8);
     cs.shake(0.05, 1.2);
     await cs.narrate("Somewhere above, heavy feet begin to march.");
-    cs.fx({ grade: { exposure: 0.7, saturation: 0.8 } });
+    cs.flag("dm:warden_light", false);
+    cs.screens(null);
+    cs.flash("#ffe2b8", 0.25, 0.3);
+    cs.fx({ grade: { exposure: 1, saturation: 1.08 } });
     cs.face("kade", "nyx");
+    const toConsole = bg2(cs.move("sera", [[22.7, 24.1]], { speed: 2.6 }));
+    bg2(cs.camera.focus([24.3, 24.6], { zoom: 1, ms: 900 }));
     await cs.say([
       { speaker: "KADE", text: "That was WARDEN.", expr: "determined" },
       { speaker: "NYX", text: "Polite, isn't it. Ours was polite too." }
     ]);
-    await cs.move("sera", [[20.4, 25.4]], { speed: 2.6 });
+    await toConsole;
     cs.face("sera", "up");
     await cs.say([
       { speaker: "SERA", text: "The manifest just updated. Pod 2271..." },
@@ -43367,13 +43382,10 @@ var scripts3 = {
     cs.flag("story:warden_speaks");
     cs.flag("unlock:arboretum");
     cs.flag("story:ch1_done");
-    cs.screens(null);
-    cs.fx({ grade: { exposure: 1, saturation: 1.08 } });
-    await cs.ungather();
+    bg2(cs.ungather());
     await cs.card("ch2");
     await cs.goto("halcyon", "bridge_starchart");
     objectiveIfKnown(cs, "ch2.go_arboretum");
-    cs.letterbox(false);
   },
   // ------------------------------------------------------------------ townsfolk (WRITING.md 7, chapter 1)
   "driftmarket.tobin": async (cs, args = {}) => {
@@ -43635,13 +43647,22 @@ var scripts3 = {
 };
 var story_default3 = {
   scripts: scripts3,
+  // `jump` / `at`: where the contact sheet stands to frame each scene's first box (TECH_PLAN deviations)
   scenes: [
-    { id: "driftmarket.arrival", chapter: "ch1", key: true, order: 10, budget: { boxes: 12, sec: 90 } },
-    { id: "driftmarket.ruse_maw", chapter: "ch1", order: 20, budget: { boxes: 8, sec: 60 } },
-    { id: "driftmarket.pt_kade_nyx", chapter: "ch1", order: 25, budget: { boxes: 10, sec: 75 } },
-    { id: "driftmarket.pt_nyx_orion", chapter: "ch1", order: 65, budget: { boxes: 10, sec: 75 } },
-    { id: "driftmarket.return", chapter: "ch1", key: true, order: 80, budget: { boxes: 11, sec: 80 } },
-    { id: "driftmarket.coil_install", chapter: "ch1", key: true, order: 90, budget: { boxes: 11, sec: 120 } }
+    { id: "driftmarket.arrival", chapter: "ch1", key: true, order: 10, budget: { boxes: 12, sec: 90 }, jump: "ch1", at: "driftmarket:dock" },
+    { id: "driftmarket.ruse_maw", chapter: "ch1", order: 20, budget: { boxes: 8, sec: 60 }, jump: "ch1", at: "driftmarket:counter" },
+    { id: "driftmarket.pt_kade_nyx", chapter: "ch1", order: 25, budget: { boxes: 10, sec: 75 }, jump: "ch1", at: "driftmarket:inn" },
+    { id: "driftmarket.pt_nyx_orion", chapter: "ch1", order: 65, budget: { boxes: 10, sec: 75 }, jump: "ch1.return", at: "driftmarket:inn" },
+    { id: "driftmarket.return", chapter: "ch1", key: true, order: 80, budget: { boxes: 11, sec: 80 }, jump: "ch1.return", at: "driftmarket:dock" },
+    {
+      id: "driftmarket.coil_install",
+      chapter: "ch1",
+      key: true,
+      order: 90,
+      budget: { boxes: 11, sec: 120 },
+      jump: "ch1.coil",
+      at: "halcyon:engineering_reactor"
+    }
   ],
   speakers: {
     RUSE: { portrait: "ruse", accent: "#e8a25a" },
@@ -43771,7 +43792,20 @@ var story_default3 = {
         { t: "dm.lanterns", a: [37.4, 2.25, 18.15], b: [41.6, 2.25, 18.15], n: 6, sag: 0.3, when: "story:ch1_done", on: "berth" }
       ],
       lights: [
-        { x: 39.4, y: 2, z: 20.8, color: "#ffa24a", intensity: 9, distance: 5, mode: "flicker", amount: 0.2, speed: 5, when: "story:ch1_done" }
+        { x: 39.4, y: 2, z: 20.8, color: "#ffa24a", intensity: 9, distance: 5, mode: "flicker", amount: 0.2, speed: 5, when: "story:ch1_done" },
+        // WARDEN's first words (coil_install): soft gold by the reactor and its screens, breathing while it speaks
+        {
+          x: 25.5,
+          y: 2.4,
+          z: 24.9,
+          color: "#ffd27a",
+          intensity: 30,
+          distance: 9,
+          mode: "pulse",
+          amount: 0.4,
+          speed: 2.2,
+          when: "dm:warden_light & !story:coil_installed"
+        }
       ],
       talk: {
         bolt: [{ when: "chapter>=ch1 & !story:ch1_done & !dm:bolt_hub", script: "driftmarket.bolt_hub" }],
@@ -43865,7 +43899,7 @@ var story_default3 = {
         "talk:driftmarket:ruse",
         "visited:driftmarket"
       ],
-      items: { lattice_coil: 1 },
+      items: { lattice_coil: 1, data_spike: 1 },
       objective: "ch1.install_coil"
     }
   },
@@ -43917,6 +43951,7 @@ var MOOD2 = {
 var lantern = (x, z, y = 2.6, intensity = 16, distance = 6.5) => ({ x, y, z, color: "#ffa24a", intensity, distance, mode: "flicker", amount: 0.18, speed: 3 });
 var ribbonGlow = (x, z) => ({ x, y: 1.2, z, color: "#ff4f5e", intensity: 6, distance: 4 });
 var tethys = (x, z) => ({ x, y: 1.6, z, color: "#4fd8cf", intensity: 9, distance: 7 });
+var rim = (x, z) => ({ x, y: 2.2, z, color: "#6fe0ec", intensity: 9, distance: 5.5 });
 var driftmarket_default = {
   id: "driftmarket",
   name: "Driftmarket",
@@ -43991,11 +44026,13 @@ var driftmarket_default = {
     n: { t: "wall", tex: "dm_inn_wall", side: "dm_hull_a" },
     r: { t: "wall", tex: "dm_rail", low: "dm_rail", cap: "dm_rail_cap", height: 0.5 },
     D: { t: "door", tex: "dm_door", lockedTex: "dm_door", floor: "dm_planks_a" },
-    ".": { t: "floor", tex: "dm_deck_a", mix: [["dm_deck_b", 0.12]], grime: 0.05, roughness: 0.58, metalness: 0.32, emissive: 2.2 },
+    // three different patch plates, one cell in six (only one in twenty carries the M7 stencil)
+    ".": { t: "floor", tex: "dm_deck_a", mix: [["dm_deck_b", 0.05], ["dm_deck_c", 0.06], ["dm_deck_d", 0.05]], grime: 0.05, roughness: 0.58, metalness: 0.32, emissive: 2.2 },
     ",": { t: "floor", tex: "dm_planks_a", grime: 0.04, roughness: 0.7, metalness: 0.12, emissive: 2 },
     "=": { t: "floor", tex: "dm_grate", roughness: 0.5, metalness: 0.4, emissive: 1 },
     o: { t: "floor", tex: "dm_pad", roughness: 0.62, metalness: 0.3, emissive: 2 },
-    i: { t: "floor", tex: "dm_frost", roughness: 0.4, metalness: 0.2, emissive: 1 }
+    // the deck by the Shoals hatch, glossy with melt; the rime is one world-space decal over it (props)
+    i: { t: "floor", tex: "dm_deck_a", roughness: 0.36, metalness: 0.3, emissive: 2.2 }
   },
   wallH: 3,
   lowH: 0.75,
@@ -44039,6 +44076,7 @@ var driftmarket_default = {
     from_shoals: { x: 57, z: 14, facing: "left" },
     viewport: { x: 31.5, z: 2.6, facing: "up" },
     ruse_front: { x: 40.5, z: 9.4, facing: "up" },
+    counter: { x: 40.6, z: 5.7, facing: "up" },
     inn: { x: 25, z: 24.2, facing: "up" },
     beacon: { x: 51, z: 6, facing: "up" }
   },
@@ -44104,13 +44142,16 @@ var driftmarket_default = {
     { t: "dm.post", x: 26.4, z: 19.5, h: 3, glow: false },
     { t: "dm.sign", x: 25, z: 19.5, y: 2.85, w: 2.4, h: 0.6, tex: "dm_sign_inn", drop: 0.15 },
     { t: "dm.kelp", x: 30.6, z: 19.3 },
-    { t: "dm.crates", x: 36.4, z: 19.3, n: 3 },
+    { t: "dm.kelp", x: 35.4, z: 19.3 },
+    { t: "dm.crates", x: 37.2, z: 19.3, n: 3 },
     { t: "dm.barrels", x: 41.2, z: 19.3, n: 3 },
     { t: "dm.kelp", x: 52.6, z: 19.2 },
     { t: "dm.crates", x: 55.6, z: 19.3, n: 2 },
     { t: "dm.crates", x: 57.8, z: 10.2, n: 2 },
     { t: "dm.barrels", x: 57.6, z: 16.9, n: 2, crate: false },
     { t: "dm.lantern_tree", x: 40.2, z: 13.6 },
+    // rime creeping in from the Shoals hatch: one sheet over the frosted deck and the planks' edge
+    { t: "floorPlane", x: 57, z: 14, w: 6, d: 5.5, tex: "dm_frost", emissive: 0.8 },
     { t: "floorPlane", x: 27.8, z: 14.7, w: 1.5, d: 3, tex: "dm_chalk" },
     { t: "dm.board", x: 36.7, z: 8.3, on: "shop" },
     // ---- Ruse's Salvage
@@ -44131,6 +44172,7 @@ var driftmarket_default = {
     // ---- the Lantern (inn)
     { t: "dm.counter", x: 25.2, z: 22.7, w: 3.4, goods: "noodles", front: "dm_planks_a" },
     { t: "dm.hearth", x: 31.2, z: 21.6 },
+    { t: "dm.kelp", x: 27.9, z: 21.45 },
     { t: "dm.bunk", x: 19.6, z: 25.8 },
     { t: "dm.bunk", x: 30.4, z: 25.8 },
     { t: "dm.table", x: 20.8, z: 23.2 },
@@ -44147,7 +44189,7 @@ var driftmarket_default = {
     { x: 7, y: 3.4, z: 7, color: "#ffd2a0", intensity: 16, distance: 7.5 },
     lantern(2.2, 12.6),
     lantern(13.8, 12.6),
-    lantern(8, 17.5, 2.4, 14),
+    lantern(8, 15.8, 2.6, 18, 8),
     { x: 4.5, y: 1.3, z: 19.6, color: "#7ddf7a", intensity: 6, distance: 4 },
     ribbonGlow(13.5, 1.6),
     // the viewport: Tethys light along the rail, lanterns on the pylons, ribbons
@@ -44171,10 +44213,21 @@ var driftmarket_default = {
     lantern(36.5, 18.8, 2.4, 12),
     lantern(46, 18.8, 2.4, 12),
     { x: 39.5, y: 2.4, z: 8.6, color: "#ffb54a", intensity: 10, distance: 5 },
+    // the Lantern Tree's crown of Tethys glass: a cold pool in the middle of the warm Row
+    { x: 40.2, y: 3.4, z: 13.6, color: "#7fe8f0", intensity: 13, distance: 7 },
     { x: 57.6, y: 1.6, z: 14, color: "#7fd8ff", intensity: 9, distance: 6, mode: "pulse", amount: 0.2, speed: 0.6 },
     { x: 53, y: 1.2, z: 17.5, color: "#7ddf7a", intensity: 7, distance: 4.5 },
     { x: 55.2, y: 1.5, z: 9.9, color: "#4fd8cf", intensity: 8, distance: 4.5 },
     { x: 36.7, y: 1.9, z: 9, color: "#ffb04a", intensity: 7, distance: 3.5 },
+    rim(19.4, 7.5),
+    rim(25, 7.6),
+    rim(31.6, 7.5),
+    rim(49.6, 7.6),
+    rim(55.6, 7.8),
+    { x: 30.6, y: 1.2, z: 18.6, color: "#4fd8cf", intensity: 8, distance: 4.5 },
+    { x: 35.4, y: 1.2, z: 18.6, color: "#4fd8cf", intensity: 8, distance: 4.5 },
+    // the rime by the hatch glows faintly cold from the floor
+    { x: 56.2, y: 1.4, z: 15, color: "#9fe8ff", intensity: 6, distance: 4.5 },
     // the beacon: its lamp turns, its horn glows
     { x: 52.5, y: 4.6, z: 3.2, color: "#ffb54a", intensity: 26, distance: 9, mode: "pulse", amount: 0.55, speed: 0.9, tag: "dm_beacon" },
     tethys(48, 1.4),
@@ -44188,7 +44241,9 @@ var driftmarket_default = {
     { x: 31.2, y: 1.1, z: 22.2, color: "#ff8a3a", intensity: 12, distance: 6, mode: "flicker", amount: 0.4, speed: 7 },
     { x: 25.2, y: 2.4, z: 22.4, color: "#ffc070", intensity: 14, distance: 6 },
     { x: 20, y: 2, z: 24.6, color: "#ffa24a", intensity: 9, distance: 5 },
-    { x: 29, y: 2, z: 25, color: "#ff6a5a", intensity: 7, distance: 4.5 }
+    { x: 29, y: 2, z: 25, color: "#ff6a5a", intensity: 7, distance: 4.5 },
+    // the inn's kelp tank: the one cold light in a warm room
+    { x: 28.3, y: 1.7, z: 22.9, color: "#4fd8cf", intensity: 6, distance: 5 }
   ],
   ambient: [
     // drifting ice crystals everywhere the station opens to the ring, lantern sparks over the market
@@ -44306,7 +44361,7 @@ var driftmarket_default = {
   ],
   viewpoints: {
     docks: { x: 9.6, z: 9.8, facing: "up" },
-    viewport: { x: 27.5, z: 4, facing: "up" },
+    viewport: { x: 25.6, z: 4.2, facing: "up" },
     row: { x: 34.5, z: 14.6, facing: "up" },
     ruse: { x: 40.5, z: 5.8, facing: "up" },
     beacon: { x: 51, z: 6.4, facing: "up" },
@@ -44380,8 +44435,8 @@ function paintTethysClose() {
       pc = [pc[0] * (0.08 + lit * 1) + term * 0.6, pc[1] * (0.06 + lit * 0.95) + term * 0.25, pc[2] * (0.07 + lit * 0.9) + term * 0.05];
       const limb = Math.pow(nz, 0.35);
       pc = pc.map((v) => v * (0.45 + 0.55 * limb));
-      const rim = Math.exp(-((1 - Math.sqrt(d2)) / 0.012)) * clamp014(lam + 0.3);
-      pc = [pc[0] + rim * 0.55, pc[1] + rim * 0.45, pc[2] + rim * 0.3];
+      const rim2 = Math.exp(-((1 - Math.sqrt(d2)) / 0.012)) * clamp014(lam + 0.3);
+      pc = [pc[0] + rim2 * 0.55, pc[1] + rim2 * 0.45, pc[2] + rim2 * 0.3];
       const ry2 = ringY(x);
       const sh = Math.exp(-(((y - (ry2 - 74 - dx * 30)) / 9) ** 2));
       pc = pc.map((v) => v * (1 - sh * 0.62));
@@ -44562,6 +44617,22 @@ function paintDeckB(t) {
     t.tint(x, y, RU[3], 0.5);
   }
 }
+function paintDeckC(t) {
+  const r = deckBase(t, 831);
+  plate(t, 4, 15, 15, 12, RU, { body: 3, ht: 0.6, step: 7 });
+  weld(t, 3, 14, 19, 14);
+  weld(t, 3, 27, 19, 27);
+  weld(t, 3, 14, 3, 27);
+  weld(t, 19, 14, 19, 27);
+  for (let i = 0; i < 12; i++) t.tint(5 + Math.floor(r() * 13), 16 + Math.floor(r() * 10), CU[5], 0.3);
+}
+function paintDeckD(t) {
+  deckBase(t, 871);
+  recess(t, 9, 6, 15, 19, IR[2], IR[0], IR[4], 0.36);
+  for (let y = 9; y < 22; y += 2) t.hline(12, 20, y, IR[1], 0.3).hline(12, 20, y + 1, IR[3], 0.44);
+  for (const x of [11, 21]) t.px(x, 7, BR[4], 0.6).px(x, 8, BR[2], 0.58);
+  stain(t, 9, 6, 15, 19, 872, PA[2], () => -0.15, 0.35);
+}
 function planks(t, seed) {
   const r = rng(seed);
   const tones2 = [WD[3], WD[4], WD[3], WD[2]];
@@ -44622,15 +44693,38 @@ function paintPad(t) {
   stain(t, 0, 0, 32, 32, 852, "#120806", (x, y) => tn(x, y, 853) - 0.3, 0.5);
   for (let i = 0; i < 4; i++) scratch(t, r, 4 + r() * 22, 4 + r() * 22, 4 + r() * 8, 1, (r() - 0.5) * 0.3, 0.07);
 }
+var FROST2 = ["#a9c3cf", "#b8d0da", "#c6dbe3", "#d3e4ea"];
 function paintFrost(t) {
-  deckBase(t, 861);
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-    const v = tn(x, y, 862, 0.22, 4);
-    if (v > 0.56) t.px(x, y, v > 0.68 ? ICE[5] : ICE[4], 0.6);
-    else if (v > 0.44 && bayer(x, y, (v - 0.44) * 4)) t.px(x, y, ICE[3], 0.58);
+  const W8 = 192, H4 = 176;
+  const r = rng(864);
+  for (let y = 0; y < H4; y++) for (let x = 0; x < W8; x++) {
+    const n = fbm(x * 0.045, y * 0.045, 861, 4);
+    const fine = fbm(x * 0.21, y * 0.21, 862, 2);
+    const east = x / W8;
+    const cover = smoothRange(0.18, 0.95, east * 0.9 + (n - 0.5) * 0.7) * (0.75 + 0.25 * smoothRange(0, 0.18, Math.min(y, H4 - 1 - y) / H4));
+    if (cover <= 0.02) continue;
+    const a = Math.min(0.62, cover * (0.38 + fine * 0.34));
+    const c = FROST2[Math.min(3, Math.floor(fine * 2.2 + cover * 1.6))];
+    t.put(x, y, c + Math.round(a * 255).toString(16).padStart(2, "0"), 0.5 + cover * 0.12);
   }
-  const r = rng(863);
-  for (let i = 0; i < 9; i++) t.glow(Math.floor(r() * 32), Math.floor(r() * 32), ICE[6], "#9fd8ff");
+  for (let i = 0; i < 70; i++) {
+    let x = W8 - 1 - r() * 70, y = r() * H4;
+    const ang = Math.PI + (r() - 0.5) * 1.3, len = 6 + r() * 16;
+    for (let k = 0; k < len; k++) {
+      x += Math.cos(ang);
+      y += Math.sin(ang) + (r() - 0.5) * 0.6;
+      const p = t.get(x, y);
+      if (p[3] > 40) t.put(x, y, FROST2[3] + Math.min(255, p[3] + 40).toString(16).padStart(2, "0"), 0.6);
+    }
+  }
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(W8 * 0.45 + r() * W8 * 0.55), y = Math.floor(r() * H4);
+    if (t.get(x, y)[3] > 60) t.glow(x, y, "#e6f4f8", "#3c5f6c");
+  }
+}
+function smoothRange(a, b, v) {
+  const k = clamp01((v - a) / (b - a));
+  return k * k * (3 - 2 * k);
 }
 function hullBase(t, seed) {
   const r = rng(seed);
@@ -44864,19 +44958,25 @@ function paintAwning(t, ramp2) {
   }
   stain(t, 0, 0, 32, 28, 951, IR[1], () => -0.1, 0.3);
 }
+var RIBBON_TONES = [
+  [CR4[2], CR4[3], CR4[4]],
+  ["#8e4a58", "#c07884", "#e0a4ac"],
+  ["#9a8a70", "#cdbd9a", "#efe3c4"]
+];
 function paintRibbon(t) {
-  for (let y = 0; y < 32; y++) {
-    const w = y > 26 ? 6 - (y - 26) : 6;
-    for (let x = 1; x < 1 + w; x++) {
-      const tail = y > 26 && (x + y) % 3 === 0;
-      if (tail) continue;
-      const c = x === 1 ? CR4[2] : x === w ? CR4[2] : y % 6 === 0 ? CR4[4] : CR4[3];
-      t.put(x, y, c, 0.55);
-      if (y < 24) t.emit(x, y, shade(c, -0.6));
+  RIBBON_TONES.forEach(([dk, md, lt], k) => {
+    const x0 = k * 8 + 2;
+    for (let y = 0; y < 32; y++) {
+      for (let i = 0; i < 4; i++) {
+        const fray = y > 25 && ((i + y + k) % 3 === 0 || y - 25 > 5 - Math.abs(i - 1.5) * 1.6);
+        if (fray) continue;
+        const c = i === 0 || i === 3 ? dk : y % 7 === 3 ? lt : md;
+        t.put(x0 + i, y, c, 0.55);
+        if (y < 22) t.emit(x0 + i, y, shade(c, -0.55));
+      }
     }
-  }
-  for (const y of [8, 9, 14, 15, 16]) t.put(3, y, AM4[5], 0.6).emit(3, y, AM4[4]);
-  t.put(4, 9, AM4[4]).put(2, 15, AM4[4]);
+    for (const y of [5, 6, 9, 10, 11]) t.put(x0 + 1 + y % 2, y, k === 2 ? CR4[3] : AM4[5], 0.6);
+  });
 }
 function paintCrate(t) {
   plate(t, 0, 0, 32, 32, CU, { body: 4, ht: 0.6, step: 7 });
@@ -44905,36 +45005,6 @@ function paintScrap(t) {
     plate(t, x, y, w, h, ramp2, { body: ramp2 === PA ? 2 : 3, ht: 0.45 + r() * 0.3, step: 4 });
   }
   for (let i = 0; i < 4; i++) scratch(t, r, r() * 30, r() * 30, 4 + r() * 6, 1, r() - 0.5, 0.08);
-}
-var MOTH = ["#4d463e", "#615749", "#776a56", "#8c7c62", "#a8987a", "#c4b494", "#ddd0b4"];
-function paintMothHull2(t) {
-  const r = rng(991);
-  const P2 = MOTH;
-  plate(t, 0, 0, 22, 32, P2, { body: 4, ht: 0.55, step: 6 });
-  plate(t, 22, 0, 20, 16, CU, { body: 4, ht: 0.58, step: 5 });
-  plate(t, 22, 16, 20, 16, P2, { body: 3, ht: 0.52, step: 5 });
-  plate(t, 42, 0, 22, 32, P2, { body: 4, ht: 0.55, step: 6 });
-  for (let x = 0; x < 64; x++) t.px(x, 14, TE3[3], 0.6).px(x, 15, TE3[4], 0.6).px(x, 16, TE3[2], 0.58);
-  for (let y = 6; y < 22; y++) t.px(58 + y % 2, y, CR4[3], 0.6);
-  for (const [x0, y0] of [[26, 4], [29, 7], [44, 19]]) {
-    for (let i = 0; i < 11; i++) {
-      t.px(x0 + i, y0 + (i >> 2), "#d5cfb6", 0.66);
-      t.px(x0 + i, y0 + 1 + (i >> 2), "#b9b39c", 0.62);
-    }
-  }
-  stain(t, 0, 0, 64, 32, 992, "#0f0b0d", (x, y) => y > 26 ? 0.2 : -0.12, 0.45);
-  for (let i = 0; i < 6; i++) scratch(t, r, r() * 60, r() * 30, 4 + r() * 6, 1, (r() - 0.5) * 0.4, 0.07);
-  for (const x of [3, 4]) t.glow(x, 15, TE3[5], TE3[4]);
-  for (const x of [60, 61]) t.glow(x, 15, CR4[4], CR4[3]);
-}
-function paintMothGlass(t) {
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) {
-    const k = 1 - y / 16;
-    const c = k > 0.7 ? "#9df8ee" : k > 0.4 ? TE3[4] : TE3[3];
-    t.glow(x, y, c, shade(c, -0.1));
-  }
-  for (let x = 0; x < 32; x += 8) for (let y = 0; y < 16; y++) t.px(x, y, IR[3], 0.7).emit(x, y, "#000000");
-  t.glow(4, 3, "#ffffff").glow(5, 3, "#e6fffb");
 }
 function paintPadRing(t) {
   const N4 = 256, c = 128;
@@ -45080,10 +45150,12 @@ function paintBrass(t) {
 var TEXTURES = {
   dm_deck_a: { ...floor2, paint: paintDeckA },
   dm_deck_b: { ...floor2, paint: paintDeckB },
+  dm_deck_c: { ...floor2, paint: paintDeckC },
+  dm_deck_d: { ...floor2, paint: paintDeckD },
   dm_planks_a: { ...floor2, paint: paintPlanksA },
   dm_grate: { ...floor2, paint: paintGrate },
   dm_pad: { ...floor2, paint: paintPad },
-  dm_frost: { ...floor2, paint: paintFrost, strength: 2 },
+  dm_frost: { w: 192, h: 176, alpha: true, paint: paintFrost, strength: 1.2 },
   dm_hull_a: { ...wall2, paint: paintHullA },
   dm_hull_b: { ...wall2, paint: paintHullB },
   dm_hull_c: { ...wall2, paint: paintHullC },
@@ -45099,12 +45171,10 @@ var TEXTURES = {
   dm_awning_red: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, CR4) },
   dm_awning_teal: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, TE3) },
   dm_awning_amber: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, AM4) },
-  dm_ribbon: { w: 8, h: 32, alpha: true, paint: paintRibbon, strength: 1.2 },
+  dm_ribbon: { w: 24, h: 32, alpha: true, paint: paintRibbon, strength: 1.2 },
   dm_crate: { w: 32, h: 32, paint: paintCrate },
   dm_barrel: { w: 32, h: 32, wrapX: true, paint: paintBarrel },
   dm_scrap: { ...floor2, paint: paintScrap },
-  dm_moth_hull: { w: 64, h: 32, wrapX: true, wrapY: true, paint: paintMothHull2 },
-  dm_moth_glass: { w: 32, h: 16, paint: paintMothGlass, strength: 0.8 },
   dm_pad_ring: { w: 256, h: 256, alpha: true, paint: paintPadRing, strength: 1 },
   dm_sign_ruse: { w: 64, h: 24, paint: (t) => sign2(t, 64, 24, "RUSE'S", AM4[5], "SALVAGE") },
   dm_sign_inn: { w: 64, h: 16, paint: (t) => sign2(t, 64, 16, "THE LANTERN", AM4[4]) },
@@ -45259,7 +45329,8 @@ var LONG2 = {
 var P_BUN = [["ball", 11.6, 9, 4, 4.6], ["ball", 8.6, 5.6, 7.2, 4.6], ["ball", 12.8, 2.6, 3.4, 3], [3.6, 5.2, 2.4, 9.6, 1.8, 0.8]];
 var P_CROP = [["ball", 11.8, 8.4, 3.8, 4.4], ["ball", 8.6, 5.2, 7, 4.2], [4.2, 4, 1.6, 6.4, 1.8, 0.5]];
 var P_CURLS = [["ball", 11.8, 8.4, 4.4, 4.8], ["ball", 8.4, 4.8, 7.4, 4.6], ["ball", 4, 3.6, 2.8, 2.6], ["ball", 13.4, 4, 2.6, 2.6]];
-var P_BALD = [["ball", 12.4, 9.4, 2.6, 3.4], [13.2, 6.6, 12.8, 11, 1.4, 0.8]];
+var P_BALD = [[14.2, 6.6, 13.6, 10.6, 1, 0.6], [12.8, 6.4, 13.9, 7.6, 0.9, 0.5]];
+var P_RUSE = P_BUN.slice(0, 3);
 var P_LONG = [["ball", 11.6, 9.4, 4.4, 5.2], ["ball", 8.5, 5.8, 7.4, 5], [12.6, 8, 13.6, 15, 2.6, 2], [2.4, 5.6, 1.6, 9.4, 1.6, 0.8]];
 var bust = (main2) => (f) => f.ball(21, 44, 16, 10.5, main2);
 var collarOf = (mat) => (f) => f.ball(22, 31, 7.4, 2.6, mat, { spec: true });
@@ -45288,8 +45359,9 @@ var RUSE = {
       if (sk.view === "down") f.tpl([".M.", "MtM", ".M."], sk.cx - 1, Math.floor(sk.sh) + 3, {});
     }
   },
-  hairLocks: P_BUN,
-  hairline: 6.4,
+  hairLocks: P_RUSE,
+  hairline: 5.4,
+  // the bun pulled back off a high forehead, so her brows sit clear of the hair
   portrait: {
     bust: bust("main"),
     collar: (f) => {
@@ -45298,6 +45370,72 @@ var RUSE = {
     },
     after: null,
     over: []
+  },
+  // her own faces (edits of the portrait face, art/characters.js FACE_P rows: 8-10 brows, 11-13 eyes,
+  // 17-19 mouth): heavy brows that do the talking, a sideways smirk, never a grin
+  expressions: {
+    neutral: [[12, 6, "w"], [18, 15, "qqqqw"]],
+    // a crow's foot, a flat mouth
+    smile: [
+      [9, 15, "eeee"],
+      [8, 15, "aaaa"],
+      [7, 17, "aa"],
+      // the far brow cocked
+      [13, 8, "iii"],
+      [13, 16, "ii"],
+      // a crinkled squint
+      [18, 15, "wqqqq"],
+      [17, 19, "q"],
+      [17, 20, "w"]
+      // one corner up: a smirk
+    ],
+    sad: [
+      [9, 10, "ee"],
+      [8, 9, "aaa"],
+      [9, 15, "e"],
+      [8, 15, "aa"],
+      // inner ends lifted
+      [12, 8, "iii"],
+      [12, 16, "ii"],
+      // heavy lids, gaze down
+      [18, 15, "eqqqe"],
+      [19, 15, "q"],
+      [19, 19, "q"]
+      // corners down
+    ],
+    determined: [
+      [8, 7, "aa"],
+      [9, 7, "ee"],
+      [9, 10, "ee"],
+      [10, 10, "aa"],
+      // brows drawn down to the nose
+      [10, 15, "a"],
+      [9, 15, "e"],
+      [8, 17, "aa"],
+      [9, 17, "ee"],
+      [13, 8, "iii"],
+      [13, 16, "ii"],
+      // narrowed
+      [18, 14, "qqqqqq"],
+      [19, 16, "ww"]
+      // a hard, set mouth
+    ],
+    surprised: [
+      [9, 7, "eeeee"],
+      [8, 7, "aaaaa"],
+      [9, 15, "eeee"],
+      [8, 15, "aaaa"],
+      // brows up
+      [10, 8, "iii"],
+      [11, 8, "ipo"],
+      [10, 16, "ii"],
+      [11, 16, "ip"],
+      // eyes wide
+      [17, 16, "qqq"],
+      [18, 15, "qlllq"],
+      [19, 16, "qqq"]
+      // an open mouth
+    ]
   }
 };
 var ELDER = {
@@ -45329,10 +45467,18 @@ var ELDER = {
   },
   hairLocks: P_BALD,
   hairline: 8,
+  // a white moustache and beard around the mouth (rows 17-21 of the face, under the eyes)
   portrait: {
     bust: bust("main"),
     collar: collarOf("acc"),
-    over: [[11, 18, [".........ssssssss.......", "........sdffffffds......", ".........sdffffds.......", "..........sddds........."]]]
+    over: [[11, 23, [
+      "..............sffffs....",
+      ".........sdds.....ds....",
+      ".......sdfffdddddffs....",
+      "........sdffffffffds....",
+      "..........sdffffds......",
+      "............sdds........"
+    ]]]
   }
 };
 var ELDER_G = {
@@ -45597,7 +45743,13 @@ var GUARD = {
   hooks: { behind: null },
   hairLocks: P_BALD,
   hairline: 8,
-  portrait: { over: [[11, 18, [".........sssssss........", "..........sdddds........"]]] }
+  // a short beard on the jaw, under the mouth (the eyes stay clear)
+  portrait: { over: [[11, 24, [
+    "........sdd......dds....",
+    ".......sdddsssssdddds...",
+    "........sdddddddddds....",
+    "..........sddddddds....."
+  ]]] }
 };
 var CHARACTERS = {
   ruse: RUSE,
@@ -45698,7 +45850,7 @@ function mats(W8) {
     cable: M.plain("#120c0c", { roughness: 0.9, metalness: 0.1 }),
     brass: M.tile("dm_brass", { roughness: 0.42, metalness: 0.6, emissive: 1.2 }),
     lantern: M.tile("dm_lantern", { emissive: 1.9, roughness: 0.6, cast: false, side: THREE26.DoubleSide }),
-    ribbon: M.tile("dm_ribbon", { emissive: 0.6, roughness: 0.8, cast: false, side: THREE26.DoubleSide }),
+    ribbon: M.tile("dm_ribbon", { emissive: 1.1, roughness: 0.8, cast: false, side: THREE26.DoubleSide }),
     planks: M.tile("dm_planks_a", { roughness: 0.75, metalness: 0.1 }),
     scrap: M.tile("dm_scrap", { roughness: 0.6, metalness: 0.35 }),
     hull: M.tile("dm_hull_a", { roughness: 0.6, metalness: 0.35 }),
@@ -45738,6 +45890,14 @@ function glow2(W8, G5, color, size, intensity, x, y, z, link = true) {
   G5.add(s);
   if (link) W8.addGlow(s, x, z);
   return s;
+}
+var ribbonUv = (tone2) => [(tone2 * 8 + 2) / 24, 1, (tone2 * 8 + 6) / 24, 0];
+var ribbonTone = (r) => {
+  const k = r();
+  return k < 0.5 ? 0 : k < 0.8 ? 1 : 2;
+};
+function strip2(B, M, x, y, z, len, tone2, { w = 0.06, tilt = 0, dz = 0.04 } = {}) {
+  B.quad(M.ribbon, [x - w / 2, y, z], [x + w / 2, y, z], [x + w / 2 + tilt, y - len, z + dz], [x - w / 2 + tilt, y - len, z + dz], ribbonUv(tone2));
 }
 var lanterns = {
   textures: ["dm_lantern", "dm_brass"],
@@ -45847,10 +46007,7 @@ function goods(W8, B, G5, M, kind, x, z, w, h, seed) {
       B.box({ front: m, back: m, left: m, right: m, top: m }, x - w / 2 + 0.25 + i / 5 * (w - 0.5), z + (r() - 0.5) * 0.25, s, s, h, h + s, r() * 0.8);
     }
   } else if (kind === "ribbons") {
-    for (let i = 0; i < 6; i++) {
-      const xx = x - w / 2 + 0.25 + i / 6 * (w - 0.4);
-      B.quad(M.ribbon, [xx, h, z + 0.36], [xx + 0.1, h, z + 0.36], [xx + 0.1, h - 0.6, z + 0.38], [xx, h - 0.6, z + 0.38], [0, 1, 1, 0]);
-    }
+    for (let i = 0; i < 6; i++) strip2(B, M, x - w / 2 + 0.3 + i / 6 * (w - 0.4), h, z + 0.36, 0.35 + r() * 0.35, ribbonTone(r));
   }
 }
 var stall = {
@@ -45902,13 +46059,12 @@ var counterProp = {
   }
 };
 var ribbons = {
-  textures: ["dm_ribbon", "dm_brass"],
+  textures: ["dm_ribbon"],
   build(W8, p) {
     const M = mats(W8);
     const n = p.n || 6, w = p.w || 2, y = p.y ?? 0.45, len = p.len || 0.75, rot = p.rot || 0;
     const r = rnd2(p.seed ?? p.x * 13 + p.z);
-    const cs = Math.cos(rot), sn = Math.sin(rot);
-    const groups = [0, 1, 2].map(() => {
+    const groups = [0, 1, 2, 3].map(() => {
       const G5 = new THREE26.Group();
       G5.position.set(p.x, y, p.z);
       G5.rotation.order = "YXZ";
@@ -45917,12 +46073,23 @@ var ribbons = {
       return { G: G5, B: new Batch() };
     });
     for (let i = 0; i < n; i++) {
-      const lx = -w / 2 + (i + 0.5) * (w / n) + (r() - 0.5) * 0.15;
-      const l = len * (0.75 + r() * 0.5);
-      const tilt = (r() - 0.5) * 0.2;
-      const { B } = groups[i % 3];
-      B.box({ front: M.ribbon, back: M.ribbon, left: M.ribbon, right: M.ribbon, top: M.ribbon }, lx, 0.03, 0.08, 0.06, -0.05, 0.04, 0);
-      B.quad(M.ribbon, [lx - 0.05, 0, 0.05], [lx + 0.05, 0, 0.05], [lx + 0.05 + tilt, -l, 0.09], [lx - 0.05 + tilt, -l, 0.09], [0, 1, 1, 0]);
+      const lx = -w / 2 + (i + 0.5) * (w / n) + (r() - 0.5) * (w / n) * 0.5;
+      const l = len * (0.55 + r() * 0.85);
+      const tone2 = ribbonTone(r);
+      const { B } = groups[Math.floor(r() * 4)];
+      const knot = ribbonUv(tone2);
+      B.box(
+        { front: M.ribbon, back: M.ribbon, left: M.ribbon, right: M.ribbon },
+        lx,
+        0.035,
+        0.1,
+        0.06,
+        -0.05,
+        0.03,
+        0,
+        { front: knot, back: knot, left: knot, right: knot }
+      );
+      strip2(B, M, lx, 0, 0.04, l, tone2, { w: 0.075 + r() * 0.035, tilt: (r() - 0.5) * 0.16 });
     }
     for (const { G: G5, B } of groups) {
       B.build(G5);
@@ -45931,8 +46098,9 @@ var ribbons = {
     const phase2 = p.x * 0.7 + p.z;
     W8.addUpdater((dt, t) => {
       groups.forEach(({ G: G5 }, k) => {
-        G5.rotation.x = Math.sin(t * 1.1 + phase2 + k * 2.1) * 0.09;
-        G5.rotation.z = Math.sin(t * 0.7 + phase2 + k) * 0.03;
+        const s = 1.1 + k * 0.23;
+        G5.rotation.x = Math.sin(t * s + phase2 + k * 2.1) * 0.08 + Math.sin(t * s * 2.3 + k) * 0.025;
+        G5.rotation.z = Math.sin(t * 0.7 + phase2 + k * 1.3) * 0.035;
       });
     });
   }
@@ -45948,92 +46116,50 @@ var ribbonFrame = {
     const r = rnd2(p.x + p.z * 3);
     for (const y of [h - 0.05, h * 0.62, h * 0.3]) {
       rod(B, M.brass, [x0, y, p.z], [x1, y, p.z], 0.03);
-      const n = Math.round(w * 5);
+      const n = Math.round(w * 2.4);
       for (let i = 0; i < n; i++) {
-        const x = x0 + 0.08 + i / n * (w - 0.1) + r() * 0.05;
-        const l = 0.35 + r() * 0.45, tilt = (r() - 0.5) * 0.1;
-        B.quad(M.ribbon, [x, y, p.z + 0.04], [x + 0.08, y, p.z + 0.04], [x + 0.08 + tilt, y - l, p.z + 0.06], [x + tilt, y - l, p.z + 0.06], [0, 1, 1, 0]);
+        const x = x0 + 0.15 + (i + 0.5) / n * (w - 0.3) + (r() - 0.5) * 0.12;
+        strip2(B, M, x, y, p.z + 0.04, 0.25 + r() * 0.5, ribbonTone(r), { w: 0.05 + r() * 0.03, tilt: (r() - 0.5) * 0.08, dz: 0.02 });
       }
     }
     W8.addBox(p.x, p.z, w, 0.3);
   }
 };
+function scaledView(W8, x, z, s, on) {
+  const G5 = new THREE26.Group();
+  G5.position.set(x, 0, z);
+  G5.scale.setScalar(s);
+  W8.groupFor(on).add(G5);
+  const B = new Batch();
+  const view = Object.create(W8, {
+    batchFor: { value: () => B },
+    groupFor: { value: () => G5 },
+    addBox: { value: (cx, cz, w, d) => W8.addBox(x + cx * s, z + cz * s, w * s, d * s) },
+    addGlow: { value: (sprite, gx, gz) => W8.addGlow(sprite, x + gx * s, z + gz * s) }
+  });
+  return { view, done: () => B.build(G5) };
+}
 var moth = {
-  textures: ["dm_moth_hull", "dm_moth_glass", "dm_brass", "dm_crate", "dm_lantern"],
+  textures: [...MOTH_TEXTURES],
   build(W8, p) {
     const M = mats(W8);
     const s = p.scale || 1, rot = p.rot || 0;
-    const G5 = new THREE26.Group();
-    G5.position.set(p.x, 0, p.z);
-    G5.rotation.y = rot;
-    G5.scale.setScalar(s);
-    W8.groupFor(p.on).add(G5);
-    const B = new Batch();
-    const hull2 = W8.mats.tile("dm_moth_hull", { roughness: 0.55, metalness: 0.35, emissive: 2.2 });
-    const glass = W8.mats.tile("dm_moth_glass", { emissive: 1.4, roughness: 0.2, metalness: 0.1 });
-    const H4 = { front: hull2, back: hull2, left: hull2, right: hull2, top: hull2 };
-    B.box(
-      H4,
-      0.1,
-      0,
-      4,
-      1.6,
-      0.45,
-      1.6,
-      0,
-      { front: [0, 0, 2, 1], back: [0, 0, 2, 1], left: [0, 0, 0.8, 1], right: [0, 0, 0.8, 1], top: [0, 0, 4 / 2, 1.6 / 2] }
-    );
-    B.box(
-      H4,
-      -2.35,
-      0,
-      0.9,
-      1.1,
-      0.6,
-      1.4,
-      0,
-      { front: [0, 0, 0.25, 0.8], back: [0, 0, 0.25, 0.8], left: [0, 0, 0.3, 0.8], top: [0, 0, 0.45, 0.55] }
-    );
-    B.box(
-      { front: glass, back: glass, left: glass, right: glass, top: glass },
-      -1.2,
-      -0.05,
-      1.4,
-      0.95,
-      1.6,
-      1.98,
-      0,
-      { top: [0, 0, 1, 1], front: [0, 0, 1, 0.5], back: [0, 0, 1, 0.5], left: [0, 0, 0.6, 0.5], right: [0, 0, 0.6, 0.5] }
-    );
-    for (const sz of [1, -1]) B.box(H4, 0.55, sz * 1.15, 2.2, 0.75, 0.95, 1.08, 0, { top: [0, 0, 1.1, 0.4], front: [0, 0, 1, 0.1], back: [0, 0, 1, 0.1] });
-    B.box(H4, 1.75, 0, 0.9, 0.12, 1.6, 2.4, 0, { front: [0, 0, 0.45, 0.4], back: [0, 0, 0.45, 0.4], top: [0, 0, 0.45, 0.06] });
-    B.box({ front: M.crate, back: M.crate, left: M.crate, right: M.crate, top: M.crate }, 0.55, 0.15, 0.6, 0.6, 1.6, 2.1, 0.2);
-    for (const sz of [0.28, -0.28]) {
-      rod(B, M.iron, [-2.5, 1.4, sz], [-2.95, 1.95, sz * 1.6], 0.025);
-      rod(B, M.iron, [-2.95, 1.95, sz * 1.6], [-3.25, 2.05, sz * 2.2], 0.02);
+    const scaled2 = s !== 1 ? scaledView(W8, p.x, p.z, s, p.on) : null;
+    const V = scaled2 ? scaled2.view : W8;
+    const at3 = scaled2 ? { x: 0, z: 0 } : p;
+    buildMoth(V, { x: at3.x, z: at3.z, rot, on: p.on });
+    const cs = Math.cos(rot), sn = Math.sin(rot);
+    const P2 = (lx, y, lz) => [at3.x + lx * cs + lz * sn, y, at3.z - lx * sn + lz * cs];
+    const B = V.batchFor(p.on), G5 = V.groupFor(p.on);
+    for (const lz of [0.12, -0.12]) {
+      const mid = P2(-2.8, 2.1, lz * 2.6), tip2 = P2(-3.4, 2.3, lz * 4.4);
+      rod(B, M.brass, P2(-2.2, 1.25, lz), mid, 0.032);
+      rod(B, M.brass, mid, tip2, 0.026);
+      const bead = makeGlow("#ffb54a", 0.55, 1.3);
+      bead.position.set(...tip2);
+      G5.add(bead);
     }
-    for (const [lx, lz] of [[-1.4, 0.6], [-1.4, -0.6], [1.4, 0.6], [1.4, -0.6]]) rod(B, M.iron, [lx, 0, lz], [lx, 0.5, lz], 0.05);
-    rod(B, M.cable, [-2.6, 1.4, 0], [-2.6, 1.1, 0], 0.01);
-    lanternBody(B, M, -2.6, 1.1, 0, 1);
-    for (const sz of [0.5, -0.5]) {
-      B.box({ front: M.brass, back: M.brass, left: M.brass, right: M.brass, top: M.brass }, 2.35, sz, 0.6, 0.55, 0.75, 1.3, 0);
-    }
-    B.build(G5);
-    const nozzles = [0.5, -0.5].map((sz) => {
-      const n = makeGlow("#4fd8cf", 0.9, 1);
-      n.position.set(2.75, 1.02, sz);
-      G5.add(n);
-      return n;
-    });
-    glow2(W8, G5, "#ffa24a", 0.8, 0.8, -2.6, 0.92, 0.05, false);
-    glow2(W8, G5, "#ff5a5a", 0.5, 1.1, 1.75, 2.45, 0, false);
-    W8.addBox(p.x, p.z, 4.6 * s, 2.4 * s);
-    W8.addUpdater((dt, t) => {
-      for (const n of nozzles) {
-        const k = 0.8 + Math.sin(t * 2.2 + p.x) * 0.2;
-        n.material.color.copy(n.userData.baseColor).multiplyScalar(k);
-      }
-    });
+    if (scaled2) scaled2.done();
   }
 };
 var beacon = {
@@ -46137,13 +46263,13 @@ var iris = {
   }
 };
 var scrap = {
-  textures: ["dm_scrap", "dm_hull_a", "dm_moth_hull", "dm_brass"],
+  textures: ["dm_scrap", "dm_hull_a", "dm_brass"],
   build(W8, p) {
     const M = mats(W8);
     const B = W8.batchFor(p.on);
     const r = rnd2(p.seed ?? p.x * 3 + p.z);
     const w = p.w || 2, d = p.d || 1.4;
-    const plates = [M.scrap, M.hull, M.scrap, M.brass, W8.mats.tile("dm_moth_hull", { roughness: 0.5, metalness: 0.45 })];
+    const plates = [M.scrap, M.hull, M.scrap, M.brass, M.cap];
     for (let i = 0; i < 9; i++) {
       const pw = 0.5 + r() * 0.9, pd = 0.4 + r() * 0.6, ph = 0.08 + r() * 0.5;
       const y = i % 3 * 0.22;
@@ -46315,19 +46441,20 @@ var lanternTree = {
       }
       for (let j = 0; j < 3; j++) {
         const k = 0.25 + j * 0.22, lx = x + ca * len * k, lz = z + sa * len * k, ly = y0 - 0.1;
-        const l = 0.7 + r() * 0.6, tilt = (r() - 0.5) * 0.12;
+        const l = 0.4 + r() * 0.7, tilt = (r() - 0.5) * 0.12;
         B.quad(
           M.ribbon,
-          [lx - 0.05 * sa, ly, lz + 0.05 * ca],
-          [lx + 0.05 * sa, ly, lz - 0.05 * ca],
-          [lx + 0.05 * sa + tilt, ly - l, lz - 0.05 * ca],
-          [lx - 0.05 * sa + tilt, ly - l, lz + 0.05 * ca],
-          [0, 1, 1, 0]
+          [lx - 0.03 * sa, ly, lz + 0.03 * ca],
+          [lx + 0.03 * sa, ly, lz - 0.03 * ca],
+          [lx + 0.03 * sa + tilt, ly - l, lz - 0.03 * ca],
+          [lx - 0.03 * sa + tilt, ly - l, lz + 0.03 * ca],
+          ribbonUv(ribbonTone(r))
         );
       }
     }
-    lanternBody(B, M, x, h + 0.42, z, 1.5);
-    glow2(W8, G5, "#ffc46a", 1.2, 0.7, x, h + 0.2, z + 0.05);
+    cyl(B, M.jar, 0.16, 0.2, 0.42, 8, x, h + 0.25, z);
+    cyl(B, M.brass, 0.22, 0.22, 0.05, 8, x, h + 0.48, z);
+    glow2(W8, G5, "#7fe8f0", 1.4, 0.8, x, h + 0.25, z + 0.05);
     W8.addEmitter("dm_spark", { position: [x, h, z], area: [1.6, 0.3, 1.6], rate: 0.8 });
     W8.addCircle(x, z, 1.12);
   }
@@ -46544,7 +46671,7 @@ var enemies2 = {
     actionsPerRound: 2,
     weaknesses: ["thermal", "lance", "rifle"],
     actions: [
-      hit("maw_ice_breath", "Ice Breath", "cryo", 0.82, 40, "A freezing exhalation across the whole squad.", {
+      hit("maw_ice_breath", "Ice Breath", "cryo", 0.9, 40, "A freezing exhalation across the whole squad.", {
         target: "all",
         anim: "enemyBeam",
         fx: "maw.ice_breath"
@@ -46762,10 +46889,12 @@ var bg3 = (p) => {
   });
   return p;
 };
-function around(cs, dx, dz) {
+function beside2(cs, offsets) {
   const l = cs.actor("leader");
   const x = l ? l.x : 0, z = l ? l.z : 0;
-  return [x + dx, z + dz];
+  const out = {};
+  for (const [id, [dx, dz]] of Object.entries(offsets)) if (!cs.test(`leader:${id}`)) out[id] = [x + dx, z + dz];
+  return out;
 }
 var scripts4 = {
   // ---------------------------------------------------------------- the Shoals
@@ -46789,7 +46918,7 @@ var scripts4 = {
     cs.anim("eels", "special");
     cs.sfx("splash", { pitch: 0.7 });
     cs.particles("frost", [19.6, 0.4, 4.6], { count: 30 });
-    bg3(cs.gather({ nyx: around(cs, -0.9, 0.5) }));
+    bg3(cs.gather(beside2(cs, { nyx: [-0.9, 0.5] })));
     await cs.say("NYX", "Void eels. They go under, then come up biting.", { expr: "determined" });
     await cs.battle("shoals_eels");
     cs.flag("shoals:eels");
@@ -46827,20 +46956,17 @@ var scripts4 = {
     cs.letterbox(true);
     bg3(cs.gather({ nyx: [4.8, 14.3], kade: [3.2, 13.4], sera: [3, 15.8], orion: [4.4, 16.3] }));
     cs.face("nyx", "right");
-    bg3(cs.camera.focus([6.5, SPINE_Y], { zoom: 0.92, ms: 800 }));
-    await cs.say("NYX", "The Meridian.");
-    bg3(cs.camera.pan([[14, SPINE_Y], [24, 13.6], [6, SPINE_Y]], { sec: 3 }));
+    bg3(cs.camera.focus([6.5, SPINE_Y], { zoom: 0.92, ms: 800 }).then(() => cs.camera.pan([[14, SPINE_Y], [24, 13.6], [6, SPINE_Y]], { sec: 3 })));
     cs.anim("nyx", "hand_to_chest");
-    await cs.say("NYX", "Eighty years, and the lights never stopped.", { expr: "sad" });
+    await cs.say("NYX", "The Meridian. Eighty years, and the lights never stopped.", { expr: "sad" });
     cs.anim("nyx", null);
-    await cs.say("KADE", "The Meridian. Lost with all hands. They taught us that at the academy.");
+    await cs.say("KADE", "Lost with all hands. They taught us that at the academy.");
     cs.face("nyx", "kade");
     await cs.say("NYX", "Not all hands.", { expr: "determined" });
     bg3(cs.emote("sera", "..."));
-    await cs.say("SERA", "There's still air in here. Someone keeps it sealed.");
-    await cs.say("NYX", "We do. We come here to tie ribbons.");
+    await cs.say("SERA", "There's still air in here.");
     cs.flash("#ff9a3c", 0.25, 0.25);
-    await cs.say("ORION", "Emergency loop only. Two levers would wake the main bus. Hold and engineering.");
+    await cs.say("ORION", "Emergency loop only. Two levers wake the main bus: hold and engineering.");
     cs.objective("ch1.restore_power");
   },
   "shoals.lever": async (cs, args = {}) => {
@@ -46850,7 +46976,7 @@ var scripts4 = {
     if (cs.test(engineering2 ? "sw:meridian:lever_a" : "sw:meridian:lever_b")) return;
     cs.objective(engineering2 ? "ch1.power_hold" : "ch1.power_eng");
     const z = cs.actor("leader")?.z ?? 0;
-    bg3(cs.gather({ orion: around(cs, -0.9, z < 11 ? 0.8 : -0.8) }));
+    bg3(cs.gather(beside2(cs, { orion: [-0.9, z < 11 ? 0.8 : -0.8] })));
     await cs.say("ORION", "One. She's listening.", { expr: "smile" });
   },
   "shoals.power_restored": async (cs) => {
@@ -46860,12 +46986,15 @@ var scripts4 = {
     cs.flag("story:meridian_power");
     cs.flash("#ffd9a0", 0.35, 0.35);
     cs.sfx("unlock");
-    await cs.camera.focus("quarters_door", { zoom: 0.9, ms: 1e3 });
     const inHold = (cs.actor("leader")?.z ?? 20) < 11;
-    bg3(cs.gather({ orion: around(cs, -0.9, inHold ? 1 : -0.6), nyx: around(cs, 0.9, inHold ? 1 : 0.6) }));
-    bg3(cs.camera.reset({ ms: 800 }));
-    await cs.say("ORION", "Main bus is live. Hello, old girl. Eighty years is a long nap.", { expr: "smile" });
-    await cs.say("NYX", "Her quarters just unsealed. The reactor hall wants a captain's code.", { expr: "determined" });
+    const gathered = bg3(cs.gather(beside2(cs, inHold ? { orion: [-0.9, 1], nyx: [0.9, 1] } : { orion: [-1.4, -0.3], nyx: [-0.9, 0.9] })));
+    await cs.camera.focus("quarters_door", { zoom: 0.9, ms: 800 });
+    await cs.camera.reset({ ms: 500 });
+    await gathered;
+    await cs.say([
+      { speaker: "ORION", text: "Main bus is live. Hello, old girl.", expr: "smile" },
+      { speaker: "NYX", text: "Her quarters unsealed. The reactor hall wants her code.", expr: "determined" }
+    ]);
     cs.objective("ch1.varo_quarters");
   },
   "shoals.quarters_door": async (cs) => {
@@ -46908,25 +47037,25 @@ var scripts4 = {
     await cs.say("NYX", "...Great-grandma.", { expr: "surprised" });
     cs.music("meridian", { fade: 3 });
     await cs.say([
-      { speaker: "VARO", text: "Captain's log. Ines Varo. The reactor's gone. We're not going anywhere." },
-      { speaker: "VARO", text: "The Warden invoked the *Lullaby Directive*. Everyone sleeps until a new home is confirmed." },
-      { speaker: "VARO", text: "Nobody is coming to confirm anything. It means forever." },
+      { speaker: "VARO", text: "The reactor's gone. The Warden invoked the *Lullaby Directive*. It means forever." },
       { speaker: "VARO", text: "The Warden said sleep was mercy. I said mercy without consent is a cage." },
       { speaker: "VARO", text: "God forgive me for what we did to get out." }
     ]);
     cs.sfx("glitch", { volume: 0.5 });
-    await cs.narrate("The recording loops. Ines raises a hand to the lens, and it begins again.");
+    cs.flash("#9fe8ff", 0.12, 0.3);
     cs.anim("nyx", "hand_to_chest");
-    await cs.say("NYX", "She looks tired. The stories never said she looked tired.", { expr: "sad" });
-    await cs.say("KADE", "Lullaby Directive. It's in our charter too. Page four hundred. Nobody reads page four hundred.");
-    await cs.say("ORION", "Then WARDEN isn't broken. It's obeying something.");
-    await cs.say("SERA", "That Directive needs a failed destination. Ours hasn't failed. ...Has it?", { expr: "sad" });
+    await cs.say([
+      { speaker: "NYX", text: "She looks tired. The stories never said she looked tired.", expr: "sad" },
+      { speaker: "KADE", text: "It's in our charter too. Page four hundred. Nobody reads page four hundred." },
+      { speaker: "ORION", text: "Then WARDEN isn't broken. It's obeying something." },
+      { speaker: "SERA", text: "That Directive needs a failed destination. Ours hasn't failed. ...Has it?", expr: "sad" }
+    ]);
     bg3(cs.despawn("varo", { fade: 0.8 }));
     cs.anim("nyx", null);
     cs.flag("story:varo_log");
     cs.sfx("unlock");
     cs.shake(0.05, 0.4);
-    await cs.say("NYX", "Her code just opened the reactor hall. Let's take her coil. She'd want that.", { expr: "determined" });
+    await cs.say("NYX", "Let's take her coil. She'd want that.", { expr: "determined" });
     cs.objective("ch1.find_coil");
   },
   "shoals.varo_log_after": async (cs) => {
@@ -46945,7 +47074,7 @@ var scripts4 = {
     cs.face("kade", "maw");
     bg3(cs.camera.focus([48.9, 6.4], { zoom: 0.86, ms: 1e3 }));
     cs.particles("frost", [51, 0.4, 5.4], { count: 40 });
-    await cs.narrate("Reactor heat breathes through the ice. Something vast moves beneath it.");
+    await cs.narrate("Something vast moves beneath the ice.");
     await cs.say("NYX", "Hold still. It hunts by warmth.", { expr: "determined" });
     if (cs.actor("bolt")) bg3(cs.emote("bolt", "sweat"));
     await cs.say("BOLT", "I run hot. I'm sorry.", { expr: "sad" });
@@ -46963,7 +47092,7 @@ var scripts4 = {
     cs.particles("snow", [51, 1, 5.4], { count: 40 });
     bg3(cs.despawn("maw", { fade: 1.8 }));
     const walk = cs.move("orion", [[50.2, 4.6]], { speed: 2.4, face: "up" });
-    await cs.narrate("The Maw sinks back into the black ice, wounded. Not dead.");
+    await cs.narrate("The Maw sinks into the black ice. Wounded, not dead.");
     await walk;
     cs.anim("orion", "kneel");
     cs.prop("reactor")?.setState?.(false);
@@ -46973,7 +47102,6 @@ var scripts4 = {
     cs.anim("orion", null);
     bg3(cs.camera.reset({ ms: 700 }));
     await cs.say("NYX", "Sorry, great-grandma. Borrowing.", { expr: "sad" });
-    await cs.say("SERA", "Can we leave before it remembers us?", { expr: "surprised" });
     cs.save();
     await cs.goto("driftmarket", "dock");
     await cs.run("driftmarket.return");
@@ -48199,11 +48327,11 @@ function iceWall(t, seed, { cargo: cargo3 = false, side = false, crystals: cryst
       else t.px(x, y, ICE2[2], 0.36);
     } else if (bandAt2(x, y - 1) !== b) t.px(x, y, RIME[4], 0.62);
     else if (bandAt2(x, y - 2) !== b) t.px(x, y, RIME[2], 0.58);
-    if (!side && veins[y * W8 + x] && y > 12 && y < 86 && tn2(x, y, W8, H4, 2, seed + 77, 2) > 0.5) t.glow(x, y, GLW[2], GLW[1]);
+    if (!side && veins[y * W8 + x] && y > 12 && y < 86 && tn2(x, y, W8, H4, 2, seed + 77, 2) > 0.62) t.glow(x, y, ICE2[6], GLW[0]);
     const g = tn2(x, y, W8, H4, 2, seed + 61, 3);
     if (!side && g > 0.66 && y > 14 && y < 80 && bayer(x, y, (g - 0.66) * 2.4)) t.glow(x, y, ICE2[6], GLW[0]);
   }
-  if (!side) for (let i = 0; i < 3; i++) {
+  if (!side) {
     const cx = 4 + Math.floor(r() * 24), cy = 18 + Math.floor(r() * 58), s = 1 + Math.floor(r() * 2);
     for (let dy = -s - 1; dy <= s + 1; dy++) for (let dx = -s; dx <= s; dx++) {
       if (Math.abs(dx) / (s + 0.5) + Math.abs(dy) / (s + 1.5) > 1) continue;
@@ -48362,7 +48490,7 @@ function frostDecal(t, seed) {
     for (let k = 0; k < 6; k++) t.px(16 + Math.cos(a) * (6 + k), 16 + Math.sin(a) * (6 + k), RIME[5] + "cc");
   }
 }
-function merWallBase(t, seed, { side = false, strip: strip2 = false } = {}) {
+function merWallBase(t, seed, { side = false, strip: strip3 = false } = {}) {
   const W8 = 32, H4 = 96;
   const r = rng(seed);
   for (let y = 0; y < H4; y++) for (let x = 0; x < W8; x++) {
@@ -48402,7 +48530,7 @@ function merWallBase(t, seed, { side = false, strip: strip2 = false } = {}) {
     t.px(x, top, RIME[2], 0.62);
     if (hash(x, seed, 5) < 0.4) t.px(x, 5, RIME[4]).px(x, 6, RIME[2]);
   }
-  if (strip2) for (let x = 0; x < W8; x++) {
+  if (strip3) for (let x = 0; x < W8; x++) {
     t.px(x, 85, GUN3[6], 0.75).px(x, 88, GUN3[1], 0.4);
     if (x % 8 < 5) t.glow(x, 86, SODIUM[4], SODIUM[2]).glow(x, 87, SODIUM[3], SODIUM[1]);
     else t.px(x, 86, GUN3[1], 0.4).px(x, 87, GUN3[1], 0.4);
@@ -51378,8 +51506,8 @@ function shoals(kit) {
   };
 }
 var MERIDIAN_THEME = {
-  background: "#140e10",
-  fog: "#221816",
+  background: "#2c201e",
+  fog: "#2c201e",
   fogDensity: 0.026,
   hemi: ["#a39488", "#30241e", 1.05],
   key: ["#ffd8b0", 1, [-7, 12, 10]],
@@ -51436,8 +51564,8 @@ function meridian(kit) {
   };
 }
 var LAIR_THEME = {
-  background: "#0a0c1c",
-  fog: "#121632",
+  background: "#181c36",
+  fog: "#181c36",
   fogDensity: 0.024,
   hemi: ["#6a7ab8", "#1a1830", 1],
   key: ["#b8d4ff", 1.1, [-6, 13, 10]],
@@ -51573,7 +51701,7 @@ var arena_default4 = {
 
 // src/content/shoals/fx.js
 import { Vector3 as Vector325 } from "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
-var FROST2 = "#9ff0ff";
+var FROST3 = "#9ff0ff";
 var VOID6 = "#a35cff";
 var targetsOf2 = (d, act6) => {
   const ids2 = /* @__PURE__ */ new Set();
@@ -51588,12 +51716,12 @@ function partyFloor(d, act6) {
 }
 async function iceBreath(d, act6) {
   const a = act6.actor;
-  a.sprite.setGlow(FROST2, 1.6);
+  a.sprite.setGlow(FROST3, 1.6);
   a.oneShot("attack");
   d.sfx("charge", { pitch: 0.7 });
   const m = a.point("muzzle");
   d.particles.emit("frost", m, { count: 26, spread: 0.8 });
-  d.effects.sheet("ring", m, { scale: 1.6, color: FROST2, intensity: 2.4 });
+  d.effects.sheet("ring", m, { scale: 1.6, color: FROST3, intensity: 2.4 });
   d.stage.focus({ shiftX: 0.4, zoom: 0.96, rate: 4 });
   await d.wait(0.36);
   d.sfx("enemyBeam", { pitch: 0.6 });
@@ -51608,7 +51736,7 @@ async function iceBreath(d, act6) {
         const t = d.actor(s.hit.targetId);
         if (!t) continue;
         const c = t.point("center");
-        d.effects.beam(m, c, { color: FROST2, width: 0.9, dur: 0.5, intensity: 2.6 });
+        d.effects.beam(m, c, { color: FROST3, width: 0.9, dur: 0.5, intensity: 2.6 });
         d.effects.sheet("cryo", c, { scale: 1.6 + t.size * 0.3, intensity: 2.4 });
         d.particles.emit("frost", c, { count: 16 });
         await d.wait(0.06);
@@ -51638,7 +51766,7 @@ async function tailSlam(d, act6) {
         if (!tt) continue;
         const c = tt.point("center");
         d.effects.sheet("impact", c, { scale: 2.4, color: "#cfeaff", intensity: 2.6 });
-        d.effects.sheet("ring", tt.object3d.position.clone().setY(0.03), { floor: true, scale: 3.4, color: FROST2, intensity: 2.2 });
+        d.effects.sheet("ring", tt.object3d.position.clone().setY(0.03), { floor: true, scale: 3.4, color: FROST3, intensity: 2.2 });
         d.effects.shards(c, { count: 14, scale: 1.2, color: "#e8f8ff" });
         d.particles.emit("sh_shards", tt.object3d.position.clone().setY(0.2), { count: 20 });
       }
@@ -51653,7 +51781,7 @@ async function submerge(d, act6) {
   if (a.has("special")) a.oneShot("special");
   d.sfx("splash", { pitch: 0.6 });
   const floor8 = a.object3d.position.clone().setY(0.05);
-  d.effects.sheet("ring", floor8, { floor: true, scale: 6, color: FROST2, intensity: 2.4 });
+  d.effects.sheet("ring", floor8, { floor: true, scale: 6, color: FROST3, intensity: 2.4 });
   d.particles.emit("sh_shards", floor8.clone().setY(0.4), { count: 36 });
   d.particles.emit("frost", floor8.clone().setY(0.6), { count: 40, spread: 2.4 });
   d.engine.shake(0.2, 0.6);
@@ -51668,7 +51796,7 @@ async function circle(d, act6) {
   const under = partyFloor(d, act6);
   for (let k = 0; k < 3; k++) {
     const p = a.object3d.position.clone().lerp(under, 0.35 + k * 0.3).setY(0.04);
-    d.effects.sheet("ring", p, { floor: true, scale: 3 + k, color: k === 2 ? VOID6 : FROST2, intensity: 2 });
+    d.effects.sheet("ring", p, { floor: true, scale: 3 + k, color: k === 2 ? VOID6 : FROST3, intensity: 2 });
     d.particles.emit("frost", p.clone().setY(0.3), { count: 14, spread: 1.4 });
     d.engine.shake(0.08 + k * 0.05, 0.4);
     await d.wait(0.22);
@@ -51722,7 +51850,7 @@ async function defeat(d, act6) {
   if (a.has("special")) a.oneShot("special");
   d.sfx("submerge", { pitch: 0.6 });
   const floor8 = a.object3d.position.clone().setY(0.05);
-  d.effects.sheet("ring", floor8, { floor: true, scale: 7, color: FROST2, intensity: 2.4 });
+  d.effects.sheet("ring", floor8, { floor: true, scale: 7, color: FROST3, intensity: 2.4 });
   d.particles.emit("sh_shards", floor8.clone().setY(0.4), { count: 40 });
   d.particles.emit("frost", floor8.clone().setY(0.6), { count: 50, spread: 3 });
   await d.stage.tween(1.2, (k) => {
@@ -52112,7 +52240,7 @@ function here2(cs) {
   const a = cs.actor("leader");
   return a ? { x: a.x, z: a.z } : { x: 0, z: 0 };
 }
-async function beside2(cs, id, dx = -0.95, dz = 0.4) {
+async function beside3(cs, id, dx = -0.95, dz = 0.4) {
   if (!cs.test(`party:${id}`) || cs.test(`leader:${id}`)) return;
   const p = here2(cs);
   await cs.gather({ [id]: [p.x + dx, p.z + dz] });
@@ -52159,7 +52287,7 @@ var scripts5 = {
       await cs.camera.focus(CANAL_A, { zoom: 0.92, ms: 700 });
       await cs.wait(1.3);
       await cs.camera.reset({ ms: 600 });
-      await beside2(cs, "orion");
+      await beside3(cs, "orion");
       await cs.say("ORION", "One down. Water has to go somewhere.");
       await cs.ungather();
       if (!cs.test("sw:arboretum:valve_b")) cs.objective("ch2.drain_2");
@@ -52172,7 +52300,7 @@ var scripts5 = {
       cs.sfx("splash", { volume: 0.7 });
       await cs.wait(1.6);
       await cs.camera.reset({ ms: 700 });
-      await beside2(cs, "nyx", 0.95);
+      await beside3(cs, "nyx", 0.95);
       await cs.say("NYX", "It went somewhere.", { expr: "surprised" });
       await cs.ungather();
       cs.objective("ch2.drain_3");
@@ -52187,7 +52315,7 @@ var scripts5 = {
     }
     if (cs.test("arb:sluice_hint") || cs.test("arb:sluice")) return;
     cs.flag("arb:sluice_hint");
-    await beside2(cs, "kade", 0.95);
+    await beside3(cs, "kade", 0.95);
     await cs.say("KADE", "Order matters. Left, then right.", { expr: "determined" });
     await cs.ungather();
   },
@@ -52199,14 +52327,12 @@ var scripts5 = {
     await cs.camera.focus(BASIN, { zoom: 0.92, ms: 800 });
     cs.particles("steam", [8, 0.2, 26], { count: 30 });
     await cs.wait(1.6);
-    bg4(cs.camera.focus([10.5, 19.5], { zoom: 0.95, ms: 900 }));
-    await beside2(cs, "orion");
+    await Promise.all([beside3(cs, "orion"), cs.camera.reset({ ms: 800 })]);
     await cs.say("ORION", "Every channel on the deck just drained. Sluices are honest machines.", { expr: "smile" });
-    await beside2(cs, "sera", 0.95);
+    await beside3(cs, "sera", 0.95);
     await cs.say("SERA", "The Stasis Gardens are across. If they moved Theo, he's in there.", { expr: "determined" });
     cs.objective("ch2.stasis");
     await cs.ungather();
-    await cs.camera.reset({ ms: 600 });
   },
   "arboretum.basin_note": async (cs) => {
     await cs.narrate("A sluice plate, green with algae: *SLUICE 1, THEN 2*. Two valves, left and right.");
@@ -52240,7 +52366,7 @@ var scripts5 = {
     await cs.camera.reset({ ms: 600 });
   },
   "arboretum.caretaker": async (cs) => {
-    await beside2(cs, "orion", -0.9, 0.6);
+    await beside3(cs, "orion", -0.9, 0.6);
     cs.face("orion", "caretaker");
     bg4(cs.emote("orion", "!", { wait: false }));
     await cs.say("ORION", "Easy, friend. Those are people, not hedges.", { expr: "surprised" });
@@ -52366,7 +52492,7 @@ var scripts5 = {
     cs.particles("rain", [here2(cs).x, 2.2, here2(cs).z], { count: 18 });
     await cs.narrate("The caretaker drone hums, then mists everyone with warm water.");
     if (!cs.test("party:orion")) return;
-    await beside2(cs, "orion");
+    await beside3(cs, "orion");
     await cs.say("ORION", "Thank you, friend. I am adequately watered.", { expr: "smile" });
     await cs.ungather();
   },
@@ -52385,7 +52511,7 @@ var scripts5 = {
   },
   "arboretum.spear": async (cs) => {
     if (!cs.test("party:sera")) return;
-    await beside2(cs, "sera");
+    await beside3(cs, "sera");
     await cs.say("SERA", "A spear grown in a seed bed. Theo would call it the best thing on the ship.", { expr: "smile" });
     await cs.ungather();
     if (!cs.test("item:eq_w_sera_3") || cs.test("arb:spear_tip")) return;
@@ -56766,11 +56892,11 @@ var props5 = {
     textures: ["arb_tech", "arb_water", "arb_bank"],
     build(W8, p) {
       const G5 = W8.groupFor(p.on), M = mats3(W8);
-      const rim = new THREE29.Mesh(wrappedCylinder(1.1, 0.5, { arc: 1, texHeight: 0.75, segPerArc: 4 }), W8.mats.tile("arb_bank", { emissive: 2.2 }));
-      rim.position.set(p.x, 0, p.z);
-      rim.castShadow = true;
-      rim.receiveShadow = true;
-      G5.add(rim);
+      const rim2 = new THREE29.Mesh(wrappedCylinder(1.1, 0.5, { arc: 1, texHeight: 0.75, segPerArc: 4 }), W8.mats.tile("arb_bank", { emissive: 2.2 }));
+      rim2.position.set(p.x, 0, p.z);
+      rim2.castShadow = true;
+      rim2.receiveShadow = true;
+      G5.add(rim2);
       const water = new THREE29.Mesh(new THREE29.CircleGeometry(1.05, 20), W8.mats.tile("arb_water", { emissive: 1.8, roughness: 0.15, metalness: 0.2 }));
       water.rotation.x = -Math.PI / 2;
       water.position.set(p.x, 0.38, p.z);
@@ -57829,8 +57955,8 @@ var shops2 = {
   }
 };
 var zoneRates4 = {
-  spire_barracks: { grace: 11, sigma: 21 },
-  spire_upper: { grace: 11, sigma: 21 }
+  spire_barracks: { grace: 18, sigma: 36 },
+  spire_upper: { grace: 18, sigma: 36 }
 };
 var data_default6 = { enemies: enemies4, encounters: encounters4, zones: zones3, zoneRates: zoneRates4, bossScripts: bossScripts4, shops: shops2 };
 
@@ -57849,7 +57975,7 @@ function here3(cs) {
   const a = cs.actor("leader");
   return a ? { x: a.x, z: a.z } : { x: 0, z: 0 };
 }
-function beside3(cs, ids2, { dz = 0.4 } = {}) {
+function beside4(cs, ids2, { dz = 0.4 } = {}) {
   const p = here3(cs);
   const spots = [[-1, dz], [1, dz], [-0.5, dz + 0.9], [0.6, dz + 0.9]];
   const slots = {};
@@ -57934,20 +58060,20 @@ var scripts6 = {
       if (!cs.test("sw:spire:grid_swap | sw:spire:override | story:cadets_freed")) cs.objective("ch3.grids_2");
       if (cs.test("spire:said_t1")) return;
       cs.flag("spire:said_t1");
-      await cs.gather(beside3(cs, ["orion"]));
+      await cs.gather(beside4(cs, ["orion"]));
       await cs.say("ORION", "There. It just wanted someone to ask nicely.", { expr: "smile" });
       await cs.ungather();
     } else if (id === "grid_t2") {
       if (!cs.test("sw:spire:override | story:cadets_freed")) cs.objective("ch3.grids_3");
       if (cs.test("spire:said_t2")) return;
       cs.flag("spire:said_t2");
-      await cs.gather(beside3(cs, ["orion"]));
+      await cs.gather(beside4(cs, ["orion"]));
       await cs.say("ORION", "Ah. It swaps them. One grid opens, the other one closes.");
       await cs.ungather();
     }
   },
   "spire.kade_override": async (cs) => {
-    const slots = beside3(cs, ["kade"]);
+    const slots = beside4(cs, ["kade"]);
     if (Object.keys(slots).length) await cs.gather(slots);
     cs.anim("kade", "point");
     await cs.say("KADE", "Arden, K. Lieutenant. Override.");
@@ -58022,7 +58148,7 @@ var scripts6 = {
     await cs.ungather();
   },
   "spire.oathkeeper": async (cs) => {
-    const slots = beside3(cs, ["kade"]);
+    const slots = beside4(cs, ["kade"]);
     if (Object.keys(slots).length) await cs.gather(slots);
     await cs.say("KADE", "My oath blade. Someone kept the edge oiled.", { expr: "sad" });
     await cs.ungather();
@@ -58073,8 +58199,8 @@ var scripts6 = {
   "spire.voss": async (cs) => {
     bg5(cs.letterbox(true));
     cs.music(null, { fade: 1.5 });
-    bg5(cs.gather(inParty3(cs, { kade: [38.7, 8.1], nyx: [40.3, 7], sera: [39.6, 9.5], orion: [41.2, 8.6] })));
-    await cs.camera.focus([37.4, 6.2], { zoom: 0.9, ms: 1e3 });
+    bg5(cs.camera.focus([37.4, 6.2], { zoom: 0.9, ms: 1e3 }));
+    await cs.gather(inParty3(cs, { kade: [38.7, 8.1], nyx: [40.3, 7], sera: [39.6, 8.9], orion: [41.2, 8.6] }));
     cs.face("kade", "voss");
     await cs.say("KADE", "Commander.", { expr: "determined" });
     cs.face("voss", "down");
@@ -58104,8 +58230,9 @@ var scripts6 = {
     cs.anim("voss", null);
     await cs.battle("spire_boss_voss");
     cs.anim("voss", "kneel");
-    bg5(cs.camera.focus([34.8, 7.2], { zoom: 0.82, ms: 900 }));
-    bg5(cs.move("kade", [[35, 7.6]], { speed: 1.8, face: "voss" }));
+    bg5(cs.camera.focus([35, 7.4], { zoom: 0.84, ms: 900 }));
+    await cs.gather(inParty3(cs, { kade: [34.4, 6.6], nyx: [35.4, 6.4], orion: [36.6, 6.6], sera: [34.2, 9.6] }));
+    cs.face("kade", "voss");
     await cs.say("VOSS", "You always did argue in the field.", { expr: "smile" });
     await cs.give("command_key");
     await cs.say("VOSS", "If you're right... make them a world worth waking for.", { expr: "sad" });
@@ -62283,9 +62410,9 @@ function command(kit) {
   const steel = kit.plain("#24212a", 0.45, 0.55), goldM = kit.plain("#d0a238", 0.32, 0.75);
   const table2 = kit.add(new THREE32.Mesh(kit.track(new THREE32.CylinderGeometry(1, 0.7, 0.9, 20)), steel));
   table2.position.set(1.4, 0.45, -4.2);
-  const rim = kit.add(new THREE32.Mesh(kit.track(new THREE32.TorusGeometry(1, 0.03, 6, 36)), goldM));
-  rim.position.set(1.4, 0.92, -4.2);
-  rim.rotation.x = Math.PI / 2;
+  const rim2 = kit.add(new THREE32.Mesh(kit.track(new THREE32.TorusGeometry(1, 0.03, 6, 36)), goldM));
+  rim2.position.set(1.4, 0.92, -4.2);
+  rim2.rotation.x = Math.PI / 2;
   const holoMat = kit.track(new THREE32.MeshBasicMaterial({ color: new THREE32.Color("#ffd28a").multiplyScalar(1.6), transparent: true, opacity: 0.85, blending: THREE32.AdditiveBlending, depthWrite: false }));
   const star = kit.add(new THREE32.Mesh(kit.track(new THREE32.SphereGeometry(0.12, 12, 8)), holoMat));
   star.position.set(1.4, 1.5, -4.2);
@@ -64661,8 +64788,8 @@ function gown(r, J, P2, ramp2, ghost) {
     return [L2, R2, t];
   };
   const hemAt = (x) => {
-    const strip2 = Math.floor(x / 5);
-    return hy - 2 - noise5(strip2, 5 + (P2.frag || 0) % 3) * 13 - (x < CX - 30 ? 4 : 0);
+    const strip3 = Math.floor(x / 5);
+    return hy - 2 - noise5(strip3, 5 + (P2.frag || 0) % 3) * 13 - (x < CX - 30 ? 4 : 0);
   };
   const o = { rim: ghost ? null : 0.9, back: ghost ? null : 0.95, max: ramp2.length - 2, gamma: 1.3, bounce: 0.3 };
   o.scan = { ...o, bias: 0.1, glow: ghost ? 0 : 0.45 };
@@ -66964,7 +67091,7 @@ function platform(kit, inside, pick2, opts, rimColor = "#4fe3ff") {
   kit.floor((x, z) => inside(x, z) ? pick2(x, z) : null, opts);
   const edge = kit.mat("va_edge", { emissiveIntensity: 2 });
   const under = kit.mat("va_under", { emissiveIntensity: 1.6 });
-  const rim = neon(kit, rimColor, 1.8);
+  const rim2 = neon(kit, rimColor, 1.8);
   const slabs = [], steps = [], rims = [];
   const r = kit.rng;
   for (let z = kit.WALL_Z; z < 10; z++) {
@@ -66983,7 +67110,7 @@ function platform(kit, inside, pick2, opts, rimColor = "#4fe3ff") {
   const box = kit.track(new THREE34.BoxGeometry(1, 1, 1));
   kit.instanced(box, [[edge, slabs]], { receive: true });
   kit.instanced(box, [[under, steps]], { receive: true });
-  kit.instanced(box, [[rim, rims]], { receive: false });
+  kit.instanced(box, [[rim2, rims]], { receive: false });
 }
 function island(kit, x, y, z, w, d, top = "va_grid") {
   const edge = kit.mat("va_edge", { emissiveIntensity: 2 });
@@ -66992,8 +67119,8 @@ function island(kit, x, y, z, w, d, top = "va_grid") {
   kit.box([w, 0.7, d], [edge, edge, t, under, edge, edge], [x, y - 0.7, z]);
   kit.box([w * 0.7, 1.2, d * 0.7], under, [x, y - 1.9, z]);
   kit.box([w * 0.35, 1.4, d * 0.35], under, [x, y - 3.3, z]);
-  const rim = kit.add(new THREE34.Mesh(kit.track(new THREE34.BoxGeometry(w, 0.04, 0.05)), neon(kit, "#4fe3ff", 1.6)));
-  rim.position.set(x, y + 0.01, z + d / 2);
+  const rim2 = kit.add(new THREE34.Mesh(kit.track(new THREE34.BoxGeometry(w, 0.04, 0.05)), neon(kit, "#4fe3ff", 1.6)));
+  rim2.position.set(x, y + 0.01, z + d / 2);
 }
 function bridge3(kit, a, b, color = "#4fe3ff") {
   const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];

@@ -11,10 +11,14 @@ const weave = (ends, a, b, step, z0, z1) => ends.flatMap((x, i) => {
   return [[x + a * step, z], [x + b * step, z]];
 });
 // weave(near sides of the beds in walking order, ...): two points past each open end, alternating z0 / z1
-const FERN = [[16, 50], ...weave([18, 23, 28, 33, 38, 43, 48, 53], -0.4, 2.4, 1, 52.5, 45.5), [56, 47.5]];
+// The lessons' drones and caretaker stand in a corridor and block it until they are fought, so the
+// path walks up to each one first (inside its trigger radius of 2.4).
+const fernWeave = weave([18, 23, 28, 33, 38, 43, 48, 53], -0.4, 2.4, 1, 52.5, 45.5);
+const FERN = [[16, 50], ...fernWeave.slice(0, 2), [21.4, 49.2], ...fernWeave.slice(2), [56, 47.5]];
 // the Glasshouse runs west, so its near sides are the beds' east edges (the start is already under the first)
 const GLASS = [[64.5, 41], ...weave([65, 60, 55, 50, 45, 40, 35, 30, 25], -0.4, 2.4, -1, 39.5, 31.5).slice(1), [21, 35.5]];
-const STASIS = [...weave([21, 26, 31, 36, 41, 46, 51], -0.4, 2.4, 1, 25.5, 17.5), [54, 20]];
+const stasisWeave = weave([21, 26, 31, 36, 41, 46, 51], -0.4, 2.4, 1, 25.5, 17.5);
+const STASIS = [...stasisWeave.slice(0, 2), [24.4, 23.3], ...stasisWeave.slice(2), [54, 20]];
 
 export default {
   segments: {
@@ -78,10 +82,10 @@ export default {
         await d.pump(d.F('seen:arboretum:stasis'), { maxVt: 300 });
         d.milestone('stasis gardens');
         await d.shot('c03-stasis', { hi: true });
-        for (const [x, z] of STASIS.slice(0, 7)) await d.go(x, z);
+        for (const [x, z] of STASIS.slice(0, 8)) await d.go(x, z);
         await d.use('esme', { optional: true });
         await d.use('stasis_cache', { optional: true });
-        for (const [x, z] of STASIS.slice(7)) await d.go(x, z);
+        for (const [x, z] of STASIS.slice(8)) await d.go(x, z);
         await d.use('log_3', { optional: true });
         await d.med('med_court');
         d.milestone('court');

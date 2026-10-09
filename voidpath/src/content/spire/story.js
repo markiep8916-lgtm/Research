@@ -289,8 +289,9 @@ const scripts = {
   'spire.voss': async (cs) => {
     bg(cs.letterbox(true));
     cs.music(null, { fade: 1.5 });
-    bg(cs.gather(inParty(cs, { kade: [38.7, 8.1], nyx: [40.3, 7.0], sera: [39.6, 9.5], orion: [41.2, 8.6] })));
-    await cs.camera.focus([37.4, 6.2], { zoom: 0.9, ms: 1000 });
+    // the squad crosses the deck to her while the camera holds her at the window: nobody speaks off frame
+    bg(cs.camera.focus([37.4, 6.2], { zoom: 0.9, ms: 1000 }));
+    await cs.gather(inParty(cs, { kade: [38.7, 8.1], nyx: [40.3, 7.0], sera: [39.6, 8.9], orion: [41.2, 8.6] }));
     cs.face('kade', 'voss');
     await cs.say('KADE', 'Commander.', { expr: 'determined' });
     cs.face('voss', 'down');
@@ -321,10 +322,12 @@ const scripts = {
     cs.anim('voss', null);
     await cs.battle('spire_boss_voss');
 
-    // aftermath: she kneels, gives him the key, and goes to keep the Choir company
+    // aftermath: she kneels, gives him the key, and goes to keep the Choir company; the squad regathers
+    // round her, clear of the holo table, so every speaker stands in the frame
     cs.anim('voss', 'kneel');
-    bg(cs.camera.focus([34.8, 7.2], { zoom: 0.82, ms: 900 }));
-    bg(cs.move('kade', [[35.0, 7.6]], { speed: 1.8, face: 'voss' }));
+    bg(cs.camera.focus([35.0, 7.4], { zoom: 0.84, ms: 900 }));
+    await cs.gather(inParty(cs, { kade: [34.4, 6.6], nyx: [35.4, 6.4], orion: [36.6, 6.6], sera: [34.2, 9.6] }));
+    cs.face('kade', 'voss');
     await cs.say('VOSS', 'You always did argue in the field.', { expr: 'smile' });
     await cs.give('command_key');
     await cs.say('VOSS', 'If you\'re right... make them a world worth waking for.', { expr: 'sad' });

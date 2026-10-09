@@ -5,14 +5,16 @@
 // Tethys light; faded Meridian blue paint and verdigris on the oldest plates; frost by the Shoals.
 //
 // export const TEXTURES   { name: TextureDef } registered by art.js:
-//   floors   dm_deck_a / _b ('.' mix), dm_planks_a (','), dm_grate ('='),
-//            dm_pad ('o'), dm_frost ('i')
+//   floors   dm_deck_a / _b / _c / _d ('.' mix: three different patch plates, one in six cells),
+//            dm_planks_a (','), dm_grate ('='), dm_pad ('o')
 //   walls    dm_hull_a / _b / _c (wreck plates, porthole, ribbon cloth), dm_shopfront, dm_shelves,
 //            dm_inn_wall, dm_door, dm_cap, dm_low, dm_rail (alpha railing)
-//   props    dm_lantern, dm_awning_red / _teal / _amber, dm_ribbon, dm_crate, dm_barrel,
-//            dm_scrap, dm_moth_hull, dm_moth_glass, dm_pad_ring, dm_sign_ruse, dm_sign_inn,
+//   props    dm_lantern, dm_awning_red / _teal / _amber, dm_ribbon (crimson, faded pink and cream
+//            strips), dm_crate, dm_barrel, dm_scrap, dm_pad_ring, dm_sign_ruse, dm_sign_inn,
 //            dm_sign_noodles, dm_kelp_tank, dm_board, dm_rug, dm_brass, dm_chalk,
 //            dm_marble, dm_berth_plate (favours in later maps)
+//   decals   dm_frost: the rime by the Shoals hatch, one sheet over 6 x 5.5 units (world space, so no
+//            cell repeats its neighbour)
 //   backdrop bd_tethys_close (sky.js)
 
 import { mix, shade, rng, bayer } from '../../art/painter.js';
@@ -117,6 +119,23 @@ function paintDeckB(t) {
   for (let i = 0; i < 18; i++) { const x = 8 + Math.floor(r() * 17), y = 10 + Math.floor(r() * 12); t.tint(x, y, RU[3], 0.5); }
 }
 
+function paintDeckC(t) {
+  const r = deckBase(t, 831);
+  // a rust patch over a hole, off-centre and welded on crooked
+  plate(t, 4, 15, 15, 12, RU, { body: 3, ht: 0.6, step: 7 });
+  weld(t, 3, 14, 19, 14); weld(t, 3, 27, 19, 27); weld(t, 3, 14, 3, 27); weld(t, 19, 14, 19, 27);
+  for (let i = 0; i < 12; i++) t.tint(5 + Math.floor(r() * 13), 16 + Math.floor(r() * 10), CU[5], 0.3);
+}
+
+function paintDeckD(t) {
+  deckBase(t, 871);
+  // an inspection hatch: a recessed plate with a vent grille and two lift rings
+  recess(t, 9, 6, 15, 19, IR[2], IR[0], IR[4], 0.36);
+  for (let y = 9; y < 22; y += 2) t.hline(12, 20, y, IR[1], 0.3).hline(12, 20, y + 1, IR[3], 0.44);
+  for (const x of [11, 21]) t.px(x, 7, BR[4], 0.6).px(x, 8, BR[2], 0.58);
+  stain(t, 9, 6, 15, 19, 872, PA[2], () => -0.15, 0.35);
+}
+
 /** Salvaged composite planks laid east-west, nailed with rivets. */
 function planks(t, seed) {
   const r = rng(seed);
@@ -182,16 +201,48 @@ function paintPad(t) {
   for (let i = 0; i < 4; i++) scratch(t, r, 4 + r() * 22, 4 + r() * 22, 4 + r() * 8, 1, (r() - 0.5) * 0.3, 0.07);
 }
 
-/** Copper plates crusted with frost from the Shoals hatch. */
+/**
+ * Rime by the Shoals hatch (alpha decal, 192 x 176 over 6 x 5.5 units; the hatch is the east edge):
+ * a thin, desaturated cyan film on the copper that thickens toward the cold, with feathered growth
+ * streaks and a few faint glints. One sheet in world space, so it never prints a per-cell motif, and
+ * its own value range stays narrow (low contrast).
+ */
+const FROST = ['#a9c3cf', '#b8d0da', '#c6dbe3', '#d3e4ea'];
 function paintFrost(t) {
-  deckBase(t, 861);
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-    const v = tn(x, y, 862, 0.22, 4);
-    if (v > 0.56) t.px(x, y, v > 0.68 ? ICE[5] : ICE[4], 0.6);
-    else if (v > 0.44 && bayer(x, y, (v - 0.44) * 4)) t.px(x, y, ICE[3], 0.58);
+  const W = 192, H = 176;
+  const r = rng(864);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = fbm(x * 0.045, y * 0.045, 861, 4);
+    const fine = fbm(x * 0.21, y * 0.21, 862, 2);
+    // cover: thick at the hatch (east), a ragged noisy front toward the Row, thin along the walls' feet
+    const east = x / W;
+    const cover = smoothRange(0.18, 0.95, east * 0.9 + (n - 0.5) * 0.7) * (0.75 + 0.25 * smoothRange(0, 0.18, Math.min(y, H - 1 - y) / H));
+    if (cover <= 0.02) continue;
+    const a = Math.min(0.62, cover * (0.38 + fine * 0.34));
+    const c = FROST[Math.min(3, Math.floor(fine * 2.2 + cover * 1.6))];
+    t.put(x, y, c + Math.round(a * 255).toString(16).padStart(2, '0'), 0.5 + cover * 0.12);
   }
-  const r = rng(863);
-  for (let i = 0; i < 9; i++) t.glow(Math.floor(r() * 32), Math.floor(r() * 32), ICE[6], '#9fd8ff');
+  // feathered growth: short crystal streaks fanning out from the hatch
+  for (let i = 0; i < 70; i++) {
+    let x = W - 1 - r() * 70, y = r() * H;
+    const ang = Math.PI + (r() - 0.5) * 1.3, len = 6 + r() * 16;
+    for (let k = 0; k < len; k++) {
+      x += Math.cos(ang); y += Math.sin(ang) + (r() - 0.5) * 0.6;
+      const p = t.get(x, y);
+      if (p[3] > 40) t.put(x, y, FROST[3] + Math.min(255, p[3] + 40).toString(16).padStart(2, '0'), 0.6);
+    }
+  }
+  // a few faint glints (dim, so nothing blooms into a hard dot)
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(W * 0.45 + r() * W * 0.55), y = Math.floor(r() * H);
+    if (t.get(x, y)[3] > 60) t.glow(x, y, '#e6f4f8', '#3c5f6c');
+  }
+}
+
+/** 0 below a, 1 above b, smooth between. */
+function smoothRange(a, b, v) {
+  const k = clamp01((v - a) / (b - a));
+  return k * k * (3 - 2 * k);
 }
 
 // ---------------------------------------------------------------- walls (32 x 96; row 0 = top)
@@ -445,20 +496,29 @@ function paintAwning(t, ramp) {
   stain(t, 0, 0, 32, 28, 951, IR[1], () => -0.1, 0.3);
 }
 
-/** A prayer ribbon: crimson cloth with a hand-stitched name glyph and a frayed tail (alpha). */
+/**
+ * Prayer ribbons (alpha atlas, 24 x 32): three 8-px columns, crimson, sun-faded pink and cream, each a
+ * 4-px strip with a stitched name glyph near the knot and a frayed, tapering tail.
+ */
+const RIBBON_TONES = [
+  [CR[2], CR[3], CR[4]],
+  ['#8e4a58', '#c07884', '#e0a4ac'],
+  ['#9a8a70', '#cdbd9a', '#efe3c4'],
+];
 function paintRibbon(t) {
-  for (let y = 0; y < 32; y++) {
-    const w = y > 26 ? 6 - (y - 26) : 6;
-    for (let x = 1; x < 1 + w; x++) {
-      const tail = y > 26 && (x + y) % 3 === 0;
-      if (tail) continue;
-      const c = x === 1 ? CR[2] : x === w ? CR[2] : (y % 6 === 0 ? CR[4] : CR[3]);
-      t.put(x, y, c, 0.55);
-      if (y < 24) t.emit(x, y, shade(c, -0.6));
+  RIBBON_TONES.forEach(([dk, md, lt], k) => {
+    const x0 = k * 8 + 2;
+    for (let y = 0; y < 32; y++) {
+      for (let i = 0; i < 4; i++) {
+        const fray = y > 25 && ((i + y + k) % 3 === 0 || y - 25 > 5 - Math.abs(i - 1.5) * 1.6);
+        if (fray) continue;
+        const c = i === 0 || i === 3 ? dk : y % 7 === 3 ? lt : md;
+        t.put(x0 + i, y, c, 0.55);
+        if (y < 22) t.emit(x0 + i, y, shade(c, -0.55));
+      }
     }
-  }
-  for (const y of [8, 9, 14, 15, 16]) t.put(3, y, AM[5], 0.6).emit(3, y, AM[4]);
-  t.put(4, 9, AM[4]).put(2, 15, AM[4]);
+    for (const y of [5, 6, 9, 10, 11]) t.put(x0 + 1 + (y % 2), y, k === 2 ? CR[3] : AM[5], 0.6);
+  });
 }
 
 function paintCrate(t) {
@@ -490,39 +550,6 @@ function paintScrap(t) {
     plate(t, x, y, w, h, ramp, { body: ramp === PA ? 2 : 3, ht: 0.45 + r() * 0.3, step: 4 });
   }
   for (let i = 0; i < 4; i++) scratch(t, r, r() * 30, r() * 30, 4 + r() * 6, 1, r() - 0.5, 0.08);
-}
-
-/** The Moth's hull: Ringborn salvage plates, a painted moth-wing stripe, and tape. */
-/** The Moth's patched plates: pale salvage cream like the skiff in the Halcyon's berth. */
-const MOTH = ['#4d463e', '#615749', '#776a56', '#8c7c62', '#a8987a', '#c4b494', '#ddd0b4'];
-
-function paintMothHull(t) {
-  // patched taupe plates, the teal Ringborn stripe, BOLT's tape and running lights (like the berth Moth)
-  const r = rng(991);
-  const P = MOTH;
-  plate(t, 0, 0, 22, 32, P, { body: 4, ht: 0.55, step: 6 });
-  plate(t, 22, 0, 20, 16, CU, { body: 4, ht: 0.58, step: 5 });
-  plate(t, 22, 16, 20, 16, P, { body: 3, ht: 0.52, step: 5 });
-  plate(t, 42, 0, 22, 32, P, { body: 4, ht: 0.55, step: 6 });
-  for (let x = 0; x < 64; x++) t.px(x, 14, TE[3], 0.6).px(x, 15, TE[4], 0.6).px(x, 16, TE[2], 0.58);
-  for (let y = 6; y < 22; y++) t.px(58 + (y % 2), y, CR[3], 0.6);
-  for (const [x0, y0] of [[26, 4], [29, 7], [44, 19]]) {
-    for (let i = 0; i < 11; i++) { t.px(x0 + i, y0 + (i >> 2), '#d5cfb6', 0.66); t.px(x0 + i, y0 + 1 + (i >> 2), '#b9b39c', 0.62); }
-  }
-  stain(t, 0, 0, 64, 32, 992, '#0f0b0d', (x, y) => (y > 26 ? 0.2 : -0.12), 0.45);
-  for (let i = 0; i < 6; i++) scratch(t, r, r() * 60, r() * 30, 4 + r() * 6, 1, (r() - 0.5) * 0.4, 0.07);
-  for (const x of [3, 4]) t.glow(x, 15, TE[5], TE[4]);
-  for (const x of [60, 61]) t.glow(x, 15, CR[4], CR[3]);
-}
-
-function paintMothGlass(t) {
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) {
-    const k = 1 - y / 16;
-    const c = k > 0.7 ? '#9df8ee' : k > 0.4 ? TE[4] : TE[3];
-    t.glow(x, y, c, shade(c, -0.1));
-  }
-  for (let x = 0; x < 32; x += 8) for (let y = 0; y < 16; y++) t.px(x, y, IR[3], 0.7).emit(x, y, '#000000');
-  t.glow(4, 3, '#ffffff').glow(5, 3, '#e6fffb');
 }
 
 /** Big painted landing ring for the Moth's pad (256 x 256 over 8 x 8 units, alpha). */
@@ -675,10 +702,12 @@ function paintBrass(t) {
 export const TEXTURES = {
   dm_deck_a: { ...floor, paint: paintDeckA },
   dm_deck_b: { ...floor, paint: paintDeckB },
+  dm_deck_c: { ...floor, paint: paintDeckC },
+  dm_deck_d: { ...floor, paint: paintDeckD },
   dm_planks_a: { ...floor, paint: paintPlanksA },
   dm_grate: { ...floor, paint: paintGrate },
   dm_pad: { ...floor, paint: paintPad },
-  dm_frost: { ...floor, paint: paintFrost, strength: 2 },
+  dm_frost: { w: 192, h: 176, alpha: true, paint: paintFrost, strength: 1.2 },
   dm_hull_a: { ...wall, paint: paintHullA },
   dm_hull_b: { ...wall, paint: paintHullB },
   dm_hull_c: { ...wall, paint: paintHullC },
@@ -694,12 +723,10 @@ export const TEXTURES = {
   dm_awning_red: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, CR) },
   dm_awning_teal: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, TE) },
   dm_awning_amber: { w: 32, h: 32, wrapX: true, alpha: true, paint: (t) => paintAwning(t, AM) },
-  dm_ribbon: { w: 8, h: 32, alpha: true, paint: paintRibbon, strength: 1.2 },
+  dm_ribbon: { w: 24, h: 32, alpha: true, paint: paintRibbon, strength: 1.2 },
   dm_crate: { w: 32, h: 32, paint: paintCrate },
   dm_barrel: { w: 32, h: 32, wrapX: true, paint: paintBarrel },
   dm_scrap: { ...floor, paint: paintScrap },
-  dm_moth_hull: { w: 64, h: 32, wrapX: true, wrapY: true, paint: paintMothHull },
-  dm_moth_glass: { w: 32, h: 16, paint: paintMothGlass, strength: 0.8 },
   dm_pad_ring: { w: 256, h: 256, alpha: true, paint: paintPadRing, strength: 1 },
   dm_sign_ruse: { w: 64, h: 24, paint: (t) => sign(t, 64, 24, "RUSE'S", AM[5], 'SALVAGE') },
   dm_sign_inn: { w: 64, h: 16, paint: (t) => sign(t, 64, 16, 'THE LANTERN', AM[4]) },

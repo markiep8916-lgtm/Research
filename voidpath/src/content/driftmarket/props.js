@@ -7,9 +7,11 @@
 //   dm.pylon    { x, z, h = 3.2 }                                      girder pylon at the rail, lamp on top
 //   dm.stall    { x, z, w = 3, awning: 'red'|'teal'|'amber', goods: 'noodles'|'ribbons'|'salvage'|'kelp'|'parts', sign? }
 //   dm.counter  { x, z, w, d = 0.7, h = 0.95, top = 'dm_planks_a', front = 'dm_scrap' }
-//   dm.ribbons  { x, z, w = 2, y = 0.45, n = 6, rot = 0, len = 0.75, seed }   prayer ribbons tied along a rail
+//   dm.ribbons  { x, z, w = 2, y = 0.45, n = 6, rot = 0, len = 0.75, seed }   prayer ribbons tied along a rail:
+//                                                                      thin strips, crimson / faded pink / cream, swaying
 //   dm.ribbon_frame { x, z, w = 3, h = 2.4 }                           Ama's lattice of ribbons
-//   dm.moth     { x, z, rot = 0, scale = 1 }                           Nyx's skiff (and Oona's, scaled)
+//   dm.moth     { x, z, rot = 0, scale = 1 }                           Nyx's skiff (C1's shared builder, with moth
+//                                                                      feelers) and Oona's, scaled
 //   dm.beacon   { x, z }                                               Tobin's beacon horn (focal set piece)
 //   dm.iris     { x, z, r = 1.3 }                                      the docking iris on the dock wall
 //   dm.scrap    { x, z, w = 2, d = 1.4, seed }                         a heap of wreck plates
@@ -28,6 +30,7 @@
 import * as THREE from 'three';
 import { makeGlow } from '../../core/vfx.js';
 import { Batch, wrappedCylinder } from '../../world/geometry.js';
+import { buildMoth, MOTH_TEXTURES } from '../prologue/props.js';
 
 const _m = new THREE.Matrix4();
 
@@ -47,7 +50,7 @@ function mats(W) {
     cable: M.plain('#120c0c', { roughness: 0.9, metalness: 0.1 }),
     brass: M.tile('dm_brass', { roughness: 0.42, metalness: 0.6, emissive: 1.2 }),
     lantern: M.tile('dm_lantern', { emissive: 1.9, roughness: 0.6, cast: false, side: THREE.DoubleSide }),
-    ribbon: M.tile('dm_ribbon', { emissive: 0.6, roughness: 0.8, cast: false, side: THREE.DoubleSide }),
+    ribbon: M.tile('dm_ribbon', { emissive: 1.1, roughness: 0.8, cast: false, side: THREE.DoubleSide }),
     planks: M.tile('dm_planks_a', { roughness: 0.75, metalness: 0.1 }),
     scrap: M.tile('dm_scrap', { roughness: 0.6, metalness: 0.35 }),
     hull: M.tile('dm_hull_a', { roughness: 0.6, metalness: 0.35 }),
@@ -95,6 +98,17 @@ function glow(W, G, color, size, intensity, x, y, z, link = true) {
   G.add(s);
   if (link) W.addGlow(s, x, z);
   return s;
+}
+
+// dm_ribbon is an atlas of three 8-px columns (crimson, faded pink, cream); a strip maps the 4-px ribbon
+// in the middle of its column (v = 1 at the knot)
+const ribbonUv = (tone) => [(tone * 8 + 2) / 24, 1, (tone * 8 + 6) / 24, 0];
+/** A ribbon tone: mostly crimson, some sun-faded pink, a few cream. */
+const ribbonTone = (r) => { const k = r(); return k < 0.5 ? 0 : k < 0.8 ? 1 : 2; };
+
+/** A hanging ribbon strip in the xy plane from (x, y, z) down `len`; `tilt` swings the tail sideways. */
+function strip(B, M, x, y, z, len, tone, { w = 0.06, tilt = 0, dz = 0.04 } = {}) {
+  B.quad(M.ribbon, [x - w / 2, y, z], [x + w / 2, y, z], [x + w / 2 + tilt, y - len, z + dz], [x - w / 2 + tilt, y - len, z + dz], ribbonUv(tone));
 }
 
 // ---------------------------------------------------------------- lanterns, posts, pylons
@@ -198,10 +212,7 @@ function goods(W, B, G, M, kind, x, z, w, h, seed) {
       B.box({ front: m, back: m, left: m, right: m, top: m }, x - w / 2 + 0.25 + (i / 5) * (w - 0.5), z + (r() - 0.5) * 0.25, s, s, h, h + s, r() * 0.8);
     }
   } else if (kind === 'ribbons') {
-    for (let i = 0; i < 6; i++) {
-      const xx = x - w / 2 + 0.25 + (i / 6) * (w - 0.4);
-      B.quad(M.ribbon, [xx, h, z + 0.36], [xx + 0.1, h, z + 0.36], [xx + 0.1, h - 0.6, z + 0.38], [xx, h - 0.6, z + 0.38], [0, 1, 1, 0]);
-    }
+    for (let i = 0; i < 6; i++) strip(B, M, x - w / 2 + 0.3 + (i / 6) * (w - 0.4), h, z + 0.36, 0.35 + r() * 0.35, ribbonTone(r));
   }
 }
 
@@ -252,16 +263,18 @@ const counterProp = {
 
 // ---------------------------------------------------------------- ribbons
 
-/** Ribbons tied along a rail: thin crimson strips with knots, swaying in three loose groups. */
+/**
+ * Ribbons tied along a rail: thin, separated strips of varied length and tone, each knotted to the
+ * rail, swaying in four loose groups that each catch the draught at their own pace.
+ */
 const ribbons = {
-  textures: ['dm_ribbon', 'dm_brass'],
+  textures: ['dm_ribbon'],
   build(W, p) {
     const M = mats(W);
     const n = p.n || 6, w = p.w || 2, y = p.y ?? 0.45, len = p.len || 0.75, rot = p.rot || 0;
     const r = rnd(p.seed ?? p.x * 13 + p.z);
-    const cs = Math.cos(rot), sn = Math.sin(rot);
     // each group hangs from the rail line: its pivot sits at the knots, so a sway swings the tails
-    const groups = [0, 1, 2].map(() => {
+    const groups = [0, 1, 2, 3].map(() => {
       const G = new THREE.Group();
       G.position.set(p.x, y, p.z);
       G.rotation.order = 'YXZ';
@@ -270,12 +283,15 @@ const ribbons = {
       return { G, B: new Batch() };
     });
     for (let i = 0; i < n; i++) {
-      const lx = -w / 2 + (i + 0.5) * (w / n) + (r() - 0.5) * 0.15;
-      const l = len * (0.75 + r() * 0.5);
-      const tilt = (r() - 0.5) * 0.2;
-      const { B } = groups[i % 3];
-      B.box({ front: M.ribbon, back: M.ribbon, left: M.ribbon, right: M.ribbon, top: M.ribbon }, lx, 0.03, 0.08, 0.06, -0.05, 0.04, 0);
-      B.quad(M.ribbon, [lx - 0.05, 0, 0.05], [lx + 0.05, 0, 0.05], [lx + 0.05 + tilt, -l, 0.09], [lx - 0.05 + tilt, -l, 0.09], [0, 1, 1, 0]);
+      const lx = -w / 2 + (i + 0.5) * (w / n) + (r() - 0.5) * (w / n) * 0.5;
+      const l = len * (0.55 + r() * 0.85);
+      const tone = ribbonTone(r);
+      const { B } = groups[Math.floor(r() * 4)];
+      // the knot: a little cloth bulge on the rail
+      const knot = ribbonUv(tone);
+      B.box({ front: M.ribbon, back: M.ribbon, left: M.ribbon, right: M.ribbon }, lx, 0.035, 0.1, 0.06, -0.05, 0.03, 0,
+        { front: knot, back: knot, left: knot, right: knot });
+      strip(B, M, lx, 0, 0.04, l, tone, { w: 0.075 + r() * 0.035, tilt: (r() - 0.5) * 0.16 });
     }
     for (const { G, B } of groups) {
       B.build(G);
@@ -284,13 +300,15 @@ const ribbons = {
     const phase = p.x * 0.7 + p.z;
     W.addUpdater((dt, t) => {
       groups.forEach(({ G }, k) => {
-        G.rotation.x = Math.sin(t * 1.1 + phase + k * 2.1) * 0.09;
-        G.rotation.z = Math.sin(t * 0.7 + phase + k) * 0.03;
+        const s = 1.1 + k * 0.23;
+        G.rotation.x = Math.sin(t * s + phase + k * 2.1) * 0.08 + Math.sin(t * s * 2.3 + k) * 0.025;
+        G.rotation.z = Math.sin(t * 0.7 + phase + k * 1.3) * 0.035;
       });
     });
   },
 };
 
+/** Ama's weaving frame: brass bars hung with separated ribbons of every tone and length. */
 const ribbonFrame = {
   textures: ['dm_ribbon', 'dm_brass'],
   build(W, p) {
@@ -302,11 +320,10 @@ const ribbonFrame = {
     const r = rnd(p.x + p.z * 3);
     for (const y of [h - 0.05, h * 0.62, h * 0.3]) {
       rod(B, M.brass, [x0, y, p.z], [x1, y, p.z], 0.03);
-      const n = Math.round(w * 5);
+      const n = Math.round(w * 2.4);
       for (let i = 0; i < n; i++) {
-        const x = x0 + 0.08 + (i / n) * (w - 0.1) + r() * 0.05;
-        const l = 0.35 + r() * 0.45, tilt = (r() - 0.5) * 0.1;
-        B.quad(M.ribbon, [x, y, p.z + 0.04], [x + 0.08, y, p.z + 0.04], [x + 0.08 + tilt, y - l, p.z + 0.06], [x + tilt, y - l, p.z + 0.06], [0, 1, 1, 0]);
+        const x = x0 + 0.15 + ((i + 0.5) / n) * (w - 0.3) + (r() - 0.5) * 0.12;
+        strip(B, M, x, y, p.z + 0.04, 0.25 + r() * 0.5, ribbonTone(r), { w: 0.05 + r() * 0.03, tilt: (r() - 0.5) * 0.08, dz: 0.02 });
       }
     }
     W.addBox(p.x, p.z, w, 0.3);
@@ -315,61 +332,48 @@ const ribbonFrame = {
 
 // ---------------------------------------------------------------- the Moth, the beacon, the iris
 
+/**
+ * A builder view that draws into its own group, moved to (x, z) and scaled by s, so the shared Moth
+ * builder (which places everything around its own p.x, p.z) can build a smaller skiff at the origin.
+ */
+function scaledView(W, x, z, s, on) {
+  const G = new THREE.Group();
+  G.position.set(x, 0, z);
+  G.scale.setScalar(s);
+  W.groupFor(on).add(G);
+  const B = new Batch();
+  const view = Object.create(W, {
+    batchFor: { value: () => B },
+    groupFor: { value: () => G },
+    addBox: { value: (cx, cz, w, d) => W.addBox(x + cx * s, z + cz * s, w * s, d * s) },
+    addGlow: { value: (sprite, gx, gz) => W.addGlow(sprite, x + gx * s, z + gz * s) },
+  });
+  return { view, done: () => B.build(G) };
+}
+
+/** Nyx's skiff: C1's shared Moth (prologue/props.js buildMoth), plus the Ringborn's moth feelers on the nose. */
 const moth = {
-  textures: ['dm_moth_hull', 'dm_moth_glass', 'dm_brass', 'dm_crate', 'dm_lantern'],
+  textures: [...MOTH_TEXTURES],
   build(W, p) {
     const M = mats(W);
     const s = p.scale || 1, rot = p.rot || 0;
-    const G = new THREE.Group();
-    G.position.set(p.x, 0, p.z);
-    G.rotation.y = rot;
-    G.scale.setScalar(s);
-    W.groupFor(p.on).add(G);
-    const B = new Batch();
-    const hull = W.mats.tile('dm_moth_hull', { roughness: 0.55, metalness: 0.35, emissive: 2.2 });
-    const glass = W.mats.tile('dm_moth_glass', { emissive: 1.4, roughness: 0.2, metalness: 0.1 });
-    const H = { front: hull, back: hull, left: hull, right: hull, top: hull };
-    // the skiff, nose to the west (-x) like the Moth in the Halcyon's berth: hull, stepped nose, canopy
-    B.box(H, 0.1, 0, 4.0, 1.6, 0.45, 1.6, 0,
-      { front: [0, 0, 2, 1], back: [0, 0, 2, 1], left: [0, 0, 0.8, 1], right: [0, 0, 0.8, 1], top: [0, 0, 4.0 / 2, 1.6 / 2] });
-    B.box(H, -2.35, 0, 0.9, 1.1, 0.6, 1.4, 0,
-      { front: [0, 0, 0.25, 0.8], back: [0, 0, 0.25, 0.8], left: [0, 0, 0.3, 0.8], top: [0, 0, 0.45, 0.55] });
-    B.box({ front: glass, back: glass, left: glass, right: glass, top: glass }, -1.2, -0.05, 1.4, 0.95, 1.6, 1.98, 0,
-      { top: [0, 0, 1, 1], front: [0, 0, 1, 0.5], back: [0, 0, 1, 0.5], left: [0, 0, 0.6, 0.5], right: [0, 0, 0.6, 0.5] });
-    // stub wings, a tail fin, a crate lashed behind the canopy
-    for (const sz of [1, -1]) B.box(H, 0.55, sz * 1.15, 2.2, 0.75, 0.95, 1.08, 0, { top: [0, 0, 1.1, 0.4], front: [0, 0, 1, 0.1], back: [0, 0, 1, 0.1] });
-    B.box(H, 1.75, 0, 0.9, 0.12, 1.6, 2.4, 0, { front: [0, 0, 0.45, 0.4], back: [0, 0, 0.45, 0.4], top: [0, 0, 0.45, 0.06] });
-    B.box({ front: M.crate, back: M.crate, left: M.crate, right: M.crate, top: M.crate }, 0.55, 0.15, 0.6, 0.6, 1.6, 2.1, 0.2);
-    // feelers: two thin antennae over the nose (Ringborn skiffs are moths)
-    for (const sz of [0.28, -0.28]) {
-      rod(B, M.iron, [-2.5, 1.4, sz], [-2.95, 1.95, sz * 1.6], 0.025);
-      rod(B, M.iron, [-2.95, 1.95, sz * 1.6], [-3.25, 2.05, sz * 2.2], 0.02);
+    const scaled = s !== 1 ? scaledView(W, p.x, p.z, s, p.on) : null;
+    const V = scaled ? scaled.view : W;
+    const at = scaled ? { x: 0, z: 0 } : p;
+    buildMoth(V, { x: at.x, z: at.z, rot, on: p.on });
+    // feelers: two thin antennae sweeping up and forward from the nose, a lamp bead at each tip
+    const cs = Math.cos(rot), sn = Math.sin(rot);
+    const P = (lx, y, lz) => [at.x + lx * cs + lz * sn, y, at.z - lx * sn + lz * cs];
+    const B = V.batchFor(p.on), G = V.groupFor(p.on);
+    for (const lz of [0.12, -0.12]) {
+      const mid = P(-2.8, 2.1, lz * 2.6), tip = P(-3.4, 2.3, lz * 4.4);
+      rod(B, M.brass, P(-2.2, 1.25, lz), mid, 0.032);
+      rod(B, M.brass, mid, tip, 0.026);
+      const bead = makeGlow('#ffb54a', 0.55, 1.3);
+      bead.position.set(...tip);
+      G.add(bead);
     }
-    // landing struts and a paper lantern hung at the nose
-    for (const [lx, lz] of [[-1.4, 0.6], [-1.4, -0.6], [1.4, 0.6], [1.4, -0.6]]) rod(B, M.iron, [lx, 0, lz], [lx, 0.5, lz], 0.05);
-    rod(B, M.cable, [-2.6, 1.4, 0.0], [-2.6, 1.1, 0.0], 0.01);
-    lanternBody(B, M, -2.6, 1.1, 0.0, 1);
-    // engines at the stern
-    for (const sz of [0.5, -0.5]) {
-      B.box({ front: M.brass, back: M.brass, left: M.brass, right: M.brass, top: M.brass }, 2.35, sz, 0.6, 0.55, 0.75, 1.3, 0);
-    }
-    B.build(G);
-    const nozzles = [0.5, -0.5].map((sz) => {
-      const n = makeGlow('#4fd8cf', 0.9, 1.0);
-      n.position.set(2.75, 1.02, sz);
-      G.add(n);
-      return n;
-    });
-    glow(W, G, '#ffa24a', 0.8, 0.8, -2.6, 0.92, 0.05, false);
-    glow(W, G, '#ff5a5a', 0.5, 1.1, 1.75, 2.45, 0, false);
-    W.addBox(p.x, p.z, 4.6 * s, 2.4 * s);
-    // the engines idle: a soft breathing glow
-    W.addUpdater((dt, t) => {
-      for (const n of nozzles) {
-        const k = 0.8 + Math.sin(t * 2.2 + p.x) * 0.2;
-        n.material.color.copy(n.userData.baseColor).multiplyScalar(k);
-      }
-    });
+    if (scaled) scaled.done();
   },
 };
 
@@ -480,13 +484,13 @@ const iris = {
 // ---------------------------------------------------------------- clutter
 
 const scrap = {
-  textures: ['dm_scrap', 'dm_hull_a', 'dm_moth_hull', 'dm_brass'],
+  textures: ['dm_scrap', 'dm_hull_a', 'dm_brass'],
   build(W, p) {
     const M = mats(W);
     const B = W.batchFor(p.on);
     const r = rnd(p.seed ?? p.x * 3 + p.z);
     const w = p.w || 2, d = p.d || 1.4;
-    const plates = [M.scrap, M.hull, M.scrap, M.brass, W.mats.tile('dm_moth_hull', { roughness: 0.5, metalness: 0.45 })];
+    const plates = [M.scrap, M.hull, M.scrap, M.brass, M.cap];
     for (let i = 0; i < 9; i++) {
       const pw = 0.5 + r() * 0.9, pd = 0.4 + r() * 0.6, ph = 0.08 + r() * 0.5;
       const y = (i % 3) * 0.22;
@@ -633,14 +637,15 @@ const lanternTree = {
       }
       for (let j = 0; j < 3; j++) {
         const k = 0.25 + j * 0.22, lx = x + ca * len * k, lz = z + sa * len * k, ly = y0 - 0.1;
-        const l = 0.7 + r() * 0.6, tilt = (r() - 0.5) * 0.12;
-        B.quad(M.ribbon, [lx - 0.05 * sa, ly, lz + 0.05 * ca], [lx + 0.05 * sa, ly, lz - 0.05 * ca],
-          [lx + 0.05 * sa + tilt, ly - l, lz - 0.05 * ca], [lx - 0.05 * sa + tilt, ly - l, lz + 0.05 * ca], [0, 1, 1, 0]);
+        const l = 0.4 + r() * 0.7, tilt = (r() - 0.5) * 0.12;
+        B.quad(M.ribbon, [lx - 0.03 * sa, ly, lz + 0.03 * ca], [lx + 0.03 * sa, ly, lz - 0.03 * ca],
+          [lx + 0.03 * sa + tilt, ly - l, lz - 0.03 * ca], [lx - 0.03 * sa + tilt, ly - l, lz + 0.03 * ca], ribbonUv(ribbonTone(r)));
       }
     }
-    // a brass star on top (the Ringborn's welcome)
-    lanternBody(B, M, x, h + 0.42, z, 1.5);
-    glow(W, G, '#ffc46a', 1.2, 0.7, x, h + 0.2, z + 0.05);
+    // the crown: a jar of Tethys-blue glass in a brass cage, the one cold light among the lanterns
+    cyl(B, M.jar, 0.16, 0.2, 0.42, 8, x, h + 0.25, z);
+    cyl(B, M.brass, 0.22, 0.22, 0.05, 8, x, h + 0.48, z);
+    glow(W, G, '#7fe8f0', 1.4, 0.8, x, h + 0.25, z + 0.05);
     W.addEmitter('dm_spark', { position: [x, h, z], area: [1.6, 0.3, 1.6], rate: 0.8 });
     W.addCircle(x, z, 1.12);
   },
