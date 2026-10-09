@@ -25,11 +25,14 @@ const SPINE_Y = 14.6;   // meridian: the spine's middle row (entry spawn row)
 /** Run a cs call in the background: staging under the lines (an abort is not an error). */
 const bg = (p) => { p.catch(() => {}); return p; };
 
-// Gather slots around the leader, pushed into the open side of the room it stands in.
-function around(cs, dx, dz) {
+// Gather slots beside the leader ({ id: [dx, dz] }, offsets toward the open side of the room). The
+// leader stays put: a gathered leader would carry the player to its slot, into a wall.
+function beside(cs, offsets) {
   const l = cs.actor('leader');
   const x = l ? l.x : 0, z = l ? l.z : 0;
-  return [x + dx, z + dz];
+  const out = {};
+  for (const [id, [dx, dz]] of Object.entries(offsets)) if (!cs.test(`leader:${id}`)) out[id] = [x + dx, z + dz];
+  return out;
 }
 
 const scripts = {
@@ -58,7 +61,7 @@ const scripts = {
     cs.anim('eels', 'special');
     cs.sfx('splash', { pitch: 0.7 });
     cs.particles('frost', [19.6, 0.4, 4.6], { count: 30 });
-    bg(cs.gather({ nyx: around(cs, -0.9, 0.5) }));
+    bg(cs.gather(beside(cs, { nyx: [-0.9, 0.5] })));
     await cs.say('NYX', 'Void eels. They go under, then come up biting.', { expr: 'determined' });
     await cs.battle('shoals_eels');
     cs.flag('shoals:eels');
@@ -101,21 +104,19 @@ const scripts = {
     cs.letterbox(true);
     bg(cs.gather({ nyx: [4.8, 14.3], kade: [3.2, 13.4], sera: [3.0, 15.8], orion: [4.4, 16.3] }));
     cs.face('nyx', 'right');
-    bg(cs.camera.focus([6.5, SPINE_Y], { zoom: 0.92, ms: 800 }));
-    await cs.say('NYX', 'The Meridian.');
-    // the establishing pan down the spine runs under her next line (3 s, WRITING 1.8)
-    bg(cs.camera.pan([[14, SPINE_Y], [24, 13.6], [6, SPINE_Y]], { sec: 3 }));
+    // the establishing pan down the spine runs under her first line (3 s, WRITING 1.8)
+    bg(cs.camera.focus([6.5, SPINE_Y], { zoom: 0.92, ms: 800 })
+      .then(() => cs.camera.pan([[14, SPINE_Y], [24, 13.6], [6, SPINE_Y]], { sec: 3 })));
     cs.anim('nyx', 'hand_to_chest');
-    await cs.say('NYX', 'Eighty years, and the lights never stopped.', { expr: 'sad' });
+    await cs.say('NYX', 'The Meridian. Eighty years, and the lights never stopped.', { expr: 'sad' });
     cs.anim('nyx', null);
-    await cs.say('KADE', 'The Meridian. Lost with all hands. They taught us that at the academy.');
+    await cs.say('KADE', 'Lost with all hands. They taught us that at the academy.');
     cs.face('nyx', 'kade');
     await cs.say('NYX', 'Not all hands.', { expr: 'determined' });
     bg(cs.emote('sera', '...'));
-    await cs.say('SERA', 'There\'s still air in here. Someone keeps it sealed.');
-    await cs.say('NYX', 'We do. We come here to tie ribbons.');
+    await cs.say('SERA', 'There\'s still air in here.');
     cs.flash('#ff9a3c', 0.25, 0.25);
-    await cs.say('ORION', 'Emergency loop only. Two levers would wake the main bus. Hold and engineering.');
+    await cs.say('ORION', 'Emergency loop only. Two levers wake the main bus: hold and engineering.');
     cs.objective('ch1.restore_power');
   },
 
@@ -127,7 +128,7 @@ const scripts = {
     // the Journal and BOLT now name only the lever still to pull (11.8)
     cs.objective(engineering ? 'ch1.power_hold' : 'ch1.power_eng');
     const z = cs.actor('leader')?.z ?? 0;
-    bg(cs.gather({ orion: around(cs, -0.9, z < 11 ? 0.8 : -0.8) }));
+    bg(cs.gather(beside(cs, { orion: [-0.9, z < 11 ? 0.8 : -0.8] })));
     await cs.say('ORION', 'One. She\'s listening.', { expr: 'smile' });
   },
 
@@ -138,13 +139,19 @@ const scripts = {
     cs.flag('story:meridian_power');
     cs.flash('#ffd9a0', 0.35, 0.35);
     cs.sfx('unlock');
-    // the reveal: the quarters door lights up, then back to the squad under Orion's line
-    await cs.camera.focus('quarters_door', { zoom: 0.9, ms: 1000 });
+    // the speakers walk up beside the leader (south of the hold lever, west of the engineering one)
+    // while the camera shows the quarters door lighting up, then back to the squad
     const inHold = (cs.actor('leader')?.z ?? 20) < 11;
-    bg(cs.gather({ orion: around(cs, -0.9, inHold ? 1.0 : -0.6), nyx: around(cs, 0.9, inHold ? 1.0 : 0.6) }));
-    bg(cs.camera.reset({ ms: 800 }));
-    await cs.say('ORION', 'Main bus is live. Hello, old girl. Eighty years is a long nap.', { expr: 'smile' });
-    await cs.say('NYX', 'Her quarters just unsealed. The reactor hall wants a captain\'s code.', { expr: 'determined' });
+    const gathered = bg(cs.gather(beside(cs, inHold
+      ? { orion: [-0.9, 1.0], nyx: [0.9, 1.0] }
+      : { orion: [-1.4, -0.3], nyx: [-0.9, 0.9] })));
+    await cs.camera.focus('quarters_door', { zoom: 0.9, ms: 800 });
+    await cs.camera.reset({ ms: 500 });
+    await gathered;
+    await cs.say([
+      { speaker: 'ORION', text: 'Main bus is live. Hello, old girl.', expr: 'smile' },
+      { speaker: 'NYX', text: 'Her quarters unsealed. The reactor hall wants her code.', expr: 'determined' },
+    ]);
     cs.objective('ch1.varo_quarters');
   },
 
@@ -190,30 +197,33 @@ const scripts = {
     bg(cs.spawn('varo', { sprite: 'varo', x: 21.5, z: 5.5, facing: 'down', hologram: true, name: 'VARO', fade: 0.8 }));
     bg(cs.camera.focus([22.0, 6.2], { zoom: 0.78, ms: 1000 }));
     if (cs.actor('bolt')) bg(cs.move('bolt', [[18.3, 7.0]], { speed: 3.2, face: 'up' }));
+    // everyone in place before the first box: its frame is the reveal (Ines and Nyx, nobody between)
     await cs.gather({ nyx: [23.0, 5.7], kade: [20.0, 6.8], sera: [19.6, 7.9], orion: [23.6, 7.8] });
     for (const id of ['nyx', 'kade', 'sera', 'orion']) cs.face(id, 'varo');
     await cs.say('NYX', '...Great-grandma.', { expr: 'surprised' });
     cs.music('meridian', { fade: 3 });
     await cs.say([
-      { speaker: 'VARO', text: 'Captain\'s log. Ines Varo. The reactor\'s gone. We\'re not going anywhere.' },
-      { speaker: 'VARO', text: 'The Warden invoked the *Lullaby Directive*. Everyone sleeps until a new home is confirmed.' },
-      { speaker: 'VARO', text: 'Nobody is coming to confirm anything. It means forever.' },
+      { speaker: 'VARO', text: 'The reactor\'s gone. The Warden invoked the *Lullaby Directive*. It means forever.' },
       { speaker: 'VARO', text: 'The Warden said sleep was mercy. I said mercy without consent is a cage.' },
       { speaker: 'VARO', text: 'God forgive me for what we did to get out.' },
     ]);
+    // the recording loops (a flicker; the terminal says it in words afterwards)
     cs.sfx('glitch', { volume: 0.5 });
-    await cs.narrate('The recording loops. Ines raises a hand to the lens, and it begins again.');
+    cs.flash('#9fe8ff', 0.12, 0.3);
     cs.anim('nyx', 'hand_to_chest');
-    await cs.say('NYX', 'She looks tired. The stories never said she looked tired.', { expr: 'sad' });
-    await cs.say('KADE', 'Lullaby Directive. It\'s in our charter too. Page four hundred. Nobody reads page four hundred.');
-    await cs.say('ORION', 'Then WARDEN isn\'t broken. It\'s obeying something.');
-    await cs.say('SERA', 'That Directive needs a failed destination. Ours hasn\'t failed. ...Has it?', { expr: 'sad' });
+    // one queued run, so the box stays open between the speakers
+    await cs.say([
+      { speaker: 'NYX', text: 'She looks tired. The stories never said she looked tired.', expr: 'sad' },
+      { speaker: 'KADE', text: 'It\'s in our charter too. Page four hundred. Nobody reads page four hundred.' },
+      { speaker: 'ORION', text: 'Then WARDEN isn\'t broken. It\'s obeying something.' },
+      { speaker: 'SERA', text: 'That Directive needs a failed destination. Ours hasn\'t failed. ...Has it?', expr: 'sad' },
+    ]);
     bg(cs.despawn('varo', { fade: 0.8 }));
     cs.anim('nyx', null);
     cs.flag('story:varo_log');
     cs.sfx('unlock');
     cs.shake(0.05, 0.4);
-    await cs.say('NYX', 'Her code just opened the reactor hall. Let\'s take her coil. She\'d want that.', { expr: 'determined' });
+    await cs.say('NYX', 'Let\'s take her coil. She\'d want that.', { expr: 'determined' });
     cs.objective('ch1.find_coil');
   },
 
@@ -236,7 +246,7 @@ const scripts = {
     // the Maw and the squad in one frame
     bg(cs.camera.focus([48.9, 6.4], { zoom: 0.86, ms: 1000 }));
     cs.particles('frost', [51, 0.4, 5.4], { count: 40 });
-    await cs.narrate('Reactor heat breathes through the ice. Something vast moves beneath it.');
+    await cs.narrate('Something vast moves beneath the ice.');
     await cs.say('NYX', 'Hold still. It hunts by warmth.', { expr: 'determined' });
     if (cs.actor('bolt')) bg(cs.emote('bolt', 'sweat'));
     await cs.say('BOLT', 'I run hot. I\'m sorry.', { expr: 'sad' }); // BOLT draws sad as its worried eye
@@ -256,7 +266,7 @@ const scripts = {
     cs.particles('snow', [51, 1.0, 5.4], { count: 40 });
     bg(cs.despawn('maw', { fade: 1.8 }));
     const walk = cs.move('orion', [[50.2, 4.6]], { speed: 2.4, face: 'up' });
-    await cs.narrate('The Maw sinks back into the black ice, wounded. Not dead.');
+    await cs.narrate('The Maw sinks into the black ice. Wounded, not dead.');
     await walk;
     cs.anim('orion', 'kneel');
     cs.prop('reactor')?.setState?.(false);
@@ -266,7 +276,6 @@ const scripts = {
     cs.anim('orion', null);
     bg(cs.camera.reset({ ms: 700 }));
     await cs.say('NYX', 'Sorry, great-grandma. Borrowing.', { expr: 'sad' });
-    await cs.say('SERA', 'Can we leave before it remembers us?', { expr: 'surprised' });
     cs.save();
     await cs.goto('driftmarket', 'dock');
     await cs.run('driftmarket.return');

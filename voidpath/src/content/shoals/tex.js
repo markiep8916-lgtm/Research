@@ -145,14 +145,15 @@ function iceWall(t, seed, { cargo = false, side = false, crystals = false } = {}
       else t.px(x, y, ICE[2], 0.36);
     } else if (bandAt(x, y - 1) !== b) t.px(x, y, RIME[4], 0.62);
     else if (bandAt(x, y - 2) !== b) t.px(x, y, RIME[2], 0.58);
-    // cyan veins wandering through the ice
-    if (!side && veins[y * W + x] && y > 12 && y < 86 && tn(x, y, W, H, 2, seed + 77, 2) > 0.5) t.glow(x, y, GLW[2], GLW[1]);
+    // cyan veins wandering through the ice: sparse and dim, since every cell of a wall repeats them
+    if (!side && veins[y * W + x] && y > 12 && y < 86 && tn(x, y, W, H, 2, seed + 77, 2) > 0.62) t.glow(x, y, ICE[6], GLW[0]);
     // subsurface glow pooling deep in the ice
     const g = tn(x, y, W, H, 2, seed + 61, 3);
     if (!side && g > 0.66 && y > 14 && y < 80 && bayer(x, y, (g - 0.66) * 2.4)) t.glow(x, y, ICE[6], GLW[0]);
   }
-  // crystal inclusions: small faceted grains frozen in the ice, glowing
-  if (!side) for (let i = 0; i < 3; i++) {
+  // a crystal inclusion: a small faceted grain frozen in the ice, glowing (one, or a wall row of
+  // cells prints a row of them)
+  if (!side) {
     const cx = 4 + Math.floor(r() * 24), cy = 18 + Math.floor(r() * 58), s = 1 + Math.floor(r() * 2);
     for (let dy = -s - 1; dy <= s + 1; dy++) for (let dx = -s; dx <= s; dx++) {
       if (Math.abs(dx) / (s + 0.5) + Math.abs(dy) / (s + 1.5) > 1) continue;

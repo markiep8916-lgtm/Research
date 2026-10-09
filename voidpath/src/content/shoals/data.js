@@ -88,7 +88,7 @@ const enemies = {
     ...statLine(12, 'boss'), shield: 5, maxShieldCap: 10, actionsPerRound: 2,
     weaknesses: ['thermal', 'lance', 'rifle'],
     actions: [
-      hit('maw_ice_breath', 'Ice Breath', 'cryo', 0.82, 40, 'A freezing exhalation across the whole squad.', {
+      hit('maw_ice_breath', 'Ice Breath', 'cryo', 0.9, 40, 'A freezing exhalation across the whole squad.', {
         target: 'all', anim: 'enemyBeam', fx: 'maw.ice_breath',
       }),
       act('maw_tail_slam', 'Tail Slam', 'debuff', 'A tail like a falling girder. Lowers DEF.', {
