@@ -21,7 +21,7 @@
 //
 // Binding ids: objective ch2.go_arboretum (and ch2.*), destination arboretum, spawns dock / channels /
 // stasis / choir and anchor glass (maps/arboretum.js), recap ch2, card ch3 in the Choir Chamber, then
-// cs.goto('halcyon', 'bridge_starchart') and objective ch3.go_spire (C5's: set once it is registered).
+// objective ch3.go_spire (C5's: set once it is registered) and cs.goto('halcyon', 'bridge_starchart').
 // Local flags: arb:sluice, arb:sluice_hint, arb:valve_a_said, arb:valve_b_said, arb:spores, arb:caretaker,
 // arb:esme, arb:bolt_hub, arb:mother7_freed, arb:mother7_talked, arb:spear_tip; arb:stasis_gold and
 // arb:choir_gold switch the gold light while WARDEN's sigil wakes (WRITING.md 1.7).
@@ -298,8 +298,9 @@ const scripts = {
     cs.flag('story:ch2_done');
     await cs.ungather();
     await cs.card('ch3');
-    await cs.goto('halcyon', 'bridge_starchart');
+    // before the goto: the Halcyon's arrival card shows the objective current when it opens
     objectiveIfKnown(cs, 'ch3.go_spire');
+    await cs.goto('halcyon', 'bridge_starchart');
     bg(cs.letterbox(false));
   },
 
