@@ -17,10 +17,13 @@
 //                   wakes the whole squad and Sera answers; below 25% it charges the Unbound Requiem
 //                   (heavy, all), which a Break cancels.
 //
-// `heart_boss_warden_2` is form 2 alone, for "Retry from the second form" (retryPhase). Music:
-// `final_boss`, then `final_boss_2` on the transform (it quotes the lullaby); the retry starts on it.
+// `heart_boss_warden_2` is form 2 alone, for "Retry from the second form" (retryPhase); it opens on the
+// flooded crown. Music: `final_boss`, then `final_boss_2` on the transform (it quotes the lullaby); the
+// retry starts on it.
 // Numbers come from statLine; tuning against the first-timer target (10-14 rounds across both forms,
-// 2+ Breaks per form) lives in balance.js overrides (C10) and in the HP factors below.
+// 2+ Breaks per form) lives in balance.js overrides (C10) and in the HP factors below. Single-target
+// powers are fair to a first-timer: no untelegraphed move takes a member from full HP to 0, and a
+// Defend always survives the Last Lullaby from full HP (the telegraph says so).
 
 import { statLine } from '../balance.js';
 
@@ -46,7 +49,7 @@ const tuned = (line0, { hp = 1, offense = 1 }) => ({
 
 // a little forward of the usual boss slot, so the 256-px construct's eye stays in the focus band
 // (the crown arena's inlay sits under it)
-export const STAGE_SLOT = [-4.4, 1.4];
+export const STAGE_SLOT = [-4.4, 2.2];
 const STAGE = { slot: STAGE_SLOT };
 
 const enemies = {
@@ -65,13 +68,13 @@ const enemies = {
         target: 'all', anim: 'enemyBeam', cooldown: 1, fx: 'warden.lullaby',
         effect: { stats: ['sleep'], stage: 1, turns: 2, chance: 0.5, limit: 3 },
       }),
-      hit('wl_cradle', 'Cradle', 'void', 1.4, 22, 'Its arms close around one of you. Sleep for two turns.', {
+      hit('wl_cradle', 'Cradle', 'void', 1.0, 22, 'Its arms close around one of you. Sleep for two turns.', {
         cooldown: 1, fx: 'warden.cradle', pose: 'cast', effect: { stats: ['sleep'], stage: 1, turns: 2 },
       }),
-      hit('wl_hand', 'Gentle Hand', 'photon', 1.5, 23, 'A hand of light, laid on one of you like a blanket.', { anim: 'enemyShot' }),
+      hit('wl_hand', 'Gentle Hand', 'photon', 1.1, 23, 'A hand of light, laid on one of you like a blanket.', { anim: 'enemyShot' }),
       ...LOCK_MEMBERS.map((m) => lockOn(lockId(m), `WARDEN begins the Last Lullaby for ${m.toUpperCase()}...`)),
       lockOn('wl_lock', 'WARDEN begins the Last Lullaby...'),
-      hit('wl_last_lullaby', 'Last Lullaby', 'photon', 2.8, 0, 'The song\'s last verse, for one listener. Defend.', {
+      hit('wl_last_lullaby', 'Last Lullaby', 'photon', 1.9, 0, 'The song\'s last verse, for one listener. Defend.', {
         anim: 'enemyBeam', fx: 'warden.last_lullaby',
       }),
     ],
@@ -97,7 +100,7 @@ const enemies = {
       hit('wu_cradle', 'Cradle of Stars', 'void', 0.7, 18, 'A cradle of falling light closes on one of you.', {
         cooldown: 2, fx: 'warden.cradle', pose: 'cast', effect: { stats: ['sleep'], stage: 1, turns: 2 },
       }),
-      hit('wu_fall', 'Falling Light', 'photon', 0.32, 30, 'Pieces of the Choir\'s light fall on one of you.', { hits: 3, anim: 'enemyShot', fx: 'warden.fall' }),
+      hit('wu_fall', 'Falling Light', 'photon', 0.27, 30, 'Pieces of the Choir\'s light fall on one of you.', { hits: 3, anim: 'enemyShot', fx: 'warden.fall' }),
       act('wu_gather', 'Unbound Requiem', 'charge', 'It gathers every voice into one note. Break it, or Defend.', {
         anim: 'enemyCharge', fires: 'wu_requiem', chargeRounds: 1,
         telegraph: 'WARDEN gathers every voice into one note...', fx: 'warden.gather',
@@ -183,8 +186,10 @@ const bossScripts = {
 
   warden_unbound: {
     thresholds: [0.75, 0.5, 0.25],
-    // heart_boss_warden_2 (Retry from the second form): Voss keeps watch here too.
+    // heart_boss_warden_2 (Retry from the second form): the crown is already flooded with the Choir's
+    // light, and Voss keeps watch here too.
     onBegin(api) {
+      api.cue('choir_flood', { targetId: api.enemies()[0]?.id });
       armVoss(api);
       api.mem.requiemAt = 0;
     },

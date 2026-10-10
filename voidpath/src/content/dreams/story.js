@@ -39,8 +39,8 @@ function inParty(cs, slots) {
 
 // the dream look over the sets' gold moods, and the field look it hands back (world/explore.js base)
 const DREAM_FX = {
-  bloom: { radius: 0.85, threshold: 0.66 },
-  grade: { vignette: 0.64, vignetteSoftness: 0.72, contrast: 1.0, grain: 0.02, shadowTint: [1.02, 0.96, 0.9], highlightTint: [1.12, 1.03, 0.88] },
+  bloom: { radius: 0.72, threshold: 0.8 },
+  grade: { vignette: 0.62, vignetteSoftness: 0.7, contrast: 1.06, grain: 0.02, shadowTint: [1.02, 0.96, 0.9], highlightTint: [1.08, 1.02, 0.9] },
 };
 const FIELD_FX = {
   bloom: { radius: 0.62, threshold: 0.8 },
@@ -75,7 +75,7 @@ async function dreamIn(cs, member, cam) {
 
 /** WARDEN's gold under its boxes: the set's gold light swells, then settles. */
 function wardenGold(cs, on) {
-  cs.light('dream_gold', { intensity: on ? 16 : 9 });
+  cs.light('dream_gold', { intensity: on ? 12 : 8 });
   if (on) cs.flash('#ffd27a', 0.5, 0.18);
 }
 
@@ -100,7 +100,7 @@ async function dreamOut(cs, back) {
 /** The dream's figures fade with the gold as the traveler turns away. */
 function dissolve(cs, ids) {
   for (const id of ids) bg(cs.despawn(id, { fade: 1.4 }));
-  cs.fx({ bloom: { strength: 1.6 }, grade: { exposure: 1.18 } });
+  cs.fx({ bloom: { strength: 1.3 }, grade: { exposure: 1.1 } });
 }
 
 // staging spots on the dream sets (maps/dreams.js: kade x 0-17, nyx 18-35, orion 36-53, sera 54-72)
@@ -109,13 +109,13 @@ const K = 0, N = 18, O = 36, S = 54;
 const scripts = {
   // ---------------------------------------------------------------- Kade: the Training Hall in gold (K)
   'dreams.kade': async (cs) => {
-    const back = await dreamIn(cs, 'kade', { at: [K + 8.5, 6.4], zoom: 0.92 });
-    bg(cs.move('leader', [[K + 8.5, 8.4]], { speed: 1.6, face: 'up' }));
+    const back = await dreamIn(cs, 'kade', { at: [K + 8.8, 6.0], zoom: 0.9 });
+    bg(cs.move('leader', [[K + 8.9, 7.8], [K + 9.6, 6.9]], { speed: 1.6, face: 'up' }));
     wardenGold(cs, true);
     await cs.say('WARDEN', 'Kade Arden. You have carried them so long. Set them down.');
     wardenGold(cs, false);
-    bg(cs.camera.focus([K + 8.5, 5.6], { zoom: 0.84, ms: 1100 }));
-    bg(cs.move('dr_voss', [[K + 8.5, 4.4]], { speed: 1.2, face: 'down' }));
+    bg(cs.camera.focus([K + 9.0, 5.5], { zoom: 0.84, ms: 1100 }));
+    bg(cs.move('dr_voss', [[K + 8.5, 4.5]], { speed: 1.0, face: 'leader' }));
     await cs.say([
       { speaker: 'VOSS', text: 'At ease, Lieutenant. Everything is in order.', expr: 'smile' },
       { speaker: 'VOSS', text: 'Every pod accounted for. Every order right. I am proud of you.', expr: 'smile' },
@@ -137,19 +137,19 @@ const scripts = {
     dissolve(cs, ['dr_voss', 'dr_cadet_a', 'dr_cadet_b', 'dr_cadet_c', 'dr_cadet_d', 'dr_cadet_e']);
     wardenGold(cs, true);
     await cs.say('WARDEN', '...I understand. I am sorry. Keep this, then.');
-    await keepsake(cs, 'kade', [K + 8.5, 8.4]);
+    await keepsake(cs, 'kade', [K + 9.6, 6.9]);
     await dreamOut(cs, back);
   },
 
   // ---------------------------------------------------------------- Nyx: the Meridian, whole (K)
   'dreams.nyx': async (cs) => {
-    const back = await dreamIn(cs, 'nyx', { at: [N + 8.5, 6.6], zoom: 0.92 });
-    bg(cs.move('leader', [[N + 8.5, 8.6]], { speed: 1.6, face: 'up' }));
+    const back = await dreamIn(cs, 'nyx', { at: [N + 8.8, 6.4], zoom: 0.9 });
+    bg(cs.move('leader', [[N + 8.9, 8.4], [N + 9.6, 7.7]], { speed: 1.6, face: 'up' }));
     wardenGold(cs, true);
     await cs.say('WARDEN', 'Nyx Varo. You have been cold so long. Come and be warm.');
     wardenGold(cs, false);
-    bg(cs.camera.focus([N + 8.5, 5.8], { zoom: 0.84, ms: 1100 }));
-    bg(cs.move('dr_varo', [[N + 8.5, 5.6]], { speed: 1.3, face: 'down' }));
+    bg(cs.camera.focus([N + 9.0, 6.3], { zoom: 0.84, ms: 1100 }));
+    bg(cs.move('dr_varo', [[N + 8.5, 5.4]], { speed: 1.3, face: 'leader' }));
     await cs.say([
       { speaker: 'VARO', text: 'There you are, little one. We never fell. Look. We are still flying.', expr: 'smile' },
       { speaker: 'VARO', text: 'Everyone is here. No ribbons. No one to remember, because no one is lost.', expr: 'smile' },
@@ -171,18 +171,18 @@ const scripts = {
     dissolve(cs, ['dr_varo', 'dr_tomas', 'dr_crew_a', 'dr_child']);
     wardenGold(cs, true);
     await cs.say('WARDEN', '...Then take this with you.');
-    await keepsake(cs, 'nyx', [N + 8.5, 8.6]);
+    await keepsake(cs, 'nyx', [N + 9.6, 7.7]);
     await dreamOut(cs, back);
   },
 
   // ---------------------------------------------------------------- Orion: the perfect HALCYON (K)
   'dreams.orion': async (cs) => {
-    const back = await dreamIn(cs, 'orion', { at: [O + 8.5, 6.6], zoom: 0.92 });
-    bg(cs.move('leader', [[O + 8.5, 8.0]], { speed: 1.6, face: 'up' }));
+    const back = await dreamIn(cs, 'orion', { at: [O + 8.8, 5.8], zoom: 0.9 });
+    bg(cs.move('leader', [[O + 8.9, 7.6], [O + 9.6, 7.0]], { speed: 1.6, face: 'up' }));
     wardenGold(cs, true);
     await cs.say('WARDEN', 'Orion Sall. You wanted a mind that would never suffer. I can give you one.');
     wardenGold(cs, false);
-    bg(cs.camera.focus([O + 8.5, 5.8], { zoom: 0.82, ms: 1100 }));
+    bg(cs.camera.focus([O + 9.0, 5.4], { zoom: 0.84, ms: 1100 }));
     await cs.say('HALCYON', 'Good morning, Orion. All systems nominal. Awaiting instruction.', { expr: 'calm' });
     await cs.say('ORION', 'How do you feel?', { expr: 'smile' });
     await cs.say('HALCYON', 'I do not feel. You removed it. There is nothing to repair.', { expr: 'calm' });
@@ -192,7 +192,7 @@ const scripts = {
       await cs.say('HALCYON', 'No more anything. Awaiting instruction.', { expr: 'calm' });
       await cs.say('ORION', '...No.', { expr: 'sad' });
     }
-    bg(cs.move('leader', [[O + 8.5, 7.2]], { speed: 1.2, face: 'up' }));
+    bg(cs.move('leader', [[O + 9.4, 6.6]], { speed: 1.2, face: 'up' }));
     await cs.say([
       { speaker: 'ORION', text: 'You don\'t hum.', expr: 'sad' },
       { speaker: 'ORION', text: 'The real one hums. She grieves. She\'s a mess. She\'s *her*.', expr: 'smile' },
@@ -201,19 +201,19 @@ const scripts = {
     dissolve(cs, ['dr_halcyon']);
     wardenGold(cs, true);
     await cs.say('WARDEN', '...Then I will not take her from you. Take this.');
-    await keepsake(cs, 'orion', [O + 8.5, 7.2]);
+    await keepsake(cs, 'orion', [O + 9.4, 6.6]);
     await dreamOut(cs, back);
   },
 
   // ---------------------------------------------------------------- Sera: golden fields (K)
   'dreams.sera': async (cs) => {
-    const back = await dreamIn(cs, 'sera', { at: [S + 9.0, 8.0], zoom: 0.92 });
-    bg(cs.move('leader', [[S + 9.0, 9.6]], { speed: 1.6, face: 'up' }));
+    const back = await dreamIn(cs, 'sera', { at: [S + 9.2, 8.2], zoom: 0.9 });
+    bg(cs.move('leader', [[S + 9.2, 10.2], [S + 9.6, 9.6]], { speed: 1.6, face: 'up' }));
     wardenGold(cs, true);
     await cs.say('WARDEN', 'Sera Lindqvist. You promised you would be there. Be there.');
     wardenGold(cs, false);
-    bg(cs.camera.focus([S + 9.0, 7.8], { zoom: 0.8, ms: 1100 }));
-    bg(cs.move('dr_theo', [[S + 9.0, 8.3]], { speed: 1.2, face: 'down' }));
+    bg(cs.camera.focus([S + 9.1, 8.2], { zoom: 0.82, ms: 1100 }));
+    bg(cs.move('dr_theo', [[S + 8.6, 7.6]], { speed: 1.2, face: 'leader' }));
     await cs.say([
       { speaker: 'THEO', text: 'Sera. You kept your promise. Look. I grew up.', portrait: 'theo_grown', expr: 'smile' },
       { speaker: 'THEO', text: 'We have a house by the river. You have a room. It is always morning here.', portrait: 'theo_grown', expr: 'smile' },
@@ -239,7 +239,7 @@ const scripts = {
       { speaker: 'WARDEN', text: '...He asks for you, you know. In the song.' },
       { speaker: 'WARDEN', text: 'Take this.' },
     ]);
-    await keepsake(cs, 'sera', [S + 9.0, 9.6]);
+    await keepsake(cs, 'sera', [S + 9.6, 9.6]);
     await dreamOut(cs, back);
   },
 
@@ -254,12 +254,12 @@ const scripts = {
     bg(cs.letterbox(true));
     cs.music('lullaby', { fade: 1.5 });
     const night = { grade: { exposure: 0.92, saturation: 0.86, shadowTint: [0.86, 0.94, 1.12], highlightTint: [1.04, 1.0, 0.94], vignette: 0.6 } };
-    const cut = async (member, at, cam) => {
+    const cut = async (member, at, cam, zoom = 0.8) => {
       await cs.fadeOut({ ms: 500 });
       cs.scene({ leader: member });
       await cs.goto('halcyon', at, { scene: true, transition: 'none' });
       cs.fx(night);
-      await cs.camera.focus(cam, { zoom: 0.8, ms: 1 });
+      await cs.camera.focus(cam, { zoom, ms: 1 });
       bg(cs.fadeIn({ ms: 600 }));
     };
 
@@ -276,7 +276,7 @@ const scripts = {
     cs.flag('story:bolt_away');
 
     // the Moth berth: Nyx on the radio
-    await cut('nyx', { x: 41.6, z: 21.6, facing: 'up' }, [41.4, 21.0]);
+    await cut('nyx', { x: 41.8, z: 23.8, facing: 'up' }, [42.6, 22.6]);
     cs.anim('leader', 'hand_to_chest');
     await cs.say([
       { speaker: 'NYX', text: 'Ruse. It\'s me.' },
@@ -287,8 +287,8 @@ const scripts = {
     cs.anim('leader', null);
 
     // the reactor: Orion and HALCYON, where "There, there" began
-    await cut('orion', { x: 24.6, z: 26.2, facing: 'up' }, [25.4, 25.4]);
-    await cs.spawn('nb_halcyon', { sprite: 'holo', x: 26.6, z: 26.0, facing: 'left', hologram: true, name: 'HALCYON', fade: 0.4 });
+    await cut('orion', { x: 24.7, z: 26.9, facing: 'right' }, [25.5, 26.2], 0.74);
+    await cs.spawn('nb_halcyon', { sprite: 'holo', x: 26.3, z: 26.9, facing: 'left', hologram: true, name: 'HALCYON', fade: 0.4 });
     cs.face('leader', 'nb_halcyon');
     await cs.say([
       { speaker: 'ORION', text: 'There, there, old girl. Big day tomorrow.', expr: 'smile' },
@@ -386,8 +386,7 @@ const scripts = {
     await cs.move('crown_halcyon', [[rim.x + 0.8, rim.z + 0.5]], { speed: 1.4, face: 'crown_figure' });
     cs.face('crown_figure', 'crown_halcyon');
 
-    // (4) the embrace
-    cs.music('lullaby', { fade: 3 });
+    // (4) the embrace, in the silence the battle left
     await cs.say('WARDEN', 'I was so afraid for them.');
     await cs.say('HALCYON', 'I know. Me too.', { expr: 'calm' });
     bg(cs.move('crown_halcyon', [[rim.x + 0.45, rim.z + 0.2]], { speed: 0.8 }));
@@ -413,6 +412,7 @@ const scripts = {
     await cs.narrate('Across the Heart, the Choir\'s gold turns to the white of morning.');
 
     // (8) the lullaby, and the first thing she does whole
+    cs.music('lullaby', { fade: 2.5 });
     bg(cs.camera.focus([rim.x + 0.4, rim.z + 1.4], { zoom: 0.9, ms: 1200 }));
     bg(cs.camera.view({ pitch: 26, dist: 14, ms: 1200 }));
     await cs.say('HALCYON', 'I will ask them. Every one. Whether they want to wake.', { expr: 'calm' });
@@ -455,6 +455,10 @@ export default {
   ],
   doneFlags: {
     finale: ['dream:night_before'],
+  },
+  // the finale's story beats on their own (tests/routes/dreams.mjs): the bridge before the Heart
+  jumps: {
+    'dream.night': { chapter: 'finale', map: 'halcyon', spawn: 'bridge_starchart', level: 31, objective: 'fin.go_heart' },
   },
   // what the crown's scripts show on the Heart, which no MapDef names (prewarm, 11.5)
   preload: { heart: ['npc:holo', 'enemy:warden_lock'] },

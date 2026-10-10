@@ -10,8 +10,8 @@
 //                               hanging pods, outer balustrades (open where a bridge or pad joins),
 //                               glowing inner lips over the shafts, the permanent bridges
 //   heart.column       { x, z, ring }   a shaft's falling column of light, three turning gilt rings,
-//                               rings of pods down the shaft wall (the Crown: light rising from the
-//                               oculus instead)
+//                               bands of the hymn written in light turning round it, rings of pods
+//                               down the shaft wall (the Crown: light rising from the oculus instead)
 //   heart.abyss        { }      the deep: drifting pod-stars, the cathedral's piers, pennants
 //   heart.liftPad      { x, z, r, pad }  a lift's ring of spires, its glyph and its column of light
 //   heart.bridge       gate: a hard-light bridge along a layout span (`bridge` id) that draws
@@ -85,11 +85,16 @@ function tintGlow(s, color, k = 1) {
   if (s.userData.baseColor) s.userData.baseColor.copy(s.material.color);
 }
 
-/** Unlit additive material (beams, rings, lips, halos). */
-const additive = (color, k = 1, opacity = 1, map = null) => new THREE.MeshBasicMaterial({
-  color: new THREE.Color(color).multiplyScalar(k), map, transparent: true, opacity, depthWrite: false,
-  blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide,
-});
+/** Unlit additive material (beams, rings, lips, halos); it never casts a shadow when batched. */
+function additive(color, k = 1, opacity = 1, map = null) {
+  const m = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(color).multiplyScalar(k), map, transparent: true, opacity, depthWrite: false,
+    blending: THREE.AdditiveBlending, fog: false, side: THREE.DoubleSide,
+  });
+  m.userData.cast = false;
+  m.userData.receive = false;
+  return m;
+}
 
 /** Shared lit materials of the Heart, built once per World. */
 function mats(W) {
@@ -101,7 +106,7 @@ function mats(W) {
     crown: M.tile('hr_crown', { emissive: 2.4, roughness: 0.4, metalness: 0.45, cast: false }),
     pad: M.tile('hr_pad', { emissive: 2.4, roughness: 0.4, metalness: 0.5, cast: false }),
     slab: M.tile('hr_slab', { emissive: 2.2, roughness: 0.5, metalness: 0.35, cast: false }),
-    bridge: M.tile('hr_bridge', { emissive: 1.1, roughness: 0.3, metalness: 0.3, cast: false }),
+    bridge: M.tile('hr_bridge', { emissive: 0.7, roughness: 0.3, metalness: 0.3, cast: false }),
     edge: M.tile('hr_edge', { emissive: 2.4, roughness: 0.45, metalness: 0.45, cast: false }),
     under: M.tile('hr_under', { emissive: 2.0, roughness: 0.5, metalness: 0.3, cast: false }),
     gilt: M.tile('hr_gilt', { emissive: 2.0, roughness: 0.32, metalness: 0.65 }),
@@ -109,6 +114,10 @@ function mats(W) {
     inlay: M.tile('hr_gilt', { emissive: 4.2, roughness: 0.3, metalness: 0.6, cast: false }),
     pod: M.tile('hr_pod', { emissive: 1.5, roughness: 0.35, metalness: 0.4, cast: false }),
     lip: additive('#ffc860', 1.15, 0.9),
+    // the hard-light bridges' light: the line along each curb, the rails, the glow under the keel
+    curbLine: additive('#ffd27a', 0.6),
+    railLine: additive('#ffe0a0', 0.3),
+    keelGlow: additive('#ff9a3c', 0.16, 0.55),
   };
   return W.heartMats;
 }
@@ -293,9 +302,9 @@ function buildRing(W, B, ring, pods, r0) {
     const full = a1 - a0 >= 360;
     // the deck: an inner band, the walkway, an outer band; gold inlay rings between them
     const bi = rIn + (isCrown ? 1.2 : 0.9), bo = rOut - 0.9;
-    // (the Crown's walkway rings out from the oculus: marble, a band of flagstones, marble)
+    // (the Crown's walkway rings out from the oculus: marble, a band of plain flagstones, marble)
     const m0 = bi + (bo - bi) * 0.34, m1 = bi + (bo - bi) * 0.62;
-    const runs = isCrown ? [[rIn, bi, band], [bi, m0, deck], [m0, m1, band], [m1, bo, deck], [bo, rOut, band]]
+    const runs = isCrown ? [[rIn, bi, band], [bi, m0, deck], [m0, m1, M.floor], [m1, bo, deck], [bo, rOut, band]]
       : [[rIn, bi, band], [bi, bo, deck], [bo, rOut, band]];
     for (const [q0, q1, mat] of runs) deckBand(B, mat, cx, cz, a0, a1, q0, q1);
     for (const r of isCrown ? [bi, m0, m1, bo] : [bi, bo]) deckBand(B, M.inlay, cx, cz, a0, a1, r - 0.035, r + 0.035, 0.008);
@@ -364,8 +373,8 @@ function buildPad(W, B, pad) {
   }
 }
 
-/** Straight slabs: a smooth chamfered deck over the cells, rims and a stepped underside. */
-function buildSlab(W, B, slab) {
+/** Straight slabs: a smooth chamfered deck over the cells, rims, a stepped underside, a glow below. */
+function buildSlab(W, B, G, slab) {
   const M = mats(W);
   const [c0, r0, c1, r1] = slab.rect;
   const x0 = c0, x1 = c1 + 1, z0 = r0, z1 = r1 + 1, k = slab.cut;
@@ -376,6 +385,28 @@ function buildSlab(W, B, slab) {
   const deck = new THREE.ShapeGeometry(new THREE.Shape(poly.map(([x, z]) => new THREE.Vector2(x, -z))));
   deck.rotateX(-Math.PI / 2);
   put(B, mat, deck, [0, 0.003, 0]);   // under the galleries where a slab meets one
+  // the Choir's light pooling in the haze below it, so the slab hangs over light, not black
+  const haze = new THREE.Mesh(new THREE.PlaneGeometry((x1 - x0) * 2.2, (z1 - z0) * 1.8), additive('#d08a30', 0.3, 1, starTexture()));
+  haze.rotation.x = -Math.PI / 2;
+  haze.position.set((x0 + x1) / 2, -3.2, (z0 + z1) / 2);
+  haze.renderOrder = -1;
+  G.add(haze);
+  // the runner: a strip of hard light down the slab between two gilt inlays, its chevrons pointing
+  // the way on (toward +x or +z, or back when `back`)
+  if (slab.runner) {
+    const { axis, at, w, from, to, back } = slab.runner;
+    const [a0, a1] = axis === 'x' ? [x0 + 0.15, x1 - 0.15] : [z0 + 0.15, z1 - 0.15];
+    const u0 = from ?? a0, u1 = to ?? a1;
+    const strip = (y, half, m) => {
+      const a = (o, t) => (axis === 'x' ? [t, y, at + o] : [at + o, y, t]);
+      face(B, m, a(-half, u0), a(-half, u1), a(half, u1), a(half, u0), back ? [u1, at - half, u0, at + half] : [u0, at - half, u1, at + half], [0, 1, 0]);
+    };
+    strip(0.006, w / 2, M.bridge);
+    for (const sd of [-1, 1]) {
+      const a = (o, t) => (axis === 'x' ? [t, 0.009, at + sd * w / 2 + o] : [at + sd * w / 2 + o, 0.009, t]);
+      face(B, M.inlay, a(-0.04, u0), a(-0.04, u1), a(0.04, u1), a(0.04, u0), [0, 0, 1, 1], [0, 1, 0]);
+    }
+  }
   // rims on every edge that faces the void, a stepped underside below
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i], b = poly[(i + 1) % poly.length];
@@ -404,39 +435,54 @@ function buildSlab(W, B, slab) {
   }
 }
 
-/** A permanent hard-light bridge: a glowing deck with thickness, rails of light, a glow beneath. */
-function staticBridge(W, B, G, b) {
+/** Multiply a geometry's uvs (tiles a box or plane along its length). */
+function uvScale(geo, su, sv) {
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
+  return geo;
+}
+
+const at4 = (x, y, z, ry = 0) => new THREE.Matrix4().compose(_p.set(x, y, z), _q.setFromEuler(_e.set(0, ry, 0, 'YXZ')), _s.setScalar(1));
+
+/**
+ * A hard-light bridge `len` long and `w` wide along local +x from 0 (local z across it): the
+ * hard-light deck, curbs of navy stone with a gilt lip and a line of light, a shallow keel underneath
+ * with a glow below it, rails of light on gilt posts. `add(mat, geo, matrix)` takes each part (a
+ * Batch: permanent spans merge into the World's batch, drawn ones into their own group).
+ */
+function bridgeParts(M, len, w, deckMat, add) {
+  const hw = w / 2;
+  const deck = uvScale(new THREE.PlaneGeometry(len, w - 0.3), len, w - 0.3);
+  deck.rotateX(-Math.PI / 2);
+  add(deckMat, deck, at4(len / 2, 0.012, 0));
+  for (const sd of [-1, 1]) {
+    add(M.edge, uvScale(new THREE.BoxGeometry(len, 0.36, 0.2), len, 1), at4(len / 2, -0.1, sd * (hw - 0.1)));
+    add(M.curbLine, new THREE.BoxGeometry(len, 0.025, 0.05), at4(len / 2, 0.085, sd * (hw - 0.1)));
+    // the keel: a slope of stone from under each curb to the spine
+    const k = new THREE.PlaneGeometry(len, Math.hypot(hw, 0.36));
+    uvScale(k, len, 1);
+    k.rotateX(Math.PI / 2 - sd * Math.atan2(0.36, hw));
+    add(M.under, k, at4(len / 2, -0.46, sd * hw * 0.5));
+    // rails of light on gilt posts
+    const n = Math.max(2, Math.round(len / 1.1));
+    for (let i = 1; i < n; i++) add(M.gilt, new THREE.BoxGeometry(0.06, 0.4, 0.06), at4((len * i) / n, 0.27, sd * (hw - 0.1)));
+    add(M.railLine, new THREE.BoxGeometry(len, 0.03, 0.03), at4(len / 2, 0.46, sd * (hw - 0.1)));
+  }
+  const glowPlane = new THREE.PlaneGeometry(len, w * 1.7);
+  glowPlane.rotateX(Math.PI / 2);
+  add(M.keelGlow, glowPlane, at4(len / 2, -0.7, 0));
+}
+
+/** A permanent hard-light bridge, merged into the World's batch. */
+function staticBridge(W, B, b) {
   const M = mats(W);
   const [ax, az] = b.a, [bx, bz] = b.b;
   const len = Math.hypot(bx - ax, bz - az);
-  const ang = Math.atan2(bz - az, bx - ax);
-  const ux = Math.cos(ang), uz = Math.sin(ang), nx = -uz, nz = ux;
-  const hw = b.w / 2;
-  const P = (s, o, y) => [ax + ux * s + nx * o, y, az + uz * s + nz * o];
-  face(B, M.bridge, P(0, -hw, 0.011), P(len, -hw, 0.011), P(len, hw, 0.011), P(0, hw, 0.011), [0, 0, len, b.w], [0, 1, 0]);
-  for (const sd of [-1, 1]) {
-    face(B, M.edge, P(0, sd * hw, 0.011), P(len, sd * hw, 0.011), P(len, sd * hw, -0.3), P(0, sd * hw, -0.3), [0, 1, len, 0.7], [nx * sd, 0, nz * sd]);
-    // rail of light on short gilt posts
-    const n = Math.max(2, Math.round(len / 0.9));
-    for (let s = 0; s <= n; s++) {
-      const [x, , z] = P((len * s) / n, sd * (hw - 0.1), 0);
-      if (s > 0 && s < n) put(B, M.gilt, new THREE.BoxGeometry(0.07, 0.42, 0.07), [x, 0.21, z]);
-    }
-  }
-  face(B, M.under, P(0, -hw, -0.3), P(len, -hw, -0.3), P(len, hw, -0.3), P(0, hw, -0.3), [0, 0, len, b.w], [0, -1, 0]);
-  const rail = additive('#ffd27a', 0.55);
-  for (const sd of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.045, 0.045), rail);
-    const [x, , z] = P(len / 2, sd * (hw - 0.1), 0);
-    m.position.set(x, 0.44, z);
-    m.rotation.y = -ang;
-    G.add(m);
-  }
-  const under = new THREE.Mesh(new THREE.PlaneGeometry(len, b.w * 1.6), additive('#ff9a3c', 0.25, 0.55));
-  const [ux0, , uz0] = P(len / 2, 0, -0.34);
-  under.position.set(ux0, -0.34, uz0);
-  under.rotation.set(Math.PI / 2, 0, ang);
-  G.add(under);
+  const place = at4(ax, 0, az, -Math.atan2(bz - az, bx - ax));
+  bridgeParts(M, len, b.w, M.bridge, (mat, geo, m) => {
+    B.geometry(mat, geo, place.clone().multiply(m));
+    geo.dispose();
+  });
 }
 
 const tiers = {
@@ -447,8 +493,8 @@ const tiers = {
     const pods = [];
     for (const ring of RINGS) buildRing(W, B, ring, pods, r0);
     for (const pad of PADS) buildPad(W, B, pad);
-    for (const slab of SLABS) buildSlab(W, B, slab);
-    for (const b of BRIDGES) if (b.ch === '=') staticBridge(W, B, G, b);
+    for (const slab of SLABS) buildSlab(W, B, G, slab);
+    for (const b of BRIDGES) if (b.ch === '=') staticBridge(W, B, b);
     podMesh(W, G, pods);
   },
 };
@@ -457,7 +503,7 @@ const tiers = {
 
 /** A shaft's falling column: layered beams, turning gilt rings, rings of pods down the wall. */
 const column = {
-  textures: ['hr_column', 'hr_gilt', 'hr_pod'],
+  textures: ['hr_column', 'hr_staff', 'hr_gilt', 'hr_pod'],
   build(W, p) {
     const M = mats(W), G = W.groupFor(p.on);
     const ring = RINGS.find((r) => r.id === p.ring);
@@ -465,8 +511,10 @@ const column = {
     const g = new THREE.Group();
     g.position.set(p.x, 0, p.z);
     G.add(g);
-    // the beam: scrolling streaks in two shells, a billboard volume around them
-    const top = crown ? 0.2 : 26, bot = -24;
+    // the beam: scrolling streaks in two shells, a billboard volume around them. It burns below the
+    // decks only: above them it would stand between the camera and a chord bridge (the falling motes
+    // carry the light down from above)
+    const top = crown ? 0.2 : -0.3, bot = -24;
     const h = top - bot;
     const sets = [];
     const shells = crown ? [[1.6, 0.7, 0.55]] : [[0.7, 0.75, 0.75], [1.4, 0.3, 0.45]];
@@ -481,25 +529,32 @@ const column = {
     const beam = makeLightShaft({ width: crown ? 3.0 : 2.4, height: h, color: '#ffcf70', opacity: crown ? 0.1 : 0.06, spread: 1.15, dust: 1.4, floorY: bot, floorFade: 6 });
     beam.position.y = top;
     g.add(beam);
-    // the turning rings: gilt bands with a glowing inner edge, tilted, each at its own pace
-    const rings = (crown ? [[2.6, -1.6, 0.18], [3.6, -4.2, -0.12]] : [[3.0, -1.2, 0.16], [4.4, -4.6, -0.2], [2.4, 3.2, 0.1]]).map(([r, y, tilt], i) => {
+    // the turning rings: gilt bands with a glowing inner edge and lit studs, tilted, each at its own
+    // pace, stepping down the shaft below the decks (no bridge passes through one)
+    const ringLine = additive('#ffd890', 0.7);
+    const rings = (crown ? [[2.6, -1.6, 0.18], [3.6, -4.2, -0.12]]
+      : [[ring.rIn - 1.4, -2.0, 0.07], [ring.rIn - 3.0, -5.2, -0.12], [ring.rIn - 2.2, -9.6, 0.1]]).map(([r, y, tilt], i) => {
       const holder = new THREE.Group();
       holder.position.y = y;
       holder.rotation.set(tilt, 0, tilt * 0.7);
-      const band = new THREE.Mesh(new THREE.TorusGeometry(r, 0.11, 6, 72), M.gilt);
-      band.rotation.x = Math.PI / 2;
-      band.castShadow = false;
-      const line = new THREE.Mesh(new THREE.TorusGeometry(r - 0.13, 0.025, 4, 72), additive('#ffd890', 0.7));
-      line.rotation.x = Math.PI / 2;
-      holder.add(band, line);
-      // studs round the band, lit
-      for (let k = 0; k < 12; k++) {
-        const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), M.inlay);
-        s.position.set(Math.cos((k / 12) * TAU) * r, 0, Math.sin((k / 12) * TAU) * r);
-        holder.add(s);
-      }
+      const parts = new Batch();
+      const flat = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+      parts.geometry(M.giltFlat, new THREE.TorusGeometry(r, 0.11, 6, 72), flat);
+      parts.geometry(ringLine, new THREE.TorusGeometry(r - 0.13, 0.025, 4, 72), flat);
+      for (let k = 0; k < 12; k++) parts.geometry(M.inlay, new THREE.OctahedronGeometry(0.09, 0), at4(Math.cos((k / 12) * TAU) * r, 0, Math.sin((k / 12) * TAU) * r));
+      for (const m of parts.build(holder)) m.matrixAutoUpdate = true;
       g.add(holder);
       return { holder, speed: (i % 2 ? -1 : 1) * (0.07 + i * 0.03), tilt };
+    });
+    // the hymn written in light: bands of notation turning round the column as it falls, the digital
+    // half of the cathedral (the Choir's song as WARDEN keeps it)
+    const staves = (crown ? [[2.2, 1.6, 0.5]] : [[2.4, -1.0, 0.5], [2.0, -3.2, 0.45], [2.7, -6.6, 0.5]]).map(([r, y, h], i) => {
+      const set = textureSet('hr_staff', { repeat: [Math.round(r * 2), 1] });
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40, 1, true), additive('#ffd890', 0.9, 0.85, set.map));
+      band.position.y = y;
+      band.renderOrder = 5;
+      g.add(band);
+      return { band, speed: (i % 2 ? -1 : 1) * (0.12 + i * 0.05) };
     });
     // rings of pods down the shaft wall: the near ones as pods, the deep ones as stars
     const pods = [], stars = [];
@@ -534,6 +589,7 @@ const column = {
     const base = glow(W, g, '#ffc860', crown ? 4 : 3, crown ? 0.5 : 0.3, 0, crown ? 0.4 : -0.8, 0, false);
     W.addUpdater((dt, t) => {
       for (const s of sets) s.map.offset.y = (t * 0.22) % 1;
+      for (const s of staves) s.band.rotation.y = t * s.speed;
       for (const r of rings) {
         r.holder.rotation.y = t * r.speed;
         r.holder.rotation.x = r.tilt + Math.sin(t * 0.21 + r.speed * 10) * 0.05;
@@ -546,8 +602,8 @@ const column = {
 // ---------------------------------------------------------------- the abyss
 
 // the cathedral's piers: clustered columns rising from the deep through the voids between tiers
-const PIERS = [[36.5, 28.5, 1.4], [36.5, 51.5, 1.1], [40.5, 4.0, 1.1], [3.5, 27.5, 1.0], [69.0, 27.5, 1.0], [27.0, 26.0, 0.8],
-  [45.0, 26.5, 0.8], [62.0, 28.0, 0.7], [11.0, 28.5, 0.8], [26.5, 2.5, 0.7]];
+const PIERS = [[36.5, 28.5, 1.4], [40.0, 36.5, 1.1], [40.0, 21.0, 1.0], [3.5, 27.5, 1.0], [69.0, 27.5, 1.0], [27.0, 26.0, 0.8],
+  [52.0, 27.6, 0.8], [62.0, 28.0, 0.7], [11.0, 28.5, 0.8], [26.5, 2.5, 0.7]];
 
 const abyss = {
   textures: ['hr_under', 'hr_gilt', 'hr_banner', 'hr_pod'],
@@ -652,48 +708,33 @@ const bridge = {
     holder.position.set(ax, 0, az);
     holder.rotation.y = -ang;
     G.add(holder);
-    const deckSet = textureSet('hr_bridge', { repeat: [len, span.w] });
+    const deckSet = textureSet('hr_bridge', { repeat: [1, 1] });
     const deckMat = new THREE.MeshStandardMaterial({
-      map: deckSet.map, normalMap: deckSet.normalMap, emissiveMap: deckSet.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.1,
+      map: deckSet.map, normalMap: deckSet.normalMap, emissiveMap: deckSet.emissiveMap, emissive: 0xffffff, emissiveIntensity: 0.7,
       roughness: 0.3, metalness: 0.3,
     });
+    // the whole span is built at full length; drawing it out scales it from its `a` end
     const deck = new THREE.Group();
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), deckMat);
-    top.rotation.x = -Math.PI / 2;
-    top.position.set(0.5, 0.01, 0);
-    top.scale.set(1, span.w, 1);
-    top.receiveShadow = true;
-    deck.add(top);
-    const sideMat = additive('#ffb84a', 0.35, 0.6);
-    const railMat = additive('#ffd890', 0.6);
-    for (const sd of [-1, 1]) {
-      const side = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.26), sideMat);
-      side.position.set(0.5, -0.12, sd * hw);
-      deck.add(side);
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(1, 0.045, 0.045), railMat);
-      rail.position.set(0.5, 0.42, sd * (hw - 0.08));
-      deck.add(rail);
-      const low = new THREE.Mesh(new THREE.BoxGeometry(1, 0.03, 0.03), railMat);
-      low.position.set(0.5, 0.18, sd * (hw - 0.08));
-      deck.add(low);
-    }
-    const under = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), additive('#ff9a3c', 0.25, 0.6));
-    under.rotation.x = Math.PI / 2;
-    under.position.set(0.5, -0.26, 0);
-    under.scale.set(1, span.w * 1.6, 1);
-    deck.add(under);
+    const parts = new Batch();
+    bridgeParts(M, len, span.w, deckMat, (mat, geo, m) => {
+      parts.geometry(mat, geo, m);
+      geo.dispose();
+    });
+    for (const m of parts.build(deck)) m.receiveShadow = true;
     holder.add(deck);
     // the ghost: dotted light where the bridge will be, while it is closed
     const ghostMat = additive('#ffc860', 0.6, 0.7);
     const ghost = new THREE.Group();
+    const dots = new Batch();
     for (let x = 0.4; x < len; x += 0.55) {
       for (const sd of [-1, 1]) {
-        const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.07), ghostMat);
-        dot.rotation.x = -Math.PI / 2;
-        dot.position.set(x, 0.02, sd * (hw - 0.12));
-        ghost.add(dot);
+        const dot = new THREE.PlaneGeometry(0.2, 0.07);
+        dot.rotateX(-Math.PI / 2);
+        dots.geometry(ghostMat, dot, at4(x, 0.02, sd * (hw - 0.12)));
+        dot.dispose();
       }
     }
+    dots.build(ghost);
     holder.add(ghost);
     // gilt posts at both ends with lamps that wake as the deck draws out
     const glows = [];
@@ -710,9 +751,8 @@ const bridge = {
     let k = 0, open = false;
     const apply = () => {
       const e = 1 - (1 - k) ** 3;
-      deck.scale.x = Math.max(0.001, len * e);
+      deck.scale.x = Math.max(0.001, e);
       deck.visible = k > 0.002;
-      for (const t of [deckSet.map, deckSet.normalMap, deckSet.emissiveMap]) if (t) t.repeat.x = Math.max(0.01, len * e);
       ghost.visible = k < 0.98;
       ghostMat.opacity = 0.7 * (1 - k);
       for (const g of glows) tintGlow(g, open ? '#ffe2a0' : '#6a5030', 0.45 + k * 0.55);

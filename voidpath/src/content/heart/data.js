@@ -14,8 +14,8 @@
 // M3: the Bellwarden (optional elite at the Third Tier's dead end, guards eq_x_choir_bell) and a rare
 // Lost Hymn formation (big drops).
 //
-// Zones: heart_ascent (the Dock's ring, the Second Tier), heart_crown (the Third Tier). Numbers come
-// from statLine (balance.js); C10 tunes them through overrides.
+// Zones: heart_ascent (the Dock's ring, the Second Tier), heart_crown (the Third Tier and the
+// processional). Numbers come from statLine (balance.js); C10 tunes them through overrides.
 
 import { statLine } from '../balance.js';
 
@@ -25,7 +25,10 @@ const act = (id, name, kind, desc, extra = {}) => ({
 const hit = (id, name, type, power, weight, desc, extra = {}) => act(id, name, 'attack', desc, { type, power, weight, ...extra });
 const SLEEP = { stats: ['sleep'], stage: 1, turns: 2 };
 const MARK = { stats: ['marked'], stage: 1, turns: 2 };
-const GILT = '#ffe0a0';   // the Choir's gold over an old foe
+// the Choir's light over an old foe: tints multiply the sprite, so a cold-coloured foe takes a pale warm
+// cast (a strong gold would turn its blues green) and a warm or grey one takes the gold
+const GILT = '#ffe0a0';
+const GILT_PALE = '#fff2dc';
 
 // ---------------------------------------------------------------- the Ascent's own
 
@@ -53,7 +56,7 @@ const enemies = {
   dream_eater: {
     kind: 'dream_eater', name: 'Dream Eater', script: 'dream_eater', ...statLine(29, 'standard'), shield: 4,
     weaknesses: ['thermal', 'blade', 'photon'],
-    stage: { hover: 0.08 },
+    stage: { hover: 0.08, scale: 0.88 },   // a little smaller, so a trio does not stack on a phone
     actions: [
       hit('eater_siphon', 'Dream Siphon', 'void', 1.05, 60, 'Drinks a little of someone. It heals by what it takes.'),
       hit('eater_dust', 'Moth Dust', 'photon', 0.42, 25, 'Glittering dust over everyone. Lowers SPD.', {
@@ -68,7 +71,6 @@ const enemies = {
     kind: 'choir_guardian', name: 'Choir Guardian', script: 'choir_guardian', ...statLine(30, 'armored'), shield: 6,
     shieldGain: 2, maxShieldCap: 10,
     weaknesses: ['gauntlet', 'volt', 'lance'],
-    stage: { slot: [-5.4, -2.4] },   // the back slot: the cradle shield is tall
     actions: [
       hit('guard_bash', 'Cradle Bash', 'gauntlet', 1.25, 60, 'The round shield, brought down hard.'),
       hit('guard_censer', 'Censer Swing', 'thermal', 0.5, 30, 'Embers of incense over everyone.', { target: 'all', anim: 'enemyBeam', cooldown: 1 }),
@@ -81,7 +83,7 @@ const enemies = {
 
   // ---------------------------------------------------------------- the elites: what WARDEN remembers
   elite_rime_golem: {
-    kind: 'elite_rime_golem', name: 'Choirlit Rime Golem', art: 'rime_golem', tint: GILT, ...statLine(31, 'elite'), shield: 7,
+    kind: 'elite_rime_golem', name: 'Choirlit Rime Golem', art: 'rime_golem', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 7,
     weaknesses: ['thermal', 'gauntlet', 'lance'],
     stage: { slot: [-5.4, -2.4], scale: 1.12 },
     actions: [
@@ -98,7 +100,7 @@ const enemies = {
     drops: [{ id: 'medigel_max', chance: 0.5, n: 1 }],
   },
   elite_bloom_mantis: {
-    kind: 'elite_bloom_mantis', name: 'Choirlit Bloom Mantis', art: 'bloom_mantis', tint: GILT, ...statLine(31, 'elite'), shield: 5,
+    kind: 'elite_bloom_mantis', name: 'Choirlit Bloom Mantis', art: 'bloom_mantis', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 5,
     actionsPerRound: 2,
     weaknesses: ['cryo', 'rifle', 'gauntlet'],
     actions: [
@@ -130,7 +132,7 @@ const enemies = {
     drops: [{ id: 'revive_plus', chance: 0.4, n: 1 }],
   },
   elite_firewall_golem: {
-    kind: 'elite_firewall_golem', name: 'Choirlit Firewall', art: 'firewall_golem', tint: GILT, script: 'firewall_golem', ...statLine(31, 'elite'),
+    kind: 'elite_firewall_golem', name: 'Choirlit Firewall', art: 'firewall_golem', tint: GILT_PALE, script: 'firewall_golem', ...statLine(31, 'elite'),
     shield: 7,
     weaknesses: ['cryo', 'void', 'lance'],
     stage: { slot: [-5.4, -2.4] },
@@ -319,10 +321,12 @@ const zones = {
   heart_crown: ['heart_c_trio', 'heart_c_eaters', 'heart_c_choir', 'heart_c_guards'],
 };
 
-// Measured with tools/expected-fights.mjs on tests/routes/heart.mjs: the critical path walks 100 units
-// in heart_ascent and 35 in heart_crown (the rings fill their quadrants, so the ascent is short and
-// dense): 2.48 + 1.30 random fights expected, with the Wardens, the Choir, two Echoes and WARDEN on the
-// way, 8.8 in all (target 8-10, 2 elites included)
-const zoneRates = { heart_ascent: { grace: 6, sigma: 12 }, heart_crown: { grace: 5, sigma: 10 } };
+// Measured with tools/expected-fights.mjs on tests/routes/heart.mjs: the critical path walks 140 units
+// in heart_ascent (the Dock's ring and the Second Tier, most of each ring walked) and 65 in heart_crown
+// (the Third Tier's long arc and the processional). The map already sits at the 72 x 56 cell limit,
+// so these rates stay well above back-to-back pacing (grace 6, sigma 10): 4.3 random fights expected,
+// with the Wardens, the Choir, two Echoes and WARDEN on the way, 9.3 in all (target 8-10, 2 elites
+// included)
+const zoneRates = { heart_ascent: { grace: 8, sigma: 16 }, heart_crown: { grace: 8, sigma: 14 } };
 
 export default { enemies, encounters, zones, zoneRates, bossScripts };

@@ -1,5 +1,5 @@
 [
-  {"note": "The final boss (C11): the squad as first-timers (fin.warden: level 30, finale kit, the four keepsakes) meets WARDEN, THE MERCIFUL LOCK on the crown of the Heart: the intro card, the Lullaby, Voss keeping watch over Kade, the Cradle closing at half health, the Last Lullaby, the transform into LULLABY UNBOUND (HALCYON's recharge, final_boss_2), the Choir's voices, Theo asking Sera, the Requiem gathering; then the squad falls, Retry from the second form starts heart_boss_warden_2 on final_boss_2 with the party as the battle began, and the second attempt wins (the fold, the outro). HP is set with debug.enemyHp to reach each beat; actions are forced only to show them (software GL renders well under 1 fps)"},
+  {"note": "The final boss (C11): the squad as first-timers (fin.warden: level 30, finale kit, the four keepsakes) meets WARDEN, THE MERCIFUL LOCK on the crown of the Heart: the intro card, the Lullaby, Voss keeping watch over Kade, the Cradle closing at half health, the Last Lullaby, the transform into LULLABY UNBOUND (HALCYON's recharge, final_boss_2), the Choir's voices, Theo asking Sera, the Requiem gathering (forced once the Choir has spoken, with the squad defending so the boss stands); then the squad falls, Retry from the second form starts heart_boss_warden_2 on final_boss_2 with the party as the battle began, and the second attempt wins (the fold, the outro). HP is set with debug.enemyHp to reach each beat; actions are forced only to show them (software GL renders well under 1 fps)"},
   {"waitFor": "window.__VP && window.__VP.ready", "timeout": 3600000},
   {"eval": "window.S = () => window.__VP.debug.state()"},
   {"eval": "window.M = () => __VP.game.states.battle.model"},
@@ -62,7 +62,9 @@
   {"shot": "09-theo"},
 
   {"note": "a quarter: the Choir hears them waking; the Requiem gathers"},
-  {"eval": "__VP.debug.enemyHp(W, 0.27), window.SNAP = { key: 'act:wu_gather', delay: 1.0 }, true"},
+  {"eval": "__VP.debug.enemyHp(W, 0.27)"},
+  {"until": "LOG.filter((k) => k === 'say:CHOIR').length >= 2", "max": 3000, "do": [{"if": "SAY()", "then": [{"key": "Enter"}]}, {"wait": 300}]},
+  {"eval": "__VP.debug.autoplay('defend'), __VP.debug.enemyHp(W, 0.2), window.SNAP = { key: 'act:wu_gather', delay: 1.0 }, __VP.debug.forceAction(W, 'wu_gather'), true"},
   {"until": "__VP.debug.paused", "max": 3000, "do": [{"if": "SAY()", "then": [{"key": "Enter"}]}, {"wait": 300}]},
   {"shot": "10-gather"},
   {"eval": "__VP.debug.resume()"},

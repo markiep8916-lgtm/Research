@@ -41,8 +41,8 @@
 //             elite, warden_lock 31 / warden_unbound 32 boss
 // Per-kind `overrides` below carry what the curves cannot: lesson foes that must live long enough,
 // chapter XP that lands the party on each boss's level, and every boss's 8-10 rounds with two
-// Breaks against a first-timer's gear (G2 C10-3, bar rule 7). WARDEN keeps C11's numbers
-// (warden/data.js `tuned`) until its first-timer test moves to the level the route delivers.
+// Breaks against a first-timer's gear (G2 C10-3, bar rule 7). WARDEN keeps C11's HP and offence
+// (warden/data.js `tuned`); only its second form's speed is C10's (10-14 rounds across both forms).
 
 import { BATTLE_RULES, ENEMIES, PARTY_DEFS } from '../battle/data.js';
 
@@ -127,7 +127,8 @@ export const overrides = {
     bloom_mantis: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
     rootling: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
     feral_caretaker: { atk: 2, mag: 2, maxHp: 1.4 },
-    gardener: { xp: 0.3 },                             // the chapter ends at 17 (her numbers are C4's)
+    // the chapter ends at 17; her numbers are C4's, a little sharper for a squad that rested in the hall
+    gardener: { xp: 0.3, atk: 1.05, mag: 1.05 },
     honour_guard: { xp: 0.35 },                        // three of them: worth about a level, like the other rare finds
     // Voss: the overclock is the dangerous half, so a squad in the chapter's chest gear still loses
     // about one fight in ten (route check 85-95%) and a first-timer who bought the Security Plate
@@ -142,6 +143,12 @@ export const overrides = {
     // the Third Tier's Echoes meet a squad worn down by the climb (no rest since the Second Tier)
     elite_sec_trooper: { atk: 0.88, mag: 0.88 },
     elite_firewall_golem: { atk: 0.88, mag: 0.88 },
+    // WARDEN's second form: the desperate double turn opens the round and comes back before the
+    // healers act, so a squad in the Heart's gear still loses about one fight in fifteen (route
+    // check 85-95%); its shield (below) breaks twice in a first-timer's form 2. Raw attack instead
+    // would sink a squad that arrives under-levelled (C11's fin.warden test: level 30, the
+    // chapter's starting bag, wins about 85%)
+    warden_unbound: { spd: 1.5, atk: 1.04, mag: 1.04, maxHp: 1.05 },
   },
   enemies: {
     pro_drone_glitch: { xp: 100 },   // the tutorial levels Kade up before Sera joins
@@ -151,6 +158,7 @@ export const overrides = {
     maw: { shieldGain: 1 },          // two Breaks in a first-timer's fight (G2 bar rule 7)
     voss_overclock: { shield: 3 },   // her second form breaks once more before she falls
     echo: { shield: 5, shieldGain: 1 },   // two Breaks against a first-timer, one in time for a Severance
+    warden_unbound: { shield: 2 },   // its weak points move after every Break: two Breaks per form
   },
   // chapter 1, 2, 3, 4 and finale foes (their bosses too)
   xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.08], [23, 27, 0.86], [28, 33, 0.67]],

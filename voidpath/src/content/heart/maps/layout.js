@@ -4,14 +4,16 @@
 // 180 = west, 270 = north.
 //
 // Four tiers climb the Heart, each a ring gallery round its own stretch of the reactor column (the
-// shaft of gold light that falls through the whole cathedral), joined by lifts that ride the
-// cathedral wall. The tiers sit in the four quadrants of the map, so no two share a frame:
-//   T1 the Dock (south-west)          the Moth's pier and the causeway; two arcs joined by a chord
-//                                     bridge across the shaft that one pylon lights (introduce)
-//   T2 the Second Tier (south-east)   the north chord leads to a pylon whose bridge lights far
-//                                     away, at the lift pad (twist)
-//   T3 the Third Tier (north-east)    two pylons, both lit, open the processional (combine); the
-//                                     crown approach west to the sanctum and the crown lift
+// shaft of gold light that falls through the whole cathedral), joined by lifts whose pads hang out
+// over the abyss on long hard-light spans. The tiers sit in the four quadrants of the map, so no two
+// share a frame, and each tier's climb walks most of its ring:
+//   T1 the Dock (south-west)          the Moth's pier and the causeway onto the west arc; the pylon at
+//                                     the arc's south end lights the chord across the shaft north of
+//                                     the column; the east arc south to the lift (introduce)
+//   T2 the Second Tier (south-east)   up the east arc, over the north chord; the pylon at the west
+//                                     arc's south end lights the span back north to the lift pad (twist)
+//   T3 the Third Tier (north-east)    one long arc: both pylons, at its far ends, open the processional
+//                                     west to the Sanctum (combine); the Bellwarden's alcove by the lift
 //   The Crown (north-west)            a wide disc round the oculus where the column ends
 // Walkable cells lie fully inside their platform's smooth outline, so the drawn rims, rails and
 // undersides always cover the cells the World draws.
@@ -21,42 +23,45 @@ export const H = 56;
 
 // ring galleries: centre, inner and outer radius, the arcs that exist (degree ranges, a1 may pass 360)
 export const RINGS = [
-  { id: 't1', cx: 21.5, cz: 42.5, rIn: 7.5, rOut: 12, arcs: [[112, 248], [292, 428]], ch: 'o' },
-  { id: 't2', cx: 54.5, cz: 42.5, rIn: 7.5, rOut: 12, arcs: [[110, 250], [290, 430]], ch: 'o' },
-  { id: 't3', cx: 56.5, cz: 13.5, rIn: 7.5, rOut: 12, arcs: [[290, 610]], ch: 'o' },
+  { id: 't1', cx: 22, cz: 42.5, rIn: 8, rOut: 13, arcs: [[110, 250], [290, 430]], ch: 'o' },
+  { id: 't2', cx: 55.5, cz: 42.5, rIn: 8, rOut: 13, arcs: [[110, 250], [290, 430]], ch: 'o' },
+  { id: 't3', cx: 56.5, cz: 13, rIn: 8, rOut: 12.5, arcs: [[290, 610]], ch: 'o' },
   // the Crown: a disc round the oculus (the column's end, open to the light below)
   { id: 'crown', cx: 11.5, cz: 11.5, rIn: 3.0, rOut: 10.5, arcs: [[0, 360]], ch: 'c' },
 ];
 
-// round pads (lifts): centre and radius; `ring` names the gallery the pad hangs from (a short span
-// joins them, gated when `gate` names a legend char)
+// round pads (lifts): centre and radius; `ring` names the gallery the pad hangs from and `at` the
+// angle its span leaves the gallery (gated when `gate` names a legend char)
 export const PADS = [
-  { id: 'lift_t1', cx: 31.6, cz: 32.4, r: 2.5, ch: 'p', ring: 't1' },
-  { id: 'lift_t2_in', cx: 64.6, cz: 52.6, r: 2.5, ch: 'p', ring: 't2' },
-  { id: 'lift_t2', cx: 43.6, cz: 53.0, r: 2.5, ch: 'p', ring: 't2', gate: 'b' },
-  { id: 'lift_t3_in', cx: 66.6, cz: 3.4, r: 2.5, ch: 'p', ring: 't3' },
+  { id: 'lift_t1', cx: 37.6, cz: 53.4, r: 2.5, ch: 'p', ring: 't1', at: 52 },
+  { id: 'lift_t2_in', cx: 67.4, cz: 53.0, r: 2.5, ch: 'p', ring: 't2', at: 44 },
+  { id: 'lift_t2', cx: 44.4, cz: 27.0, r: 2.4, ch: 'p', ring: 't2', at: 236, gate: 'b' },
+  { id: 'lift_t3_in', cx: 68.9, cz: 4.3, r: 2.5, ch: 'p', ring: 't3', at: 326 },
   { id: 'lift_crown', cx: 34.0, cz: 4.6, r: 2.5, ch: 'p', ring: null },
   { id: 'lift_crown_in', cx: 18.0, cz: 22.6, r: 2.4, ch: 'p', ring: 'crown' },
 ];
 
-// straight platforms: cell rect [c0, r0, c1, r1] inclusive, chamfer depth `cut`
+// straight platforms: cell rect [c0, r0, c1, r1] inclusive, chamfer depth `cut`; a `runner` is a strip
+// of hard light down the slab (axis, centre line, width, optional from/to; `back` points it toward -x
+// or -z) that leads the eye on
 export const SLABS = [
-  { id: 'pier', rect: [1, 37, 7, 49], ch: ',', cut: 2 },        // the Moth's berth
-  { id: 'causeway', rect: [7, 40, 10, 45], ch: '.', cut: 0 },   // pier -> the first ring
-  { id: 'sanctum', rect: [30, 7, 37, 18], ch: ',', cut: 2 },    // the last rest before the crown lift
+  { id: 'pier', rect: [1, 37, 7, 49], ch: ',', cut: 2, runner: { axis: 'x', at: 42.6, w: 2.2 } },   // the Moth's berth
+  { id: 'causeway', rect: [8, 40, 9, 45], ch: '.', cut: 0, runner: { axis: 'x', at: 42.6, w: 2.2, to: 9 } },   // to the ring
+  { id: 'sanctum', rect: [30, 7, 37, 18], ch: ',', cut: 2, runner: { axis: 'z', at: 34.0, w: 2.4, back: true } }, // to the lift
 ];
 
 // bridges: a straight span from [x, z] to [x, z], `w` wide; '=' is permanent, a letter a gated light
 // bridge (its gate in maps/heart.js); the light draws itself out from the `a` end
 export const BRIDGES = [
-  { id: 'br_t1', a: [14.0, 46.0], b: [29.0, 46.0], w: 2, ch: 'a' },        // T1 chord, south of the column
-  { id: 'br_t2_n', a: [61.0, 39.0], b: [48.0, 39.0], w: 2, ch: '=' },      // T2 north chord
-  { id: 'br_t3', a: [44.6, 13.5], b: [37.6, 13.5], w: 3, ch: 'f' },        // T3 -> the processional (two pylons)
-  { id: 'br_crown', a: [34.0, 7.8], b: [34.0, 6.0], w: 2.4, ch: '=' },     // the sanctum -> the crown lift pad
-  // the spans that join pads to their galleries, from the gallery's outer edge to the pad's centre
+  { id: 'br_t1', a: [14.0, 38.5], b: [30.0, 38.5], w: 2, ch: 'a' },        // T1 chord, north of the column
+  { id: 'br_t2_n', a: [63.5, 38.5], b: [47.5, 38.5], w: 2, ch: '=' },      // T2 north chord
+  { id: 'br_t3', a: [44.6, 13.0], b: [37.6, 13.0], w: 3, ch: 'f' },        // T3 -> the processional (two pylons)
+  { id: 'br_crown', a: [34.0, 7.8], b: [34.0, 6.0], w: 2.4, ch: '=' },     // the Sanctum -> the crown lift pad
+  // the spans that join pads to their galleries, from inside the gallery's outer edge to the pad's
+  // centre (the light draws out from the gallery)
   ...PADS.filter((p) => p.ring).map((p) => {
     const ring = RINGS.find((g) => g.id === p.ring);
-    const a = angleOf(ring.cx, ring.cz, p.cx, p.cz);
+    const a = p.at ?? angleOf(ring.cx, ring.cz, p.cx, p.cz);
     return { id: `br_${p.id}`, a: ringPoint(ring, a, ring.rOut - 1.4), b: [p.cx, p.cz], w: 2.4, ch: p.gate || '=', pad: p.id };
   }),
 ];

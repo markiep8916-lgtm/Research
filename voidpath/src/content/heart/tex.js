@@ -8,13 +8,13 @@
 //
 // export const TEXTURES   { name: TextureDef } registered by art.js:
 //   floors   hr_floor / hr_floor_b (the ring galleries: navy flagstones, gold-inlaid seams),
-//            hr_crown (the Crown: ivory-gold marble), hr_pad (lift pads: gilt plates),
+//            hr_crown (the Crown: dusk marble), hr_pad (lift pads: gilt plates),
 //            hr_slab (the pier and the Sanctum: navy deck plates, gilt trim), hr_bridge (hard light)
 //   slabs    hr_edge (platform rims: a gilt lip over navy stone), hr_under (the hanging undersides)
 //   metal    hr_gilt (brushed gold: balustrades, rings, organ pipes, pylons)
 //   props    hr_screen (WARDEN's hymnal, 3 frames), hr_pod (a Choir pod's window), hr_column (the
-//            falling light, for additive shafts), hr_glyph (the twelve-rayed ring, alpha), hr_banner
-//            (the Choir's long pennants, alpha)
+//            falling light, for additive shafts), hr_staff (the hymn written in light, additive bands),
+//            hr_glyph (the twelve-rayed ring, alpha), hr_banner (the Choir's long pennants, alpha)
 //   abyss    bd_choir (the underlay: thousands of pods like stars, ringed round falling light)
 
 import { rng, bayer, Painter } from '../../art/painter.js';
@@ -23,7 +23,6 @@ import { fbm } from '../../art/tiles.js';
 // ---------------------------------------------------------------- ramps (dark -> light)
 
 const NV = ['#090c1e', '#0f1530', '#161e40', '#1e2950', '#283562', '#334376', '#43568e', '#5b70ac'];   // navy stone
-const IV = ['#3a3040', '#5a4a52', '#7e6a66', '#a58e7e', '#c8b296', '#e2cfae', '#f2e4c6', '#fff6e2'];   // ivory marble
 const GT = ['#1c1204', '#352409', '#5a3e0f', '#856017', '#b58723', '#dcae3a', '#f6d46a', '#fff3c4'];   // gilt
 const ST = ['#0a0e1c', '#111830', '#182240', '#212d52', '#2b3a64', '#384a7a', '#4a5e94', '#6478b0'];   // deck steel
 const GD = { lo: '#4a2e08', mid: '#a06a18', hi: '#ffc04a', hot: '#fff0c0' };                           // emissive gold
@@ -92,20 +91,19 @@ function paintFloorB(t) {
 }
 
 /**
- * The Crown: dusk marble (navy shot through with ivory veins, so the gold light reads on it rather
- * than washing it out), gold seams and studs; the deck's concentric gilt bands are geometry.
+ * The Crown: dusk marble (navy clouded with a warmer violet, so the gold light reads on it rather
+ * than washing it out), gold seams and studs; the deck's concentric gilt bands are geometry. The body
+ * stays a soft cloud with no line or spot that could repeat cell after cell (G2 bar rule 16).
  */
 function paintCrown(t) {
   for (let y = 0; y < 32; y++) {
     for (let x = 0; x < 32; x++) {
       const n = tn(x, y, 301, 0.12);
-      const v = Math.abs(tn(x, y, 307, 0.09, 32, 4) - 0.5);
+      const m = tn(x, y, 309, 0.3, 32, 2);
       let c = 4;
-      if (n > 0.62) c = 5;
-      else if (n < 0.38 && bayer(x, y, 0.5)) c = 3;
-      t.px(x, y, NV[c], 0.55 + (n - 0.5) * 0.06);
-      if (v < 0.012) t.px(x, y, IV[2], 0.52);
-      else if (v < 0.03 && bayer(x, y, 0.5)) t.px(x, y, NV[6], 0.52);
+      if (n > 0.64) c = 5;
+      else if (n < 0.36 && bayer(x, y, 0.5)) c = 3;
+      t.px(x, y, NV[c], 0.55 + (n - 0.5) * 0.06 + (m - 0.5) * 0.02);
     }
   }
   for (let i = 0; i < 32; i++) {
@@ -156,8 +154,8 @@ function paintBridge(t) {
       const ch = (x + d * 0.9) % 16;
       const n = tn(x, y, 601, 0.3);
       if (y === 0 || y === 31) t.px(x, y, NV[1]);
-      else if (ch < 1.6 && d < 12) t.glow(x, y, GT[5], d < 5 ? GD.mid : GD.lo);
-      else if (ch < 3 && d < 12) t.glow(x, y, GT[2], GD.lo);
+      else if (ch < 1.6 && d < 12) t.glow(x, y, GT[4], GD.lo);
+      else if (ch < 3 && d < 12) t.px(x, y, GT[2]);
       else t.px(x, y, n > 0.6 ? NV[4] : NV[3]);
       t.ht(x, y, y === 0 || y === 31 ? 0.35 : 0.5);
     }
@@ -284,6 +282,30 @@ function paintColumn(t) {
   }
 }
 
+/**
+ * A band of the hymn the Choir sings, written in light (for additive bands round the columns: black is
+ * clear): three faint staff lines, note heads with stems, small runs of data ticks between them.
+ */
+function paintStaff(t) {
+  const r = rng(1251);
+  const add = (x, y, c, a) => {
+    const p = t.get(x, y);
+    t.put(x, y, [Math.min(255, p[0] + c[0] * a), Math.min(255, p[1] + c[1] * a), Math.min(255, p[2] + c[2] * a), 255]);
+  };
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 128; x++) t.put(x, y, '#000000');
+  for (const y of [4, 8, 12]) for (let x = 0; x < 128; x++) add(x, y, [255, 196, 110], 0.22);
+  for (let x = 3; x < 124; x += 5 + Math.floor(r() * 6)) {
+    if (r() < 0.25) {
+      for (let k = 0; k < 3; k++) add(x + k * 2, 7 + (k % 2) * 2, [160, 200, 255], 0.5);
+      continue;
+    }
+    const y = 3 + Math.floor(r() * 9);
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) add(x + dx, y + dy, [255, 236, 190], 0.95);
+    const up = y > 7;
+    for (let k = 1; k <= 4; k++) add(x + (up ? 1 : 0), up ? y - k : y + 1 + k, [255, 210, 130], 0.6);
+  }
+}
+
 /** The twelve-rayed ring (WARDEN's sigil, abstracted): pads, the oculus, the screens' stands. */
 function paintGlyph(t) {
   const N = 64, c = 31.5;
@@ -381,6 +403,7 @@ export const TEXTURES = {
   hr_screen: { w: 64, h: 40, frames: 3, fps: 0.6, paint: paintScreen },
   hr_pod: { w: 32, h: 48, paint: paintPod },
   hr_column: { w: 32, h: 128, wrapX: true, wrapY: true, paint: paintColumn },
+  hr_staff: { w: 128, h: 16, wrapX: true, paint: paintStaff },
   hr_glyph: { w: 64, h: 64, alpha: true, paint: paintGlyph },
   hr_banner: { w: 16, h: 64, alpha: true, paint: paintBanner },
   bd_choir: { w: 1024, h: 512, raw: paintChoir, emissiveIsMap: true },

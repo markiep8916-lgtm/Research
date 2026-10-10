@@ -230,7 +230,7 @@ function wing(r, s, c, t0, n, len, w, P, F, seed, o = {}) {
   }
   for (const f of [...feathers].reverse()) {
     blade(r, f.p, f.a, f.L, f.w, {
-      vein, veinK: (F.unbound ? 1 : 0.7) * (dim ? 0.4 : 1), tip: f.k % 2 === 1, dim, bias: o.bias ?? 0, bend: 0.12,
+      vein, veinK: (F.unbound ? 0.8 : 0.7) * (dim ? 0.4 : 1), tip: f.k % 2 === 1, dim, bias: o.bias ?? 0, bend: 0.12,
       ramp: F.unbound ? COSMOS : NAVY, rimRamp: GILT,
     });
     if (F.unbound) {
@@ -239,7 +239,7 @@ function wing(r, s, c, t0, n, len, w, P, F, seed, o = {}) {
         const u = 0.25 + R() * 0.6, v = (R() - 0.5) * 0.6;
         const [x, y] = [f.p[0] + Math.cos(f.a * DEG) * f.L * u - Math.sin(f.a * DEG) * f.w * v, f.p[1] + Math.sin(f.a * DEG) * f.L * u + Math.cos(f.a * DEG) * f.w * v];
         const c = G_STAR[R() < 0.3 ? 3 : 2];
-        if (inside(x, y)) r.dot(Math.round(x), Math.round(y), c, 0.9, true);
+        if (inside(x, y)) r.dot(Math.round(x), Math.round(y), c, 0.7, true);
       }
     }
   }
@@ -472,21 +472,33 @@ function arm(r, side, P, F) {
   const s = [CX + side * 26, CY + 34];
   const c = [CX + side * (66 + wide * 12) + reach * 26, CY + 58 + rock * 0.4 - wide * 50 - reach * 14];
   const t = [CX + side * (16 + wide * 92) + reach * (side > 0 ? 64 : 46), CY + 94 + rock - wide * 70 - reach * 20];
+  const vein = F.unbound ? G_DAWN : G_GOLD;
   const N = 26;
   let prev = s;
+  r.begin();
   for (let i = 1; i <= N; i++) {
     const [p] = quad(s, c, t, i / N);
-    r.seg(prev[0], prev[1], p[0], p[1], lerp(5.5, 3.6, (i - 1) / N), lerp(5.5, 3.6, i / N), GILT, { max: 7, spec: GILT[7], specT: 0.965, bias: 0.02 });
+    r.seg(prev[0], prev[1], p[0], p[1], lerp(6, 3.8, (i - 1) / N), lerp(6, 3.8, i / N), GILT, { max: 7, spec: GILT[7], specT: 0.965, bias: 0.06 });
     prev = p;
   }
-  // lacquer plates riding the rib, each with a gold boss
-  for (const u of [0.22, 0.46, 0.7]) {
+  r.end(0.45);
+  // a vein of choir light running down the rib toward the hand, pulsing with the idle
+  for (let i = 3; i < 60; i++) {
+    const u = i / 60;
     const [p, ang] = quad(s, c, t, u);
-    const [a, b] = [polar(p[0], p[1], ang, -6), polar(p[0], p[1], ang, 6)];
+    const [x, y] = polar(p[0], p[1], ang - side * 90, lerp(1.6, 1, u));
+    const pulse = (u * 5 - (P.hp || 0) * 0.8) % 1;
+    const hot = pulse > 0 && pulse < 0.22;
+    r.dot(Math.round(x), Math.round(y), vein[hot ? 4 : 3], (hot ? 1 : 0.7) * (P.broken ? 0.4 : 1), true);
+  }
+  // small lacquer plates inlaid in the rib, each with a gold boss
+  for (const u of [0.2, 0.42, 0.64]) {
+    const [p, ang] = quad(s, c, t, u);
+    const [a, b] = [polar(p[0], p[1], ang, -3.5), polar(p[0], p[1], ang, 3.5)];
     r.begin();
-    r.seg(a[0], a[1], b[0], b[1], 4.2, 3.6, NAVY, { max: 8, bias: 0.08, caps: 'round' });
-    r.end(0.5);
-    spot(r, p[0], p[1], 2, F.unbound ? G_DAWN : G_GOLD, P.broken ? 0.3 : 0.85);
+    r.seg(a[0], a[1], b[0], b[1], 2.6, 2.2, NAVY, { max: 8, bias: 0.12, caps: 'round' });
+    r.end(0.4);
+    spot(r, p[0], p[1], 2, vein, P.broken ? 0.3 : 0.9);
   }
   r.begin();
   r.ball(s[0], s[1], 9, 8, GILT, { max: 7, spec: GILT[7], specT: 0.975 });
@@ -495,32 +507,40 @@ function arm(r, side, P, F) {
   const [, endAng] = quad(s, c, t, 1);
   const cup = clamp(0.55 + (P.cradle || 0) * 0.45 - wide * 0.9, 0, 1);
   r.begin();
-  r.ball(t[0], t[1], 5.2, 4.4, PORCELAIN, { max: 8, spec: PORCELAIN[8], specT: 0.98 });
+  r.ball(t[0], t[1], 6.4, 5.4, PORCELAIN, { max: 8, spec: PORCELAIN[8], specT: 0.98, bias: 0.06 });
   for (let f = 0; f < 4; f++) {
-    const a0 = endAng + (f - 1.5) * (14 + wide * 10);
-    const m = polar(t[0], t[1], a0, 7);
+    const a0 = endAng + (f - 1.5) * (15 + wide * 10);
+    const m = polar(t[0], t[1], a0, 8.5);
     const a1 = a0 - side * cup * 55;
-    const tip = polar(m[0], m[1], a1, 6 - Math.abs(f - 1.5));
-    r.seg(t[0], t[1], m[0], m[1], 1.9, 1.5, PORCELAIN, { max: 8 });
-    r.seg(m[0], m[1], tip[0], tip[1], 1.4, 0.8, PORCELAIN, { max: 8 });
-    r.dot(Math.round(tip[0]), Math.round(tip[1]), GILT[6], 0.4);
+    const tip = polar(m[0], m[1], a1, 7.5 - Math.abs(f - 1.5));
+    r.seg(t[0], t[1], m[0], m[1], 2.2, 1.7, PORCELAIN, { max: 8, bias: 0.06 });
+    r.seg(m[0], m[1], tip[0], tip[1], 1.6, 0.9, PORCELAIN, { max: 8, bias: 0.06 });
+    r.dot(Math.round(tip[0]), Math.round(tip[1]), GILT[6], 0.5);
   }
   r.end(0.45);
+  // a gilt cuff at the wrist
+  const [cw] = quad(s, c, t, 0.93);
+  r.ball(cw[0], cw[1], 4.2, 4.2, GILT, { max: 7, spec: GILT[7], specT: 0.97 });
 }
 
 /** The pod it cradles: a sleeping light in a porcelain shell, held in the cupped hands (gone when unbound). */
 function pod(r, P) {
   const reach = P.reach || 0;
-  const x = CX + reach * 56, y = CY + 94 + (P.rock || 0) - reach * 22;
+  const x = CX + reach * 56, y = CY + 92 + (P.rock || 0) - reach * 22;
+  const k = P.broken ? 0.45 : 1;
+  // the light it gives: sparks hanging round the cradle
+  sparks(r, 51 + (P.frag || 0), x, y - 2, 20, 9, G_GOLD);
   r.begin();
-  r.ball(x, y, 10, 6, PORCELAIN, { max: 8, spec: WHITE, specT: 0.98 });
+  r.ball(x, y, 13, 7.5, PORCELAIN, { max: 8, spec: WHITE, specT: 0.98, bias: 0.04 });
   r.end(0.4);
-  r.glow(x, y - 1, 6, 2.6, G_GOLD, { k: 1, fx: true, bias: 0.3 });
+  // the lid's window: the sleeper's light through glass
+  r.glow(x, y - 1, 9, 3.8, G_GOLD, { k: 1.1 * k, fx: true, bias: 0.4 });
   // the sleeper inside: a curled silhouette
-  r.line(Math.round(x - 4), Math.round(y), Math.round(x + 3), Math.round(y - 1), G_GOLD[1], 0.4, true);
-  r.dot(Math.round(x + 4), Math.round(y - 1), G_GOLD[2], 0.5, true);
+  r.line(Math.round(x - 5), Math.round(y), Math.round(x + 3), Math.round(y - 1), G_GOLD[1], 0.4, true);
+  r.dot(Math.round(x + 4), Math.round(y - 2), G_GOLD[2], 0.5, true);
+  r.dot(Math.round(x + 5), Math.round(y - 1), G_GOLD[2], 0.5, true);
   // a cradle-thread of gold rocking under it
-  arc(r, x, y + 3, 16, 6, 20, 160, G_GOLD, 0.7);
+  arc(r, x, y + 4, 19, 7, 20, 160, G_GOLD, 0.8 * k);
 }
 
 /** Small geometric shards orbiting the construct (octahedra seen edge-on). */
@@ -542,27 +562,50 @@ function shards(r, P, F) {
 /** The choir light pouring into the unbound construct: spiralling streams of tiny pod-lights. */
 function choirStreams(r, P) {
   const t = P.hp || 0, gather = P.gather || 0;
-  for (let s = 0; s < 5; s++) {
-    const a0 = s * 72 + t * 18;
-    for (let i = 0; i < 46; i++) {
-      const u = i / 46;
-      const rad = lerp(124, 22, u) * (1 - gather * 0.25);
-      const a = (a0 + u * 200) * DEG;
+  for (let s = 0; s < 6; s++) {
+    const a0 = s * 60 + t * 18;
+    for (let i = 0; i < 64; i++) {
+      const u = i / 64;
+      const rad = lerp(124, 20, u) * (1 - gather * 0.25);
+      const a = (a0 + u * 210) * DEG;
       const x = CX + Math.cos(a) * rad, y = CY + 10 + Math.sin(a) * rad * 0.62;
       if (x < 2 || x > W - 3 || y < 2 || y > H - 3) continue;
-      if (noise(i, s + t) < 0.3) continue;
-      r.dot(Math.round(x), Math.round(y), G_STAR[u > 0.6 ? 3 : 2], 0.75 + u * 0.3, true);
-      if (i % 5 === 0) r.dot(Math.round(x), Math.round(y) + 1, G_GOLD[2], 0.5, true);
+      if (noise(i, s + t) < 0.22) continue;
+      const big = i % 9 === (s * 2) % 9;
+      r.dot(Math.round(x), Math.round(y), G_STAR[u > 0.55 ? 3 : 2], 0.8 + u * 0.4, true);
+      if (big) {
+        // a pod-light: a small cross of dawn light
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) r.dot(Math.round(x) + dx, Math.round(y) + dy, G_DAWN[2], 0.7, true);
+      } else if (i % 4 === 0) r.dot(Math.round(x), Math.round(y) + 1, G_GOLD[3], 0.6, true);
     }
   }
+}
+
+/**
+ * The Choir's light round the unbound construct: a stippled radiance behind the hood, densest near the
+ * core and thinning to single motes, so the silhouette stays broken (never a solid disc).
+ */
+function radiance(r, P) {
+  const R = rng(131 + (P.frag || 0));
+  const cx = CX, cy = CY - 4, rad = 78 + (P.blaze || 0) * 8 + (P.gather || 0) * 10;
+  r.each(cx - rad, cy - rad * 0.8, cx + rad, cy + rad * 0.8, (mx, my, X, Y) => {
+    const d = Math.hypot((mx - cx) / rad, (my - cy) / (rad * 0.8));
+    if (d > 1) return;
+    const p = Math.pow(1 - d, 2) * 0.32;
+    if (R() > p) return;
+    const ramp = R() < 0.6 ? G_DAWN : G_GOLD;
+    r.put(X, Y, ramp[d < 0.35 ? 3 : d < 0.7 ? 2 : 1], 0.6 * (1 - d * 0.5), true);
+  });
 }
 
 // ---------------------------------------------------------------- frames
 
 function figure(r, P, F) {
   halo(r, P, F);
-  if (F.unbound) choirStreams(r, P);
   wings(r, P, F);
+  // unbound: the Choir's light pours in over the wings
+  if (F.unbound) choirStreams(r, P);
+  if (F.unbound && !P.fold) radiance(r, P);
   lancets(r, P, F);
   robe(r, P, F);
   for (const side of [-1, 1]) arm(r, side, P, F);
@@ -584,8 +627,8 @@ function figure(r, P, F) {
 // the whole construct is painted at 0.9 about the frame's centre, so no part of it reaches the frame
 // edge in any pose (the silhouette stays broken, never cut straight by the frame)
 const FIT = 0.9;
-// the construct sits 7 px low in its frame, so its eye stays inside the battle focus band (G2 rule 20)
-const DROP = 7;
+// the construct sits 12 px low in its frame, so its eye stays inside the battle focus band (G2 rule 20)
+const DROP = 12;
 
 function drawWarden(r, P, F) {
   r.save();
@@ -616,8 +659,8 @@ const ANIMS_LOCK = {
   special: { fps: 5, loop: false, poses: [{ bob: -8, wing: 22, rot: 5, blaze: 1, iris: 0.8, eyeK: 1.5, frag: 7, look: 2 }] },
   hurt: { fps: 6, loop: false, poses: [{ bob: 2, dx: -3, lean: -0.04, wing: -6, rot: 7, open: 0.55, eyeK: 0.6, frag: 8 }] },
   break: { fps: 3, loop: true, poses: [
-    { bob: 6, wing: -4, droop: 28, broken: 1, open: 0.3, eyeK: 0.4, rot: 8, rock: 3, sway: -2, frag: 9, lean: 0.03 },
-    { bob: 7, wing: -6, droop: 30, broken: 1, open: 0.45, eyeK: 0.55, rot: 9, rock: 4, sway: -3, frag: 10, lean: 0.03 },
+    { bob: 3, wing: -4, droop: 28, broken: 1, open: 0.3, eyeK: 0.4, rot: 8, rock: 3, sway: -2, frag: 9, lean: 0.03 },
+    { bob: 4, wing: -6, droop: 30, broken: 1, open: 0.45, eyeK: 0.55, rot: 9, rock: 4, sway: -3, frag: 10, lean: 0.03 },
   ] },
 };
 
@@ -638,22 +681,22 @@ const ANIMS_UNBOUND = {
   special: { fps: 5, loop: false, poses: [{ bob: -6, wing: 4, rot: 5, gather: 1, wide: 0.4, tear: 0, frag: 7, gyro: 0.9, eyeK: 1.5 }] },
   hurt: { fps: 6, loop: false, poses: [{ bob: 2, dx: -3, lean: -0.045, wing: -4, rot: 7, wide: 0.6, open: 0.6, eyeK: 0.6, tear: 12, frag: 8 }] },
   break: { fps: 3, loop: true, poses: [
-    { bob: 7, wing: -6, droop: 30, broken: 1, open: 0.35, eyeK: 0.45, rot: 8, wide: 0.3, tear: 14, frag: 9, lean: 0.04, gyro: 0.1 },
-    { bob: 8, wing: -8, droop: 32, broken: 1, open: 0.5, eyeK: 0.55, rot: 9, wide: 0.35, tear: 16, frag: 10, lean: 0.04, gyro: 0.2 },
+    { bob: 4, wing: -6, droop: 30, broken: 1, open: 0.35, eyeK: 0.45, rot: 8, wide: 0.3, tear: 14, frag: 9, lean: 0.04, gyro: 0.1 },
+    { bob: 5, wing: -8, droop: 32, broken: 1, open: 0.5, eyeK: 0.55, rot: 9, wide: 0.35, tear: 16, frag: 10, lean: 0.04, gyro: 0.2 },
   ] },
 };
 
 // the camera keeps the halo's top to the chest on screen: with the head well below the box's top
 // (which the fit pins under the turn bar), the eye lands inside the focus band on desktop and phone
 const FIT_BOX = [96, 8, 64, 150];
-const POINTS = { center: [126, 139], muzzle: [148, 113], top: [126, 25], core: [129, 113] };
+const POINTS = { center: [126, 144], muzzle: [148, 118], top: [126, 30], core: [129, 118] };
 
 export const WARDEN_LOCK = {
   w: W, h: H, bevel: 3,
   draw: (r, P) => drawWarden(r, P, LOCK),
   anims: ANIMS_LOCK,
   points: POINTS,
-  icon: { x: 128, y: 111, scale: 0.36 },
+  icon: { x: 128, y: 116, scale: 0.36 },
   fitBox: FIT_BOX,
 };
 
@@ -663,7 +706,7 @@ export const WARDEN_UNBOUND = {
   // fold: the defeat (warden.defeat): wings close round the body, the rays draw in, the light dims
   anims: { ...ANIMS_UNBOUND, fold: { fps: 3, loop: false, poses: [{ bob: 10, fold: 1, wing: -4, rot: 2, open: 0.25, eyeK: 0.4, gyro: 0, wide: 0, tear: 0, frag: 11 }] } },
   points: POINTS,
-  icon: { x: 128, y: 111, scale: 0.36 },
+  icon: { x: 128, y: 116, scale: 0.36 },
   fitBox: FIT_BOX,
 };
 
@@ -685,6 +728,6 @@ export const WARDEN_FIELD = {
     break: { fps: 3, loop: true, poses: [ANIMS_LOCK.break.poses[0]] },
     special: { fps: 3, loop: false, poses: [{ bob: 10, fold: 1, wing: -4, rot: 2, open: 0.3, eyeK: 0.5 }] },
   },
-  points: { center: [63, 70], muzzle: [74, 57], top: [63, 13], core: [65, 57] },
-  icon: { x: 64, y: 56, scale: 0.7 },
+  points: { center: [63, 72], muzzle: [74, 59], top: [63, 15], core: [65, 59] },
+  icon: { x: 64, y: 58, scale: 0.7 },
 };

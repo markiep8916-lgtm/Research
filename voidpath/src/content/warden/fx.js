@@ -75,7 +75,7 @@ async function lullaby(d, act) {
   a.oneShot('attack');
   a.sprite.setGlow(GOLD, 1.2);
   d.sfx('choir', { pitch: 0.7 });
-  d.engine.flash('#ffe9b0', 0.6, 0.22);
+  d.engine.flash('#ffe9b0', 0.45, 0.22);
   const foes = targetsOf(d, act);
   for (const t of foes) d.particles.emit('wd_motes', t.point('top').add(new Vector3(0, 1.4, 0)), { count: 16, spread: 0.8 });
   d.particles.emit('wd_voices', a.point('core'), { count: 20, spread: 1.4 });
@@ -87,7 +87,8 @@ async function lullaby(d, act) {
       for (const s of w.strikes) {
         const t = d.actor(s.hit.targetId);
         if (!t) continue;
-        d.effects.sheet('glint', t.point('center'), { scale: 1.6, color: HOT, intensity: 2 });
+        // a soft gold glint, not a white-out: the sleepers must still read under it
+        d.effects.sheet('glint', t.point('center'), { scale: 1.1, color: GOLD, intensity: 1.3 });
         d.effects.sheet('ring', floorAt(t), { floor: true, scale: 1.8, color: GOLD, intensity: 1.8 });
       }
       await d.wait(0.06);

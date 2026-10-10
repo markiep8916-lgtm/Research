@@ -170,11 +170,11 @@ const kits = {
       orion: ['eq_w_orion_4', 'eq_x_keepsake_sera'], sera: ['eq_w_sera_4', 'eq_x_photon_prism'],
     })),
     items: {
-      ether: 1, ether_plus: 3, revive: 2, revive_plus: 2, stim: 2, nanomist: 1, medigel_max: 7,
+      ether: 1, ether_plus: 4, revive: 2, revive_plus: 2, stim: 2, nanomist: 1, medigel_max: 6,
       cryo_charge: 2, thermal_charge: 2, volt_charge: 2,
       eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1,
     },
-    credits: 15200,
+    credits: 14000,
   },
 };
 

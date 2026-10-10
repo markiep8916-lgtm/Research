@@ -10,7 +10,13 @@
 //   dr.field      { x0, x1, z0, z1, seed, avoid: [[x0, z0, x1, z1], ...] }   wheat, grass and
 //                                           wildflowers scattered as crossed alpha cards that sway
 //   dr.urn        { x, z }                  a gold urn of wheat (the hall's corners)
-//   dr.halo       { x, z, r = 1.3 }         a slow ring of light around the perfect HALCYON's dais
+//   dr.halo       { x, z, r = 1.3, color }  a slow ring of light around a dais (pearl for HALCYON, gold
+//                                           for Voss)
+//   dr.dais       { x, z, r = 1.5, glass }  a low round dais in two steps with gold rims: ivory (Voss's) or
+//                                           dark polished glass (HALCYON's, so her pale figure reads)
+//   dr.pole       { x, z, h = 2.9 }         a gold standard pole with a finial (the banners by the dais
+//                                           hang from them; the banners are the map's `screen` props)
+//   dr.rack       { x, z, n = 5 }           a gold rack of practice staves against a north wall
 //   dr.sun        { x, y, z, size }         the dream's sun: layered soft glows over the backdrop
 
 import * as THREE from 'three';
@@ -177,7 +183,9 @@ const field = {
     const nrm = geo.getAttribute('normal');
     for (let i = 0; i < nrm.count; i++) nrm.setXYZ(i, 0, 1, 0);
     geo.computeBoundingSphere();
+    // the clone's userData is a JSON copy (a plain object where the depth material was): start clean
     const mat = fm.clone();
+    mat.userData = {};
     const time = { value: 0 };
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTime = time;
@@ -220,23 +228,90 @@ const halo = {
   build(W, p) {
     const G = W.groupFor(p.on);
     const r = p.r || 1.3;
-    const mat = new THREE.MeshBasicMaterial({ color: '#e8fff4', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+    const color = p.color || '#e8fff4';
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.035, 6, 48), mat);
     ring.rotation.x = -Math.PI / 2;
-    ring.position.set(p.x, 0.2, p.z);
+    ring.position.set(p.x, p.y ?? 0.2, p.z);
     G.add(ring);
     const ring2 = new THREE.Mesh(new THREE.TorusGeometry(r * 0.72, 0.02, 6, 40), mat);
     ring2.rotation.x = -Math.PI / 2;
-    ring2.position.set(p.x, 0.22, p.z);
+    ring2.position.set(p.x, (p.y ?? 0.2) + 0.02, p.z);
     G.add(ring2);
-    const glow = makeGlow('#f0fff8', 2.6, 0.45, { pull: 0.2 });
-    glow.position.set(p.x, 0.6, p.z);
-    G.add(glow);
+    if (p.glow !== false) {
+      const glow = makeGlow(p.glowColor || '#f0fff8', 2.6, p.glowK ?? 0.45, { pull: 0.2 });
+      glow.position.set(p.x, 0.6, p.z);
+      G.add(glow);
+    }
     W.addUpdater((dt, t) => {
       ring.rotation.z = t * 0.15;
       ring2.rotation.z = -t * 0.22;
       mat.opacity = 0.45 + Math.sin(t * 0.8) * 0.08;
     });
+  },
+};
+
+const dais = {
+  textures: ['dr_hall_cap', 'dr_glass', 'dr_gold'],
+  build(W, p) {
+    const B = W.batchFor(p.on);
+    const capM = p.glass
+      ? W.mats.tile('dr_glass', { emissive: 1.2, roughness: 0.12, metalness: 0.6 })
+      : W.mats.tile('dr_hall_cap', { emissive: 1.3, roughness: 0.4, metalness: 0.15 });
+    const goldM = W.mats.tile('dr_gold', { emissive: 1.6, roughness: 0.3, metalness: 0.75 });
+    const r = p.r || 1.5;
+    // two steps, each an ivory drum with a gold rim
+    for (const [rr, y0, y1] of [[r, 0, 0.05], [r * 0.74, 0.05, 0.09]]) {
+      const side = new THREE.CylinderGeometry(rr, rr, y1 - y0, 40, 1, true);
+      B.geometry(goldM, side, _m.makeTranslation(p.x, (y0 + y1) / 2, p.z));
+      side.dispose();
+      const top = new THREE.CircleGeometry(rr, 40);
+      top.rotateX(-Math.PI / 2);
+      B.geometry(capM, top, _m.makeTranslation(p.x, y1, p.z));
+      top.dispose();
+    }
+    W.addCircle(p.x, p.z, r * 0.74);
+  },
+};
+
+const pole = {
+  textures: ['dr_gold'],
+  build(W, p) {
+    const B = W.batchFor(p.on);
+    const goldM = W.mats.tile('dr_gold', { emissive: 1.7, roughness: 0.3, metalness: 0.75 });
+    const h = p.h || 2.9;
+    const shaft = new THREE.CylinderGeometry(0.035, 0.045, h, 8);
+    B.geometry(goldM, shaft, _m.makeTranslation(p.x, h / 2, p.z));
+    shaft.dispose();
+    const foot = new THREE.CylinderGeometry(0.16, 0.2, 0.12, 12);
+    B.geometry(goldM, foot, _m.makeTranslation(p.x, 0.06, p.z));
+    foot.dispose();
+    const fin = new THREE.OctahedronGeometry(0.11, 0);
+    B.geometry(goldM, fin, _m.makeTranslation(p.x, h + 0.1, p.z));
+    fin.dispose();
+    // the crossbar the banner hangs from
+    B.box(all(goldM), p.x, p.z + 0.03, 1.1, 0.05, h - 0.12, h - 0.06, 0);
+    W.addCircle(p.x, p.z, 0.2);
+  },
+};
+
+const rack = {
+  textures: ['dr_gold', 'dr_wood', 'dr_hall_low'],
+  build(W, p) {
+    const B = W.batchFor(p.on);
+    const goldM = W.mats.tile('dr_gold', { emissive: 1.6, roughness: 0.3, metalness: 0.75 });
+    const woodM = W.mats.tile('dr_hall_low', { emissive: 1.4, roughness: 0.6, metalness: 0.1 });
+    const n = p.n || 5, w = n * 0.32 + 0.3;
+    // honey-wood back board, gold rails top and bottom
+    B.box(all(woodM), p.x, p.z, w, 0.08, 0.1, 2.2, 0);
+    for (const y of [0.35, 1.9]) B.box(all(goldM), p.x, p.z + 0.08, w + 0.1, 0.08, y, y + 0.08, 0);
+    // practice staves, each with a blunt gold head
+    for (let i = 0; i < n; i++) {
+      const x = p.x - (n - 1) * 0.16 + i * 0.32;
+      B.box(all(woodM), x, p.z + 0.14, 0.06, 0.06, 0.12, 2.0, 0);
+      B.box(all(goldM), x, p.z + 0.14, 0.12, 0.08, 2.0, 2.28, 0);
+    }
+    W.addBox(p.x, p.z + 0.05, w, 0.3);
   },
 };
 
@@ -259,5 +334,8 @@ export default {
   'dr.field': field,
   'dr.urn': urn,
   'dr.halo': halo,
+  'dr.dais': dais,
+  'dr.pole': pole,
+  'dr.rack': rack,
   'dr.sun': sun,
 };

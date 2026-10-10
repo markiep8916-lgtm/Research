@@ -22,8 +22,9 @@
 //   kits     the next chapter's kit (REG.kits) against the gear and credits the route ends with
 //   report   mechanic frequencies per boss and zone: telegraphs (lock-on, charge) answered by Defend
 //            or cancelled by a Break, dives and the attack that follows them, enemy heals, summons,
-//            travelers put to sleep, ultimates awakened and used on a Break; a two-form boss's Breaks
-//            and rounds per form
+//            travelers put to sleep, ultimates awakened and used on a Break; a two-form boss's Breaks,
+//            rounds and losses per form, and its Retry from the later phase (retryPhase) for the same
+//            parties
 //
 // Content a chapter needs that no location has registered yet (maps, zones, encounters, enemy
 // kinds, boss scripts, shops, the binding gear chests of TECH_PLAN 5.5) comes from PLACEHOLDERS,
@@ -134,7 +135,8 @@ const CANCEL_CHECKS = {
 //   { walk: mapId, path, flags, plan }   walking on a map (see walkPlan): random fights from geometry
 //   { join }                cs.join(member) at the default level
 //   { rest: mapId }         a Med-Station or inn of that map on the way (skipped while the map has none)
-//   { chests: [mapId] }     every chest of those maps that belongs to the chapter
+//   { chests: [mapId], skip? }   every chest of those maps that belongs to the chapter, but the
+//                           `skip` ids (chests past an optional foe the route leaves alone)
 //   { give: [itemId] }      gifts of the story (cs.give: the dream keepsakes), treated like chest gear
 //   { shop: [shopId] }      see shopVisit
 //   { boss }                the boss after a rest
@@ -175,14 +177,18 @@ const ROUTES = {
     { boss: 'shoals_boss_maw' },
     { shop: ['ruse', 'fabricator'] },
   ],
-  // ch2-ch4 follow WRITING 5.4-5.6 with the binding spawns, bosses and interactable kinds of 12.5;
+  // ch2-ch4 follow WRITING 5.4-5.6 with the binding spawns, bosses and interactable kinds of 12.5,
+  // and rest at the Med-Stations the location owners' human-pace routes rest at (tests/routes):
+  // a rest keeps the walked distance (explore.js), so it changes the wear, not the fight count.
   // `plan` splits 11.7's 340 units over the zones until the maps land.
   ch2: [
     { shop: ['fabricator', 'ruse'] },
     // valve A, valve B (the twist), then the sluice: left (C) then right (D)
     { walk: 'arboretum', path: ['spawn:dock', 'inter:valve_a', 'inter:valve_b', 'inter:valve_c', 'inter:valve_d',
-      { set: ['arb:sluice', 'story:channels_drained'] }, 'spawn:stasis'], plan: { arb_gardens: 190 } },
-    { walk: 'arboretum', flags: ['story:channels_drained'], path: ['spawn:stasis', 'boss:gardener'], plan: { arb_stasis: 150 } },
+      { set: ['arb:sluice', 'story:channels_drained'] }, 'inter:med_hall'], plan: { arb_gardens: 190 } },
+    { rest: 'arboretum' },   // the hall's Med-Station, before the Stasis Gardens
+    { walk: 'arboretum', flags: ['arb:sluice', 'story:channels_drained'], path: ['inter:med_hall', 'spawn:stasis', 'boss:gardener'],
+      plan: { arb_stasis: 150 } },
     { chests: ['arboretum'] },
     { rest: 'arboretum' },
     { boss: 'arb_boss_gardener' },
@@ -195,9 +201,10 @@ const ROUTES = {
       'inter:grid_t2', 'inter:grid_t3', 'inter:cells', { set: ['story:cadets_freed'] }], plan: { spire_barracks: 170 } },
     { shop: ['quartermaster'] },
     { rest: 'spire' },
+    { walk: 'spire', flags: ['story:cadets_freed'], path: ['inter:cells', 'inter:kade_desk', 'inter:med_stairs'], plan: { spire_upper: 100 } },
+    { rest: 'spire' },   // the stairwell's Med-Station, below the Training Hall
     { walk: 'spire', flags: ['story:cadets_freed'],
-      path: ['inter:cells', 'inter:kade_desk', 'inter:recording', { set: ['story:flare_report'] }, 'trigger:voss'],
-      plan: { spire_upper: 170 } },
+      path: ['inter:med_stairs', 'inter:recording', { set: ['story:flare_report'] }, 'trigger:voss'], plan: { spire_upper: 70 } },
     { chests: ['spire'] },
     { rest: 'spire' },
     { boss: 'spire_boss_voss' },
@@ -207,9 +214,12 @@ const ROUTES = {
     // the firewall (its guards, then its switch), the west, north and east bridges and their
     // crystals; the core bridge opens with the BOLT reveal
     { walk: 'vault', path: ['spawn:entry', 'boss:wraiths', 'boss:firewall', { set: ['vault:firewall_down'] }, 'inter:sw_fw',
-      'inter:sw_w', 'inter:crystal_a', 'inter:sw_n1', 'inter:sw_n2', 'inter:crystal_b', 'inter:sw_e', 'inter:crystal_c',
-      { set: ['story:memory_launch', 'story:memory_lullaby', 'story:memory_severance', 'story:bolt_seed'] }],
-      plan: { vault_grid: 200 } },
+      'inter:sw_w', 'inter:crystal_a', 'inter:sw_n1', 'inter:sw_n2', 'inter:crystal_b', 'inter:med_hub'], plan: { vault_grid: 150 } },
+    { rest: 'vault' },   // the Index's Med-Station, between the second and third crystals
+    { walk: 'vault', flags: ['vault:firewall_down', 'sw:vault:fw', 'sw:vault:w', 'sw:vault:n1', 'sw:vault:n2'],
+      path: ['inter:med_hub', 'inter:sw_e', 'inter:crystal_c',
+        { set: ['story:memory_launch', 'story:memory_lullaby', 'story:memory_severance', 'story:bolt_seed'] }],
+      plan: { vault_grid: 50 } },
     { walk: 'vault', flags: ['story:memory_launch', 'story:memory_lullaby', 'story:memory_severance', 'story:bolt_seed',
       'vault:firewall_down', 'sw:vault:fw', 'sw:vault:w', 'sw:vault:n1', 'sw:vault:n2', 'sw:vault:e'],
       path: ['inter:crystal_c', 'inter:med_core', 'boss:echo'], plan: { vault_core: 140 } },
@@ -218,20 +228,25 @@ const ROUTES = {
     { boss: 'vault_boss_echo' },
   ],
   // the finale (WRITING 5.7, 12.5 heart): the shops, then up the Heart, with the chests on the
-  // way: the dock tier (Kade's dream), its pylon and the lift; tier 2 (Nyx's dream), its pylon and
-  // the lift; tier 3 (Orion's dream), its two pylons and the processional; the crown approach (Sera's dream), the Sanctum's
-  // Med-Station and fabricator, and the crown lift; WARDEN in both forms. Each dream gives its keepsake. The guarded
-  // lift and the two Choirlit Echoes come from the map's fields. `plan` and `planFights` (11.7's two
-  // elite fights) stood in until the heart map landed.
+  // way: the dock tier (Kade's dream), its pylon and the lift; tier 2 (Nyx's dream), its pylon, the
+  // Second Tier's Med-Station and the lift; tier 3 (Orion's dream), its two pylons and the
+  // processional; the crown approach (Sera's dream), the Sanctum's Med-Station and fabricator, and the
+  // crown lift; WARDEN in both forms. Each dream gives its keepsake. The guarded lift, the north chord
+  // and the two Choirlit Echoes come from the map's fields. `plan` and `planFights` (11.7's two elite
+  // fights) stand in while the heart map is not registered.
   finale: [
     { shop: ['fabricator', 'ruse'] },
     { walk: 'heart', path: ['spawn:dock', 'inter:pylon_t1', 'chest:dawnspear', 'inter:lift_t1', 'spawn:tier2', 'chest:t2_south',
-      'inter:pylon_t2', 'chest:mantle', 'inter:lift_t2', 'spawn:tier3'], plan: { heart_ascent: 220 }, planFights: ['heart_elite_frost'] },
+      'inter:pylon_t2', 'chest:mantle', 'inter:med_t2'], plan: { heart_ascent: 180 } },
+    { rest: 'heart' },   // the Second Tier's Med-Station, beside the first Echoes
+    { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['inter:med_t2', 'inter:lift_t2', 'spawn:tier3'],
+      plan: { heart_ascent: 40 }, planFights: ['heart_elite_frost'] },
     { give: ['eq_x_keepsake_kade', 'eq_x_keepsake_nyx', 'eq_x_keepsake_orion'] },
     { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['spawn:tier3', 'chest:t3_north', 'inter:pylon_t3a', 'inter:pylon_t3b',
       'inter:med_sanctum', 'inter:crown_lift'], plan: { heart_crown: 120 }, planFights: ['heart_elite_guard'] },
     { give: ['eq_x_keepsake_sera'] },
-    { chests: ['heart'] },
+    // the reliquary past the Bellwarden (an optional elite) stays shut
+    { chests: ['heart'], skip: ['bell'] },
     { shop: ['fabricator'] },   // the Sanctum's fabricator, beside its Med-Station
     { rest: 'heart' },
     { boss: 'heart_boss_warden' },
@@ -1414,9 +1429,9 @@ function shopVisit(shopIds, st) {
 }
 
 // Chests of the chapter on those maps. A first-timer leaves the gear in the bag (G2 C10-3).
-function collectChests(chapter, mapIds, st, firstTimer) {
+function collectChests(chapter, mapIds, st, firstTimer, skip = []) {
   const list = [...allChests(), ...placeholderChests[chapter].map((c) => ({ ...c, chapter, n: 1 }))]
-    .filter((c) => c.chapter === chapter && mapIds.includes(c.map));
+    .filter((c) => c.chapter === chapter && mapIds.includes(c.map) && !skip.includes(c.id));
   for (const c of list) {
     if (c.credits) {
       gameState.credits += c.credits;
@@ -1642,7 +1657,7 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
       }
     } else if (step.rest) {
       if (hasMedStation(step.rest)) healParty();
-    } else if (step.chests) collectChests(chapter, step.chests, st, firstTimer);
+    } else if (step.chests) collectChests(chapter, step.chests, st, firstTimer, step.skip);
     else if (step.give) {
       for (const id of step.give) if (ITEMS[id]) addItem(id, 1);
       if (!firstTimer) optimizeParty();
@@ -1757,7 +1772,9 @@ function summarize(res) {
     hidden: sum(res, (r) => r.hidden) / Math.max(1, sum(res, (r) => r.turns)),
     forms: Array.from({ length: forms }, (_, k) => {
       const reached = wins.filter((r) => r.formBreaks.length > k);
-      return { breaks: median(reached.map((r) => r.formBreaks[k])), rounds: median(reached.map((r) => formRounds(r, k))) };
+      // losses in this form, as a share of all battles
+      const lost = res.filter((r) => r.result !== 'victory' && r.formBreaks.length === k + 1).length / res.length;
+      return { breaks: median(reached.map((r) => r.formBreaks[k])), rounds: median(reached.map((r) => formRounds(r, k))), lost };
     }),
   };
 }
@@ -1914,7 +1931,15 @@ function reportChapter(chapter) {
   for (const step of route.filter((s) => s.boss)) {
     // a two-form boss (onDefeat transform: WARDEN) needs its Breaks in every form
     const twoForm = (ENCOUNTERS[step.boss]?.enemies || []).some((k) => ENEMIES[k]?.onDefeat?.transform);
-    const formText = (s) => (twoForm ? `; ${s.forms.map((f, k) => `form ${k + 1}: ${f.breaks} Breaks in ${f.rounds} rounds`).join(', ')}` : '');
+    const formText = (s) => (twoForm
+      ? `; ${s.forms.map((f, k) => `form ${k + 1}: ${f.breaks} Breaks in ${f.rounds} rounds, lost ${pct(f.lost)}`).join(', ')}` : '');
+    // Retry from a later phase (retryPhase: WARDEN's second form), reported for the same party
+    const retry = ENCOUNTERS[step.boss]?.retryPhase?.encounter;
+    const retryLine = (snap, level) => {
+      if (!retry || !ENCOUNTERS[retry]) return;
+      const r = bossCheck(chapter, snap, { boss: retry }, level, {});
+      console.log(`         Retry from the later phase (${retry}): win ${pct1(r.s.win)}, median ${r.s.rounds} rounds, HP lost ${pct(r.s.hpLost)}`);
+    };
     const bossSnaps = (list) => list.map((r) => r.bossSnap).filter(Boolean);
     const snap = ref.snaps[`boss:${step.boss}`] && consensus(bossSnaps(runs), ref.snaps[`boss:${step.boss}`]);
     if (snap) {
@@ -1923,6 +1948,7 @@ function reportChapter(chapter) {
       verdict(inRange(b.s.win, TARGETS.boss.win) && inRange(b.s.rounds, rt), `boss ${step.boss} (route, ${b.lvText})`,
         `win ${pct1(b.s.win)}, median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks}${formText(b.s)}, HP lost ${pct(b.s.hpLost)}, KOs ${b.s.kos.toFixed(2)}`);
       console.log(`         gear: ${b.gear}`);
+      retryLine(snap, def.levels[1]);
       const granted = mean(b.res, (r) => (r.ultGranted ? 1 : 0));
       const used = sum(b.res, (r) => r.ultUsed);
       const detail = `used ${(used / b.res.length).toFixed(2)}/battle, on a Break ${used ? pct(sum(b.res, (r) => r.ultOnBreak) / used) : '-'}`;
@@ -1943,6 +1969,7 @@ function reportChapter(chapter) {
         `win ${pct1(b.s.win)} (>= ${pct(t.win)}), median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks} (>= ${t.breaks}${twoForm ? ' per form' : ''})` +
         `${formText(b.s)}, untargetable on ${pct(b.s.hidden)} of party turns, HP lost ${pct(b.s.hpLost)}`);
       console.log(`         gear: ${b.gear}; credits ${ftSnap.credits}; in the bag: ${Object.keys(ftSnap.items).filter((id) => ITEMS[id]?.equip).join(', ') || 'nothing'}`);
+      retryLine(ftSnap, lv);
       const ftBought = {};
       for (const r of ft.runs) for (const g of r.boughtGear) ftBought[g] = (ftBought[g] || 0) + 1 / ft.runs.length;
       console.log(`         route: boss won first try ${pct(mean(ft.runs, (r) => (r.bossWin ? 1 : 0)))}, fights ${f1(mean(ft.runs, fightCount))}; ` +

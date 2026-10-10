@@ -6,6 +6,8 @@
 //   dr_tomas       the Meridian's pilot, Ines's husband, alive at his seat (`base: 'kade'`)
 //   dr_mer_crew    a Meridian deckhand in teal (`base: 'nyx'`)
 //   dr_mer_child   a Meridian child, born aboard and never lost (`base: 'theo'`)
+//   dr_cadet_<n>   Kade's dream: the five Spire cadets in parade whites with gold braid, as the
+//                  Commander would have wanted them (`base: 'cadet_<n>'`)
 // The perfect HALCYON of Orion's dream is the 'holo' sheet drawn solid (hologram: false on its NpcDef).
 
 import { TEXTURES } from './tex.js';
@@ -63,6 +65,17 @@ const MER_CHILD = {
   },
 };
 
+// parade dress: white jacket and trousers, gold braid and buttons, a crimson sash
+const PARADE = {
+  mats: {
+    main: ['#6e6658', '#a69e8e', '#d6d0c2', '#f2eee4', '#ffffff'],
+    sec: ['#5a3a0a', '#8a6014', '#c0901e', '#ecc046'],
+    acc: ['#5a3a0a', '#a8741c', '#e0a83a', '#ffd27a', '#fff2c4'],
+    metal: ['#5a3a0a', '#8a6014', '#c0901e', '#ecc046', '#fff2c4'],
+  },
+};
+const parade = (base) => ({ base, mats: PARADE.mats });
+
 export default {
   textures: TEXTURES,
   characters: {
@@ -70,6 +83,11 @@ export default {
     dr_tomas: TOMAS,
     dr_mer_crew: MER_CREW,
     dr_mer_child: MER_CHILD,
+    dr_cadet_mika: parade('cadet_mika'),
+    dr_cadet_jonah: parade('cadet_jonah'),
+    dr_cadet_priya: parade('cadet_priya'),
+    dr_cadet_lars: parade('cadet_lars'),
+    dr_cadet_wen: parade('cadet_wen'),
   },
   enemyArt: {},
   particles: {},

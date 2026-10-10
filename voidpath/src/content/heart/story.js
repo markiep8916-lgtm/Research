@@ -16,8 +16,9 @@
 //   dreams.sera          (C8) the processional
 //   heart.crown_lift     the crown lift: "Beyond this point there is no way back.", then the ride
 //   dreams.crown         (C8) the Crown: WARDEN, the battle, the resolution, the EPILOGUE card
-// Field scripts: the column, chest lines, Nyx's cache (leader-gated), the Bellwarden (M3), two Party
-// Talks (fin.kade_orion, fin.nyx_sera) and Driftmarket's finale lines.
+// Field scripts: the column, chest lines, Nyx's cache (leader-gated), the Bellwarden (M3), the Choir's
+// dreamers (M3: the Hales on the first ring, Lucia Ferro on the second), two Party Talks
+// (fin.kade_orion, fin.nyx_sera) and Driftmarket's finale lines.
 //
 // Staging (WRITING 1.8, G2): walks, emotes, light changes and camera moves run under the lines (bg());
 // camera moves take about a second; no wait padding. Scripts never assume who leads: every traveler
@@ -136,7 +137,8 @@ const scripts = {
   },
 
   // ---------------------------------------------------------------- the Choir's Wardens (the first lift)
-  'heart.wardens': async (cs) => {
+  'heart.wardens': async (cs, args = {}) => {
+    const at = spot(cs, args);
     bg(cs.emote('wardens', '!', { wait: false }));
     bg(cs.camera.focus('wardens', { zoom: 0.92, ms: 800 }));
     cs.sfx('choir', { volume: 0.7 });
@@ -146,12 +148,13 @@ const scripts = {
     }
     await cs.battle('heart_wardens');
     cs.flag('heart:wardens_down');
-    cs.particles('hr_motes', [28.0, 1.2, 35.5], { count: 40 });
+    cs.particles('hr_motes', [at.x, 1.2, at.z], { count: 40 });
     await cs.ungather();
   },
 
   // ---------------------------------------------------------------- the Choir's singers (the north chord)
-  'heart.choir': async (cs) => {
+  'heart.choir': async (cs, args = {}) => {
+    const at = spot(cs, args);
     bg(cs.emote('choir', '!', { wait: false }));
     bg(cs.camera.focus('choir', { zoom: 0.92, ms: 800 }));
     cs.sfx('choir', { volume: 0.8 });
@@ -161,7 +164,7 @@ const scripts = {
     }
     await cs.battle('heart_choir');
     cs.flag('heart:choir_down');
-    cs.particles('hr_motes', [56.6, 1.2, 39.0], { count: 40 });
+    cs.particles('hr_motes', [at.x, 1.2, at.z], { count: 40 });
     await cs.ungather();
   },
 
@@ -175,22 +178,24 @@ const scripts = {
   },
 
   // ---------------------------------------------------------------- the Choirlit Echoes (elite fights)
-  'heart.echoes_t2': async (cs) => {
+  'heart.echoes_t2': async (cs, args = {}) => {
+    const at = spot(cs, args);
     bg(cs.letterbox(true));
     bg(cs.camera.focus('echoes_t2', { zoom: 0.9, ms: 900 }));
     cs.sfx('choir', { volume: 0.8 });
     await cs.gather(beside(cs, ['nyx', 'orion']));
     await cs.say([
-      { speaker: 'NYX', text: 'A rime golem. From the Shoals. Since when are they gold?', expr: 'surprised' },
-      { speaker: 'ORION', text: 'Since it remembered them. It\'s singing us our own fights.', expr: 'sad' },
+      { speaker: 'NYX', text: 'A rime golem. From the Shoals. What\'s it doing this far up?', expr: 'surprised' },
+      { speaker: 'ORION', text: 'WARDEN remembers it. It\'s singing us our own fights.', expr: 'sad' },
     ]);
     await cs.battle('heart_elite_rings');
     cs.flag('heart:echoes_t2_down');
-    cs.particles('hr_motes', [46.0, 1.4, 47.4], { count: 50 });
+    cs.particles('hr_motes', [at.x, 1.4, at.z], { count: 50 });
     await cs.ungather();
   },
 
-  'heart.echoes_t3': async (cs) => {
+  'heart.echoes_t3': async (cs, args = {}) => {
+    const at = spot(cs, args);
     bg(cs.letterbox(true));
     bg(cs.camera.focus('echoes_t3', { zoom: 0.9, ms: 900 }));
     cs.sfx('choir', { volume: 0.8 });
@@ -202,7 +207,7 @@ const scripts = {
     ]);
     await cs.battle('heart_elite_spire');
     cs.flag('heart:echoes_t3_down');
-    cs.particles('hr_motes', [47.0, 1.4, 16.0], { count: 50 });
+    cs.particles('hr_motes', [at.x, 1.4, at.z], { count: 50 });
     await cs.ungather();
   },
 
@@ -237,6 +242,22 @@ const scripts = {
   'heart.column': async (cs) => {
     await cs.narrate('A column of gold light falls the length of the shaft and never lands.');
     await cs.narrate('Pods hang along it in rings, all the way down. Each one is lit. Each one is somebody.');
+  },
+
+  // M3: the Choir's dreamers (their dream-bodies stand in the Heart's light; they do not wake)
+  'heart.dreamers_hale': async (cs) => {
+    await cs.narrate('Two figures of light turn slowly, to music only they can hear.');
+    await cs.say([
+      { speaker: 'JUN HALE', text: 'Window 9 again. Best view on the ship.' },
+      { speaker: 'ILKA HALE', text: 'You say that every time. Every time it\'s the first time.' },
+    ]);
+  },
+  'heart.dreamer_ferro': async (cs) => {
+    await cs.say([
+      { speaker: 'LUCIA FERRO', text: 'Elysia has whales. I asked for whales.' },
+      { speaker: 'LUCIA FERRO', text: 'I read the packet first. I know what\'s true. Let me keep them a while.' },
+      { speaker: 'LUCIA FERRO', text: 'Wake the others if they want. Ask me last.' },
+    ]);
   },
 
   'heart.nyx_cache': async (cs) => {
@@ -335,32 +356,33 @@ const objectives = {
     boltHint: 'The Heart is the middle of everything. We should rest first.',
   },
   'fin.ascend': {
-    chapter: 'finale', text: 'Climb the Heart.', hint: 'A pylon at the north end of the west arc lights the bridge across the shaft.',
+    chapter: 'finale', text: 'Climb the Heart.', hint: 'A pylon at the south end of the west arc lights the bridge across the shaft.',
     boltHint: 'Up. Then up again. The pylon first. It\'s the bright one.', target: { map: 'heart', interactable: 'pylon_t1' },
   },
   'fin.t1_lift': {
-    chapter: 'finale', text: 'Ride the lift to the Second Tier.', hint: 'Across the bridge, then north-east to the lift pad.',
+    chapter: 'finale', text: 'Ride the lift to the Second Tier.', hint: 'Across the bridge, then south down the east arc to the lift.',
     boltHint: 'The lift is past the bridge. Something big is standing by it. Sorry.', target: { map: 'heart', interactable: 'lift_t1' },
   },
   'fin.t2': {
-    chapter: 'finale', text: 'Cross the Second Tier.', hint: 'Over the north bridge to the pylon on the west arc.',
+    chapter: 'finale', text: 'Cross the Second Tier.', hint: 'Over the north bridge, then south to the pylon on the west arc.',
     boltHint: 'North bridge, then the pylon. I counted the steps. I lost count.', target: { map: 'heart', interactable: 'pylon_t2' },
   },
   'fin.t2_lift': {
-    chapter: 'finale', text: 'Ride the lift to the Third Tier.', hint: 'The new bridge at the south end of the west arc.',
-    boltHint: 'The bridge it made goes to the lift. South end. Please hurry.', target: { map: 'heart', interactable: 'lift_t2' },
+    chapter: 'finale', text: 'Ride the lift to the Third Tier.', hint: 'The new bridge, back at the north end of the west arc.',
+    boltHint: 'The bridge it made goes to the lift. Back north. Please hurry.', target: { map: 'heart', interactable: 'lift_t2' },
   },
   'fin.t3': {
-    chapter: 'finale', text: 'Light both pylons of the Third Tier.', hint: 'Two pylons on the south arc open the processional west.',
+    chapter: 'finale', text: 'Light both pylons of the Third Tier.',
+    hint: 'Both open the processional: one south on the ring, one at its far west end.',
     boltHint: 'Two pylons, both on. Like a handshake. A very bright handshake.', target: { map: 'heart', interactable: 'pylon_t3a' },
   },
   'fin.t3_one_a': {
-    chapter: 'finale', text: 'Light the other pylon.', hint: 'The east one, on the south arc.',
-    boltHint: 'One more pylon. The east one. I believe in you. Mostly.', target: { map: 'heart', interactable: 'pylon_t3a' },
+    chapter: 'finale', text: 'Light the other pylon.', hint: 'The south one, round the ring from the lift.',
+    boltHint: 'One more pylon. The south one. I believe in you. Mostly.', target: { map: 'heart', interactable: 'pylon_t3a' },
   },
   'fin.t3_one_b': {
-    chapter: 'finale', text: 'Light the other pylon.', hint: 'The west one, on the south arc.',
-    boltHint: 'One more pylon. The west one. Then the long bridge.', target: { map: 'heart', interactable: 'pylon_t3b' },
+    chapter: 'finale', text: 'Light the other pylon.', hint: 'The far one, at the west end of the ring, past the processional.',
+    boltHint: 'One more pylon. The far west one. Then the long bridge.', target: { map: 'heart', interactable: 'pylon_t3b' },
   },
   'fin.crown': {
     chapter: 'finale', text: 'Reach the crown.', hint: 'The crown lift, past the Sanctum. Rest there first.',

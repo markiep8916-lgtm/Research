@@ -37,6 +37,8 @@ const TERRA = ['#4a1a10', '#6a2616', '#8a341c', '#aa4626', '#c65e34', '#dc7a48',
 const PLASTER = ['#8a6e52', '#a8886a', '#c4a484', '#dabe9e', '#ead4b6', '#f6e8d0', '#fff8ea'];
 const WHITE = ['#8a8478', '#a8a296', '#c4beb2', '#dcd8cc', '#ecebe2', '#f8f7f0', '#ffffff'];
 
+/** A colour scaled toward black (for soft emissive). */
+const dim = (hex, k) => `#${[1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('')}`;
 const clampI = (ramp, i) => ramp[Math.max(0, Math.min(ramp.length - 1, i))];
 /** Ordered-dithered ramp lookup: v is a fractional index into the ramp. */
 const dpick = (ramp, v, x, y) => {
@@ -171,6 +173,58 @@ function banner(t) {
   for (let y = 40; y < 52; y += 4) for (let x = 8; x < 24; x++) if ((x + y) % 4 < 2) t.px(x, y, GOLD[5]);
 }
 
+/**
+ * The hall's tall windows (a window pair, 64 x 96, opaque): gold frames round two lancets full of
+ * the sunset that never ends. Painted in, not seen through: the dream has no outside.
+ */
+function hallWindow(t, seed) {
+  const SKY = ['#e8705a', '#f48a5e', '#ffa468', '#ffbe78', '#ffd48e', '#ffe4a8', '#fff0c8', '#fff8e4'];
+  for (let y = 0; y < 96; y++) for (let x = 0; x < 64; x++) {
+    let c, h = 0.5;
+    if (y >= 72) {                               // wainscot, as the wall
+      const g = tn(x * 3, y * 0.4, 64, 96, 8, seed + 3, 2);
+      c = dpick(HONEY, 3.6 + (g - 0.5) * 1.6 + (x === 0 || x === 63 ? -1 : 0), x, y);
+      h = 0.56;
+    } else if (y >= 68) {
+      c = GOLD[y === 68 ? 5 : y === 71 ? 2 : 4];
+      h = 0.7;
+    } else if (y < 6) {
+      c = GOLD[y < 2 ? 5 : y === 5 ? 2 : 3];
+      h = 0.68;
+    } else {
+      c = dpick(IVORY, 5.0 + (tn(x, y, 64, 96, 4, seed, 3) - 0.5) * 0.8, x, y);
+      h = 0.55;
+    }
+    t.px(x, y, c, h);
+  }
+  // two lancets: a gold moulding, an arched head, the sunset inside (emissive)
+  for (const x0 of [5, 35]) {
+    const x1 = x0 + 23, y0 = 9, y1 = 64, cx = (x0 + x1) / 2, r = (x1 - x0) / 2;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const ay = y0 + r;
+      const inArch = y >= ay || Math.hypot(x - cx, y - ay) <= r;
+      if (!inArch) continue;
+      const edge = y === y1 || x === x0 || x === x1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 1.2);
+      if (edge) { t.px(x, y, GOLD[x < cx ? 5 : 3], 0.72); continue; }
+      const inner = y === y1 - 1 || x === x0 + 1 || x === x1 - 1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 2.2);
+      if (inner) { t.px(x, y, GOLD[2], 0.6); continue; }
+      // the sky: warm at the top, white-gold low where the sun has just gone, soft cloud bands
+      const k = (y - y0) / (y1 - y0);
+      const cloud = tn(x * 0.5, y * 1.6, 64, 96, 4, seed + 11, 3);
+      const v = 1.2 + k * 5.6 + (cloud > 0.6 ? (cloud - 0.6) * 6 : 0);
+      const col = dpick(SKY, Math.min(7, v), x, y);
+      // the panes glow, but softly: a full-strength sunset blooms the whole hall into haze
+      t.glow(x, y, col, dim(col, 0.32));
+      t.ht(x, y, 0.3);
+    }
+    // a cross of glazing bars
+    for (let y = y0 + 3; y < y1; y++) t.px(Math.round(cx), y, GOLD[3], 0.62);
+    for (const yb of [32, 48]) for (let x = x0 + 2; x < x1 - 1; x++) t.px(x, yb, GOLD[3], 0.62);
+  }
+  // the pier between the lancets: a slim gold pilaster
+  for (let y = 8; y < 66; y++) for (let x = 30; x < 34; x++) t.px(x, y, GOLD[x === 30 ? 5 : x === 33 ? 2 : 4], 0.7);
+}
+
 function goldLeaf(t, seed) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 32, 4, seed, 3);
@@ -181,19 +235,31 @@ function goldLeaf(t, seed) {
 // ---------------------------------------------------------------- nyx: the Meridian, whole
 
 /** Jade deck plates: two plates per cell, brass rivets, a fine lit lip (value contrast ~12%). */
+/**
+ * Jade deck plates, one per cell, calm: a soft seam, a brass stud where four plates meet, and on the
+ * alternate plate a small brass compass inlay (mixed in at random, so no grid of motifs shows).
+ */
 function merFloor(t, seed, alt) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 32, 2, seed, 3);
-    const plate = alt ? (x < 16 ? 0 : 1) : (y < 16 ? 0 : 1);
-    t.px(x, y, dpick(JADE, 3.4 + (n - 0.5) * 0.9 + plate * 0.3, x, y), 0.52 + (n - 0.5) * 0.04);
+    const wear = tn(x + 7, y + 3, 32, 32, 4, seed + 9, 2);
+    t.px(x, y, dpick(JADE, 3.0 + (n - 0.5) * 0.7 + (wear - 0.5) * 0.4, x, y), 0.52 + (n - 0.5) * 0.04);
   }
   for (let i = 0; i < 32; i++) {
-    t.px(i, 0, JADE[2], 0.4).px(0, i, JADE[2], 0.4).px(i, 1, JADE[4]).px(1, i, JADE[4]);
-    if (alt) t.px(16, i, JADE[2], 0.44).px(17, i, JADE[4]);
-    else t.px(i, 16, JADE[2], 0.44).px(i, 17, JADE[4]);
+    t.px(i, 0, JADE[2], 0.44).px(0, i, JADE[2], 0.44).px(i, 1, JADE[4], 0.52).px(1, i, JADE[4], 0.52);
   }
-  for (const [x, y] of alt ? [[4, 4], [12, 4], [20, 4], [28, 4], [4, 28], [12, 28], [20, 28], [28, 28]] : [[4, 4], [28, 4], [4, 12], [28, 12], [4, 20], [28, 20], [4, 28], [28, 28]]) {
-    rivet(t, x, y, BRASS, 6);
+  rivet(t, 1, 1, BRASS, 5);
+  if (alt) {
+    // a brass compass rose, small and low: the Meridian's crest
+    const cx = 16, cy = 16;
+    for (let k = -4; k <= 4; k++) {
+      t.px(cx + k, cy, BRASS[Math.abs(k) < 2 ? 4 : 3], 0.6).px(cx, cy + k, BRASS[Math.abs(k) < 2 ? 4 : 3], 0.6);
+    }
+    for (let a = 0; a < 24; a++) {
+      const r = 6, ang = (a / 24) * Math.PI * 2;
+      t.px(Math.round(cx + Math.cos(ang) * r), Math.round(cy + Math.sin(ang) * r), BRASS[2], 0.56);
+    }
+    t.px(cx, cy, BRASS[5], 0.66);
   }
 }
 
@@ -316,6 +382,19 @@ function pearlLow(t, seed) {
   for (let y = 0; y < 24; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 24, 2, seed, 3);
     t.px(x, y, y < 2 ? GOLD[y === 0 ? 5 : 3] : dpick(PEARL, 5.2 + (n - 0.5) * 0.6, x, y), y < 2 ? 0.68 : 0.54);
+  }
+}
+
+/** Dark polished glass for HALCYON's dais: deep teal-black, a soft sky reflection, a cyan seam ring. */
+function glassTop(t, seed) {
+  const DEEP = ['#04090c', '#071016', '#0b1820', '#10222c', '#183240', '#244658'];
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    const n = tn(x, y, 32, 32, 2, seed, 3);
+    const sheen = Math.max(0, 1 - Math.abs(x + y - 30) / 7) * 1.4;
+    t.px(x, y, dpick(DEEP, 1.4 + (n - 0.5) * 0.8 + sheen, x, y), 0.5);
+  }
+  for (let i = 0; i < 32; i++) {
+    t.glow(i, 0, MINT[2], MINT[0]).glow(0, i, MINT[2], MINT[0]);
   }
 }
 
@@ -600,6 +679,8 @@ export const TEXTURES = {
   dr_banner: { w: 32, h: 64, strength: 1.2, paint: banner },
   dr_gold: { ...floor, strength: 1.4, paint: (t) => goldLeaf(t, 411) },
   dr_bd_gold: { w: 1024, h: 512, raw: bdGold, emissiveIsMap: true },
+  dr_hall_window: { w: 64, h: 96, strength: 1.6, paint: (t) => hallWindow(t, 413) },
+  dr_glass: { w: 32, h: 32, wrapX: true, wrapY: true, strength: 0.8, paint: (t) => glassTop(t, 431) },
 
   dr_mer_floor: { ...floor, strength: 1.8, paint: (t) => merFloor(t, 421, false) },
   dr_mer_floor_b: { ...floor, strength: 1.8, paint: (t) => merFloor(t, 423, true) },

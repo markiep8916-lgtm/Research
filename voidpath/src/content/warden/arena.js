@@ -59,7 +59,9 @@ function dais(kit) {
   const rim = kit.mat('wd_crown_rim', { emissiveIntensity: 2 });
   const under = kit.mat('wd_crown_under', { emissiveIntensity: 1.6 });
   const lip = neon(kit, '#ffc85a', 1.4);
-  const slabs = [], steps = [], lips = [];
+  // the lips facing the camera sit in the foreground blur: dimmer, so they frame rather than glare
+  const lipFront = neon(kit, '#ffc85a', 0.6);
+  const slabs = [], steps = [], lips = [], fronts = [];
   for (let z = kit.WALL_Z; z < 10; z++) {
     for (let x = -15; x < 15; x++) {
       if (!inside(x, z)) continue;
@@ -68,13 +70,15 @@ function dais(kit) {
       slabs.push(placed([x + 0.5, -0.4, z + 0.5], [0, 0, 0], [1, 0.8, 1]));
       const d = 0.8 + r() * 1.8;
       steps.push(placed([x + 0.5, -0.8 - d / 2, z + 0.5], [0, 0, 0], [0.7, d, 0.7]));
-      for (const [dx, dz] of open) lips.push(placed([x + 0.5 + dx * 0.5, 0.012, z + 0.5 + dz * 0.5], [0, dz ? 0 : Math.PI / 2, 0], [1, 0.03, 0.05]));
+      for (const [dx, dz] of open) {
+        (dz > 0 ? fronts : lips).push(placed([x + 0.5 + dx * 0.5, 0.012, z + 0.5 + dz * 0.5], [0, dz ? 0 : Math.PI / 2, 0], [1, 0.03, 0.05]));
+      }
     }
   }
   const box = kit.track(new THREE.BoxGeometry(1, 1, 1));
   kit.instanced(box, [[rim, slabs]], { receive: true });
   kit.instanced(box, [[under, steps]], { receive: true });
-  kit.instanced(box, [[lip, lips]], { receive: false });
+  kit.instanced(box, [[lip, lips], [lipFront, fronts]], { receive: false });
 }
 
 /** The cradle inlaid in the floor round WARDEN: two gold rings, twelve spokes, a soft pool of light. */
@@ -87,6 +91,7 @@ function inlay(kit, C) {
     return m;
   };
   C.floorRings = [ring(2.6, 1.6), ring(3.5, 1.1)];
+  C.floorRingBase = [1.6, 1.1, 1.3];
   const spokeMat = neon(kit, '#ffd27a', 1.3);
   C.floorRingMats = [...C.floorRings.map((m) => m.material), spokeMat];
   const spokes = [];
@@ -95,6 +100,26 @@ function inlay(kit, C) {
     spokes.push(placed([BOSS[0] + Math.cos(a) * 3.05, 0.015, BOSS[1] + Math.sin(a) * 3.05 * 0.62], [0, -a, 0], [0.7, 0.02, 0.05]));
   }
   kit.instanced(kit.track(new THREE.BoxGeometry(1, 1, 1)), [[spokeMat, spokes]], { receive: false });
+  // the crown's own floor (as the Heart's crown dais shows it in the field): wide concentric rings of
+  // thin gold round WARDEN's place, beaded with small lights, leading the eye in to it
+  const wide = neon(kit, '#e0a548', 0.55);
+  const beadMat = neon(kit, '#ffe2a0', 1.6);
+  const bead = kit.track(new THREE.SphereGeometry(0.06, 6, 4));
+  const beads = [];
+  for (const [rad, n] of [[5.6, 28], [8.4, 40]]) {
+    const m = kit.add(new THREE.Mesh(kit.track(new THREE.TorusGeometry(rad, 0.025, 3, 160)), wide));
+    m.rotation.x = -Math.PI / 2;
+    m.scale.set(1, 0.62, 1);
+    m.position.set(BOSS[0], 0.014, BOSS[1]);
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2;
+      const x = BOSS[0] + Math.cos(a) * rad, z = BOSS[1] + Math.sin(a) * rad * 0.62;
+      if (inside(Math.floor(x), Math.floor(z))) beads.push(placed([x, 0.03, z], [0, 0, 0], [1, 0.4, 1]));
+    }
+  }
+  kit.instanced(bead, [[beadMat, beads]], { receive: false });
+  C.floorRingMats.push(wide);
+  C.floorRingBase.push(0.55);
   // the pool lies flat on the floor (a billboard here would haze over the construct's body)
   const pool = kit.add(new THREE.Mesh(kit.plane(7.4, 4.6), kit.track(new THREE.MeshBasicMaterial({
     map: glowTexture(), color: '#ffc85a', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
@@ -190,7 +215,7 @@ function crown(kit, C) {
   }
   kit.add(rays);
   C.rays = rays;
-  const halo = kit.add(makeGlow('#ffc85a', 11, 0.32, { pull: 0.1 }));
+  const halo = kit.add(makeGlow('#ffc85a', 11, 0.22, { pull: 0.1 }));
   halo.position.set(CROWN[0], CROWN[1], CROWN[2] + 0.5);
   C.halo = halo;
   // light streams rising from the void
@@ -255,22 +280,26 @@ function build(kit) {
     C.beads.rotation.z = t * 0.05 * (1 + f * 1.5);
     C.beads.scale.setScalar(sc);
     C.rays.rotation.z = -t * 0.02;
-    C.giltMat.emissiveIntensity = (0.55 + f * 1.4 + C.pulse * 0.8) * k * breath;
-    C.rayMat.emissiveIntensity = (2.2 + f * 2.2) * k * breath;
+    // the flood shows in the crown's motion and the Choir below; the light right behind WARDEN rises
+    // only a little, so the construct never dissolves into a gold haze (bloom)
+    C.giltMat.emissiveIntensity = (0.55 + f * 0.6 + C.pulse * 0.8) * k * breath;
+    C.rayMat.emissiveIntensity = (2.2 + f * 0.9) * k * breath;
     C.rayMat.opacity = Math.min(1, 0.75 + f * 0.25) * k;
-    C.halo.material.color.copy(glowBase).multiplyScalar((1 + f * 1.4) * k * breath);
-    C.podMats.forEach((m, i) => { m.emissiveIntensity = ((i ? 0.9 : 1.1) + f * 1.2) * k; });
-    C.podGlass.emissiveIntensity = (1.8 + f * 1.6) * k;
-    C.floorRingMats.forEach((m, i) => { m.emissiveIntensity = ((i ? 1.1 : 1.6) + f * 1.2 + C.pulse * 3) * k; });
+    C.halo.material.color.copy(glowBase).multiplyScalar((1 + f * 0.45) * k * breath);
+    C.podMats.forEach((m, i) => { m.emissiveIntensity = ((i ? 0.9 : 1.1) + f * 0.6) * k; });
+    C.podGlass.emissiveIntensity = (1.8 + f * 0.8) * k;
+    C.floorRingMats.forEach((m, i) => { m.emissiveIntensity = (C.floorRingBase[i] * (1 + f * 0.5) + C.pulse * (i < 3 ? 3 : 1)) * k; });
     C.pool.material.color.set('#ffc85a').multiplyScalar((0.35 + f * 0.4 + C.pulse * 0.5) * k);
-    pool.intensity = (10 + f * 8 + C.pulse * 12) * k;
-    crownLight.intensity = (12 + f * 12) * k * breath;
+    // the flood lights the crown, not the construct: the pool under it barely rises, so form 2 keeps
+    // its night-sky body against the gold instead of washing out
+    pool.intensity = (10 + f * 1.5 + C.pulse * 12) * k;
+    crownLight.intensity = (12 + f * 5) * k * breath;
     dawn.color.copy(base.dawnBase).lerp(base.dawnC, C.dawn);
     dawn.intensity = 9 + C.dawn * 22 + f * 2;
-    key.color.copy(base.key).lerp(base.gold, f * 0.45);
-    key.intensity = base.keyI * (0.85 + f * 0.25) * (0.6 + 0.4 * k);
-    hemi.color.copy(base.hemi).lerp(base.gold, f * 0.3);
-    rimE.intensity = 18 * (1 + f * 0.5) * k;
+    key.color.copy(base.key).lerp(base.gold, f * 0.3);
+    key.intensity = base.keyI * (0.85 + f * 0.08) * (0.6 + 0.4 * k);
+    hemi.color.copy(base.hemi).lerp(base.gold, f * 0.18);
+    rimE.intensity = 18 * k;
     for (let i = 0; i < C.stars.length; i++) {
       const s = C.stars[i];
       s.material.opacity = (0.55 + 0.35 * Math.sin(t * 0.8 + i * 1.7)) * (1 + f * 0.5);

@@ -58,8 +58,9 @@ async function cut(cs, { member, map, at, view, focus, zoom = 0.84, spawns = [],
  * reached through the runner's context, with a caption where that is not there (the dry run).
  */
 async function logo(cs) {
-  const cards = cs._ctx?.ui?.cards;
-  if (typeof cards?.logo === 'function') await cards.logo({ ms: 4200 });
+  const ctx = cs._ctx;
+  const cards = ctx?.ui?.cards;
+  if (typeof cards?.logo === 'function') await cards.logo({ ms: ctx.cutscenes?.fast ? 300 : 4200 });
   else await cs.caption('VOIDPATH', { ms: 4200 });
 }
 
@@ -80,14 +81,13 @@ const scripts = {
     bg(cs.camera.pan([[5.4, 20.4], [8.6, 20.4]], { sec: 4 }));
     await cs.narrate('One by one, the pods change their minds.');
     bg(cs.camera.focus([3.8, 27.2], { zoom: 0.8, ms: 1800 }));
-    await cs.move('leader', [[6.4, 27.6], [3.4, 28.3]], { speed: 1.5, face: 'up' });
+    await cs.move('leader', [[6.4, 27.6], [3.4, 28.3]], { speed: 2.2, face: 'up' });
     cs.anim('leader', 'kneel');
     cs.flag('epi:halberd');
     cs.particles('mote', [3.4, 0.3, 27.7], { count: 18 });
     cs.sfx('equip', { volume: 0.5 });
     await cs.wait(0.9);
     await cs.say('KADE', 'They chose to keep dreaming, Commander. So did you. Keep them company.', { expr: 'sad' });
-    await cs.wait(1.0);
     cs.anim('leader', null);
 
     // ---------------------------------------------------------------- (2) Theo
@@ -95,12 +95,11 @@ const scripts = {
       member: 'sera', map: 'halcyon', at: { x: 5.8, z: 32.2, facing: 'left' },
       view: { pitch: 28, dist: 12 }, focus: [4.6, 31.4], zoom: 0.8,
     });
-    await cs.wait(0.5);
     cs.flag('epi:theo_pod');
     cs.sfx('wake', { volume: 0.7 });
     cs.particles('frost', [3.6, 1.1, 30.9], { count: 36 });
     cs.particles('steam', [3.6, 0.4, 31.0], { count: 14 });
-    await cs.wait(1.2);
+    await cs.wait(1.0);
     await cs.spawn('ep_theo', { sprite: 'theo', x: 3.6, z: 30.9, facing: 'down', name: 'THEO', fade: 0.5 });
     await cs.move('ep_theo', [[3.6, 31.5]], { speed: 0.7, face: 'leader' });
     await cs.say('THEO', '...Sera?', { expr: 'surprised' });
@@ -111,8 +110,7 @@ const scripts = {
       { speaker: 'THEO', text: 'Did I miss anything?', expr: 'smile' },
       { speaker: 'SERA', text: 'A little.', expr: 'smile' },
     ]);
-    bg(cs.emote('leader', 'heart', { wait: false }));
-    await cs.wait(0.8);
+    await cs.emote('leader', 'heart', { ms: 900 });
     cs.anim('leader', null);
 
     // the Arboretum glass, the next morning: the two of them looking out, MOTHER-7 tending behind
@@ -124,12 +122,11 @@ const scripts = {
         ['ep_mother7', { sprite: 'mother7', x: 17.6, z: 4.8, facing: 'left', name: 'MOTHER-7' }],
       ],
     });
-    bg(cs.move('ep_mother7', [[16.4, 4.2]], { speed: 0.6, face: 'left' }));
-    await cs.wait(1.6);
+    bg(cs.move('ep_mother7', [[16.4, 4.2]], { speed: 0.9, face: 'left' }));
+    await cs.wait(1.0);
     await cs.say('MOTHER-7', 'Good morning, little sprouts. Up you come.');
     cs.face('ep_theo_glass', 'ep_mother7');
-    bg(cs.emote('ep_theo_glass', '!', { wait: false }));
-    await cs.wait(1.0);
+    await cs.emote('ep_theo_glass', '!', { ms: 800 });
 
     // ---------------------------------------------------------------- (3) Driftmarket's viewport
     cs.music('driftmarket', { fade: 1.5 });
@@ -138,7 +135,7 @@ const scripts = {
       view: { pitch: 14, dist: 12 }, focus: [30.8, 1.0], zoom: 1,
       spawns: [['ep_ruse', { sprite: 'ruse', x: 29.8, z: 2.4, facing: 'up', name: 'RUSE' }]],
     });
-    await cs.wait(2.4);
+    await cs.wait(2.0);
     await cs.say('RUSE', 'Ship-people. Always late.');
     cs.face('leader', 'ep_ruse');
     await cs.say('NYX', 'Worth the wait, though.', { expr: 'smile' });
@@ -156,8 +153,7 @@ const scripts = {
     cs.anim('leader', null);
     cs.face('ep_halcyon', 'leader');
     await cs.say('HALCYON', 'I have painted Tethys forty times. May I paint Ione next?', { expr: 'calm' });
-    bg(cs.emote('leader', 'note', { wait: false }));
-    await cs.wait(1.0);
+    await cs.emote('leader', 'note', { ms: 900 });
 
     // ---------------------------------------------------------------- (5) the skiffs (exterior)
     await cs.fadeOut({ ms: 700 });
@@ -166,9 +162,9 @@ const scripts = {
     if (me) await me.setVisible(false);
     await cs.camera.view({ pitch: 14, dist: 23, ms: 1 });
     await cs.camera.focus([34, 5.5], { ms: 1 });
-    const pan = bg(cs.camera.pan([[34, 5.5], [22, 5.5], [11, 5.5]], { sec: 12 }));
+    const pan = bg(cs.camera.pan([[34, 5.5], [22, 5.5], [13, 5.5]], { sec: 9 }));
     bg(cs.fadeIn({ ms: 900 }));
-    await cs.wait(2.6);
+    await cs.wait(1.6);
     await cs.narrate('Ringborn skiffs rise from the rings to walk the Halcyon home.');
     await pan;
 
@@ -192,7 +188,7 @@ const scripts = {
     await cs.say('BOLT', 'We made it. Not mostly. All the way.', { expr: 'happy' });
     await cs.say('NYX', 'Cold. Good cold, though.', { expr: 'smile' });
     cs.sfx('shard', { volume: 0.4 });
-    await cs.wait(0.8);
+    await cs.wait(0.6);
     await cs.say('ORION', 'Listen. The ice is singing.', { expr: 'smile' });
     await cs.wait(1.0);
     await cs.say('KADE', 'Then we\'ll build a world worth waking for.', { expr: 'smile' });
@@ -287,26 +283,10 @@ const WAKE_LAMPS = [
   ...[9.5, 11.5, 12.5].map((x) => [x, 2.12, 30.8]),
 ];
 
-const post = (id, order, extra = {}) => ({ id, chapter: 'epilogue', order, budget: { boxes: 2, sec: 15 }, jump: 'epi.shore', at: 'ione:shore', ...extra });
-
 export default {
   scripts,
   scenes: [
     { id: 'epilogue.main', chapter: 'epilogue', order: 10, key: true, budget: { boxes: 20, sec: 150 }, jump: 'epilogue', at: 'halcyon:cryo' },
-    post('epilogue.shore_kade', 30),
-    post('epilogue.shore_nyx', 31),
-    post('epilogue.shore_orion', 32),
-    post('epilogue.shore_sera', 33),
-    post('epilogue.shore_bolt', 34),
-    post('epilogue.shore_theo', 35),
-    post('epilogue.orion_beacon', 40, { budget: { boxes: 3, sec: 30 } }),
-    post('epilogue.memorial', 50, { at: 'halcyon:cryo' }),
-    post('epilogue.halcyon_hub', 51, { at: 'halcyon:bridge' }),
-    post('epilogue.dm_ruse', 60, { at: 'driftmarket:counter' }),
-    post('epilogue.dm_tobin', 61, { at: 'driftmarket:beacon' }),
-    post('epilogue.dm_pip', 62, { at: 'driftmarket:dock' }),
-    post('epilogue.dm_ama', 63, { at: 'driftmarket:dock' }),
-    post('epilogue.dm_juno', 64, { at: 'driftmarket:dock' }),
   ],
   objectives: {
     'epi.wake': { chapter: 'epilogue', text: 'Watch them wake.', hint: 'The Cryo Deck.', boltHint: 'They\'re waking up! Everyone who wants to!' },
