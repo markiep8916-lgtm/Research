@@ -19,10 +19,12 @@
 // Binding (12.5): spawns kade, nyx, orion, sera. Map NPC ids never use member ids (dr_*).
 
 // ---------------------------------------------------------------- moods (each its own gold hour)
+// The fog is also the colour of the dark around each set (and of the window hulls): kept deep, so
+// every dream reads as a lit stage in the dark.
 
 const MOOD = {
   kade: {
-    fog: '#5a3814', density: 0.01, sky: '#ffd890', ground: '#3a2210', hemi: 0.58,
+    fog: '#2c1c0a', density: 0.01, sky: '#ffd890', ground: '#3a2210', hemi: 0.58,
     key: 1.2, keyColor: '#ffcf80', fill: 0.58, exposure: 0.94, bloom: 0.85, saturation: 1.08,
   },
   nyx: {
@@ -30,12 +32,12 @@ const MOOD = {
     key: 1.15, keyColor: '#ffe6b0', fill: 0.6, exposure: 1.0, bloom: 0.9, saturation: 1.04,
   },
   orion: {
-    fog: '#545866', density: 0.009, sky: '#f4f0e8', ground: '#2a2a30', hemi: 0.6,
-    key: 1.1, keyColor: '#fff0d4', fill: 0.55, exposure: 0.94, bloom: 0.85, saturation: 0.92,
+    fog: '#22242c', density: 0.009, sky: '#f4f0e8', ground: '#2a2a30', hemi: 0.6,
+    key: 1.1, keyColor: '#fff0d4', fill: 0.55, exposure: 0.86, bloom: 0.7, saturation: 0.92,
   },
   sera: {
-    fog: '#8a6030', density: 0.01, sky: '#ffe2b8', ground: '#4a3214', hemi: 0.72,
-    key: 1.45, keyColor: '#ffd49a', fill: 0.58, exposure: 0.98, bloom: 0.9, saturation: 1.1,
+    fog: '#2c1e0c', density: 0.01, sky: '#ffe2b8', ground: '#4a3214', hemi: 0.72,
+    key: 1.45, keyColor: '#ffd49a', fill: 0.58, exposure: 0.98, bloom: 0.7, saturation: 1.1,
   },
 };
 
@@ -54,10 +56,10 @@ const kadeProps = [
   { t: 'dr.halo', x: K + 8.5, z: 3.9, r: 1.75, y: 0.1, color: '#ffd27a', glow: false },
   // WARDEN's surfaces: a banner behind the dais, and two standards flanking it, in frame with the
   // speakers (gold crest; the sigil while WARDEN speaks)
-  { t: 'screen', group: 'kade', tex: 'dr_banner', x: K + 8.5, y: 0.85, z: 1.98, w: 1.2, h: 2.4, intensity: 1.2 },
+  { t: 'screen', group: 'kade', tex: 'dr_banner', x: K + 8.5, y: 0.85, z: 2.04, w: 1.2, h: 2.4, intensity: 0.75 },
   ...[6.0, 11.0].flatMap((x) => [
     { t: 'dr.pole', x: K + x, z: 3.0, h: 2.7 },
-    { t: 'screen', group: 'kade', tex: 'dr_banner', x: K + x, y: 0.75, z: 3.06, w: 0.95, h: 1.8, intensity: 1.15 },
+    { t: 'screen', group: 'kade', tex: 'dr_banner', x: K + x, y: 0.75, z: 3.06, w: 0.95, h: 1.8, intensity: 0.7 },
   ]),
   // gold rails over the windows' piers
   ...[4.0, 13.0].map((x) => ({ t: 'box', x: K + x, z: 2.06, w: 1.4, d: 0.08, h: 0.08, y: 3.48, emissive: 1.8, solid: false, tex: 'dr_gold' })),
@@ -66,9 +68,9 @@ const kadeProps = [
   { t: 'dr.rack', x: K + 14.0, z: 2.25, n: 5 },
   { t: 'sp.dummy', x: K + 15.2, z: 6.2 },
   { t: 'sp.dummy', x: K + 15.2, z: 8.4 },
-  { t: 'sp.bench', x: K + 2.0, z: 9.6, w: 2.2 },
-  // the cadets' lines: polished marks where each one stands, and Kade's own place, empty
-  ...[5.0, 6.6, 8.2].flatMap((z) => [6.0, 11.0].map((x) => ({ t: 'floorPlane', x: K + x, z, w: 0.8, d: 0.8, tex: 'dr_mark', emissive: 1.2 }))),
+  { t: 'box', x: K + 2.0, z: 9.6, w: 2.2, d: 0.5, h: 0.42, emissive: 1.3, tex: { front: 'dr_hall_low', side: 'dr_hall_low', top: 'dr_hall_cap' } },
+  // the cadets' lines: a ring of light where each one stands, and Kade's own place, empty
+  ...[5.0, 6.6, 8.2].flatMap((z) => [6.0, 11.0].map((x) => ({ t: 'dr.halo', x: K + x, z, r: 0.36, y: 0.03, color: '#ffd27a', glow: false }))),
   { t: 'dr.urn', x: K + 1.4, z: 12.2 },
   { t: 'dr.urn', x: K + 15.6, z: 12.2 },
   { t: 'dr.urn', x: K + 1.2, z: 3.2 },
@@ -76,8 +78,9 @@ const kadeProps = [
 ];
 const kadeLights = [
   gold(K + 3.0, 3.4, 10, 8), gold(K + 14.0, 3.4, 10, 8),
-  // WARDEN's gold, in front of the dais so it lights Voss's face, not the back of her head
-  { ...pool(K + 8.5, 5.6, '#ffd27a', 8, 6.5, 2.0), tag: 'dream_gold' },
+  // WARDEN's gold, in front of the dais and above head height: it lights Voss's face without a hot
+  // spot on her sprite
+  { ...pool(K + 8.5, 6.6, '#ffd27a', 8, 7.5, 3.0), tag: 'dream_gold' },
   pool(K + 3.0, 9.6, '#ffb24a', 10, 7), pool(K + 14.0, 9.6, '#ffb24a', 10, 7),
   pool(K + 8.5, 11.0, '#ff9a5a', 10, 6.5),
 ];
@@ -99,9 +102,12 @@ const nyxProps = [
   { t: 'box', x: N + 8.5, z: 3.2, w: 5.4, d: 2.0, h: 0.2, emissive: 1.6, solid: false, tex: { front: 'dr_mer_low', side: 'dr_mer_low', top: 'dr_mer_cap' } },
   ...[7.4, 9.6].map((x) => ({ t: 'console', x: N + x, z: 2.6 })),
   ...[7.4, 9.6].map((x) => ({ t: 'screen', group: 'nyx', tex: 'dr_mer_screen', x: N + x, y: 1.05, z: 2.12, w: 1.0, h: 0.5, intensity: 1.5 })),
-  { t: 'chair', x: N + 12.6, z: 3.4 },
-  // gardens in every corner: the ship kept green for the long flight
-  ...[2.2, 14.8].map((x) => ({ t: 'box', x: N + x, z: 3.0, w: 2.4, d: 1.4, h: 0.5, emissive: 1.4, tex: { front: 'dr_mer_low', side: 'dr_mer_low', top: 'arb_soil' } })),
+  // the pilot's seat, in the deck's own teal (Tomas stands by it)
+  ...[[3.4, 0.6, 0.45, 0], [3.12, 0.14, 0.6, 0.45]].map(([z, d, h, y]) => ({
+    t: 'box', x: N + 12.6, z, w: 0.7, d, h, y, emissive: 1.4, solid: y === 0, tex: { front: 'dr_mer_low', side: 'dr_mer_low', top: 'dr_mer_cap' },
+  })),
+  // gardens in every corner: the ship kept green for the long flight (moss-topped beds)
+  ...[2.2, 14.8].map((x) => ({ t: 'box', x: N + x, z: 3.0, w: 2.4, d: 1.4, h: 0.5, emissive: 1.4, tex: { front: 'dr_mer_low', side: 'dr_mer_low', top: 'dr_runner' } })),
   { t: 'arb.tree', x: N + 2.0, z: 3.2, s: 0.85 },
   { t: 'arb.tree', x: N + 15.0, z: 3.2, s: 0.8 },
   { t: 'arb.fern', x: N + 1.6, z: 7.0, s: 1.1 },
@@ -120,7 +126,7 @@ const nyxProps = [
   { t: 'sign', name: 'dr_mer_plaque', x: N + 8.5, z: 2.0 },
 ];
 const nyxLights = [
-  { ...pool(N + 8.5, 3.6, '#ffd27a', 9, 7, 2.6), tag: 'dream_gold' },
+  { ...pool(N + 8.5, 3.6, '#ffd27a', 9, 7, 3.0), tag: 'dream_gold' },
   pool(N + 3.0, 5.0, '#9fffc0', 10, 7), pool(N + 14.0, 5.0, '#9fffc0', 10, 7),
   pool(N + 5.0, 9.4, '#ffc87a', 10, 7), pool(N + 12.0, 9.4, '#ffc87a', 10, 7),
   pool(N + 8.5, 1.6, '#8fd8ff', 10, 6, 1.6),
@@ -146,13 +152,13 @@ const orionProps = [
   { t: 'dr.dais', x: O + 8.5, z: 4.4, r: 1.5, glass: true },
   { t: 'dr.halo', x: O + 8.5, z: 4.4, r: 1.62, y: 0.1, glow: false },
   { t: 'floorPlane', x: O + 8.5, z: 8.4, w: 1.6, d: 6.0, tex: 'dr_runner_pearl', emissive: 1.4 },
-  ...[2.0, 15.0].map((x) => ({ t: 'cylinder', x: O + x, z: 10.6, r: 0.34, h: 3.0, tex: 'dr_pearl_cap', emissive: 1.6 })),
 ];
 const orionLights = [
-  pool(O + 8.5, 6.2, '#e8fbff', 8, 6.5, 2.2),
-  { ...pool(O + 8.5, 6.4, '#ffd27a', 9, 6.5, 2.6), tag: 'dream_gold' },
+  // her dais lit from both front corners, high, so neither she nor the traveler before her burns out
+  pool(O + 6.4, 5.4, '#e8fbff', 7, 6.5, 3.0),
+  { ...pool(O + 10.6, 5.4, '#ffd27a', 9, 6.5, 3.0), tag: 'dream_gold' },
   pool(O + 3.4, 3.6, '#7fffd0', 10, 6), pool(O + 13.6, 3.6, '#7fffd0', 10, 6),
-  pool(O + 4.0, 9.6, '#ffe2b0', 10, 7), pool(O + 13.0, 9.6, '#ffe2b0', 10, 7),
+  pool(O + 4.0, 9.6, '#ffe2b0', 7, 7), pool(O + 13.0, 9.6, '#ffe2b0', 7, 7),
 ];
 const orionNpcs = [
   // HALCYON as WARDEN offers her: solid, still, not a flicker of light out of place
@@ -168,6 +174,8 @@ const seraProps = [
   // the fields run on past the east edge: a strip of wheat, then more of the same morning
   { t: 'floorPlane', x: S + 19.2, z: 8.0, w: 2.4, d: 16, tex: 'dr_wheat', repeat: true, emissive: 1.4 },
   { t: 'plane', x: S + 20.3, z: 8.0, y: -0.6, w: 18, h: 8, rot: Math.PI / 2, tex: 'dr_bd_fields', emissive: 0.85 },
+  // and past the west edge (it hides the bridge's window hull next door)
+  { t: 'plane', x: S - 0.6, z: 8.0, y: -0.6, w: 18, h: 8, rot: Math.PI / 2, tex: 'dr_bd_fields', emissive: 0.85 },
   { t: 'dr.sun', x: S + 3.5, y: 4.8, z: 0.6, size: 2.2 },
   // the house by the river, its fence and gate, the tree
   { t: 'dr.house', x: S + 9.0, z: 3.4 },
@@ -188,7 +196,7 @@ const seraLights = [
   { ...pool(S + 9.0, 3.0, '#ffd27a', 9, 9, 3.2), tag: 'dream_gold' },
   pool(S + 2.8, 6.0, '#a8e8ff', 5, 5, 2.6),
   pool(S + 12.6, 9.4, '#ffb87a', 9, 7),
-  pool(S + 5.0, 11.6, '#ffe0a0', 9, 7),
+  pool(S + 5.0, 11.6, '#ffe0a0', 6, 7),
 ];
 const seraNpcs = [
   { id: 'dr_theo', sprite: 'theo_grown', x: S + 9.0, z: 7.2, facing: 'down', name: 'THEO' },
@@ -225,19 +233,20 @@ export default {
   ],
   legend: {
     // kade: ivory and honey stone, gold trim
-    '#': { t: 'wall', tex: 'dr_hall_wall', side: 'dr_hall_wall', cap: 'dr_hall_cap', low: 'dr_hall_low' },
-    W: { t: 'window', tex: 'dr_hall_window' },
-    h: { t: 'floor', tex: 'dr_hall_floor', mix: [['dr_hall_floor_b', 0.3]], rot: 'random', roughness: 0.35, metalness: 0.2, emissive: 1.3 },
+    '#': { t: 'wall', tex: 'dr_hall_wall', side: 'dr_hall_wall', cap: 'dr_hall_cap', low: 'dr_hall_low', upper: 'dr_hall_wall' },
+    // the hall's lancets are painted on the wall (no glass, no outside: the dream ends at the wall)
+    W: { t: 'wall', tex: 'dr_hall_window', side: 'dr_hall_wall', cap: 'dr_hall_cap', low: 'dr_hall_low', upper: 'dr_hall_wall' },
+    h: { t: 'floor', tex: 'dr_hall_floor', mix: [['dr_hall_floor_b', 0.3]], rot: 'random', roughness: 0.5, metalness: 0.2, emissive: 1.3 },
     // nyx: jade deck plates, teal walls
     m: { t: 'floor', tex: 'dr_mer_floor', mix: [['dr_mer_floor_b', 0.18]], rot: 'random', roughness: 0.45, metalness: 0.35, emissive: 1.4 },
     // orion: pearl
-    p: { t: 'floor', tex: 'dr_pearl_floor', rot: 'random', roughness: 0.25, metalness: 0.3, emissive: 1.2 },
-    s: { t: 'wall', tex: 'dr_pearl_wall', side: 'dr_pearl_wall', cap: 'dr_pearl_cap', low: 'dr_pearl_low' },
-    // the bridge glass: a calm gold light ahead, the ship on course
-    B: { t: 'window', tex: 'window_frame', backdrop: 'dr_bd_gold' },
+    p: { t: 'floor', tex: 'dr_pearl_floor', rot: 'random', roughness: 0.5, metalness: 0.3, emissive: 0.8 },
+    s: { t: 'wall', tex: 'dr_pearl_wall', side: 'dr_pearl_wall', cap: 'dr_pearl_cap', low: 'dr_pearl_low', upper: 'dr_pearl_wall' },
+    // the bridge glass: the ship on course through calm stars
+    B: { t: 'window', tex: 'window_frame' },
     // nyx: teal panels with warm lamp strips; the long viewport of stars streaming past
     M: { t: 'wall', tex: 'dr_mer_wall', side: 'dr_mer_wall', cap: 'dr_mer_cap', low: 'dr_mer_low' },
-    V: { t: 'window', tex: 'window_frame', backdrop: 'dr_bd_stars' },
+    V: { t: 'window', tex: 'window_frame' },
     // sera: wheat, the river, the path
     ',': { t: 'floor', tex: 'dr_wheat', mix: [['dr_meadow', 0.28]], rot: 'random', roughness: 0.9, metalness: 0, emissive: 1.4 },
     w: { t: 'water', tex: 'dr_river', bank: 'dr_bank', bed: 'dr_riverbed', depth: 0.3 },
@@ -246,6 +255,8 @@ export default {
   wallH: 3,
   lowH: 0.75,
   wallTex: { side: 'dr_hall_wall', cap: 'dr_hall_cap', low: 'dr_hall_low' },
+  // one window run crosses the Meridian and the bridge (row 1): both look out on the same stars
+  backdrop: { texture: 'dr_bd_stars', stars: 'stars_layer', tint: [1.05, 1.05, 1.1] },
   // the hall's windows climb two storeys; the bridge is two storeys of glass
   grand: [
     { row: 1, c0: 0, c1: 16, height: 5 },

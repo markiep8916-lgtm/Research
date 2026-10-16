@@ -8310,14 +8310,14 @@ var Painter = class _Painter {
    * Use it once at the end of drawing a sprite (sprites must leave >= 1px transparent margin).
    */
   outline(color = "#0b0e17", { diagonal = false } = {}) {
-    const mark2 = [];
+    const mark = [];
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
       if (this.opaque(x, y)) continue;
       let hit7 = this.opaque(x - 1, y) || this.opaque(x + 1, y) || this.opaque(x, y - 1) || this.opaque(x, y + 1);
       if (!hit7 && diagonal) hit7 = this.opaque(x - 1, y - 1) || this.opaque(x + 1, y - 1) || this.opaque(x - 1, y + 1) || this.opaque(x + 1, y + 1);
-      if (hit7) mark2.push(x, y);
+      if (hit7) mark.push(x, y);
     }
-    for (let i = 0; i < mark2.length; i += 2) this.set(mark2[i], mark2[i + 1], color);
+    for (let i = 0; i < mark.length; i += 2) this.set(mark[i], mark[i + 1], color);
     return this;
   }
   /**
@@ -68490,6 +68490,8 @@ var SLEEP2 = { stats: ["sleep"], stage: 1, turns: 2 };
 var MARK3 = { stats: ["marked"], stage: 1, turns: 2 };
 var GILT = "#ffe0a0";
 var GILT_PALE = "#fff2dc";
+var ELITE_BACK = [-4.4, -0.6];
+var ELITE_FRONT = [-2.3, 2.3];
 var LULLABY = (extra = {}) => act5("seraph_lullaby", "Lullaby", "debuff", "A hymn of gold rings. Sleep may follow.", {
   type: "photon",
   power: 0.32,
@@ -68578,7 +68580,7 @@ var enemies6 = {
     ...statLine(31, "elite"),
     shield: 7,
     weaknesses: ["thermal", "gauntlet", "lance"],
-    stage: { slot: [-5.4, -2.4], scale: 1.12 },
+    stage: { slot: ELITE_BACK, scale: 1.12 },
     actions: [
       hit5("egolem_fist", "Rime Fist", "gauntlet", 1.35, 50, "A fist of packed ice and gilded steel."),
       hit5("egolem_stomp", "Hoarfrost Stomp", "cryo", 0.6, 25, "Shakes gold rime over everyone.", { target: "all", cooldown: 1 }),
@@ -68614,6 +68616,7 @@ var enemies6 = {
     shield: 5,
     actionsPerRound: 2,
     weaknesses: ["cryo", "rifle", "gauntlet"],
+    stage: { slot: ELITE_FRONT },
     actions: [
       hit5("emantis_scythe", "Leaf Scythe", "blade", 0.72, 50, "A sweep of gilded leaf-blades."),
       hit5("emantis_flurry", "Petal Flurry", "blade", 0.38, 25, "Cuts too fast to count. Two of them.", { hits: 2 }),
@@ -68647,6 +68650,7 @@ var enemies6 = {
     ...statLine(31, "elite"),
     shield: 5,
     weaknesses: ["lance", "thermal", "volt"],
+    stage: { slot: ELITE_FRONT },
     actions: [
       hit5("etrooper_burst", "Carbine Burst", "rifle", 0.95, 50, "Three rounds, gold-tipped, tightly grouped.", { anim: "enemyShot" }),
       act5("etrooper_mark", "Target Lock", "debuff", "Paints one traveler with a gold sight. Every blow follows the mark.", {
@@ -68670,7 +68674,7 @@ var enemies6 = {
     ...statLine(31, "elite"),
     shield: 7,
     weaknesses: ["cryo", "void", "lance"],
-    stage: { slot: [-5.4, -2.4] },
+    stage: { slot: ELITE_BACK, scale: 1.1 },
     actions: [
       hit5("efw_slam", "Firewall Slam", "gauntlet", 1.3, 50, "A fist of mortar and burning gold."),
       hit5("efw_burn", "Hymn Fire", "thermal", 0.55, 25, "Its crenels pour gold fire over everyone.", { target: "all", anim: "enemyBeam", cooldown: 1 }),
@@ -68707,7 +68711,7 @@ var enemies6 = {
     shieldGain: 2,
     maxShieldCap: 14,
     weaknesses: ["volt", "lance"],
-    stage: { slot: [-5.4, -2.4], scale: 1.3 },
+    stage: { slot: [-4.8, -0.8], scale: 1.3 },
     actions: [
       hit5("bell_bash", "Bell Strike", "gauntlet", 1.35, 45, "It rings the great bell on someone."),
       hit5("bell_toll", "The Toll", "photon", 0.6, 35, "A note so low the floor hums. Hits everyone.", { target: "all", anim: "enemyBeam", cooldown: 1 }),
@@ -69583,11 +69587,20 @@ var lights7 = [
   lamp4(29.4, 39.7, DAWN, 10, { y: 1 }),
   lamp4(48.4, 39.7, ROSE, 10, { y: 1 }),
   lamp4(62.6, 39.7, AMBER5, 10, { y: 1 }),
+  // lanterns on the chords' curbs, so a narrow phone frame mid-span still holds warm and cool pools
+  lamp4(19.6, 37.4, ROSE, 7, { y: 0.9 }),
+  lamp4(24.4, 39.6, GOLD8, 7, { y: 0.9 }),
+  lamp4(53.1, 37.4, GOLD8, 7, { y: 0.9 }),
+  lamp4(57.9, 39.6, DAWN, 7, { y: 0.9 }),
+  // the first lift's span, and the Bellwarden's alcove
+  lamp4(33.2, 53.8, ROSE, 8, { y: 1 }),
+  rim2("t3", 330, ROSE, 8),
   ...PADS.map((p) => lamp4(p.cx, p.cz, WHITE5, p.id === "lift_crown" ? 14 : 12, { y: 2.5 })),
   lamp4(ELITE_T2[0] + 1.2, ELITE_T2[1] + 1.4, ROSE, 9, { y: 1.4 }),
   // the processional and the Sanctum
   lamp4(40.5, 14.4, GOLD8, 12, { y: 1.2 }),
   lamp4(42.6, 11.6, DAWN, 9, { y: 1 }),
+  lamp4(38.6, 11.6, AMBER5, 8, { y: 1 }),
   lamp4(33.6, 10.6, AMBER5, 13),
   lamp4(33.4, 16, DAWN, 11),
   lamp4(36.4, 13, ROSE, 10),
@@ -72576,7 +72589,7 @@ var scripts9 = {
     wardenGold(cs, true);
     await cs.say("WARDEN", "Kade Arden. You have carried them so long. Set them down.");
     wardenGold(cs, false);
-    bg8(cs.camera.focus([K + 9, 5.5], { zoom: 0.84, ms: 1100 }));
+    bg8(cs.camera.focus([K + 9, 5.8], { zoom: 0.84, ms: 1100 }));
     bg8(cs.move("dr_voss", [[K + 8.5, 4.5]], { speed: 1, face: "leader" }));
     await cs.say([
       { speaker: "VOSS", text: "At ease, Lieutenant. Everything is in order.", expr: "smile" },
@@ -72712,12 +72725,12 @@ var scripts9 = {
     bg8(cs.letterbox(true));
     cs.music("lullaby", { fade: 1.5 });
     const night = { grade: { exposure: 0.92, saturation: 0.86, shadowTint: [0.86, 0.94, 1.12], highlightTint: [1.04, 1, 0.94], vignette: 0.6 } };
-    const cut2 = async (member, at5, cam) => {
+    const cut2 = async (member, at5, cam, zoom = 0.8) => {
       await cs.fadeOut({ ms: 500 });
       cs.scene({ leader: member });
       await cs.goto("halcyon", at5, { scene: true, transition: "none" });
       cs.fx(night);
-      await cs.camera.focus(cam, { zoom: 0.8, ms: 1 });
+      await cs.camera.focus(cam, { zoom, ms: 1 });
       bg8(cs.fadeIn({ ms: 600 }));
     };
     await cut2("kade", { x: 4.5, z: 19.6, facing: "down" }, [5, 20.4]);
@@ -72730,7 +72743,7 @@ var scripts9 = {
       { speaker: "KADE", text: "...Play it.", expr: "smile" }
     ]);
     cs.flag("story:bolt_away");
-    await cut2("nyx", { x: 41.6, z: 21.6, facing: "up" }, [41.4, 21]);
+    await cut2("nyx", { x: 41.8, z: 23.8, facing: "up" }, [42.6, 22.6]);
     cs.anim("leader", "hand_to_chest");
     await cs.say([
       { speaker: "NYX", text: "Ruse. It's me." },
@@ -72739,8 +72752,8 @@ var scripts9 = {
       { speaker: "RUSE", text: "Then come back owing me. That's an order.", offscreen: true }
     ]);
     cs.anim("leader", null);
-    await cut2("orion", { x: 24.6, z: 26.2, facing: "up" }, [25.4, 25.4]);
-    await cs.spawn("nb_halcyon", { sprite: "holo", x: 26.6, z: 26, facing: "left", hologram: true, name: "HALCYON", fade: 0.4 });
+    await cut2("orion", { x: 24.7, z: 26.9, facing: "right" }, [25.5, 26.2], 0.74);
+    await cs.spawn("nb_halcyon", { sprite: "holo", x: 26.3, z: 26.9, facing: "left", hologram: true, name: "HALCYON", fade: 0.4 });
     cs.face("leader", "nb_halcyon");
     await cs.say([
       { speaker: "ORION", text: "There, there, old girl. Big day tomorrow.", expr: "smile" },
@@ -72777,18 +72790,17 @@ var scripts9 = {
     const here5 = { x: me?.x ?? 12, z: me?.z ?? 17 };
     const core3 = A.warden || { x: here5.x - 0.5, z: here5.z - 6 };
     const party = A.crown_party || { x: core3.x + 0.5, z: core3.z + 6 };
-    const bright = A.crown_halcyon || { x: party.x + 2, z: party.z - 1 };
-    const rim3 = { x: core3.x, z: core3.z + 3.4 };
+    const meet = { x: party.x, z: party.z - 3 };
     const line6 = inParty6(cs, {
-      sera: [party.x - 2.4, party.z + 0.5],
-      kade: [party.x - 0.8, party.z],
-      nyx: [party.x + 0.8, party.z + 0.1],
-      orion: [party.x + 2.4, party.z + 0.6]
+      sera: [party.x - 2.6, party.z + 0.5],
+      kade: [party.x - 1.1, party.z],
+      nyx: [party.x + 1.1, party.z + 0.1],
+      orion: [party.x + 2.6, party.z + 0.6]
     });
     bg8(cs.letterbox(true));
     cs.music(null, { fade: 2.5 });
     bg8(cs.camera.view({ pitch: 30, dist: 17, ms: 1200 }));
-    bg8(cs.camera.focus([core3.x, core3.z + 3.4], { zoom: 0.95, ms: 1200 }));
+    bg8(cs.camera.focus([core3.x, core3.z + 4.6], { zoom: 0.95, ms: 1200 }));
     await cs.gather(line6);
     for (const id of Object.keys(line6)) cs.face(id, "up");
     cs.sfx("choir", { volume: 0.9 });
@@ -72797,7 +72809,7 @@ var scripts9 = {
     bg8(cs.spawn("crown_warden", { sprite: "enemy:warden_lock", x: core3.x, z: core3.z, facing: "right", name: "WARDEN", fade: 1.6 }));
     await cs.narrate("At the crown, the light gathers into a vast shape with arms like a cradle.");
     await cs.say("WARDEN", "Please. Lay down your weapons. Lie down. Everyone you love is here.");
-    bg8(cs.move("nyx", [[party.x + 0.8, party.z - 0.8]], { speed: 1.6, face: "up" }));
+    bg8(cs.move("nyx", [[party.x + 1.1, party.z - 0.8]], { speed: 1.6, face: "up" }));
     await cs.say([
       { speaker: "NYX", text: "Ruse had a story. About the Lock that sings ships to sleep." },
       { speaker: "NYX", text: "That's you. You're the Lock.", expr: "determined" }
@@ -72809,48 +72821,53 @@ var scripts9 = {
     await cs.battle("heart_boss_warden");
     bg8(cs.letterbox(true));
     cs.music(null);
-    bg8(cs.camera.view({ pitch: 26, dist: 14, ms: 900 }));
-    bg8(cs.camera.focus([core3.x + 0.4, core3.z + 4.4], { zoom: 0.86, ms: 900 }));
+    cs.fx(RESOLVE_FX);
+    bg8(cs.camera.view({ pitch: 30, dist: 14, ms: 900 }));
+    bg8(cs.camera.focus([meet.x, meet.z + 1.6], { zoom: 0.86, ms: 900 }));
     await cs.gather(line6);
-    cs.flash("#ffe6a8", 0.8, 0.45);
+    for (const id of Object.keys(line6)) cs.face(id, "up");
+    cs.flash("#ffe6a8", 0.8, 0.35);
     cs.sfx("transform", { volume: 0.8 });
     cs.particles("mote", [core3.x, 2.2, core3.z], { count: 60 });
     bg8(cs.despawn("crown_warden", { fade: 1.2 }));
-    const warden = await cs.spawn("crown_figure", { sprite: "holo", x: rim3.x, z: rim3.z, facing: "down", hologram: true, name: "WARDEN", fade: 1.2 });
+    const warden = await cs.spawn("crown_figure", { sprite: "holo", x: core3.x, z: core3.z + 1.2, facing: "down", hologram: true, name: "WARDEN", fade: 1 });
     goldHologram(warden);
+    bg8(cs.move("crown_figure", [[meet.x - 0.5, meet.z]], { speed: 1.5, face: "down" }));
     await cs.narrate("The construct folds, wing over wing, until it is no taller than a woman.");
     await cs.say("WARDEN", "I only wanted them safe.");
     bg8(cs.emote("bolt", "!", { wait: false }));
     const bolt2 = cs.actor("bolt");
-    const from = bolt2 ? [bolt2.x, bolt2.z] : [bright.x + 0.6, bright.z + 0.8];
-    cs.flash("#9ff4ff", 0.5, 0.3);
+    const from = bolt2 ? [bolt2.x, bolt2.z] : [party.x + 0.4, party.z + 0.9];
+    cs.flash("#9ff4ff", 0.5, 0.25);
     cs.particles("data", [from[0], 1, from[1]], { count: 40 });
     await cs.spawn("crown_halcyon", { sprite: "holo", x: from[0], z: from[1], facing: "up", hologram: true, name: "HALCYON", fade: 0.6 });
     await cs.say("BOLT", "Go on. I'll keep the light on.", { expr: "determined" });
-    await cs.move("crown_halcyon", [[rim3.x + 0.8, rim3.z + 0.5]], { speed: 1.4, face: "crown_figure" });
+    await cs.move("crown_halcyon", [[meet.x + 0.6, meet.z + 0.4], [meet.x + 0.5, meet.z]], { speed: 1.6, face: "crown_figure" });
     cs.face("crown_figure", "crown_halcyon");
     await cs.say("WARDEN", "I was so afraid for them.");
     await cs.say("HALCYON", "I know. Me too.", { expr: "calm" });
-    bg8(cs.move("crown_halcyon", [[rim3.x + 0.45, rim3.z + 0.2]], { speed: 0.8 }));
-    bg8(cs.move("orion", [[party.x + 1.6, party.z - 0.6]], { speed: 1.4, face: "up" }));
+    bg8(cs.move("crown_halcyon", [[meet.x + 0.2, meet.z]], { speed: 0.8 }));
+    bg8(cs.move("crown_figure", [[meet.x - 0.2, meet.z]], { speed: 0.8 }));
+    bg8(cs.move("orion", [[party.x + 1.9, party.z - 0.9]], { speed: 1.4, face: "up" }));
     await cs.say("ORION", "I built you to hold grief and hope at once. You don't have to choose. Hold both.", { expr: "sad" });
-    bg8(cs.move("crown_figure", [[rim3.x + 0.35, rim3.z + 0.2]], { speed: 0.8 }));
-    cs.flash("#ffffff", 1.4, 0.7);
+    bg8(cs.move("crown_figure", [[meet.x, meet.z]], { speed: 0.8 }));
+    cs.flash("#ffffff", 1.2, 0.5);
     cs.sfx("awaken");
-    cs.particles("mote", [rim3.x + 0.4, 1.4, rim3.z + 0.2], { count: 80 });
+    cs.particles("mote", [meet.x, 1.4, meet.z], { count: 80 });
     bg8(cs.despawn("crown_figure", { fade: 1 }));
     wholeHologram(cs.actor("crown_halcyon"));
     await cs.narrate("Two lights become one.");
     cs.flag("story:warden_merged");
-    cs.fx({ bloom: { strength: 1.3, radius: 0.8 }, grade: { exposure: 1.14, saturation: 0.95, highlightTint: [1.02, 1.04, 1.08], shadowTint: [0.98, 1, 1.06] } });
+    cs.fx(MORNING_FX);
     cs.particles("light_stream", [core3.x, 6, core3.z], { count: 60 });
-    bg8(cs.camera.view({ pitch: 36, dist: 18, ms: 2400 }));
+    bg8(cs.camera.view({ pitch: 36, dist: 17, ms: 2400 }));
+    bg8(cs.camera.focus([meet.x, meet.z], { zoom: 0.95, ms: 2400 }));
     await cs.narrate("Across the Heart, the Choir's gold turns to the white of morning.");
     cs.music("lullaby", { fade: 2.5 });
-    bg8(cs.camera.focus([rim3.x + 0.4, rim3.z + 1.4], { zoom: 0.9, ms: 1200 }));
-    bg8(cs.camera.view({ pitch: 26, dist: 14, ms: 1200 }));
+    bg8(cs.camera.view({ pitch: 30, dist: 14, ms: 1200 }));
+    bg8(cs.camera.focus([meet.x, meet.z + 1.6], { zoom: 0.86, ms: 1200 }));
     await cs.say("HALCYON", "I will ask them. Every one. Whether they want to wake.", { expr: "calm" });
-    bg8(cs.move("sera", [[party.x - 1.6, party.z - 0.6]], { speed: 1.4, face: "up" }));
+    bg8(cs.move("sera", [[party.x - 1.9, party.z - 0.8]], { speed: 1.4, face: "up" }));
     await cs.say("SERA", "And Theo?", { expr: "surprised" });
     await cs.say("HALCYON", "He's already asking for you.", { expr: "calm" });
     await cs.say("KADE", "Then let's go wake them.", { expr: "smile" });
@@ -72862,6 +72879,14 @@ var scripts9 = {
     cs.objective("epi.wake");
     bg8(cs.letterbox(false));
   }
+};
+var RESOLVE_FX = {
+  bloom: { strength: 0.55, radius: 0.6, threshold: 0.86 },
+  grade: { exposure: 0.84, contrast: 1.1, vignette: 0.55 }
+};
+var MORNING_FX = {
+  bloom: { strength: 0.7, radius: 0.66, threshold: 0.84 },
+  grade: { exposure: 0.95, saturation: 0.92, contrast: 1.06, highlightTint: [1, 1.03, 1.08], shadowTint: [0.98, 1, 1.06] }
 };
 function goldHologram(handle) {
   const sprite = handle?.actor;
@@ -72896,7 +72921,7 @@ var story_default9 = {
 // src/content/dreams/maps/dreams.js
 var MOOD9 = {
   kade: {
-    fog: "#5a3814",
+    fog: "#2c1c0a",
     density: 0.01,
     sky: "#ffd890",
     ground: "#3a2210",
@@ -72922,7 +72947,7 @@ var MOOD9 = {
     saturation: 1.04
   },
   orion: {
-    fog: "#545866",
+    fog: "#22242c",
     density: 9e-3,
     sky: "#f4f0e8",
     ground: "#2a2a30",
@@ -72930,12 +72955,12 @@ var MOOD9 = {
     key: 1.1,
     keyColor: "#fff0d4",
     fill: 0.55,
-    exposure: 0.94,
-    bloom: 0.85,
+    exposure: 0.86,
+    bloom: 0.7,
     saturation: 0.92
   },
   sera: {
-    fog: "#8a6030",
+    fog: "#2c1e0c",
     density: 0.01,
     sky: "#ffe2b8",
     ground: "#4a3214",
@@ -72958,10 +72983,10 @@ var kadeProps = [
   { t: "dr.halo", x: K2 + 8.5, z: 3.9, r: 1.75, y: 0.1, color: "#ffd27a", glow: false },
   // WARDEN's surfaces: a banner behind the dais, and two standards flanking it, in frame with the
   // speakers (gold crest; the sigil while WARDEN speaks)
-  { t: "screen", group: "kade", tex: "dr_banner", x: K2 + 8.5, y: 0.85, z: 1.98, w: 1.2, h: 2.4, intensity: 1.2 },
+  { t: "screen", group: "kade", tex: "dr_banner", x: K2 + 8.5, y: 0.85, z: 2.04, w: 1.2, h: 2.4, intensity: 0.75 },
   ...[6, 11].flatMap((x) => [
     { t: "dr.pole", x: K2 + x, z: 3, h: 2.7 },
-    { t: "screen", group: "kade", tex: "dr_banner", x: K2 + x, y: 0.75, z: 3.06, w: 0.95, h: 1.8, intensity: 1.15 }
+    { t: "screen", group: "kade", tex: "dr_banner", x: K2 + x, y: 0.75, z: 3.06, w: 0.95, h: 1.8, intensity: 0.7 }
   ]),
   // gold rails over the windows' piers
   ...[4, 13].map((x) => ({ t: "box", x: K2 + x, z: 2.06, w: 1.4, d: 0.08, h: 0.08, y: 3.48, emissive: 1.8, solid: false, tex: "dr_gold" })),
@@ -72970,9 +72995,9 @@ var kadeProps = [
   { t: "dr.rack", x: K2 + 14, z: 2.25, n: 5 },
   { t: "sp.dummy", x: K2 + 15.2, z: 6.2 },
   { t: "sp.dummy", x: K2 + 15.2, z: 8.4 },
-  { t: "sp.bench", x: K2 + 2, z: 9.6, w: 2.2 },
-  // the cadets' lines: polished marks where each one stands, and Kade's own place, empty
-  ...[5, 6.6, 8.2].flatMap((z) => [6, 11].map((x) => ({ t: "floorPlane", x: K2 + x, z, w: 0.8, d: 0.8, tex: "dr_mark", emissive: 1.2 }))),
+  { t: "box", x: K2 + 2, z: 9.6, w: 2.2, d: 0.5, h: 0.42, emissive: 1.3, tex: { front: "dr_hall_low", side: "dr_hall_low", top: "dr_hall_cap" } },
+  // the cadets' lines: a ring of light where each one stands, and Kade's own place, empty
+  ...[5, 6.6, 8.2].flatMap((z) => [6, 11].map((x) => ({ t: "dr.halo", x: K2 + x, z, r: 0.36, y: 0.03, color: "#ffd27a", glow: false }))),
   { t: "dr.urn", x: K2 + 1.4, z: 12.2 },
   { t: "dr.urn", x: K2 + 15.6, z: 12.2 },
   { t: "dr.urn", x: K2 + 1.2, z: 3.2 },
@@ -72981,8 +73006,9 @@ var kadeProps = [
 var kadeLights = [
   gold2(K2 + 3, 3.4, 10, 8),
   gold2(K2 + 14, 3.4, 10, 8),
-  // WARDEN's gold, in front of the dais so it lights Voss's face, not the back of her head
-  { ...pool6(K2 + 8.5, 5.6, "#ffd27a", 8, 6.5, 2), tag: "dream_gold" },
+  // WARDEN's gold, in front of the dais and above head height: it lights Voss's face without a hot
+  // spot on her sprite
+  { ...pool6(K2 + 8.5, 6.6, "#ffd27a", 8, 7.5, 3), tag: "dream_gold" },
   pool6(K2 + 3, 9.6, "#ffb24a", 10, 7),
   pool6(K2 + 14, 9.6, "#ffb24a", 10, 7),
   pool6(K2 + 8.5, 11, "#ff9a5a", 10, 6.5)
@@ -73002,9 +73028,21 @@ var nyxProps = [
   { t: "box", x: N5 + 8.5, z: 3.2, w: 5.4, d: 2, h: 0.2, emissive: 1.6, solid: false, tex: { front: "dr_mer_low", side: "dr_mer_low", top: "dr_mer_cap" } },
   ...[7.4, 9.6].map((x) => ({ t: "console", x: N5 + x, z: 2.6 })),
   ...[7.4, 9.6].map((x) => ({ t: "screen", group: "nyx", tex: "dr_mer_screen", x: N5 + x, y: 1.05, z: 2.12, w: 1, h: 0.5, intensity: 1.5 })),
-  { t: "chair", x: N5 + 12.6, z: 3.4 },
-  // gardens in every corner: the ship kept green for the long flight
-  ...[2.2, 14.8].map((x) => ({ t: "box", x: N5 + x, z: 3, w: 2.4, d: 1.4, h: 0.5, emissive: 1.4, tex: { front: "dr_mer_low", side: "dr_mer_low", top: "arb_soil" } })),
+  // the pilot's seat, in the deck's own teal (Tomas stands by it)
+  ...[[3.4, 0.6, 0.45, 0], [3.12, 0.14, 0.6, 0.45]].map(([z, d, h, y]) => ({
+    t: "box",
+    x: N5 + 12.6,
+    z,
+    w: 0.7,
+    d,
+    h,
+    y,
+    emissive: 1.4,
+    solid: y === 0,
+    tex: { front: "dr_mer_low", side: "dr_mer_low", top: "dr_mer_cap" }
+  })),
+  // gardens in every corner: the ship kept green for the long flight (moss-topped beds)
+  ...[2.2, 14.8].map((x) => ({ t: "box", x: N5 + x, z: 3, w: 2.4, d: 1.4, h: 0.5, emissive: 1.4, tex: { front: "dr_mer_low", side: "dr_mer_low", top: "dr_runner" } })),
   { t: "arb.tree", x: N5 + 2, z: 3.2, s: 0.85 },
   { t: "arb.tree", x: N5 + 15, z: 3.2, s: 0.8 },
   { t: "arb.fern", x: N5 + 1.6, z: 7, s: 1.1 },
@@ -73023,7 +73061,7 @@ var nyxProps = [
   { t: "sign", name: "dr_mer_plaque", x: N5 + 8.5, z: 2 }
 ];
 var nyxLights = [
-  { ...pool6(N5 + 8.5, 3.6, "#ffd27a", 9, 7, 2.6), tag: "dream_gold" },
+  { ...pool6(N5 + 8.5, 3.6, "#ffd27a", 9, 7, 3), tag: "dream_gold" },
   pool6(N5 + 3, 5, "#9fffc0", 10, 7),
   pool6(N5 + 14, 5, "#9fffc0", 10, 7),
   pool6(N5 + 5, 9.4, "#ffc87a", 10, 7),
@@ -73047,16 +73085,16 @@ var orionProps = [
   // her dais: dark polished glass in a gold rim, so the pale figure on it reads; a slow ring of light
   { t: "dr.dais", x: O2 + 8.5, z: 4.4, r: 1.5, glass: true },
   { t: "dr.halo", x: O2 + 8.5, z: 4.4, r: 1.62, y: 0.1, glow: false },
-  { t: "floorPlane", x: O2 + 8.5, z: 8.4, w: 1.6, d: 6, tex: "dr_runner_pearl", emissive: 1.4 },
-  ...[2, 15].map((x) => ({ t: "cylinder", x: O2 + x, z: 10.6, r: 0.34, h: 3, tex: "dr_pearl_cap", emissive: 1.6 }))
+  { t: "floorPlane", x: O2 + 8.5, z: 8.4, w: 1.6, d: 6, tex: "dr_runner_pearl", emissive: 1.4 }
 ];
 var orionLights = [
-  pool6(O2 + 8.5, 6.2, "#e8fbff", 8, 6.5, 2.2),
-  { ...pool6(O2 + 8.5, 6.4, "#ffd27a", 9, 6.5, 2.6), tag: "dream_gold" },
+  // her dais lit from both front corners, high, so neither she nor the traveler before her burns out
+  pool6(O2 + 6.4, 5.4, "#e8fbff", 7, 6.5, 3),
+  { ...pool6(O2 + 10.6, 5.4, "#ffd27a", 9, 6.5, 3), tag: "dream_gold" },
   pool6(O2 + 3.4, 3.6, "#7fffd0", 10, 6),
   pool6(O2 + 13.6, 3.6, "#7fffd0", 10, 6),
-  pool6(O2 + 4, 9.6, "#ffe2b0", 10, 7),
-  pool6(O2 + 13, 9.6, "#ffe2b0", 10, 7)
+  pool6(O2 + 4, 9.6, "#ffe2b0", 7, 7),
+  pool6(O2 + 13, 9.6, "#ffe2b0", 7, 7)
 ];
 var orionNpcs = [
   // HALCYON as WARDEN offers her: solid, still, not a flicker of light out of place
@@ -73069,6 +73107,8 @@ var seraProps = [
   // the fields run on past the east edge: a strip of wheat, then more of the same morning
   { t: "floorPlane", x: S7 + 19.2, z: 8, w: 2.4, d: 16, tex: "dr_wheat", repeat: true, emissive: 1.4 },
   { t: "plane", x: S7 + 20.3, z: 8, y: -0.6, w: 18, h: 8, rot: Math.PI / 2, tex: "dr_bd_fields", emissive: 0.85 },
+  // and past the west edge (it hides the bridge's window hull next door)
+  { t: "plane", x: S7 - 0.6, z: 8, y: -0.6, w: 18, h: 8, rot: Math.PI / 2, tex: "dr_bd_fields", emissive: 0.85 },
   { t: "dr.sun", x: S7 + 3.5, y: 4.8, z: 0.6, size: 2.2 },
   // the house by the river, its fence and gate, the tree
   { t: "dr.house", x: S7 + 9, z: 3.4 },
@@ -73094,7 +73134,7 @@ var seraLights = [
   { ...pool6(S7 + 9, 3, "#ffd27a", 9, 9, 3.2), tag: "dream_gold" },
   pool6(S7 + 2.8, 6, "#a8e8ff", 5, 5, 2.6),
   pool6(S7 + 12.6, 9.4, "#ffb87a", 9, 7),
-  pool6(S7 + 5, 11.6, "#ffe0a0", 9, 7)
+  pool6(S7 + 5, 11.6, "#ffe0a0", 6, 7)
 ];
 var seraNpcs = [
   { id: "dr_theo", sprite: "theo_grown", x: S7 + 9, z: 7.2, facing: "down", name: "THEO" }
@@ -73129,19 +73169,20 @@ var dreams_default = {
   ],
   legend: {
     // kade: ivory and honey stone, gold trim
-    "#": { t: "wall", tex: "dr_hall_wall", side: "dr_hall_wall", cap: "dr_hall_cap", low: "dr_hall_low" },
-    W: { t: "window", tex: "dr_hall_window" },
-    h: { t: "floor", tex: "dr_hall_floor", mix: [["dr_hall_floor_b", 0.3]], rot: "random", roughness: 0.35, metalness: 0.2, emissive: 1.3 },
+    "#": { t: "wall", tex: "dr_hall_wall", side: "dr_hall_wall", cap: "dr_hall_cap", low: "dr_hall_low", upper: "dr_hall_wall" },
+    // the hall's lancets are painted on the wall (no glass, no outside: the dream ends at the wall)
+    W: { t: "wall", tex: "dr_hall_window", side: "dr_hall_wall", cap: "dr_hall_cap", low: "dr_hall_low", upper: "dr_hall_wall" },
+    h: { t: "floor", tex: "dr_hall_floor", mix: [["dr_hall_floor_b", 0.3]], rot: "random", roughness: 0.5, metalness: 0.2, emissive: 1.3 },
     // nyx: jade deck plates, teal walls
     m: { t: "floor", tex: "dr_mer_floor", mix: [["dr_mer_floor_b", 0.18]], rot: "random", roughness: 0.45, metalness: 0.35, emissive: 1.4 },
     // orion: pearl
-    p: { t: "floor", tex: "dr_pearl_floor", rot: "random", roughness: 0.25, metalness: 0.3, emissive: 1.2 },
-    s: { t: "wall", tex: "dr_pearl_wall", side: "dr_pearl_wall", cap: "dr_pearl_cap", low: "dr_pearl_low" },
-    // the bridge glass: a calm gold light ahead, the ship on course
-    B: { t: "window", tex: "window_frame", backdrop: "dr_bd_gold" },
+    p: { t: "floor", tex: "dr_pearl_floor", rot: "random", roughness: 0.5, metalness: 0.3, emissive: 0.8 },
+    s: { t: "wall", tex: "dr_pearl_wall", side: "dr_pearl_wall", cap: "dr_pearl_cap", low: "dr_pearl_low", upper: "dr_pearl_wall" },
+    // the bridge glass: the ship on course through calm stars
+    B: { t: "window", tex: "window_frame" },
     // nyx: teal panels with warm lamp strips; the long viewport of stars streaming past
     M: { t: "wall", tex: "dr_mer_wall", side: "dr_mer_wall", cap: "dr_mer_cap", low: "dr_mer_low" },
-    V: { t: "window", tex: "window_frame", backdrop: "dr_bd_stars" },
+    V: { t: "window", tex: "window_frame" },
     // sera: wheat, the river, the path
     ",": { t: "floor", tex: "dr_wheat", mix: [["dr_meadow", 0.28]], rot: "random", roughness: 0.9, metalness: 0, emissive: 1.4 },
     w: { t: "water", tex: "dr_river", bank: "dr_bank", bed: "dr_riverbed", depth: 0.3 },
@@ -73150,6 +73191,8 @@ var dreams_default = {
   wallH: 3,
   lowH: 0.75,
   wallTex: { side: "dr_hall_wall", cap: "dr_hall_cap", low: "dr_hall_low" },
+  // one window run crosses the Meridian and the bridge (row 1): both look out on the same stars
+  backdrop: { texture: "dr_bd_stars", stars: "stars_layer", tint: [1.05, 1.05, 1.1] },
   // the hall's windows climb two storeys; the bridge is two storeys of glass
   grand: [
     { row: 1, c0: 0, c1: 16, height: 5 },
@@ -73304,12 +73347,6 @@ function crest(t) {
   for (let x = cx - 4; x <= cx + 4; x++) t.glow(x, cy - 1, "#fff8e0");
   for (const [dx, dy] of [[0, -16], [0, -17], [0, -18], [-1, -17], [1, -17], [0, -15], [-2, -17], [2, -17]]) t.glow(cx + dx, cy + dy, "#fffbe8");
 }
-function mark(t) {
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-    const d = Math.hypot(x + 0.5 - 16, (y + 0.5 - 16) * 1);
-    if (d > 9.5 && d < 12) t.px(x, y, d < 10.6 ? GOLD10[5] : GOLD10[3], 0.6);
-  }
-}
 function banner3(t) {
   for (let y = 0; y < 64; y++) for (let x = 0; x < 32; x++) {
     const fold3 = Math.sin(x * 0.55) * 0.5 + 0.5;
@@ -73330,11 +73367,11 @@ function banner3(t) {
 }
 function hallWindow(t, seed) {
   const SKY = ["#e8705a", "#f48a5e", "#ffa468", "#ffbe78", "#ffd48e", "#ffe4a8", "#fff0c8", "#fff8e4"];
-  for (let y = 0; y < 96; y++) for (let x = 0; x < 64; x++) {
+  for (let y = 0; y < 96; y++) for (let x = 0; x < 32; x++) {
     let c, h = 0.5;
     if (y >= 72) {
-      const g = tn7(x * 3, y * 0.4, 64, 96, 8, seed + 3, 2);
-      c = dpick3(HONEY, 3.6 + (g - 0.5) * 1.6 + (x === 0 || x === 63 ? -1 : 0), x, y);
+      const g = tn7(x * 3, y * 0.4, 32, 96, 8, seed + 3, 2);
+      c = dpick3(HONEY, 3.6 + (g - 0.5) * 1.6 + (x === 0 || x === 31 ? -1 : 0), x, y);
       h = 0.56;
     } else if (y >= 68) {
       c = GOLD10[y === 68 ? 5 : y === 71 ? 2 : 4];
@@ -73342,39 +73379,39 @@ function hallWindow(t, seed) {
     } else if (y < 6) {
       c = GOLD10[y < 2 ? 5 : y === 5 ? 2 : 3];
       h = 0.68;
+    } else if (x === 0 || x === 31) {
+      c = GOLD10[x === 0 ? 5 : 2];
+      h = 0.7;
     } else {
-      c = dpick3(IVORY4, 5 + (tn7(x, y, 64, 96, 4, seed, 3) - 0.5) * 0.8, x, y);
+      c = dpick3(IVORY4, 5 + (tn7(x, y, 32, 96, 4, seed, 3) - 0.5) * 0.8, x, y);
       h = 0.55;
     }
     t.px(x, y, c, h);
   }
-  for (const x0 of [5, 35]) {
-    const x1 = x0 + 23, y0 = 9, y1 = 64, cx = (x0 + x1) / 2, r = (x1 - x0) / 2;
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const ay = y0 + r;
-      const inArch = y >= ay || Math.hypot(x - cx, y - ay) <= r;
-      if (!inArch) continue;
-      const edge = y === y1 || x === x0 || x === x1 || y < ay && Math.hypot(x - cx, y - ay) > r - 1.2;
-      if (edge) {
-        t.px(x, y, GOLD10[x < cx ? 5 : 3], 0.72);
-        continue;
-      }
-      const inner = y === y1 - 1 || x === x0 + 1 || x === x1 - 1 || y < ay && Math.hypot(x - cx, y - ay) > r - 2.2;
-      if (inner) {
-        t.px(x, y, GOLD10[2], 0.6);
-        continue;
-      }
-      const k = (y - y0) / (y1 - y0);
-      const cloud = tn7(x * 0.5, y * 1.6, 64, 96, 4, seed + 11, 3);
-      const v = 1.2 + k * 5.6 + (cloud > 0.6 ? (cloud - 0.6) * 6 : 0);
-      const col2 = dpick3(SKY, Math.min(7, v), x, y);
-      t.glow(x, y, col2, dim(col2, 0.32));
-      t.ht(x, y, 0.3);
+  const x0 = 4, x1 = 27, y0 = 9, y1 = 64, cx = (x0 + x1) / 2, r = (x1 - x0) / 2;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const ay = y0 + r;
+    const inArch = y >= ay || Math.hypot(x - cx, y - ay) <= r;
+    if (!inArch) continue;
+    const edge = y === y1 || x === x0 || x === x1 || y < ay && Math.hypot(x - cx, y - ay) > r - 1.2;
+    if (edge) {
+      t.px(x, y, GOLD10[x < cx ? 5 : 3], 0.72);
+      continue;
     }
-    for (let y = y0 + 3; y < y1; y++) t.px(Math.round(cx), y, GOLD10[3], 0.62);
-    for (const yb of [32, 48]) for (let x = x0 + 2; x < x1 - 1; x++) t.px(x, yb, GOLD10[3], 0.62);
+    const inner = y === y1 - 1 || x === x0 + 1 || x === x1 - 1 || y < ay && Math.hypot(x - cx, y - ay) > r - 2.2;
+    if (inner) {
+      t.px(x, y, GOLD10[2], 0.6);
+      continue;
+    }
+    const k = (y - y0) / (y1 - y0);
+    const cloud = tn7(x * 0.5, y * 1.6, 32, 96, 4, seed + 11, 3);
+    const v = 1.2 + k * 5.6 + (cloud > 0.6 ? (cloud - 0.6) * 6 : 0);
+    const col2 = dpick3(SKY, Math.min(7, v), x, y);
+    t.glow(x, y, col2, dim(col2, 0.32));
+    t.ht(x, y, 0.3);
   }
-  for (let y = 8; y < 66; y++) for (let x = 30; x < 34; x++) t.px(x, y, GOLD10[x === 30 ? 5 : x === 33 ? 2 : 4], 0.7);
+  for (let y = y0 + 3; y < y1; y++) t.px(Math.round(cx), y, GOLD10[3], 0.62);
+  for (const yb of [32, 48]) for (let x = x0 + 2; x < x1 - 1; x++) t.px(x, yb, GOLD10[3], 0.62);
 }
 function goldLeaf(t, seed) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
@@ -73697,24 +73734,6 @@ function softBlob(g, x, y, rx, ry, color, alpha) {
   g.fillRect(x - Math.max(rx, ry), y - Math.max(rx, ry), Math.max(rx, ry) * 2, Math.max(rx, ry) * 2);
   g.restore();
 }
-function bdGold() {
-  return chunky((g, W10, H6) => {
-    const sky = g.createLinearGradient(0, 0, 0, H6);
-    sky.addColorStop(0, "#f0b868");
-    sky.addColorStop(0.45, "#ffd590");
-    sky.addColorStop(0.7, "#ffe8bc");
-    sky.addColorStop(1, "#f4c880");
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W10, H6);
-    softBlob(g, W10 * 0.3, H6 * 0.62, 150, 90, "#fff8e0", 0.9);
-    const r = rng(17);
-    for (let i = 0; i < 26; i++) {
-      const x = r() * W10, y = H6 * (0.25 + r() * 0.6), rx = 40 + r() * 90, ry = 8 + r() * 14;
-      softBlob(g, x, y, rx, ry, r() < 0.5 ? "#fff0d0" : "#ffd8a0", 0.55);
-      softBlob(g, x + 6, y + ry * 0.6, rx * 0.8, ry * 0.5, "#e8a058", 0.35);
-    }
-  });
-}
 function bdStars() {
   return chunky((g, W10, H6) => {
     const sky = g.createLinearGradient(0, 0, W10, H6);
@@ -73778,11 +73797,9 @@ var TEXTURES7 = {
   dr_hall_cap: { ...floor9, strength: 1.4, paint: (t) => hallCap(t, 407) },
   dr_hall_low: { w: 32, h: 24, wrapX: true, strength: 1.8, paint: (t) => hallLow(t, 409) },
   dr_crest: { w: 64, h: 64, alpha: true, strength: 1.4, paint: crest },
-  dr_mark: { w: 32, h: 32, alpha: true, strength: 1.2, paint: mark },
   dr_banner: { w: 32, h: 64, strength: 1.2, paint: banner3 },
   dr_gold: { ...floor9, strength: 1.4, paint: (t) => goldLeaf(t, 411) },
-  dr_bd_gold: { w: 1024, h: 512, raw: bdGold, emissiveIsMap: true },
-  dr_hall_window: { w: 64, h: 96, strength: 1.6, paint: (t) => hallWindow(t, 413) },
+  dr_hall_window: { w: 32, h: 96, strength: 1.6, paint: (t) => hallWindow(t, 413) },
   dr_glass: { w: 32, h: 32, wrapX: true, wrapY: true, strength: 0.8, paint: (t) => glassTop(t, 431) },
   dr_mer_floor: { ...floor9, strength: 1.8, paint: (t) => merFloor2(t, 421, false) },
   dr_mer_floor_b: { ...floor9, strength: 1.8, paint: (t) => merFloor2(t, 423, true) },
@@ -74996,7 +75013,7 @@ function hood(r, P3, F) {
     if (lid <= 0 || Math.abs(v) > lid) return;
     const d = Math.hypot(mx - ix, my - ey);
     if (Math.abs(v) > lid - 0.3) r.put(X, Y, G_GOLD3[k > 1.05 ? 4 : 3], 0.95 * k, true);
-    else if (d < ir * 0.36) r.put(X, Y, white ? WHITE3 : G_GOLD3[4], k, true);
+    else if (d < ir * 0.36) r.put(X, Y, white ? WHITE3 : G_GOLD3[4], F.unbound ? k * 0.7 : k, true);
     else if (d < ir * 0.55) r.put(X, Y, (white ? G_DAWN2 : G_GOLD3)[3], 0.9 * k, true);
     else if (d < ir) r.put(X, Y, G_GOLD3[d < ir * 0.8 ? 2 : 3], 0.75 * k, true);
     else r.put(X, Y, VOID8[1]);
@@ -75016,7 +75033,7 @@ function hood(r, P3, F) {
     spot2(r, bx, by - h, 2, G_GOLD3, P3.broken ? 0.3 : 0.9);
   }
   if (F.split) {
-    r.glow(CX2, CY7 - 14, 6, 20, G_DAWN2, { k: 1, fx: true, bias: 0.2 });
+    r.glow(CX2, CY7 - 16, 4, 15, G_DAWN2, { k: 0.6, fx: true, bias: 0.1 });
   }
 }
 function arm5(r, side, P3, F) {

@@ -29,6 +29,9 @@ const MARK = { stats: ['marked'], stage: 1, turns: 2 };
 // cast (a strong gold would turn its blues green) and a warm or grey one takes the gold
 const GILT = '#ffe0a0';
 const GILT_PALE = '#fff2dc';
+// an elite pair stands one behind the other inside the battle focus band (not both on the back
+// row, where a phone frame pushes them under the turn order)
+const ELITE_BACK = [-4.4, -0.6], ELITE_FRONT = [-2.3, 2.3];
 
 // ---------------------------------------------------------------- the Ascent's own
 
@@ -85,7 +88,7 @@ const enemies = {
   elite_rime_golem: {
     kind: 'elite_rime_golem', name: 'Choirlit Rime Golem', art: 'rime_golem', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 7,
     weaknesses: ['thermal', 'gauntlet', 'lance'],
-    stage: { slot: [-5.4, -2.4], scale: 1.12 },
+    stage: { slot: ELITE_BACK, scale: 1.12 },
     actions: [
       hit('egolem_fist', 'Rime Fist', 'gauntlet', 1.35, 50, 'A fist of packed ice and gilded steel.'),
       hit('egolem_stomp', 'Hoarfrost Stomp', 'cryo', 0.6, 25, 'Shakes gold rime over everyone.', { target: 'all', cooldown: 1 }),
@@ -103,6 +106,7 @@ const enemies = {
     kind: 'elite_bloom_mantis', name: 'Choirlit Bloom Mantis', art: 'bloom_mantis', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 5,
     actionsPerRound: 2,
     weaknesses: ['cryo', 'rifle', 'gauntlet'],
+    stage: { slot: ELITE_FRONT },
     actions: [
       hit('emantis_scythe', 'Leaf Scythe', 'blade', 0.72, 50, 'A sweep of gilded leaf-blades.'),
       hit('emantis_flurry', 'Petal Flurry', 'blade', 0.38, 25, 'Cuts too fast to count. Two of them.', { hits: 2 }),
@@ -120,6 +124,7 @@ const enemies = {
   elite_sec_trooper: {
     kind: 'elite_sec_trooper', name: 'Choirlit Trooper', art: 'sec_trooper', tint: GILT, script: 'elite_trooper', ...statLine(31, 'elite'), shield: 5,
     weaknesses: ['lance', 'thermal', 'volt'],
+    stage: { slot: ELITE_FRONT },
     actions: [
       hit('etrooper_burst', 'Carbine Burst', 'rifle', 0.95, 50, 'Three rounds, gold-tipped, tightly grouped.', { anim: 'enemyShot' }),
       act('etrooper_mark', 'Target Lock', 'debuff', 'Paints one traveler with a gold sight. Every blow follows the mark.', {
@@ -135,7 +140,7 @@ const enemies = {
     kind: 'elite_firewall_golem', name: 'Choirlit Firewall', art: 'firewall_golem', tint: GILT_PALE, script: 'firewall_golem', ...statLine(31, 'elite'),
     shield: 7,
     weaknesses: ['cryo', 'void', 'lance'],
-    stage: { slot: [-5.4, -2.4] },
+    stage: { slot: ELITE_BACK, scale: 1.1 },
     actions: [
       hit('efw_slam', 'Firewall Slam', 'gauntlet', 1.3, 50, 'A fist of mortar and burning gold.'),
       hit('efw_burn', 'Hymn Fire', 'thermal', 0.55, 25, 'Its crenels pour gold fire over everyone.', { target: 'all', anim: 'enemyBeam', cooldown: 1 }),
@@ -155,7 +160,7 @@ const enemies = {
     kind: 'choir_bellwarden', name: 'Bellwarden', art: 'choir_guardian', tint: '#fff2c8', boss: true, ai: 'basic', script: 'choir_guardian',
     ...statLine(33, 'elite'), shield: 8, shieldGain: 2, maxShieldCap: 14,
     weaknesses: ['volt', 'lance'],
-    stage: { slot: [-5.4, -2.4], scale: 1.3 },
+    stage: { slot: [-4.8, -0.8], scale: 1.3 },
     actions: [
       hit('bell_bash', 'Bell Strike', 'gauntlet', 1.35, 45, 'It rings the great bell on someone.'),
       hit('bell_toll', 'The Toll', 'photon', 0.6, 35, 'A note so low the floor hums. Hits everyone.', { target: 'all', anim: 'enemyBeam', cooldown: 1 }),

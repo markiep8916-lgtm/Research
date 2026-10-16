@@ -433,7 +433,7 @@ function hood(r, P, F) {
     if (lid <= 0 || Math.abs(v) > lid) return;
     const d = Math.hypot(mx - ix, my - ey);
     if (Math.abs(v) > lid - 0.3) r.put(X, Y, G_GOLD[k > 1.05 ? 4 : 3], 0.95 * k, true);
-    else if (d < ir * 0.36) r.put(X, Y, white ? WHITE : G_GOLD[4], k, true);
+    else if (d < ir * 0.36) r.put(X, Y, white ? WHITE : G_GOLD[4], F.unbound ? k * 0.7 : k, true);
     else if (d < ir * 0.55) r.put(X, Y, (white ? G_DAWN : G_GOLD)[3], 0.9 * k, true);
     else if (d < ir) r.put(X, Y, G_GOLD[d < ir * 0.8 ? 2 : 3], 0.75 * k, true);
     else r.put(X, Y, VOID[1]);
@@ -457,7 +457,8 @@ function hood(r, P, F) {
   }
   if (F.split) {
     // the white-gold core showing through the split
-    r.glow(CX, CY - 14, 6, 20, G_DAWN, { k: 1, fx: true, bias: 0.2 });
+    // (kept narrow and soft, so the bloom never swallows the eye below it)
+    r.glow(CX, CY - 16, 4, 15, G_DAWN, { k: 0.6, fx: true, bias: 0.1 });
   }
 }
 

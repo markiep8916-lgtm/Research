@@ -114,7 +114,7 @@ const scripts = {
     wardenGold(cs, true);
     await cs.say('WARDEN', 'Kade Arden. You have carried them so long. Set them down.');
     wardenGold(cs, false);
-    bg(cs.camera.focus([K + 9.0, 5.5], { zoom: 0.84, ms: 1100 }));
+    bg(cs.camera.focus([K + 9.0, 5.8], { zoom: 0.84, ms: 1100 }));
     bg(cs.move('dr_voss', [[K + 8.5, 4.5]], { speed: 1.0, face: 'leader' }));
     await cs.say([
       { speaker: 'VOSS', text: 'At ease, Lieutenant. Everything is in order.', expr: 'smile' },
@@ -264,7 +264,7 @@ const scripts = {
     };
 
     // the Cryo Deck: Kade and BOLT at pod 07
-    await cut('kade', { x: 4.5, z: 19.6, facing: 'down' }, [5.0, 20.4]);
+    await cut('kade', { x: 4.5, z: 19.6, facing: 'down' }, [5.0, 20.6], 0.95);
     bg(cs.move('bolt', [[5.6, 20.2]], { speed: 1.6, face: 'leader' }));
     await cs.say('BOLT', 'Can\'t sleep, Lieutenant?', { expr: 'worried' });
     cs.face('leader', 'bolt');
@@ -287,7 +287,7 @@ const scripts = {
     cs.anim('leader', null);
 
     // the reactor: Orion and HALCYON, where "There, there" began
-    await cut('orion', { x: 24.7, z: 26.9, facing: 'right' }, [25.5, 26.2], 0.74);
+    await cut('orion', { x: 24.7, z: 26.9, facing: 'right' }, [25.5, 26.7], 0.9);
     await cs.spawn('nb_halcyon', { sprite: 'holo', x: 26.3, z: 26.9, facing: 'left', hologram: true, name: 'HALCYON', fade: 0.4 });
     cs.face('leader', 'nb_halcyon');
     await cs.say([
@@ -301,9 +301,9 @@ const scripts = {
     bg(cs.emote('nb_halcyon', 'note', { wait: false }));
     await cs.wait(1.4);
 
-    // the medbay: Sera stitching Nyx's coat
-    await cut('sera', { x: 3.4, z: 33.0, facing: 'right' }, [4.0, 33.0]);
-    await cs.gather(inParty(cs, { nyx: [4.6, 33.0] }));
+    // the medbay: Sera stitching Nyx's coat, east of the beds so neither is hidden behind one
+    await cut('sera', { x: 5.5, z: 33.5, facing: 'left' }, [4.9, 33.1]);
+    await cs.gather(inParty(cs, { nyx: [4.5, 33.4] }));
     cs.face('nyx', 'leader');
     cs.anim('leader', 'kneel');
     await cs.say([
@@ -328,19 +328,18 @@ const scripts = {
     const here = { x: me?.x ?? 12, z: me?.z ?? 17 };
     const core = A.warden || { x: here.x - 0.5, z: here.z - 6 };
     const party = A.crown_party || { x: core.x + 0.5, z: core.z + 6 };
-    const bright = A.crown_halcyon || { x: party.x + 2, z: party.z - 1 };
-    // where the folded WARDEN stands: the oculus's rim, between the column and the party
-    const rim = { x: core.x, z: core.z + 3.4 };
+    // where the two halves meet: out of the column's glare, in front of the gap in the party's line
+    const meet = { x: party.x, z: party.z - 3.0 };
     const line = inParty(cs, {
-      sera: [party.x - 2.4, party.z + 0.5], kade: [party.x - 0.8, party.z],
-      nyx: [party.x + 0.8, party.z + 0.1], orion: [party.x + 2.4, party.z + 0.6],
+      sera: [party.x - 2.6, party.z + 0.5], kade: [party.x - 1.1, party.z],
+      nyx: [party.x + 1.1, party.z + 0.1], orion: [party.x + 2.6, party.z + 0.6],
     });
 
     // the approach: the light gathers over the oculus into a vast shape
     bg(cs.letterbox(true));
     cs.music(null, { fade: 2.5 });
     bg(cs.camera.view({ pitch: 30, dist: 17, ms: 1200 }));
-    bg(cs.camera.focus([core.x, core.z + 3.4], { zoom: 0.95, ms: 1200 }));
+    bg(cs.camera.focus([core.x, core.z + 4.6], { zoom: 0.95, ms: 1200 }));
     await cs.gather(line);
     for (const id of Object.keys(line)) cs.face(id, 'up');
     cs.sfx('choir', { volume: 0.9 });
@@ -349,7 +348,7 @@ const scripts = {
     bg(cs.spawn('crown_warden', { sprite: 'enemy:warden_lock', x: core.x, z: core.z, facing: 'right', name: 'WARDEN', fade: 1.6 }));
     await cs.narrate('At the crown, the light gathers into a vast shape with arms like a cradle.');
     await cs.say('WARDEN', 'Please. Lay down your weapons. Lie down. Everyone you love is here.');
-    bg(cs.move('nyx', [[party.x + 0.8, party.z - 0.8]], { speed: 1.6, face: 'up' }));
+    bg(cs.move('nyx', [[party.x + 1.1, party.z - 0.8]], { speed: 1.6, face: 'up' }));
     await cs.say([
       { speaker: 'NYX', text: 'Ruse had a story. About the Lock that sings ships to sleep.' },
       { speaker: 'NYX', text: 'That\'s you. You\'re the Lock.', expr: 'determined' },
@@ -360,63 +359,69 @@ const scripts = {
     bg(cs.letterbox(false));
     await cs.battle('heart_boss_warden');
 
-    // (2) the construct folds down to a woman's height, gold, standing on the oculus
+    // (2) the construct folds down to a woman's height and walks out of the light toward them; the
+    // resolution is graded down so the column's glare never swallows the two figures
     bg(cs.letterbox(true));
     cs.music(null);
-    bg(cs.camera.view({ pitch: 26, dist: 14, ms: 900 }));
-    bg(cs.camera.focus([core.x + 0.4, core.z + 4.4], { zoom: 0.86, ms: 900 }));
+    cs.fx(RESOLVE_FX);
+    bg(cs.camera.view({ pitch: 30, dist: 14, ms: 900 }));
+    bg(cs.camera.focus([meet.x, meet.z + 1.6], { zoom: 0.86, ms: 900 }));
     await cs.gather(line);
-    cs.flash('#ffe6a8', 0.8, 0.45);
+    for (const id of Object.keys(line)) cs.face(id, 'up');
+    cs.flash('#ffe6a8', 0.8, 0.35);
     cs.sfx('transform', { volume: 0.8 });
     cs.particles('mote', [core.x, 2.2, core.z], { count: 60 });
     bg(cs.despawn('crown_warden', { fade: 1.2 }));
-    const warden = await cs.spawn('crown_figure', { sprite: 'holo', x: rim.x, z: rim.z, facing: 'down', hologram: true, name: 'WARDEN', fade: 1.2 });
+    const warden = await cs.spawn('crown_figure', { sprite: 'holo', x: core.x, z: core.z + 1.2, facing: 'down', hologram: true, name: 'WARDEN', fade: 1.0 });
     goldHologram(warden);
+    bg(cs.move('crown_figure', [[meet.x - 0.5, meet.z]], { speed: 1.5, face: 'down' }));
     await cs.narrate('The construct folds, wing over wing, until it is no taller than a woman.');
     await cs.say('WARDEN', 'I only wanted them safe.');
 
     // (3) BOLT's eye flares; HALCYON steps out of him
     bg(cs.emote('bolt', '!', { wait: false }));
     const bolt = cs.actor('bolt');
-    const from = bolt ? [bolt.x, bolt.z] : [bright.x + 0.6, bright.z + 0.8];
-    cs.flash('#9ff4ff', 0.5, 0.3);
+    const from = bolt ? [bolt.x, bolt.z] : [party.x + 0.4, party.z + 0.9];
+    cs.flash('#9ff4ff', 0.5, 0.25);
     cs.particles('data', [from[0], 1.0, from[1]], { count: 40 });
     await cs.spawn('crown_halcyon', { sprite: 'holo', x: from[0], z: from[1], facing: 'up', hologram: true, name: 'HALCYON', fade: 0.6 });
     await cs.say('BOLT', 'Go on. I\'ll keep the light on.', { expr: 'determined' });
-    await cs.move('crown_halcyon', [[rim.x + 0.8, rim.z + 0.5]], { speed: 1.4, face: 'crown_figure' });
+    await cs.move('crown_halcyon', [[meet.x + 0.6, meet.z + 0.4], [meet.x + 0.5, meet.z]], { speed: 1.6, face: 'crown_figure' });
     cs.face('crown_figure', 'crown_halcyon');
 
     // (4) the embrace, in the silence the battle left
     await cs.say('WARDEN', 'I was so afraid for them.');
     await cs.say('HALCYON', 'I know. Me too.', { expr: 'calm' });
-    bg(cs.move('crown_halcyon', [[rim.x + 0.45, rim.z + 0.2]], { speed: 0.8 }));
+    bg(cs.move('crown_halcyon', [[meet.x + 0.2, meet.z]], { speed: 0.8 }));
+    bg(cs.move('crown_figure', [[meet.x - 0.2, meet.z]], { speed: 0.8 }));
 
     // (5) Orion
-    bg(cs.move('orion', [[party.x + 1.6, party.z - 0.6]], { speed: 1.4, face: 'up' }));
+    bg(cs.move('orion', [[party.x + 1.9, party.z - 0.9]], { speed: 1.4, face: 'up' }));
     await cs.say('ORION', 'I built you to hold grief and hope at once. You don\'t have to choose. Hold both.', { expr: 'sad' });
 
     // (6) the merge
-    bg(cs.move('crown_figure', [[rim.x + 0.35, rim.z + 0.2]], { speed: 0.8 }));
-    cs.flash('#ffffff', 1.4, 0.7);
+    bg(cs.move('crown_figure', [[meet.x, meet.z]], { speed: 0.8 }));
+    cs.flash('#ffffff', 1.2, 0.5);
     cs.sfx('awaken');
-    cs.particles('mote', [rim.x + 0.4, 1.4, rim.z + 0.2], { count: 80 });
+    cs.particles('mote', [meet.x, 1.4, meet.z], { count: 80 });
     bg(cs.despawn('crown_figure', { fade: 1.0 }));
     wholeHologram(cs.actor('crown_halcyon'));
     await cs.narrate('Two lights become one.');
 
-    // (7) the Choir's gold turns to the white of morning
+    // (7) the Choir's gold turns to the white of morning: the crown cools, the camera lifts to show it
     cs.flag('story:warden_merged');
-    cs.fx({ bloom: { strength: 1.3, radius: 0.8 }, grade: { exposure: 1.14, saturation: 0.95, highlightTint: [1.02, 1.04, 1.08], shadowTint: [0.98, 1.0, 1.06] } });
+    cs.fx(MORNING_FX);
     cs.particles('light_stream', [core.x, 6.0, core.z], { count: 60 });
-    bg(cs.camera.view({ pitch: 36, dist: 18, ms: 2400 }));
+    bg(cs.camera.view({ pitch: 36, dist: 17, ms: 2400 }));
+    bg(cs.camera.focus([meet.x, meet.z], { zoom: 0.95, ms: 2400 }));
     await cs.narrate('Across the Heart, the Choir\'s gold turns to the white of morning.');
 
     // (8) the lullaby, and the first thing she does whole
     cs.music('lullaby', { fade: 2.5 });
-    bg(cs.camera.focus([rim.x + 0.4, rim.z + 1.4], { zoom: 0.9, ms: 1200 }));
-    bg(cs.camera.view({ pitch: 26, dist: 14, ms: 1200 }));
+    bg(cs.camera.view({ pitch: 30, dist: 14, ms: 1200 }));
+    bg(cs.camera.focus([meet.x, meet.z + 1.6], { zoom: 0.86, ms: 1200 }));
     await cs.say('HALCYON', 'I will ask them. Every one. Whether they want to wake.', { expr: 'calm' });
-    bg(cs.move('sera', [[party.x - 1.6, party.z - 0.6]], { speed: 1.4, face: 'up' }));
+    bg(cs.move('sera', [[party.x - 1.9, party.z - 0.8]], { speed: 1.4, face: 'up' }));
     await cs.say('SERA', 'And Theo?', { expr: 'surprised' });
     await cs.say('HALCYON', 'He\'s already asking for you.', { expr: 'calm' });
     await cs.say('KADE', 'Then let\'s go wake them.', { expr: 'smile' });
@@ -428,6 +433,17 @@ const scripts = {
     cs.objective('epi.wake');
     bg(cs.letterbox(false));
   },
+};
+
+// the resolution's grade: the crown's column is the brightest thing in the game, so the scene is
+// taken down a stop while the two halves meet in front of it; morning cools and opens it again
+const RESOLVE_FX = {
+  bloom: { strength: 0.55, radius: 0.6, threshold: 0.86 },
+  grade: { exposure: 0.84, contrast: 1.1, vignette: 0.55 },
+};
+const MORNING_FX = {
+  bloom: { strength: 0.7, radius: 0.66, threshold: 0.84 },
+  grade: { exposure: 0.95, saturation: 0.92, contrast: 1.06, highlightTint: [1.0, 1.03, 1.08], shadowTint: [0.98, 1.0, 1.06] },
 };
 
 /** WARDEN's figure: HALCYON's shape in the gold of its sigil (the hologram's tint, and a gold aura). */

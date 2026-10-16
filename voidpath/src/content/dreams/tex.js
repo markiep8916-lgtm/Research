@@ -3,12 +3,12 @@
 // surfaces, soft value contrast (no tile carries a high-contrast blob), each set in its own palette.
 //
 //   kade   dr_hall_floor(_b) honey-ivory stone, dr_hall_wall / _cap / _low ivory panels with gold
-//          trim, dr_crest (the Security crest inlaid in gold), dr_mark (a cadet's place), dr_banner
-//          (a gold banner; a `screen`), dr_gold (gold leaf for small parts), dr_bd_gold (the windows'
-//          endless sunset)
+//          trim, dr_hall_window (a lancet on the endless sunset, painted on the wall), dr_crest (the
+//          Security crest inlaid in gold), dr_banner (a gold banner; a `screen`), dr_gold (gold leaf
+//          for small parts)
 //   nyx    dr_mer_floor(_b) jade deck plates, dr_mer_wall / _cap / _low teal panels with warm lamp
 //          strips, dr_runner (a woven deck runner), dr_mer_screen (the helm, a `screen`), dr_mer_plaque,
-//          dr_bd_stars (stars streaming past: still flying)
+//          dr_bd_stars (stars streaming past: still flying; the map's backdrop, seen from the bridge too)
 //   orion  dr_pearl_floor, dr_pearl_wall / _cap / _low (pearl and pale gold), dr_runner_pearl,
 //          dr_screen_ok (every console the same calm line, a `screen`)
 //   sera   dr_wheat, dr_meadow (wildflowers), dr_path, dr_river (4 frames), dr_bank, dr_riverbed,
@@ -144,14 +144,6 @@ function crest(t) {
   for (const [dx, dy] of [[0, -16], [0, -17], [0, -18], [-1, -17], [1, -17], [0, -15], [-2, -17], [2, -17]]) t.glow(cx + dx, cy + dy, '#fffbe8');
 }
 
-/** A cadet's place in the line: a gold ring set in the floor (alpha). */
-function mark(t) {
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-    const d = Math.hypot(x + 0.5 - 16, (y + 0.5 - 16) * 1.0);
-    if (d > 9.5 && d < 12) t.px(x, y, d < 10.6 ? GOLD[5] : GOLD[3], 0.6);
-  }
-}
-
 /** A gold banner: the crest in white on gold silk, a fringe (screen: shown glowing). 32 x 64. */
 function banner(t) {
   for (let y = 0; y < 64; y++) for (let x = 0; x < 32; x++) {
@@ -174,16 +166,16 @@ function banner(t) {
 }
 
 /**
- * The hall's tall windows (a window pair, 64 x 96, opaque): gold frames round two lancets full of
- * the sunset that never ends. Painted in, not seen through: the dream has no outside.
+ * The hall's tall windows (one lancet a cell, 32 x 96, opaque wall faces): a gold moulding round a
+ * lancet full of the sunset that never ends. Painted in, not seen through: the dream has no outside.
  */
 function hallWindow(t, seed) {
   const SKY = ['#e8705a', '#f48a5e', '#ffa468', '#ffbe78', '#ffd48e', '#ffe4a8', '#fff0c8', '#fff8e4'];
-  for (let y = 0; y < 96; y++) for (let x = 0; x < 64; x++) {
+  for (let y = 0; y < 96; y++) for (let x = 0; x < 32; x++) {
     let c, h = 0.5;
     if (y >= 72) {                               // wainscot, as the wall
-      const g = tn(x * 3, y * 0.4, 64, 96, 8, seed + 3, 2);
-      c = dpick(HONEY, 3.6 + (g - 0.5) * 1.6 + (x === 0 || x === 63 ? -1 : 0), x, y);
+      const g = tn(x * 3, y * 0.4, 32, 96, 8, seed + 3, 2);
+      c = dpick(HONEY, 3.6 + (g - 0.5) * 1.6 + (x === 0 || x === 31 ? -1 : 0), x, y);
       h = 0.56;
     } else if (y >= 68) {
       c = GOLD[y === 68 ? 5 : y === 71 ? 2 : 4];
@@ -191,38 +183,37 @@ function hallWindow(t, seed) {
     } else if (y < 6) {
       c = GOLD[y < 2 ? 5 : y === 5 ? 2 : 3];
       h = 0.68;
+    } else if (x === 0 || x === 31) {            // a slim gilt pilaster where two lancets meet
+      c = GOLD[x === 0 ? 5 : 2];
+      h = 0.7;
     } else {
-      c = dpick(IVORY, 5.0 + (tn(x, y, 64, 96, 4, seed, 3) - 0.5) * 0.8, x, y);
+      c = dpick(IVORY, 5.0 + (tn(x, y, 32, 96, 4, seed, 3) - 0.5) * 0.8, x, y);
       h = 0.55;
     }
     t.px(x, y, c, h);
   }
-  // two lancets: a gold moulding, an arched head, the sunset inside (emissive)
-  for (const x0 of [5, 35]) {
-    const x1 = x0 + 23, y0 = 9, y1 = 64, cx = (x0 + x1) / 2, r = (x1 - x0) / 2;
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const ay = y0 + r;
-      const inArch = y >= ay || Math.hypot(x - cx, y - ay) <= r;
-      if (!inArch) continue;
-      const edge = y === y1 || x === x0 || x === x1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 1.2);
-      if (edge) { t.px(x, y, GOLD[x < cx ? 5 : 3], 0.72); continue; }
-      const inner = y === y1 - 1 || x === x0 + 1 || x === x1 - 1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 2.2);
-      if (inner) { t.px(x, y, GOLD[2], 0.6); continue; }
-      // the sky: warm at the top, white-gold low where the sun has just gone, soft cloud bands
-      const k = (y - y0) / (y1 - y0);
-      const cloud = tn(x * 0.5, y * 1.6, 64, 96, 4, seed + 11, 3);
-      const v = 1.2 + k * 5.6 + (cloud > 0.6 ? (cloud - 0.6) * 6 : 0);
-      const col = dpick(SKY, Math.min(7, v), x, y);
-      // the panes glow, but softly: a full-strength sunset blooms the whole hall into haze
-      t.glow(x, y, col, dim(col, 0.32));
-      t.ht(x, y, 0.3);
-    }
-    // a cross of glazing bars
-    for (let y = y0 + 3; y < y1; y++) t.px(Math.round(cx), y, GOLD[3], 0.62);
-    for (const yb of [32, 48]) for (let x = x0 + 2; x < x1 - 1; x++) t.px(x, yb, GOLD[3], 0.62);
+  // the lancet: a gold moulding, an arched head, the sunset inside (emissive)
+  const x0 = 4, x1 = 27, y0 = 9, y1 = 64, cx = (x0 + x1) / 2, r = (x1 - x0) / 2;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const ay = y0 + r;
+    const inArch = y >= ay || Math.hypot(x - cx, y - ay) <= r;
+    if (!inArch) continue;
+    const edge = y === y1 || x === x0 || x === x1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 1.2);
+    if (edge) { t.px(x, y, GOLD[x < cx ? 5 : 3], 0.72); continue; }
+    const inner = y === y1 - 1 || x === x0 + 1 || x === x1 - 1 || (y < ay && Math.hypot(x - cx, y - ay) > r - 2.2);
+    if (inner) { t.px(x, y, GOLD[2], 0.6); continue; }
+    // the sky: warm at the top, white-gold low where the sun has just gone, soft cloud bands
+    const k = (y - y0) / (y1 - y0);
+    const cloud = tn(x * 0.5, y * 1.6, 32, 96, 4, seed + 11, 3);
+    const v = 1.2 + k * 5.6 + (cloud > 0.6 ? (cloud - 0.6) * 6 : 0);
+    const col = dpick(SKY, Math.min(7, v), x, y);
+    // the panes glow, but softly: a full-strength sunset blooms the whole hall into haze
+    t.glow(x, y, col, dim(col, 0.32));
+    t.ht(x, y, 0.3);
   }
-  // the pier between the lancets: a slim gold pilaster
-  for (let y = 8; y < 66; y++) for (let x = 30; x < 34; x++) t.px(x, y, GOLD[x === 30 ? 5 : x === 33 ? 2 : 4], 0.7);
+  // a cross of glazing bars
+  for (let y = y0 + 3; y < y1; y++) t.px(Math.round(cx), y, GOLD[3], 0.62);
+  for (const yb of [32, 48]) for (let x = x0 + 2; x < x1 - 1; x++) t.px(x, yb, GOLD[3], 0.62);
 }
 
 function goldLeaf(t, seed) {
@@ -585,26 +576,6 @@ function softBlob(g, x, y, rx, ry, color, alpha) {
   g.restore();
 }
 
-/** Kade's windows: a gold-hour sky that never sets, banks of lit cloud, a sun haze low on the left. */
-function bdGold() {
-  return chunky((g, W, H) => {
-    const sky = g.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#f0b868');
-    sky.addColorStop(0.45, '#ffd590');
-    sky.addColorStop(0.7, '#ffe8bc');
-    sky.addColorStop(1, '#f4c880');
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W, H);
-    softBlob(g, W * 0.3, H * 0.62, 150, 90, '#fff8e0', 0.9);
-    const r = rng(17);
-    for (let i = 0; i < 26; i++) {
-      const x = r() * W, y = H * (0.25 + r() * 0.6), rx = 40 + r() * 90, ry = 8 + r() * 14;
-      softBlob(g, x, y, rx, ry, r() < 0.5 ? '#fff0d0' : '#ffd8a0', 0.55);
-      softBlob(g, x + 6, y + ry * 0.6, rx * 0.8, ry * 0.5, '#e8a058', 0.35);
-    }
-  });
-}
-
 /** The Meridian's viewport: stars streaming past (still flying), a green-gold nebula ahead. */
 function bdStars() {
   return chunky((g, W, H) => {
@@ -675,11 +646,9 @@ export const TEXTURES = {
   dr_hall_cap: { ...floor, strength: 1.4, paint: (t) => hallCap(t, 407) },
   dr_hall_low: { w: 32, h: 24, wrapX: true, strength: 1.8, paint: (t) => hallLow(t, 409) },
   dr_crest: { w: 64, h: 64, alpha: true, strength: 1.4, paint: crest },
-  dr_mark: { w: 32, h: 32, alpha: true, strength: 1.2, paint: mark },
   dr_banner: { w: 32, h: 64, strength: 1.2, paint: banner },
   dr_gold: { ...floor, strength: 1.4, paint: (t) => goldLeaf(t, 411) },
-  dr_bd_gold: { w: 1024, h: 512, raw: bdGold, emissiveIsMap: true },
-  dr_hall_window: { w: 64, h: 96, strength: 1.6, paint: (t) => hallWindow(t, 413) },
+  dr_hall_window: { w: 32, h: 96, strength: 1.6, paint: (t) => hallWindow(t, 413) },
   dr_glass: { w: 32, h: 32, wrapX: true, wrapY: true, strength: 0.8, paint: (t) => glassTop(t, 431) },
 
   dr_mer_floor: { ...floor, strength: 1.8, paint: (t) => merFloor(t, 421, false) },

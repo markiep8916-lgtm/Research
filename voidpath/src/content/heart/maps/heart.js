@@ -139,10 +139,16 @@ const lights = [
   ...[PYLON_T1, PYLON_T2, PYLON_T3A, PYLON_T3B].map(([x, z]) => lamp(x, z, GOLD, 12, { y: 2.6 })),
   lamp(14.6, 39.7, AMBER, 10, { y: 1.0 }), lamp(29.4, 39.7, DAWN, 10, { y: 1.0 }),
   lamp(48.4, 39.7, ROSE, 10, { y: 1.0 }), lamp(62.6, 39.7, AMBER, 10, { y: 1.0 }),
+  // lanterns on the chords' curbs, so a narrow phone frame mid-span still holds warm and cool pools
+  lamp(19.6, 37.4, ROSE, 7, { y: 0.9 }), lamp(24.4, 39.6, GOLD, 7, { y: 0.9 }),
+  lamp(53.1, 37.4, GOLD, 7, { y: 0.9 }), lamp(57.9, 39.6, DAWN, 7, { y: 0.9 }),
+  // the first lift's span, and the Bellwarden's alcove
+  lamp(33.2, 53.8, ROSE, 8, { y: 1.0 }), rim('t3', 330, ROSE, 8),
   ...PADS.map((p) => lamp(p.cx, p.cz, WHITE, p.id === 'lift_crown' ? 14 : 12, { y: 2.5 })),
   lamp(ELITE_T2[0] + 1.2, ELITE_T2[1] + 1.4, ROSE, 9, { y: 1.4 }),
   // the processional and the Sanctum
-  lamp(40.5, 14.4, GOLD, 12, { y: 1.2 }), lamp(42.6, 11.6, DAWN, 9, { y: 1.0 }), lamp(33.6, 10.6, AMBER, 13), lamp(33.4, 16.0, DAWN, 11),
+  lamp(40.5, 14.4, GOLD, 12, { y: 1.2 }), lamp(42.6, 11.6, DAWN, 9, { y: 1.0 }), lamp(38.6, 11.6, AMBER, 8, { y: 1.0 }),
+  lamp(33.6, 10.6, AMBER, 13), lamp(33.4, 16.0, DAWN, 11),
   lamp(36.4, 13.0, ROSE, 10), lamp(31.2, 14.2, GOLD, 11), lamp(34.0, 7.8, GOLD, 12, { y: 1.0 }),
   // the Crown
   { x: OCULUS[0], y: 3.0, z: OCULUS[1] + 1.0, color: '#ffe4a0', intensity: 11, distance: 12 },
