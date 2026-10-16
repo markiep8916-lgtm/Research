@@ -224,10 +224,13 @@ const lights = [
   flood(6.5, 49.5, 15, 8), flood(7.0, 52.0, 14, 7), alert(12.4, 49.0), cyan(10.5, 44.6, 1.6),
   sigil(7.0, 42.6), { x: 3.0, y: 0.6, z: 52.0, color: '#ff8a3a', intensity: 6, distance: 3.5, when: 'story:core_open' },
   // the checkpoint: floods over the lanes, red lamps on the north wall, gold screens, the pylon
-  flood(18.0, 50.5), flood(26.0, 50.5), flood(35.0, 51.0, 18), flood(44.0, 50.5), flood(53.0, 50.5), flood(64.0, 50.5),
+  // (the entry lanes' floods are WARDEN's gold: spire.arrival pans over them under WARDEN's line)
+  { ...flood(18.0, 50.5, 24), color: '#ffc04a' }, { ...flood(26.0, 50.5, 24), color: '#ffc04a' }, flood(35.0, 51.0, 18), flood(44.0, 50.5), flood(53.0, 50.5), flood(64.0, 50.5),
   alert(20.0, 48.4), alert(38.0, 48.4), alert(56.0, 48.4),
   sigil(26.0, 48.6), sigil(44.0, 48.6), sigil(62.0, 48.6),
-  { x: 34.5, y: 3.0, z: 49.6, color: '#ffc04a', intensity: 16, distance: 7, mode: 'pulse', amount: 0.25, speed: 0.9, tag: 'pylon' },
+  // the pylon's gold reaches the lanes either side of it, so WARDEN's first line here (spire.arrival)
+  // plays on gold light, not the grey deck (G2 rule 14, I-art)
+  { x: 34.5, y: 2.6, z: 49.8, color: '#ffc04a', intensity: 16, distance: 10.5, mode: 'pulse', amount: 0.25, speed: 0.9, tag: 'pylon' },
   { x: 39.5, y: 1.3, z: 49.2, color: '#ff3b4e', intensity: 6, distance: 3.5 },
   { x: 57.5, y: 1.3, z: 49.2, color: '#ff3b4e', intensity: 6, distance: 3.5 },
   { x: 21.5, y: 0.7, z: 52.4, color: '#ff4a3a', intensity: 6, distance: 3.5 },

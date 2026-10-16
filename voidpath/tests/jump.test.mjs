@@ -22,6 +22,7 @@ function fixtureReg() {
       'ch1.wreck': { chapter: 'ch1', map: 'meridian', spawn: 'from_shoals', level: 10, flags: ['story:ruse_met', 'story:maw_lore'], items: { medigel: 2 }, objective: 'ch1.find_coil' },
       'ch1.lost': { chapter: 'ch1', map: 'nowhere', spawn: 'void', level: 9 },
       'pro.duo': { chapter: 'prologue', party: ['kade', 'sera'], leader: 'sera', level: 3 },
+      'ch1.maw': { chapter: 'ch1', level: 12, equip: { kade: { weapon: 'eq_w_kade_2' }, sera: { accessory: 'eq_x_frost_charm' } } },
       poc: { flags: ['story:kade_awake'] },
     },
     kits: {
@@ -133,4 +134,12 @@ test('the registered content builds a valid jump for every chapter', async (t) =
     assert.ok(js.party.includes(js.leader), ch);
     assert.equal(typeof js.map, 'string', ch);
   }
+});
+
+test('a jump point can wear the gear a player has by then: its equip overrides the kit slot by slot', () => {
+  const js = buildJumpState('ch1.maw', fixtureReg());
+  assert.deepEqual(js.equip.kade, { weapon: 'eq_w_kade_2', armor: 'eq_a_1', accessory: null }, 'the other slots keep the kit');
+  assert.deepEqual(js.equip.nyx, { weapon: 'eq_w_nyx_1' });
+  assert.deepEqual(js.equip.sera, { accessory: 'eq_x_frost_charm' }, 'a member without kit gear gets the jump\'s pieces');
+  assert.equal(buildJumpState('ch1', fixtureReg()).equip.kade.weapon, 'eq_w_kade_1', 'the chapter start keeps the kit');
 });

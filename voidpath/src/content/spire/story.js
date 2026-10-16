@@ -594,29 +594,42 @@ export default {
       },
     },
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // chapter's shopping before the flight (Kade's and Orion's tier-3 weapons, Kade's armor), then the
+  // Armory's plate, the Oathkeeper and the Vital Core (G3-balance: with the chapter-start kit Voss
+  // won only 51% at L22).
   jumps: {
     // the Spire dock on arrival (the load trigger plays the arrival)
-    'ch3.spire': { chapter: 'ch3', map: 'spire', spawn: 'dock', level: 17, flags: ['unlock:spire'], objective: 'ch3.go_spire' },
+    'ch3.spire': {
+      chapter: 'ch3', map: 'spire', spawn: 'dock', level: 17, flags: ['unlock:spire'], objective: 'ch3.go_spire',
+      equip: { kade: { weapon: 'eq_w_kade_3', armor: 'eq_a_3' }, orion: { weapon: 'eq_w_orion_3' } },
+    },
     // at the paired grids with the first grid open
     'ch3.cells': {
       chapter: 'ch3', map: 'spire', spawn: 'junction', level: 19,
       flags: [...CH3_FLAGS, 'seen:spire:checkpoint', 'seen:spire:riot', 'sw:spire:grid_a', 'spire:said_t1', 'tut:status:marked', 'tut:status:jam'],
       objective: 'ch3.grids_2',
+      equip: { kade: { weapon: 'eq_w_kade_3', armor: 'eq_a_3' }, orion: { weapon: 'eq_w_orion_3' } },
     },
     // the cadets freed, at the Deck 5 lift
     'ch3.upper': {
       chapter: 'ch3', map: 'spire', spawn: 'deck5', level: 20,
       flags: [...CH3_FLAGS, 'seen:spire:checkpoint', 'seen:spire:riot', 'sw:spire:grid_a', 'sw:spire:grid_swap', 'sw:spire:override',
-        'spire:said_t1', 'spire:said_t2', 'story:cadets_freed', 'tut:status:marked', 'tut:status:jam'],
+        'spire:said_t1', 'spire:said_t2', 'story:cadets_freed', 'tut:status:marked', 'tut:status:jam', 'chest:spire:armory_plate'],
       objective: 'ch3.climb',
+      equip: { kade: { weapon: 'eq_w_kade_3', armor: 'eq_a_4' }, sera: { armor: 'eq_a_3' }, orion: { weapon: 'eq_w_orion_3' } },
     },
     // the command lobby before Voss (the boss check level, with the Oathkeeper)
     'ch3.voss': {
       chapter: 'ch3', map: 'spire', spawn: 'command', level: 22,
       flags: [...CH3_FLAGS, 'seen:spire:checkpoint', 'seen:spire:riot', 'sw:spire:grid_a', 'sw:spire:grid_swap', 'sw:spire:override',
         'spire:said_t1', 'spire:said_t2', 'story:cadets_freed', 'spire:mk3_down', 'seen:spire:quarters', 'chest:spire:oathkeeper',
-        'tut:status:marked', 'tut:status:jam', 'tut:mk3_lock'],
-      items: { eq_w_kade_4: 1 }, objective: 'ch3.command',
+        'chest:spire:armory_plate', 'chest:spire:lounge', 'tut:status:marked', 'tut:status:jam', 'tut:mk3_lock'],
+      objective: 'ch3.command',
+      equip: {
+        kade: { weapon: 'eq_w_kade_4', armor: 'eq_a_4', accessory: 'eq_x_vital_core' }, sera: { armor: 'eq_a_3' },
+        orion: { weapon: 'eq_w_orion_3', accessory: 'eq_x_stim_chip' },
+      },
     },
   },
   doneFlags: {

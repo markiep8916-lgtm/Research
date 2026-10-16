@@ -355,12 +355,13 @@ const CSS = `
   font: 800 68px/1 var(--vp-font-display); letter-spacing: .24em; padding-left: .24em; color: #fff;
   text-shadow: 0 0 22px rgba(255,42,74,.8), 3px 3px 0 #5c0a18, -2px -2px 0 #5c0a18; animation: vb-card-slam 1.7s cubic-bezier(.2,.8,.2,1) forwards; }
 .vb-card .sub { position: absolute; left: 0; right: 0; top: 50%; margin-top: 42px; text-align: center; font: 600 15px/1 var(--vp-font-ui);
-  letter-spacing: .6em; padding-left: .6em; color: #ffc2cc; text-transform: uppercase; animation: vb-card-sub 1.7s ease-out forwards; }
+  letter-spacing: .6em; padding-left: .6em; color: #ffd6dc; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,42,74,.65), 1px 1px 0 #5c0a18;
+  animation: vb-card-sub 1.7s ease-out forwards; }
 @keyframes vb-card-band { 0% { opacity: 0; transform: scaleY(.1); } 10% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes vb-card-rule { 0% { transform: scaleX(0); } 18% { transform: scaleX(1); } 84% { opacity: 1; } 100% { opacity: 0; transform: scaleX(1.1); } }
 @keyframes vb-card-slam { 0% { opacity: 0; transform: scale(2.6); filter: brightness(3); } 12% { opacity: 1; transform: scale(.96); filter: brightness(1.6); }
   16% { transform: translate(-6px, 3px); } 20% { transform: translate(5px, -2px); filter: none; } 24% { transform: none; } 84% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0; transform: scale(1.06); } }
-@keyframes vb-card-sub { 0%, 20% { opacity: 0; letter-spacing: 1.1em; } 40% { opacity: 1; letter-spacing: .6em; } 84% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes vb-card-sub { 0%, 8% { opacity: 0; letter-spacing: 1.1em; } 22% { opacity: 1; letter-spacing: .6em; } 88% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------------------------------------------------------------- ultimate cut-in */
 .vb-cut { --acc: var(--vp-amber); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -2120,6 +2121,7 @@ export class BattleUI {
       const cssMax = this.compact ? 210 : this.root.classList.contains('is-short') ? 170 : 300;
       this.list.style.maxHeight = `${Math.max(96, Math.min(cssMax, Math.floor(room - chrome)))}px`;
       this._menuSize = { w: this.menu.offsetWidth || 250, h: this.menu.offsetHeight || 260 };
+      if (this.cmd) this.cmd.spot = null;
     }
     const { w: mw, h: mh } = this._menuSize;
     this.menu._last ||= { x: -1e4, y: -1e4 };
@@ -2137,7 +2139,42 @@ export class BattleUI {
     const bottomLimit = this.H - this._partyH - 24;
     const x = clamp(left / z - mw - 14, 10, this.W - mw - 10);
     const y = clamp((v.rectY + v.rectH * 0.45) / z - mh * 0.5, topLimit, Math.max(topLimit, bottomLimit - mh));
-    this._setPos(this.menu, x, y, this.menu._last);
+    // a large boss's glowing core stays in view (C11: the menu opened over WARDEN's core): else right
+    // of the formation, left of the core, below it or above it. The spot is chosen once per menu
+    // screen, so the menu does not jump as the boss sways.
+    const spots = [[x, y]];
+    const cores = this._coreBoxes();
+    if (cores.length) {
+      let right = 0;
+      for (const o of this.view.values()) if (o.side === 'party' && o.rectW != null) right = Math.max(right, o.rectX + o.rectW);
+      const b = cores[0];
+      spots.push([right / z + 14, y], [b.x0 - 12 - mw, y], [x, b.y1 + 12], [x, b.y0 - 12 - mh]);
+    }
+    const cmd = this.cmd;
+    if (cmd.spot == null || cmd.spot >= spots.length) {
+      const yMax = Math.max(topLimit, bottomLimit - mh);
+      const clear = ([sx, sy]) => sx >= 10 && sx + mw <= this.W - 10 && sy >= topLimit && sy <= yMax
+        && !cores.some((c) => sx < c.x1 && sx + mw > c.x0 && sy < c.y1 && sy + mh > c.y0);
+      cmd.spot = Math.max(0, spots.findIndex(clear));
+    }
+    this._setPos(this.menu, spots[cmd.spot][0], spots[cmd.spot][1], this.menu._last);
+  }
+
+  /** Screen boxes (CSS px) round the cores of living foes whose art names a `core` point, largest first. */
+  _coreBoxes() {
+    const z = this.zoom;
+    const out = [];
+    for (const v of this.view.values()) {
+      if (v.side !== 'enemy' || v.gone || v.rectW == null) continue;
+      const a = this.stage.actor(v.id);
+      if (!a?.points?.core) continue;
+      a.point('core', CORE_P);
+      this.engine.projectToScreen(CORE_P, this._pos);
+      const r = clamp((v.rectW / z) * 0.16, 48, 110);
+      const cx = this._pos.x / z, cy = this._pos.y / z;
+      out.push({ x0: cx - r, y0: cy - r, x1: cx + r, y1: cy + r, r });
+    }
+    return out.sort((p, q) => q.r - p.r);
   }
 
   dispose() {
@@ -2158,3 +2195,4 @@ export class BattleUI {
 }
 
 const RET_P = new Vector3();
+const CORE_P = new Vector3();

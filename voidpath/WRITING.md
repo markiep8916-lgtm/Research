@@ -764,13 +764,13 @@ Tips live in `common` too (9.1); they are battle lines, not scenes.
 | Script | Trigger | Purpose | Speakers | Budget | Staging | Music | Sets |
 |---|---|---|---|---|---|---|---|
 | `prologue.new_journey` B K | `REG.newJourney` = `exterior:view` (game.newJourney); `cs.goto('halcyon', 'start')` after the card | Cold open over Tethys (20-30 s); PROLOGUE card; Kade wakes in pod 07; BOLT | WARDEN, BOLT, KADE | 10 / 90 (65) | CAM pan, MUSIC, POSE, EMOTE, LIGHT | `warden`, silence, `explore` | `story:kade_awake`; card `prologue` (save lands at `halcyon:start`); objective `pro.wake` |
-| `prologue.tutorial` | `halcyon` · enter `tutorial` (Cryo Deck exit) · `story:kade_awake & !story:sera_joined` | A sparking Sec-Drone; three `mech` boxes; `cs.battle('pro_tutorial')`; the medbay alarm | BOLT, KADE | 5 / 40 (25) | MOVE, EMOTE, CAM | map | objective `pro.medbay` |
+| `prologue.tutorial` | `halcyon` · enter `tutorial` (Cryo Deck exit) · `story:kade_awake & !story:sera_joined` | A sparking Sec-Drone; three `mech` boxes; `cs.battle('pro_tutorial')`; the medbay alarm | BOLT, KADE | 5 / 40 (28) | MOVE, EMOTE, CAM | map | objective `pro.medbay` |
 | `prologue.sera_wakes` B K | `halcyon` · enter `sera_wakes`, area `medbay` · `story:kade_awake & !story:sera_joined` | Sera in her half-forced pod; pod 2271; the choice; the Med-Station; "Call me Sera" | SERA, KADE, BOLT | 9 / 70 (45) | MUSIC, CAM, POSE, EMOTE, MOVE | silence, map | `story:sera_joined`; `pro:promised` on choice 0; objective `pro.reach_engineering` |
 | `prologue.spine_drones` (G2) | `halcyon` · enter `spine_drones` (Spine Corridor bulkhead), once · `story:sera_joined & !story:orion_joined` | Kade and Sera's first fight together; `cs.battle('pro_spine_drones')`, a drone pair carrying Sera's items tip, where `bp3` first shows | narration | 1 / 10 (8) | MOVE (drones drop in) | map | none |
 | `prologue.orion_rescue` B K | `halcyon` · enter `orion_rescue` (before the reactor-control shutters) · `story:sera_joined & !story:orion_joined` | Drones hammer the shutters; `cs.battle('pro_orion_rescue')`; Orion soothes the reactor; his watchdog; Brandt's crate | ORION, KADE | 8 / 70 (40) | CAM, MOVE (gather), POSE, LIGHT | map | `sw:halcyon:control_shutter`, `story:orion_joined`; objective `pro.find_keycard` |
 | `prologue.gallery_ambush` (G2) | `halcyon` · enter `gallery_ambush` (Coolant Gallery, on the way to Brandt's crate), once · `story:orion_joined & !item:keycard` | Orion's first fight; `cs.battle('pro_gallery_ambush')` carrying his area-skills tip | ORION | 1 / 10 (8) | MOVE, EMOTE | map | none |
 | `prologue.equip_tip` | `halcyon` · flag `equip_tip` · `story:orion_joined & item:eq_x_stim_chip & !tut:equip` | Equipment tip after the Stimulus Chip chest | ORION | 2 / 15 (8) | POSE | map | `tut:equip` |
-| `prologue.keycard` | `halcyon` · flag `keycard` · `story:orion_joined & item:keycard & !story:nyx_joined` | The keycard in hand | KADE, ORION | 2 / 15 (8) | EMOTE | map | objective `pro.reach_bridge` |
+| `prologue.keycard` | `halcyon` · flag `keycard` · `story:orion_joined & item:keycard & !story:nyx_joined` | The keycard in hand | KADE, ORION | 2 / 15 (9) | EMOTE | map | objective `pro.reach_bridge` |
 | `prologue.nyx_door` K | `halcyon` · enter `nyx_door`, area `antechamber` · `story:orion_joined & !story:nyx_joined` | Nyx caught at the bridge door; the winged Moth; the beacon; a Sentinel squad; truce; `cs.join('nyx')`; `cs.battle('pro_sentinel_squad')` | NYX, KADE, BOLT | 10 / 80 (50) | CAM, MOVE, EMOTE, POSE | map | `story:nyx_joined`; objective `pro.open_bridge` |
 | `prologue.bridge_open` | `halcyon` · flag `bridge_open` · `story:bridge_unlocked & !defeated:pro_boss_sentinel` | The door slides open (the lock sets `story:bridge_unlocked`) | NYX | 1 / 10 (5) | none | map | objective `pro.sentinel` |
 | `prologue.sentinel` K | `halcyon` · field boss `sentinel` (encounter `pro_boss_sentinel`, art `sentinel`), Observation Bridge | Confront; battle; HALCYON's fragment over the wreck; the coil; Nyx's Meridian line; BOLT tapes the Moth; CH1 card | SENTINEL, KADE, HALCYON, ORION, SERA, NYX, BOLT | 15 / 150 (85) | CAM, HOLO, LIGHT, MUSIC, MOVE | map, `lullaby`, `explore` after the card | `defeated:pro_boss_sentinel` (model); `story:halcyon_fragment`, `unlock:driftmarket`, `story:prologue_done`; `cs.save()`; card `ch1` (Nyx leads); objective `ch1.go_driftmarket` |
@@ -1295,7 +1295,7 @@ started too. I'd bet the Meridian on it."
 | `dreams.nyx` B K | `heart` · enter `dream_nyx` (tier 2, spawn `tier2`) · `story:dream_kade & !story:dream_nyx` | The Meridian green and flying; Ines alive; she refuses | WARDEN, VARO, NYX | 15 / 90 (60) | LIGHT, POSE, MOVE, MUSIC | `lullaby` | `story:dream_nyx`; `cs.give('eq_x_keepsake_nyx')` |
 | `dreams.orion` B K | `heart` · enter `dream_orion` (tier 3, spawn `tier3`) · `story:dream_nyx & !story:dream_orion` | A flawless, silent HALCYON; he refuses | WARDEN, HALCYON (perfect), ORION | 15 / 90 (60) | LIGHT, HOLO, POSE, MUSIC | `lullaby` | `story:dream_orion`; `cs.give('eq_x_keepsake_orion')` |
 | `dreams.sera` B K | `heart` · enter `dream_sera` (crown approach, toward spawn `crown`) · `story:dream_orion & !story:dream_sera` | Golden fields; Theo grown; she refuses | WARDEN, THEO (grown), SERA | 15 / 90 (60) | LIGHT, POSE, MOVE, MUSIC | `lullaby` | `story:dream_sera`; `cs.give('eq_x_keepsake_sera')` |
-| `heart.crown_lift` | the crown lift (interactable) · `story:dream_sera & !story:finale_done` | the confirm "Beyond this point there is no way back." then the lift | narration (choice) | 1 / 10 (5) | CAM (rise), LIGHT (light streams) | map | none |
+| `heart.crown_lift` | the crown lift (interactable) · `story:dream_sera & !story:finale_done` | the confirm "Beyond this point there is no way back." then the lift | narration (choice) | 1 / 10 (8) | CAM (rise), LIGHT (light streams) | map | none |
 | `dreams.crown` B K | `heart` · enter `crown` · `story:dream_sera & !story:finale_done` | The approach; Nyx names the Lock; `cs.battle('heart_boss_warden')`; the resolution (8 beats); EPILOGUE card; `cs.goto('halcyon', 'cryo')` | WARDEN, NYX, KADE, BOLT, HALCYON, ORION, SERA | 18 / 240 (190) | CAM, MOVE, HOLO, LIGHT (merge flash, gold to dawn white), MUSIC, POSE | `heart`, silence, `lullaby`, card | `defeated:heart_boss_warden` (model); `story:warden_merged`, `story:finale_done`; card `epilogue` (leader kept); objective `epi.wake` |
 
 Each dream: `cs.scene({ leader: member })`, store the leader's `{ x, z, facing }`,
@@ -1466,7 +1466,7 @@ Talks are not counted; the dry run reports the real numbers.
 | Ch2 | flight 8, arrival 40, drained 12, stasis 30, gardener 70, theo 120 | 280 s (4.7 min) | 4-6 min |
 | Ch3 | flight 5, arrival 45, cadets 50, quarters 12, oath 55, voss 145 | 312 s (5.2 min) | 4-6 min |
 | Ch4 | arrival 45, three memories 120, bolt_reveal 70, echo 105 | 340 s (5.7 min) | 5-6 min |
-| Finale | night_before 5 (declined) or 90, flight 5, heart.arrival 40, four dreams 240, crown lift 5, crown 190 | 485 s (8.1 min); 570 s (9.5 min) with the night | ~8 min |
+| Finale | night_before 5 (declined) or 90, flight 5, heart.arrival 40, four dreams 240, crown lift 8 (I-sys), crown 190 | 488 s (8.1 min); 573 s (9.6 min) with the night | ~8 min |
 | Epilogue | epilogue.main 150, then the credits (about 150 s, music only) | about 300 s | ~5 min |
 
 **(G2) Measured at human pace.** Critical-path story was 424 s in the prologue and 552 s in chapter 1,
@@ -1479,7 +1479,7 @@ about 1.5 times the plan. Scenes over their plan + 15%:
 
 The text fitted. The staging did not (1.8, staging seconds). From C-beta on, the test is each scene
 within its plan + 15% at human pace, and the chapter's story within this table's sum + 15%:
-prologue 404 s, ch1 439 s, ch2 322 s, ch3 359 s, ch4 391 s, finale 558 s (656 s with the night).
+prologue 404 s, ch1 439 s, ch2 322 s, ch3 359 s, ch4 391 s, finale 561 s (659 s with the night).
 
 **(G3) Plan corrections.** The prologue tutorial (five FIXED boxes, 27.6 s of reading alone) measured
 25 + 6 s and the keycard (two boxes, 8.3 s of reading) 9.4 s at human pace: text-bound, so their plans
@@ -1487,6 +1487,11 @@ become 28 and 9 (the C1-fix request). Chapter 1's four one-box field-fight lead-
 mite nest, the rime golem and the salvage bots, 5.3) sit on the critical path and are counted now. In chapter 2 the
 arrival (53 s against 46) and the drained channels (16 s against 14) were trimmed in their staging
 (pans under the walk-ons, no waits) and by one shorter Orion line; their plans stand.
+
+**(I-sys) Plan corrections.** The scene rows now carry the same numbers: `prologue.tutorial` plan 28
+(it measured 31.2 s raw, 29.0 s without driver latency, at C1-fix; 25 + 6 s at G3) and
+`prologue.keycard` plan 9 (9.3 / 8.7 s). `heart.crown_lift` plan 8: the confirmation alone takes
+about 4 s to read, and C7 measured 9 s, about 7.7 s after its staging trim.
 
 If a chapter runs long at G2/G3, cut in this order:
 1. (G2) Awaited staging: serial walk-ins, pans over 1 s, `cs.wait` padding, slow fades.

@@ -120,7 +120,7 @@ export class ExploreState {
     this._pending = [];               // triggers due while blocked (same map only)
     this._exitInside = null;          // the exit rect the leader stood in at arrival (no re-fire)
     this._exitTarget = null;          // prompt target of a non-auto exit
-    this._scriptWasActive = false;
+    this._scriptsEnded = 0;          // cutscenes.ended at the last frame
     this._storyHooked = false;
     this._trail = [];
     this._companions = new Map();     // id -> { def, moving }
@@ -422,15 +422,13 @@ export class ExploreState {
 
   update(dt, t) {
     if (!this._active || !this.world) return;
-    const { engine, input, cutscenes } = this.ctx;
+    const { engine, input } = this.ctx;
     if (engine.quality !== this._quality) {
       this._quality = engine.quality;
       this.rig.setQuality(this._quality);
       this.world.setQuality(this._quality);
     }
-    const scripted = !!(cutscenes && cutscenes.active);
-    if (this._scriptWasActive && !scripted) this._scriptEnded();
-    this._scriptWasActive = scripted;
+    this._watchScripts();
     const blocked = this._blocked();
     let moveInput = null;
     if (!blocked) {
@@ -461,7 +459,22 @@ export class ExploreState {
     if (!this._busy) this._updateEncounters(moved);
   }
 
-  /** The outermost script ended (the runner returns the camera): re-seed triggers, release actors. */
+  /**
+   * An outermost script ended since the last frame, even one that started and ended between two
+   * frames or while the field was away (a battle): release what the field held for it.
+   */
+  _watchScripts() {
+    const { cutscenes } = this.ctx;
+    if (!cutscenes || cutscenes.active || cutscenes.ended === this._scriptsEnded) return;
+    this._scriptsEnded = cutscenes.ended;
+    this._scriptEnded();
+  }
+
+  /**
+   * The outermost script ended (the runner returns the camera): re-seed triggers, release actors.
+   * releaseTouched re-syncs flags with nothing held, so a field boss whose defeat flag its own script
+   * set fades out (collider off, disarmed) at once.
+   */
   _scriptEnded() {
     this._seedTriggers();
     this.world.releaseTouched();

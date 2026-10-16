@@ -30,6 +30,7 @@ export default {
       next: 'fin.tier2',
       async run(d) {
         await d.use('bolt', { optional: true });
+        await d.shopWeapons('fabricator');
         d.choose('Rest tonight.');
         await d.fly('starchart', 'The Heart');
         await d.pump(d.F('seen:heart:arrival'), { maxVt: 1200 });
@@ -110,6 +111,7 @@ export default {
       level: 31,
       async run(d) {
         await d.med('med_sanctum');
+        await d.shopWeapons('fabricator');   // the Sanctum's fabricator, beside its Med-Station
         await d.shot('c07-sanctum', { hi: true });
         d.choose('Ride to the crown.');
         await d.use('crown_lift', { after: '(() => { const s = window.__VP.debug.state(); return s.map === "heart" && !!s.explore && s.explore.z > 19; })()' });
@@ -125,7 +127,7 @@ export default {
     finale: {
       scenes: {
         'dreams.night_before': 90, 'heart.arrival': 40, 'dreams.kade': 60, 'dreams.nyx': 60, 'dreams.orion': 60,
-        'dreams.sera': 60, 'heart.crown_lift': 5, 'dreams.crown': 190,
+        'dreams.sera': 60, 'heart.crown_lift': 8, 'dreams.crown': 190,
       },
       bosses: { heart_elite_rings: 29, heart_elite_spire: 30, heart_boss_warden: 32 },
     },

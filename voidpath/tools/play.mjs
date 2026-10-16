@@ -12,7 +12,7 @@
 //     --mobile            emulate a touch phone (390x844, hasTouch, isMobile, DPR 2)
 //     --dpr <n>           device scale factor (default 1)
 //     --reduced-motion    emulate prefers-reduced-motion: reduce
-//     --timeout <ms>      overall timeout (default 120000)
+//     --timeout <ms>      overall timeout (default 120000), counted once a browser slot is taken
 //     --shot-timeout <ms> timeout of each screenshot (default 300000; SwiftShader under heavy load is
 //                         slow); a shot step's own "timeout" wins
 //     --strict            exit 1 if any page error or console.error occurred
@@ -79,14 +79,14 @@ const shotTimeoutMs = Number(opt('--shot-timeout', 300000));
 const fullPage = flag('--full-page');
 
 const report = { page: pageUrl, console: [], errors: [], logs: [], shots: [], fps: [] };
+// the timeout counts from the browser slot being taken, not the wait in line for it (G3-content)
+const browser = await launchBrowser();
 const killer = setTimeout(() => {
   console.error(`TIMEOUT after ${timeoutMs} ms`);
   report.errors.push(`runner timeout after ${timeoutMs} ms`);
   fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
   process.exit(2);
 }, timeoutMs);
-
-const browser = await launchBrowser();
 const dpr = opt('--dpr') != null ? Number(opt('--dpr')) : undefined;
 const { page, report: pageReport } = await openPage(browser, pageUrl, {
   mobile, size, dpr, reducedMotion: flag('--reduced-motion'),

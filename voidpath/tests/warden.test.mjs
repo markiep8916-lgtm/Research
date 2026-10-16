@@ -118,18 +118,23 @@ test('warden: Retry from the second form opens with HALCYON\'s gift (Boost for o
   applyJumpState(buildJumpState('fin.warden', REG));
   const m = new BattleModel({ party: gameState.party, encounterId: 'heart_boss_warden_2', rng: makeRng(3) });
   const ev = m.begin();
-  const gift = ev.find((e) => e.type === 'cue' && e.name === 'halcyon_gift');
-  assert.ok(gift, 'the gift cue');
+  const at = ev.findIndex((e) => e.type === 'cue' && e.name === 'halcyon_gift');
+  assert.ok(at >= 0, 'the gift cue');
   assert.ok(m.party.every((p) => p.bp === RETRY_BP));
-  assert.deepEqual(gift.value.map((g) => g.bp), m.party.map(() => RETRY_BP));
-  assert.equal(ev[ev.indexOf(gift) + 1].speaker, 'HALCYON');
+  // the pips fill through api.giveBp's 'bp' events, right after the cue, then HALCYON speaks
+  const bp = ev.slice(at + 1, at + 1 + m.party.length);
+  assert.deepEqual(bp.map((e) => [e.type, e.actorId, e.bp]), m.party.map((p) => ['bp', p.id, RETRY_BP]));
+  assert.ok(bp.every((e) => e.delta > 0));
+  assert.equal(ev[at + 1 + m.party.length].speaker, 'HALCYON');
   // every member can open with an ultimate (the menu agrees with the pips)
   for (const p of m.party) {
     const u = m.getMenu(p.id).skills.find((s) => s.ultimate);
     if (u) assert.notEqual(u.reason, `Needs ${BATTLE_RULES.ultimateBp} BP`, p.id);
   }
-  const { m: won } = fight('heart_boss_warden_2', 7);
-  assert.equal(won.result, 'victory');
+  // the retry is won most of the time (C10's numbers: about 86% for a first-timer)
+  let wins = 0;
+  for (let seed = 1; seed <= 20; seed++) if (fight('heart_boss_warden_2', seed).m.result === 'victory') wins++;
+  assert.ok(wins >= 14, `retry wins ${wins}/20`);
 });
 
 test('warden: Theo\'s voice wakes every sleeper at form 2\'s half', () => {

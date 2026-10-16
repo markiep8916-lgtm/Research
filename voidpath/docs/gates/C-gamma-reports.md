@@ -466,3 +466,76 @@ G3-flow is done, and the blocker G3-01 is fixed. Before, the Starchart flight ho
 - The human-pace run used a scratch build made at 07:12, from the repo as it was then (including other agents' work in progress). Its ch1 numbers (11 fights, Maw at L13) reflect that snapshot, not later G3-balance changes. The run stopped at the 'ch2 card' milestone, which is before the route takes its CHAPTER TWO shot.
 - Optional NPC 'pip' (a child who moves around) could not be faced in 6 tries and was skipped as optional. This was logged in the notes and does not affect the critical path.
 - The F-2 auto-skip relies on game.retried staying set until that script runs again. A Retry whose script is never started again leaves retried set, which is harmless (it only matches the same script id) and is cleared by load, new journey and jumps.
+
+## I-sys (integration: system fixes and open requests)
+
+I-sys is done. All 11 items are delivered, and every check I ran passes.
+
+**Finale pacing.** At human pace the finale now takes 26.4 virtual minutes, down from C7's 31.6 (band: 20-30).
+- Fight time fell from 1136 s to 793 s.
+- The first Choirlit Echoes take 5 rounds and 92 s (was 9 rounds, 158 s). The second take 5 rounds and 93 s (was 7, 124 s).
+- WARDEN was won on the first try at L31: 11 rounds, 248 s (was 475 s including a loss at L30). I did not change any WARDEN numbers; the fight is held at 11 rounds by its 2-Breaks-per-form rule.
+- The run had 0 page errors and 0 console errors.
+
+**Field boss stays standing after its fight (C7's bug).** The cause was not quite what C7 described. `World.releaseTouched()` already re-syncs flags, so the extra `syncFlags()` call C7 asked for would have changed nothing. The real gap: the boss was only released one frame after its script ended. Anything that read the field in that frame (the human-pace walker planning a path) still saw the beaten boss with its collider on. My first human-pace run hit exactly this ('no path: lift_t1' right after the Wardens).
+- The fix: the cutscene runner's `_release` now calls `world.releaseTouched()`, so the boss goes the moment its script ends.
+- I also added a `cutscenes.ended` counter and `ExploreState._watchScripts()`, so the field always notices a script end, even one it never saw running.
+- `heart.settle` and the five `settle_*` triggers are removed.
+- The rerun walked across the Wardens' span and the north chord. Field bosses on the other maps use the same path, so they are covered.
+- The second rerun also exposed a separate walker bug on the Third Tier. Right after touching the far pylon, the planner picked a start cell in a dead-end pocket. I fixed it in tools/human-pace-kit.js.
+
+**Other items:**
+- `api.giveBp(memberId, n)` emits `bp` events. WARDEN's retry gift now uses it: the `halcyon_gift` cue (no value), then Boost up to 3 each.
+- On desktop the battle command menu now stays clear of a large boss's core. Against WARDEN it moves to the right of the formation.
+- The boss card subtitle ("The Merciful Lock") now fades in with the title; I checked both on screenshots.
+- Scenario 24's final check is looser; scenario 25 now holds Enter through the credits.
+- New unit tests: `leaveMap`, `savePos`, Retry auto-skip in `_run`, script-end release, the Retry-after-valves case (G3-04), jumps carrying equipment, and `giveBp`. The WARDEN retry test now checks a win rate over 20 seeds instead of one seed.
+- `REG.jumps[id].equip` exists. The mid-chapter jumps of ch1-ch4 and the Heart now wear the campaign route's gear (`npm run balance -- --gear` prints it).
+- Every human-pace route now calls `shopWeapons` at its chapter's shops.
+- Arboretum: the feral caretaker's Sap Spray cooldown is now 2.
+- One extra balance change: the Corrupted Memory's magic is 0.72 (was 0.8), because `vault_overwrite` lost 2 of 160 route runs and failed the check again.
+- WRITING 5.10 plans: `prologue.tutorial` 28, `prologue.keycard` 9, `heart.crown_lift` 8. The route plan tables match.
+- MODULE_NOTES.md and a new TECH_PLAN section ("G3 and C-gamma cross-file fixes") record every contract change since G2.
+- I also cleared some open requests from the C-gamma reports: the shoals route legs, the `med_pump` rest, and `play.mjs --timeout` now counting from when the browser slot is taken.
+
+### Acceptance
+
+- PASS (1) Field bosses: the runner releases the World's holds at script end (`world.releaseTouched()` in `_release`). `cutscenes.ended` with `ExploreState._watchScripts` makes the field notice every end. `heart.settle` and the 5 `settle_*` triggers are removed. Human-pace finale crossed the Wardens' span and the north chord with no 'no path' (the run before the fix failed 'no path: lift_t1' right after the Wardens). Browser probe: choir after its fight present=false, collider=false. Other maps' field bosses use the same path.
+- PASS (2) `api.giveBp(memberId, n)` emits `bp {actorId, bp, delta}`. WARDEN retry gift: cue `halcyon_gift` (no value), then giveBp to 3 each, then HALCYON's line. 19-warden strict: bp 3/3/3/3 in the model and the UI pips. warden.test 8/8; the retry test now uses a 20-seed win rate (needs at least 14 wins of 20).
+- PASS (3) battleUI: on desktop the menu now opens right of the formation (x 902-1152), clear of WARDEN's core, which is fully visible (shots/I-sys/battle-ui/02-menu.png). The boss card shows 'THE MERCIFUL LOCK' (01-card.png): the subtitle fades in at 8-22% of the card.
+- PASS (4) Scenarios 24-dev-storage strict (135 s) and 25-dev-demo strict (625 s, credits held to skip, 'Journey complete' reached). Both 0 page and 0 console errors.
+- PASS (5) New unit tests: leaveMap drops the stand-in before the map changes (verified to fail without the fix); savePos refuses wall cells and prefers dock over nearest spawn; _run autoSkip only for the retried script; the World releases holds at script end; the _watchScripts counter; a wipe after a valve checkpoint keeps both valves; jump equip; giveBp via warden.test. npm test 322/322.
+- PASS (6) REG.jumps.equip overrides the kit slot by slot. Mid-chapter jumps of ch1-ch4 and fin.tier2/tier3/crown wear the route's gear; fin.warden stays a first-timer. Voss with the ch3.voss kit, browser policy: 86.3% at L22 and 88.3% at L23 (was 51% / 62%). ch3.cells: 64.3% / 70.7%. Maw with ch1.maw: 77.7% at L11, 83.7% at L12.
+- PASS (7) shopWeapons at each chapter's shops: Halcyon fabricator before the prologue bridge and before each flight (ch1, ch2, ch3, finale), Ruse in ch1, quartermaster after the cadets, the Sanctum fabricator. The human-pace finale run shopped at both fabricators.
+- PASS (8) Human-pace finale: 26.4 virtual min (C7: 31.6), 0 page and 0 console errors. Battle 793 s (was 1136), cutscene 676 s, walk 50 s over 266 units. 8 fights: 5 regular averaging 72 s and 3.4 rounds. Rings Echoes 92.4 s, 5 rounds, L29; Spire Echoes 93 s, 5 rounds, L30. WARDEN won first try at L31: 11 rounds, 247.6 s, 4 Breaks. Story 446 s against a 568 s plan.
+- PASS (8) `npm run balance -- --check`, whole campaign, exit 0 (shots/I-sys/balance-check.txt). WARDEN: route 94.3% (target 85-95%), 11 rounds, 2 Breaks per form; first-timer 93.3% sim policy / 92.0% browser policy (targets 75% / 70%), 11 rounds, 2 Breaks per form. Elites: rings 99.2%, 5 rounds, 23% HP lost; spire 100%, 5 rounds, 23%. Retry from form 2: 91.0% route / 80.3% first-timer browser. Levels at each boss 7.28 / 12.37 / 17.11 / 22.16 / 27.24 / 32.24. 0 regular-fight losses in 80+80 runs in every chapter. Other bosses: Sentinel 91.5 / 93.5 / 93.5; Maw 92.3 / 86.8 / 86.8; Gardener 94.8 / 84.5 / 84.5; Voss 92.3 / 77.5 / 76.5; Echo 92.3 / 91.0 / 91.0.
+- PASS (9) Feral caretaker Sap Spray cooldown 1 -> 2; whole-campaign --check passes. The extra Corrupted Memory change (mag 0.72) cleared a vault_overwrite failure that came back after the reseed.
+- PASS (10) WRITING 5.10: tutorial 28 and keycard 9 in the scene rows; heart.crown_lift 8 in the scene row and the finale summary (sums 488/573 s, +15% 561/659 s); an (I-sys) plan-corrections note. Human-pace measured crown_lift at 8 s against plan 8.
+- PASS (11) MODULE_NOTES 'Contract changes since gate G2' and TECH_PLAN 'G3 and C-gamma cross-file fixes' cover: leaveMap; savePos with the load/Retry walkability fallback; Retry auto-skip for any script; the tip queue; script-end release; giveBp; the Warden gift; jumps with equipment; --check failing on regular-fight losses and checking bosses with the browser policy; human-pace options; npm scripts; play.mjs timeout.
+- PASS Strict scenarios, on scratch builds of the repo, 0 page and 0 console errors: 01-boot, 22-dev-retry, 24, 25, 26, 27, 28, 29 on the first build; 19-warden (17 shots) and 16-heart (16 shots) at 640x360. 01, 22 and 29 were rerun on the final build after the runner change. npm test 322/322; scriptcheck ok.
+
+### Deviations
+
+- Item (1): C7 asked for `this.world.syncFlags()` after `releaseTouched()` in `_scriptEnded`. `releaseTouched()` already re-syncs flags, so that call would have changed nothing. The real gap was one frame between the script ending and the field releasing the boss; the release now happens inside the runner's `_release`, plus the `cutscenes.ended` counter.
+- Mid-chapter jumps in ch1-ch4 and the Heart now equip the route's gear instead of only putting chest gear in the bag. ch1.maw gains `chest:meridian:compass`; ch3.upper and ch3.voss gain the armory plate and lounge chest flags; ch4.core gains the rifle and gauntlet chest flags. fin.warden keeps the first-timer kit (its test is a first-timer test).
+- Not in the list: the Corrupted Memory's magic goes from 0.8 to 0.72. Once the sap spray change reseeded the runs, the whole-campaign --check failed on vault_overwrite (2 losses in 160 runs).
+- The finale cut comes from the two Echoes only: shields 7/5 -> 5/3 (rings) and 5/7 -> 4/5 (spire), HP x0.8 and x0.9 in balance.js. WARDEN is unchanged: every form-1 or form-2 cut I tested either dropped form 1 to 1 Break or pushed the route check above 95%.
+- WRITING.md: besides the 5.10 summary table, I updated the plan numbers in three scene rows outside the 5.10 table (prologue.tutorial, prologue.keycard, heart.crown_lift) so they agree.
+- The ch2 wipe-and-Retry check (G3-content's request) is a unit test in story.test.mjs, not a new browser scenario.
+- Human-pace tool fixes beyond the list: a walk with no path retries on a fresh grid for 3 virtual seconds and the abort note names nearby field bosses; a leader standing in a collider's clearance is planned from every free cell nearby (this fixed a dead end by the Third Tier's far pylon).
+
+### Requests
+
+- I-art / owner of src/content/warden/fx.js: the header comment for `cue.halcyon_gift` still says the cue's value is `[{ id, bp, delta }]`. The cue now has no value: the pips fill through `bp` events from `api.giveBp`. The `gift()` fx works unchanged (`event.value || []`); only the comment is stale.
+- I2b / WRITING.md owner: G3-content's text requests for 5.4 (the arrival Orion line, MOTHER-7's seed-vault line, Sera's promise, the theo_pod line), 5.5 (Kade's 'Copy, Commander.'), section 7 (Marta's two lines, Harl's idle line) and section 11 (varo_log 9/150) are outside the 5.10 table and still open.
+- I2c (src/core/progression.js), from G3-balance: XP that depends on the level gap would keep arrival levels steady whether a player beelines or explores. Not done here.
+
+### Known issues
+
+- Voss first-timer in the whole-campaign check is close to its floor: 77.5% sim policy / 76.5% browser policy (floors 75% / 70%). It moved down from G3-balance's 86.8% when the arboretum change reseeded the runs. Any content change reseeds again and could tip it.
+- WARDEN route check is 94.3% against a 95% ceiling (G3-balance measured 93.3%); results vary 1-2% between runs.
+- The halcyon_gift and boss-release behaviour was checked in 19-warden, 16-heart and the human-pace finale. Scenarios 02-18 (except 16) were not rerun after the runner change. 01, 22 and 29 were rerun and pass.
+- The human-pace finale started from the 'finale' jump at L27 and fought 5 regular fights. A loss to WARDEN at L30-31 (about 12-16% with the browser policy) would add about 1-2 minutes. That case was not measured.
+- The human-pace finale shopping at the Halcyon and Sanctum fabricators bought no weapons: their stock at that point has none. The calls are there for parity with the campaign route.
+- G3-content's report: after a Retry from a regular-fight wipe in ch2, the restored spores field boss can block the human-pace walker. The new 3-second re-plan may help; not tested.
+- dist/index.html was rebuilt by my builds; dist/artifact.html was already modified by others.

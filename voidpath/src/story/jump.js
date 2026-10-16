@@ -9,8 +9,10 @@
 //                 story: { chapter, objective, done }, map, spawn }
 //   flags = CHAPTER_FLAGS and REG.doneFlags of every earlier chapter, plus jump.flags; party =
 //   CHAPTER_START[chapter].party (or jump.party) at CHAPTERS[chapter].levels[0] (jump.level wins);
-//   kit REG.kits[chapter] (+ jump.items / jump.credits); leader = the chapter's traveler when in the
-//   party (jump.leader wins), else the first member. A missing map or spawn falls back to
+//   kit REG.kits[chapter] (+ jump.items / jump.credits); jump.equip { [member]: { weapon?, armor?,
+//   accessory? } } overrides the kit's pieces slot by slot (the chest gear and shop weapons a player
+//   wears by that point; a piece equipped here is not also needed in jump.items); leader = the
+//   chapter's traveler when in the party (jump.leader wins), else the first member. A missing map or spawn falls back to
 //   halcyon:bridge_starchart with a console.warn. Throws on an unknown target.
 //   'poc': the resetGame() party (POC levels) at REG.jumps.poc's map and spawn (default halcyon:start)
 //   with REG.jumps.poc's flags (none in Wave S).
@@ -68,7 +70,7 @@ export function buildJumpState(target, REG) {
   const items = { ...(kit.items || {}) };
   for (const [id, n] of Object.entries(jump?.items || {})) items[id] = (items[id] || 0) + n;
   const equipOut = {};
-  for (const id of party) if (kit.equip?.[id]) equipOut[id] = { ...kit.equip[id] };
+  for (const id of party) if (kit.equip?.[id] || jump?.equip?.[id]) equipOut[id] = { ...kit.equip?.[id], ...jump?.equip?.[id] };
 
   const done = Object.entries(REG.objectives || {})
     .filter(([, d]) => !d.side && chapterIndex(d.chapter) >= 0 && chapterIndex(d.chapter) < ci).map(([id]) => id);

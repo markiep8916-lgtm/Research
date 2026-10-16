@@ -87,7 +87,7 @@ const enemies = {
 
   // ---------------------------------------------------------------- the elites: what WARDEN remembers
   elite_rime_golem: {
-    kind: 'elite_rime_golem', name: 'Choirlit Rime Golem', art: 'rime_golem', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 7,
+    kind: 'elite_rime_golem', name: 'Choirlit Rime Golem', art: 'rime_golem', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 5,
     weaknesses: ['thermal', 'gauntlet', 'lance'],
     stage: { slot: ELITE_BACK, scale: 1.12 },
     actions: [
@@ -104,7 +104,7 @@ const enemies = {
     drops: [{ id: 'medigel_max', chance: 0.5, n: 1 }],
   },
   elite_bloom_mantis: {
-    kind: 'elite_bloom_mantis', name: 'Choirlit Bloom Mantis', art: 'bloom_mantis', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 5,
+    kind: 'elite_bloom_mantis', name: 'Choirlit Bloom Mantis', art: 'bloom_mantis', tint: GILT_PALE, ...statLine(31, 'elite'), shield: 3,
     actionsPerRound: 2,
     weaknesses: ['cryo', 'rifle', 'gauntlet'],
     stage: { slot: ELITE_FRONT },
@@ -123,7 +123,7 @@ const enemies = {
     drops: [{ id: 'ether_plus', chance: 0.5, n: 1 }],
   },
   elite_sec_trooper: {
-    kind: 'elite_sec_trooper', name: 'Choirlit Trooper', art: 'sec_trooper', tint: GILT, script: 'elite_trooper', ...statLine(31, 'elite'), shield: 5,
+    kind: 'elite_sec_trooper', name: 'Choirlit Trooper', art: 'sec_trooper', tint: GILT, script: 'elite_trooper', ...statLine(31, 'elite'), shield: 4,
     weaknesses: ['lance', 'thermal', 'volt'],
     stage: { slot: ELITE_FRONT },
     actions: [
@@ -139,7 +139,7 @@ const enemies = {
   },
   elite_firewall_golem: {
     kind: 'elite_firewall_golem', name: 'Choirlit Firewall', art: 'firewall_golem', tint: GILT_PALE, script: 'firewall_golem', ...statLine(31, 'elite'),
-    shield: 7,
+    shield: 5,
     weaknesses: ['cryo', 'void', 'lance'],
     stage: { slot: ELITE_BACK, scale: 1.1 },
     actions: [

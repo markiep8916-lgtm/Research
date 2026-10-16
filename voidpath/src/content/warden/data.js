@@ -192,19 +192,14 @@ const bossScripts = {
   warden_unbound: {
     thresholds: [0.75, 0.5, 0.25],
     // heart_boss_warden_2 (Retry from the second form): the crown is already flooded with the Choir's
-    // light, Voss keeps watch here too, and HALCYON's gift comes as Boost. The api has no Boost call,
-    // so the script raises the members' bp and the cue carries the new values to the pips.
+    // light, Voss keeps watch here too, and HALCYON's gift comes as Boost: the cue's rise, then each
+    // traveler's pips fill through api.giveBp's 'bp' events.
     onBegin(api) {
       api.cue('choir_flood', { targetId: api.enemies()[0]?.id });
       armVoss(api);
       api.mem.requiemAt = 0;
-      const gift = [];
-      for (const p of api.party()) {
-        const delta = Math.max(0, RETRY_BP - p.bp);
-        p.bp += delta;
-        gift.push({ id: p.id, bp: p.bp, delta });
-      }
-      api.cue('halcyon_gift', { value: gift });
+      api.cue('halcyon_gift');
+      for (const p of api.party()) api.giveBp(p.id, RETRY_BP - p.bp);
       api.say('HALCYON', 'I can give you this much. Once more.', { portrait: 'holo' });
     },
     // The transform from form 1: every ultimate is ready again, and HALCYON says so from BOLT.

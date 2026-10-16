@@ -421,7 +421,9 @@ const CHARS = {
       upper: 'sec', fore: 'main', foreR: 0.35, hand: 'lea',
       torso: (ty) => (ty <= 5 ? 'main' : ty === 6 ? 'metal' : ty <= 8 ? 'sec' : ty <= 10 ? 'lea' : 'sec'),
     },
-    // Amber visor strip across the eyes.
+    // Amber visor strip across the eyes. Its emissive runs at half strength in the field and battle
+    // sheets: at full strength the high-tier bloom swelled it into an orb over his face (I-art).
+    glowScale: 0.5,
     over: {
       down: [[0, 7, ['.nyyuyyyyuyyn.', '.mttttttttttm.']]],
       side: [[0, 7, ['.....nnyyyyyu.', '.....mmttttttm']]],
@@ -1265,7 +1267,7 @@ function cloneAnims(anims) {
   return out;
 }
 
-function buildSheet(frames, cols, anims, facing) {
+function buildSheet(frames, cols, anims, facing, glowScale = 1) {
   const painters = frames.map((f) => f.render());
   const packed = packSheet(painters, cols);
   const sp = packed.painter, W = sp.w;
@@ -1278,7 +1280,15 @@ function buildSheet(frames, cols, anims, facing) {
     }
   });
   const normal = makeNormalMap(sp, { frameW: packed.frameW, frameH: packed.frameH, bevel: 2, strength: 2.0, lumaRelief: 0.4 });
-  const emissive = any ? makeEmissiveMap(sp, (c, x, y) => glow[y * W + x] === 1).canvas : null;
+  const em = any ? makeEmissiveMap(sp, (c, x, y) => glow[y * W + x] === 1) : null;
+  if (em && glowScale !== 1) {
+    for (let y = 0; y < em.h; y++) for (let x = 0; x < em.w; x++) {
+      if (!glow[y * W + x]) continue;
+      const c = em.get(x, y);
+      em.set(x, y, [c[0] * glowScale, c[1] * glowScale, c[2] * glowScale, 255]);
+    }
+  }
+  const emissive = em ? em.canvas : null;
   return {
     canvas: packed.canvas,
     normal: normal.canvas,
@@ -1433,7 +1443,7 @@ export function buildFieldSprite(id) {
       ...FIELD_LAYOUT.map(([v, k, i, b]) => drawFieldFrame(ch, v, k, i, b)),
       ...poseLayout(poses).map(([pose, v]) => drawFieldFrame(ch, v, 'idle', 0, false, pose)),
     ];
-    return buildSheet(frames, 10, fieldAnims(poses), 'down');
+    return buildSheet(frames, 10, fieldAnims(poses), 'down', ch.glowScale ?? 1);
   });
 }
 
@@ -2114,7 +2124,7 @@ export function buildBattleSprite(id) {
     }
     // Melee characters reuse their attack swing for the 'shoot' cue.
     if (!anims.shoot) anims.shoot = { frames: anims.attack.frames.slice(0, 3), fps: 10, loop: false };
-    return buildSheet(frames, 8, anims, 'left');
+    return buildSheet(frames, 8, anims, 'left', CHARS[id]?.glowScale ?? 1);
   });
 }
 

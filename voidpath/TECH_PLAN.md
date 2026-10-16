@@ -3093,3 +3093,37 @@ Applied from the requests in `docs/gates/C-alpha-reports.md`; these extend the c
   (default 300000) and a per-shot `"timeout"`.
 - The prologue's `doneFlags` include `tut:equip`, so `jumpTo('ch1')` and later no longer replay
   Orion's equip tip (the ch1+ kits wear the Stimulus Chip).
+
+### G3 and C-gamma cross-file fixes (after gate G3)
+
+Applied by G3-flow, G3-balance, C10-gamma, C11 and I-sys; these extend the contracts above. MODULE_NOTES.md
+("Contract changes since gate G2") has the details.
+
+- `cutscenes.leaveMap({ same })`: `travel.arrive` and `cs.goto` drop a running script's leader stand-in
+  before placing the leader elsewhere (on a map change also its stepped-out members and touched actors), so
+  the leader lands on the destination spawn (G3-01).
+- `game.savePos()`: checkpoints and saves refuse a spot the leader cannot stand on (warning) and fall back to
+  the map's Starchart destination spawn, its nearest walkable spawn, the location's dock, then
+  `halcyon:start`. Load and Retry apply the same check to what they restore, and repair a void checkpoint.
+- Retry (4.4, 6.2): any script started through the field (trigger, talk, interactable) that the last Retry
+  lost in runs instantly up to its first `cs.battle`, not only field bosses (G3-08).
+- The runner releases the World's holds as the outermost script ends (`world.releaseTouched()`), and the
+  field re-seeds its triggers after every end (`cutscenes.ended`), even one it never saw running: a field
+  boss whose defeat flag its own script sets disappears at once, before anything reads the field again.
+- Tips (7.7): one per player turn; the learn tip waits until the ultimate prompt has shown.
+- Boss scripts (7.3): `api.giveBp(memberId, n)` emits `bp` events. WARDEN's Retry from the second form
+  opens with cue `halcyon_gift` and Boost for one ultimate per traveler through it.
+- Presentation (7.4): on desktop the command menu stays clear of a large boss's `core` point; the boss
+  card's subtitle shows with its title.
+- Jumps (10.1): `REG.jumps[id].equip` overrides the kit's gear slot by slot; mid-chapter jumps wear the
+  campaign route's gear at that point (`npm run balance -- --gear`), the boss jumps included, so a jump test
+  plays a real player's squad. `fin.warden` keeps the first-timer's kit.
+- Balance (10.4): `--check` fails on any regular-fight loss in a route run (HP and EP carried; elites at
+  most 5%) and checks every boss's first-timer also with the browser's autoplay policy (>= 70%). The
+  finale's two Choirlit Echoes are five rounds in the simulator (shields 5/3 and 4/5, HP x0.8 and x0.9),
+  so the finale fits the 20-30 min chapter band at human pace: 26.4 min measured (C7: 31.6 min; the
+  Echoes 92 s and 93 s in 5 rounds each, WARDEN won first try at level 31 in 11 rounds, 248 s).
+  WARDEN's numbers are unchanged.
+- Tools (10.x): human-pace `--render-every`, `--idle`, `--stall-wall`, blocked-goal fallback, Confirm
+  retries and ABORT notes; the routes chain the whole game and shop at each chapter's shops; npm scripts
+  `pace`, `pace:report`, `fights`; `play.mjs --timeout` counts after the browser slot is taken.

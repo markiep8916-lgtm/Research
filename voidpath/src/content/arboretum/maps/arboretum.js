@@ -34,7 +34,10 @@ const MOOD = {
   hall: mood({ fog: '#0a1718', sky: '#82dae0', key: 1.25, keyColor: '#ffcb8a' }),
   stasis: mood({ fog: '#0d1715', sky: '#98d4c4', hemi: 1.1, key: 1.3, keyColor: '#ffd9a0', exposure: 1.6 }),
   court: mood({ fog: '#121a10', sky: '#a6d89a', key: 1.15, keyColor: '#ffd890' }),
-  choir: mood({ fog: '#17120a', sky: '#ffe2a0', ground: '#1a1408', hemi: 0.55, key: 0.5, keyColor: '#ffe0a0', fill: 0.4, exposure: 0.78, bloom: 0.7, saturation: 1.05 }),
+  // the Choir's glow is soft and its exposure near neutral, so WARDEN's gold grade (exposure 1.1,
+  // bloom 1.2, absolute) lifts it instead of whiting it out (arboretum.theo); the soft hemi and fill
+  // keep the floor between the pods off black on a phone (I-art)
+  choir: mood({ fog: '#17120a', sky: '#ffe2a0', ground: '#1a1408', hemi: 0.6, key: 0.41, keyColor: '#ffe0a0', fill: 0.42, exposure: 0.98, bloom: 0.8, saturation: 1.05 }),
   view: mood({ fog: '#101a18', sky: '#ffd9a8', key: 1.35, keyColor: '#ffcf8c', hemi: 0.8 }),
 };
 
@@ -100,6 +103,10 @@ const props = [
   { t: 'arb.decal', x: 3.4, z: 32.2, kind: 'litterB', w: 2.0, d: 2.0, rot: 0.9 },
   { t: 'arb.decal', x: 10.0, z: 18.6, kind: 'mossPatch', w: 3.0, d: 3.0, rot: 0.2 },
   { t: 'arb.decal', x: 5.0, z: 21.0, kind: 'puddle', w: 2.4, d: 2.0, rot: 2.6 },
+  // moss creeping over the hall's brick in soft patches (in place of whole moss cells)
+  ...[[4.6, 30.6, 3.4, 0.7], [13.2, 31.8, 2.6, 2.4], [7.2, 34.6, 2.2, 1.1], [12.4, 37.4, 3.0, 2.9], [2.8, 38.8, 2.6, 0.3],
+    [3.2, 17.2, 2.8, 1.6], [13.6, 21.6, 3.2, 0.5], [8.0, 22.8, 2.0, 2.0]]
+    .map(([x, z, w, rot]) => ({ t: 'arb.decal', x, z, kind: 'mossPatch', w, d: w * 0.9, rot })),
   sprinkler(13.0, 34.0),
   vines(1, 15, 15.02, { on: 'n14' }),
   // ---- Stasis Gardens
@@ -115,6 +122,8 @@ const props = [
   bloom(58.8, 26.6), bloom(70.2, 26.4, { hue: 'violet' }), fern(58.6, 21.6, { s: 1.2 }), fern(70.3, 21.0, { s: 1.2 }),
   shaft(64.0, 24.5, { s: 1.4 }),
   { t: 'arb.rootMound', x: 64.0, z: 19.0 },
+  ...[[60.4, 18.6, 2.6, 1.2], [67.8, 23.8, 3.0, 0.4], [61.4, 25.6, 2.4, 2.2], [68.4, 17.2, 2.2, 2.7]]
+    .map(([x, z, w, rot]) => ({ t: 'arb.decal', x, z, kind: 'mossPatch', w, d: w * 0.9, rot })),
   // ---- Choir Chamber: pods like pews either side of the aisle, Theo's at its head
   { t: 'arb.choirPods', x0: 57.6, x1: 61.6, z0: 4.4, z1: 12.4 },
   { t: 'arb.choirPods', x0: 66.4, x1: 70.4, z0: 4.4, z1: 12.4 },
@@ -178,11 +187,13 @@ const lights = [
   { x: 64.0, y: 1.6, z: 15.6, color: '#ffd27a', intensity: 9, distance: 5, mode: 'pulse', amount: 0.3, speed: 0.4 },
   { x: 64.0, y: 0.8, z: 20.6, color: '#8fe08a', intensity: 4, distance: 5, tag: 'gardener', when: '!defeated:arb_boss_gardener' },
   // choir chamber: white-gold pod glow on black, soft gold haze
-  gold(59.6, 6.0, { intensity: 6 }), gold(68.4, 6.0, { intensity: 6 }), gold(59.6, 10.5, { intensity: 6 }), gold(68.4, 10.5, { intensity: 6 }),
-  gold(64.0, 2.4, { intensity: 8, distance: 5, mode: 'pulse', amount: 0.25, speed: 0.35 }),
-  { x: 64.0, y: 2.6, z: 8.0, color: '#ffe9b0', intensity: 7, distance: 9, mode: 'pulse', amount: 0.15, speed: 0.3 },
-  { x: 58.0, y: 2.8, z: 2.0, color: '#7fe8ff', intensity: 6, distance: 6 }, { x: 70.0, y: 2.8, z: 2.0, color: '#ffb35a', intensity: 6, distance: 6 },
-  { x: 64.0, y: 2.2, z: 4.0, color: '#ffd27a', intensity: 22, distance: 10, tag: 'choir_gold', when: 'arb:choir_gold' },
+  gold(59.6, 6.0, { intensity: 5 }), gold(68.4, 6.0, { intensity: 5 }), gold(59.6, 10.5, { intensity: 5 }), gold(68.4, 10.5, { intensity: 5 }),
+  gold(64.0, 2.4, { intensity: 6.5, distance: 5, mode: 'pulse', amount: 0.25, speed: 0.35 }),
+  { x: 64.0, y: 2.6, z: 8.0, color: '#ffe9b0', intensity: 5.6, distance: 9, mode: 'pulse', amount: 0.15, speed: 0.3 },
+  { x: 58.0, y: 2.8, z: 2.0, color: '#7fe8ff', intensity: 5, distance: 6 }, { x: 70.0, y: 2.8, z: 2.0, color: '#ffb35a', intensity: 5, distance: 6 },
+  // WARDEN's gold (arboretum.theo drives it to 24-32): high over the squad, far from the pod tiers and
+  // Sera's head, so under WARDEN's grade it gilds the chamber instead of whiting it out
+  { x: 64.0, y: 5.2, z: 9.6, color: '#ffd27a', intensity: 22, distance: 13, tag: 'choir_gold', when: 'arb:choir_gold' },
   // the matriarch's pink rim among the seed drawers
   { x: 46.5, y: 2.2, z: 8.6, color: '#ff8ac0', intensity: 12, distance: 5, when: '!defeated:arb_elite_matriarch' },
   // the glass and the seed vault
@@ -297,10 +308,11 @@ export default {
     r: wall('arb_roots', { side: 'arb_roots', low: 'arb_roots', cap: 'arb_soil', height: 0.6, roughness: 0.85, metalness: 0.05 }),
     // garden walkways: verdigris deck plates, moss taking them back cell by cell
     ',': floor('arb_deck', [['arb_moss', 0.26], ['arb_moss_b', 0.18], ['arb_deck_b', 0.14]], { roughness: 0.6, metalness: 0.35, grime: 0.04 }),
-    '.': floor('arb_court', [['arb_court_b', 0.3], ['arb_moss_b', 0.12]], { roughness: 0.6, metalness: 0.2, grime: 0.05 }),
+    // (whole-cell moss on the brick read as a green checkerboard; the moss here is decals, I-art)
+    '.': floor('arb_court', [['arb_court_b', 0.3]], { roughness: 0.6, metalness: 0.2, grime: 0.05 }),
     '=': floor('arb_deck', [['arb_deck_b', 0.25]], { roughness: 0.5, metalness: 0.45, emissive: 2.2 }),
     o: floor('arb_pad', null, { roughness: 0.55, metalness: 0.35, emissive: 2.2 }),
-    k: floor('arb_choir_floor', [['arb_choir_floor_b', 0.3]], { roughness: 0.35, metalness: 0.4, emissive: 1.6 }),
+    k: floor('arb_choir_floor', [['arb_choir_floor_b', 0.3]], { roughness: 0.35, metalness: 0.4, emissive: 1.1 }),
     A: canal(`sw:arboretum:valve_a | ${SLUICE}`),
     B: canal(`sw:arboretum:valve_b | ${SLUICE}`),
     C: canal(`!sw:arboretum:valve_b | ${SLUICE}`),

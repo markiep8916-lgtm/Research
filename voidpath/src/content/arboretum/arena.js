@@ -224,13 +224,14 @@ const BOSS = [-4.2, -0.8];
 function choirGate(kit) {
   const r = kit.rng;
   const { WALL_Z, WALL_H } = kit;
-  // flagstones, moss along the wall; the roots spreading from the Gardener's place are decals
+  // flagstones, moss along the wall; the roots spreading from the Gardener's place and the moss on the
+  // flags are decals (whole moss cells read as a green checkerboard, I-art)
   kit.floor((x, z) => {
     if (z === WALL_Z) return 'arb_moss';
-    return r() < 0.3 ? 'arb_court_b' : r() < 0.08 ? 'arb_moss_b' : 'arb_court';
+    return r() < 0.3 ? 'arb_court_b' : 'arb_court';
   }, {
     arb_court: { roughness: 0.6, metalness: 0.2 }, arb_court_b: { roughness: 0.6, metalness: 0.2 },
-    arb_moss: { roughness: 0.78, metalness: 0.08 }, arb_moss_b: { roughness: 0.78, metalness: 0.08 },
+    arb_moss: { roughness: 0.78, metalness: 0.08 },
   });
   // the wall: solid below, the dome glass above
   kit.wallRun(['arb_wall'], { opts: { arb_wall: { emissiveIntensity: 2.2, roughness: 0.72, metalness: 0.3 } } });
@@ -264,6 +265,9 @@ function choirGate(kit) {
   decal(kit, 'mossPatch', BOSS[0] - 1.8, BOSS[1] + 2.8, 3.4, 3.4, 0.9);
   decal(kit, 'mossPatch', BOSS[0] + 1.6, BOSS[1] - 1.8, 3.0, 3.0, 2.4);
   decal(kit, 'petals', 1.8, 2.6, 2.6, 2.6, 1.6);
+  for (const [x, z, w, rot] of [[6.6, 1.4, 2.8, 0.4], [-9.2, 0.6, 3.2, 1.7], [1.2, 4.8, 2.4, 2.9], [9.6, -2.2, 2.6, 1.1], [-7.0, 5.4, 2.8, 0.2], [11.4, 4.2, 2.2, 2.2]]) {
+    decal(kit, 'mossPatch', x, z, w, w * 0.9, rot);
+  }
   B.build(kit.root);
 
   // the dome light: a shaft falling on her place, a spot and a gold point that swell when it opens

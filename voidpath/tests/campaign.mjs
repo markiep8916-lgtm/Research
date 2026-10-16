@@ -48,6 +48,8 @@
 //                           G3's human-pace runs met about 1.5x the random fights geometry predicts),
 //                           to estimate the levels a human-pace run reaches its bosses at (G3-07)
 //   --verbose               one row per encounter, every walk leg
+//   --gear                  the reference route's gear after every step that changes it (what a
+//                           mid-chapter jump in REG.jumps should equip to match a real player)
 //
 // Targets (--check, 10.4, 11.7, G2): regular fights win >= 98%, median 2-4 rounds, 15-35% party HP
 // lost (an elite fight on the critical path: >= 95%, 4-8 rounds, 20-50%); route boss check 85-95% in
@@ -86,6 +88,7 @@ const opt = (name, def) => {
 const multi = (name) => args.flatMap((a, i) => (args[i - 1] === name ? [a] : []));
 const CHECK = args.includes('--check');
 const VERBOSE = args.includes('--verbose');
+const GEAR = args.includes('--gear');
 const FIGHTS_ONLY = args.includes('--fights');
 const FORCE_PLACEHOLDERS = args.includes('--placeholders');
 const N = Math.max(10, Number(opt('--n', 120)) || 120);
@@ -1713,6 +1716,10 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
       walk.walked = 0;
       patchUp(st.used, walk.map);
     }
+    if (ref) {
+      const eq = gameState.party.map((m) => `${m.id}=${['weapon', 'armor', 'accessory'].map((k) => m.equip[k] || '-').join('/')}`).join(' ');
+      if (eq !== ref.gear.at(-1)?.eq) ref.gear.push({ step: i, what: Object.keys(step)[0], eq });
+    }
   }
   st.end = snapshot();
   return st;
@@ -1746,8 +1753,9 @@ function routes(chapter, firstTimer, n = RUNS) {
   prepare(chapter);
   const runs = [];
   for (let i = 0; i < n; i++) runs.push(runRoute(chapter, 1000 + i * 104729, { firstTimer, carry }));
-  const ref = { snaps: {}, zoneSnaps: {} };
+  const ref = { snaps: {}, zoneSnaps: {}, gear: [] };
   const refRun = runRoute(chapter, REF_SEED, { ref, firstTimer, carry });
+  if (GEAR && !firstTimer) for (const g of ref.gear) console.log(`gear ${chapter} after step ${g.step} (${g.what}): ${g.eq}`);
   const out = { runs, refRun, ref, carry, prev };
   routeCache.set(key, out);
   return out;

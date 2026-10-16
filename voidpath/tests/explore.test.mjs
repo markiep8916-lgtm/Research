@@ -158,3 +158,45 @@ test('a field boss re-confronted after Retry runs its pre-fight part instantly (
   ex._confront('drone');
   assert.deepEqual(runs.pop(), { name: 'boss:drone', autoSkip: 'boss:drone' }, 'a scriptless boss fight is a named script too');
 });
+
+// G3-08 (G3-flow): a script the last Retry lost in plays its pre-fight part instantly however it is
+// started again (a trigger rect, a talk, a console), not only as a field boss.
+test('explore._run sets autoSkip for the script a Retry lost in, and only for it (G3-08)', async () => {
+  const game = { retried: { script: 'st.voss', encounter: 'enc_voss' } };
+  const calls = [];
+  const cutscenes = { autoSkip: null, run: (s) => { calls.push([s, cutscenes.autoSkip]); cutscenes.autoSkip = null; return Promise.resolve(); } };
+  const ex = new ExploreState({ engine: { quality: 'high' }, state: gameState, game, cutscenes, ui: { hud: { setPrompt() {} } } });
+  await ex._run('st.medstation');
+  assert.deepEqual(calls.pop(), ['st.medstation', null], 'another script plays in full');
+  assert.ok(game.retried, 'and leaves the retry for its own script');
+  await ex._run('st.voss');
+  assert.deepEqual(calls.pop(), ['st.voss', 'st.voss']);
+  assert.equal(game.retried, null, 'the retry is used up');
+  assert.equal(ex._busy, false);
+});
+
+// C7 (I-sys): the field releases what it held for a script whenever an outermost script ends, also
+// one that started and ended between two frames: a beaten field boss fades at once (no settle script).
+test('the field releases touched actors after every script end, seen or not', () => {
+  const cutscenes = { active: false, ended: 0 };
+  const ex = new ExploreState({ engine: { quality: 'high' }, state: gameState, cutscenes });
+  let released = 0;
+  ex.world = { map: { id: 'fx', triggers: [] }, exitAt: () => null, test: () => true, releaseTouched: () => { released++; } };
+  ex.mapId = 'fx';
+  ex.player = { x: 0, z: 0 };
+  ex._syncCompanions = () => {};
+  ex._watchScripts();
+  assert.equal(released, 0);
+  cutscenes.ended = 1;   // a script ran and ended with no frame in between
+  ex._watchScripts();
+  assert.equal(released, 1);
+  ex._watchScripts();
+  assert.equal(released, 1, 'once per end');
+  cutscenes.active = true;
+  cutscenes.ended = 2;
+  ex._watchScripts();
+  assert.equal(released, 1, 'not while the next script runs');
+  cutscenes.active = false;
+  ex._watchScripts();
+  assert.equal(released, 2);
+});

@@ -28,6 +28,7 @@ export default {
       next: 'ch2.channels',
       async run(d) {
         await d.use('bolt', { optional: true });
+        await d.shopWeapons('fabricator');
         await d.fly('starchart', 'The Arboretum');
         await d.pump(d.F('seen:arboretum:arrival'), { maxVt: 900 });
         d.milestone('arboretum arrival');
@@ -51,6 +52,8 @@ export default {
         await d.journal('journal-ch2-valve-b');
         await d.use('tender_a', { optional: true });
         await d.use('prism', { optional: true });
+        // the pump house's Med-Station before the Glasshouse (G3-03; the campaign route rests here too)
+        await d.med('med_pump');
         // the Glasshouse west: the Seedling Spear grows in a bed on the way
         for (const [x, z] of GLASS.slice(0, 7)) await d.go(x, z);
         await d.use('spear', { optional: true });

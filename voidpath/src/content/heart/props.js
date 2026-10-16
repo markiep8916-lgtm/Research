@@ -602,7 +602,9 @@ const column = {
 // ---------------------------------------------------------------- the abyss
 
 // the cathedral's piers: clustered columns rising from the deep through the voids between tiers
-const PIERS = [[36.5, 28.5, 1.4], [40.0, 36.5, 1.1], [40.0, 21.0, 1.0], [3.5, 27.5, 1.0], [69.0, 27.5, 1.0], [27.0, 26.0, 0.8],
+// ([x, z, scale, top]). The pier south of the Crown Approach stops under the deck as a capital: at
+// full height it stood between the camera and the walkway and hid the leader (I-art).
+const PIERS = [[36.5, 28.5, 1.4], [40.0, 36.5, 1.1], [40.0, 21.0, 1.0, -0.6], [3.5, 27.5, 1.0], [69.0, 27.5, 1.0], [27.0, 26.0, 0.8],
   [52.0, 27.6, 0.8], [62.0, 28.0, 0.7], [11.0, 28.5, 0.8], [26.5, 2.5, 0.7]];
 
 const abyss = {
@@ -610,8 +612,8 @@ const abyss = {
   build(W) {
     const M = mats(W), B = W.batchFor(null), G = W.groupFor(null);
     const r0 = rnd(77);
-    for (const [x, z, s] of PIERS) {
-      const top = 22, bot = -30, h = top - bot;
+    for (const [x, z, s, top = 22] of PIERS) {
+      const bot = -30, h = top - bot;
       const core = new THREE.CylinderGeometry(0.9 * s, 1.0 * s, h, 8, 1, true);
       const uv = core.attributes.uv;
       for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6 * s, uv.getY(i) * h);
@@ -623,15 +625,16 @@ const abyss = {
         for (let i = 0; i < u2.count; i++) u2.setXY(i, u2.getX(i) * 2, u2.getY(i) * h);
         put(B, M.edge, shaft, [x + Math.cos(a) * 0.95 * s, (top + bot) / 2, z + Math.sin(a) * 0.95 * s]);
       }
-      // gilt collars and a glowing seam up the front
+      // gilt collars and a glowing seam up the front; a short pier ends in a gilt capital
       for (let y = -12; y < top; y += 5.5) {
         put(B, M.gilt, new THREE.CylinderGeometry(1.32 * s, 1.32 * s, 0.22, 10, 1, true), [x, y, z]);
       }
+      if (top < 22) put(B, M.gilt, new THREE.CylinderGeometry(1.5 * s, 1.1 * s, 0.5, 10), [x, top + 0.25, z]);
       const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.06, h), additive('#ffc860', 1.1, 0.8));
       seam.position.set(x, (top + bot) / 2, z + 1.02 * s);
       G.add(seam);
       // a pennant hung from a collar
-      if (s > 0.9) {
+      if (s > 0.9 && top > 6) {
         const set = glowSet('hr_banner');
         const ban = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 3.6), new THREE.MeshStandardMaterial({
           map: textureSet('hr_banner').map, emissiveMap: set.map, emissive: 0xffffff, emissiveIntensity: 1.6, transparent: true,

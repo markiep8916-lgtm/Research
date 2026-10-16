@@ -1396,6 +1396,16 @@ export class BattleModel {
         m._syncParty();
       },
       grantUltimate(memberId) { m._grantUltimate(memberId, ev()); },
+      giveBp(memberId, n = 1) {
+        const c = m.get(memberId);
+        if (!c || c.side !== 'party' || !c.alive) return 0;
+        const delta = Math.max(0, Math.min(MAX_BP, c.bp + Math.round(n)) - c.bp);
+        if (delta) {
+          c.bp += delta;
+          ev().push({ type: 'bp', actorId: c.id, bp: c.bp, delta });
+        }
+        return delta;
+      },
       rechargeUltimates() {
         for (const p of m.party) p.ultimateUsed = false;
         m._readyNotified.clear();

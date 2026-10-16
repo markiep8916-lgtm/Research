@@ -146,21 +146,27 @@ export const overrides = {
     voss: { xp: 0.6, atk: 1.14, mag: 1.14 },
     voss_overclock: { xp: 0.6, atk: 1.45, mag: 1.45 },
     voss_escort: { xp: 0.15 },
-    corrupted_memory: { mag: 0.8 },                    // the Overwrite lesson costs at most a third of the squad's HP
+    // the Overwrite lesson costs about a quarter of the squad's HP: a squad that walks the core
+    // fields into it never wipes there (G3-03; the route lost it in 2 of 160 runs at 0.8)
+    corrupted_memory: { mag: 0.72 },
     echo: { maxHp: 1.5, atk: 1.2, mag: 1.2, xp: 0.75 },   // 9-10 rounds, two Severances, a third cancelled
     // the Heart: a guardian's cradle rings already make its formations the longest of the game
     choir_guardian: { maxHp: 0.6 },
     // the Third Tier's eaters meet a squad fresh from the second Echoes: no wipe on the way (G3-03)
     dream_eater: { atk: 0.9, mag: 0.9 },
     warden_seraph: { atk: 0.95, mag: 0.95 },
-    // the Third Tier's Echoes meet a squad worn down by the climb (no rest since the Second Tier)
-    elite_sec_trooper: { atk: 0.88, mag: 0.88 },
-    elite_firewall_golem: { atk: 0.88, mag: 0.88 },
+    // the Choirlit Echoes are the finale's two elites: five rounds in the simulator, six or seven at
+    // human pace (C7 measured the first at 9 rounds, 158 s, and the finale at 31.6 min; I-sys)
+    elite_rime_golem: { maxHp: 0.8 },
+    elite_bloom_mantis: { maxHp: 0.8 },
+    // the Third Tier's Echoes meet a squad worn down by the climb
+    elite_sec_trooper: { atk: 0.88, mag: 0.88, maxHp: 0.9 },
+    elite_firewall_golem: { atk: 0.88, mag: 0.88, maxHp: 0.9 },
     // WARDEN's second form: the desperate double turn opens the round and comes back before the
     // healers act, so a squad in the Heart's gear still loses about one fight in fifteen (route
     // check 85-95%); its shield (below) breaks twice in a first-timer's form 2. Raw attack instead
-    // would sink a squad that arrives under-levelled (C11's fin.warden test: level 30, the
-    // chapter's starting bag, wins about 85%)
+    // would sink a squad that arrives under-levelled (C11's fin.warden test, the chapter's starting
+    // bag: about 90% at level 32, 84% at level 30)
     warden_unbound: { spd: 1.5, atk: 1.04, mag: 1.04, maxHp: 1.1 },
   },
   enemies: {

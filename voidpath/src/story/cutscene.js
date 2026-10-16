@@ -21,6 +21,8 @@
 //   leaveMap({ same })        extra: travel.arrive / cs.goto place the leader elsewhere: the stand-in is
 //                             dropped first; on a map change stepped-out members and exemptions are forgotten
 //   touched                   extra: Set of actor ids the running script touched (exempt from `when`, 3.8)
+//   ended                     extra: count of outermost script ends (normal or aborted); the field
+//                             releases what it held for a script when the count moves
 //   choices                   extra: debug answers for the next cs.choice calls
 //   autoSkip                  extra: script id that runs in instant mode up to its first cs.battle (Retry)
 //   skippable(fn, ready)      extra: travel's flight; Confirm switches it to instant once ready()
@@ -33,7 +35,7 @@
 // While the outermost script runs: explore lock 'cutscene', ui.menuEnabled false, prompt and danger
 // gauge hidden, input context 'dialog'. When it ends normally: seen:/ptalk: flags, gameState.played,
 // queued checkpoint and save at the leader's position (game.flushQueue), camera follow, letterbox off,
-// fxOverride cleared, a cs.scene leader restored, touched actors released (World.syncFlags), music
+// fxOverride cleared, a cs.scene leader restored, touched actors released (World.releaseTouched), music
 // restored if the script changed it, locks released.
 //
 // The leader is a Player, not an NpcActor: when a script moves, poses or addresses the leader as an
@@ -140,6 +142,7 @@ export class CutsceneRunner {
     this.choices = [];
     this.autoSkip = null;
     this.touched = new Set();
+    this.ended = 0;        // outermost scripts ended so far, normally or aborted (ExploreState watches it)
     this._session = null;
     this._hinted = false;
     this._skippable = null;
@@ -327,6 +330,7 @@ export class CutsceneRunner {
   _release(s, normal) {
     const { ui, input, game } = this.ctx;
     const ex = this._explore();
+    this.ended++;
     this._resetHold();
     this._dropProxy(s);
     for (const a of s.gathered.values()) this._vanish(a, 0.3);
@@ -341,8 +345,10 @@ export class CutsceneRunner {
       if (s.fx || s.moodFx) ex.fxOverride = null;
       if (s.screens || s.moodFx) ex.world?.setScreens(null);
       if (ex.world) ex.camera.reset({ ms: normal && !this._quick(s) ? 600 : 1 });
+      // the World's own holds go too (a confronted field boss): its flags apply before anything reads
+      // the field again, so a boss its script beat is gone (collider off) at once (C7, I-sys)
       this.touched.clear();
-      ex.world?.syncFlags();
+      ex.world?.releaseTouched();
       if (normal && s.musicChanged && game.name === 'explore') ex.restoreMusic();
       ex.unlock('cutscene');
     } else this.touched.clear();

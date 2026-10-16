@@ -66,6 +66,8 @@ export default {
         d.milestone('nyx joined');
         await d.use('term_security');
         await d.med('med_ante');
+        // the antechamber's fabricator, before the bridge (the campaign route shops here too)
+        await d.shopWeapons('fabricator');
         // the bridge door
         await d.use('bridge_door');
         await d.pump(d.F('seen:halcyon:bridge_open'));
@@ -101,8 +103,8 @@ export default {
   plan: {
     prologue: {
       scenes: {
-        'prologue.new_journey': 65, 'prologue.tutorial': 25, 'prologue.sera_wakes': 45, 'prologue.spine_drones': 8,
-        'prologue.orion_rescue': 40, 'prologue.gallery_ambush': 8, 'prologue.equip_tip': 8, 'prologue.keycard': 8,
+        'prologue.new_journey': 65, 'prologue.tutorial': 28, 'prologue.sera_wakes': 45, 'prologue.spine_drones': 8,
+        'prologue.orion_rescue': 40, 'prologue.gallery_ambush': 8, 'prologue.equip_tip': 8, 'prologue.keycard': 9,
         'prologue.nyx_door': 50, 'prologue.bridge_open': 5, 'prologue.sentinel': 85,
       },
       bosses: { pro_boss_sentinel: 7 },

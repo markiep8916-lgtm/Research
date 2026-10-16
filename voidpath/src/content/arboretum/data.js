@@ -95,7 +95,7 @@ const enemies = {
         anim: 'enemyCharge', summon: { kind: 'rootling', count: 1 }, weight: 25, cooldown: 2,
       }),
       act('care_sap', 'Sap Spray', 'heal', 'Waters its sprouts with sap. Heals an ally.', {
-        anim: 'enemyCharge', target: 'ally', heal: 0.3, weight: 35, cooldown: 1,
+        anim: 'enemyCharge', target: 'ally', heal: 0.3, weight: 35, cooldown: 2,
       }),
     ],
     drops: [{ id: 'ether_plus', chance: 0.12, n: 1 }, { id: 'thermal_charge', chance: 0.1, n: 1 }],

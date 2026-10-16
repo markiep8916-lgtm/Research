@@ -234,19 +234,24 @@
     if (!NAV.grid || NAV.grid.map !== e.mapId || vt() - NAV.gridAt > 4) buildGrid();
     const g = NAV.grid; const { W, H, R } = g;
     const test = goalTest(goal);
-    let si = Math.floor(p.x * R), sj = Math.floor(p.z * R);
-    if (!(si >= 0 && sj >= 0 && si < W && sj < H && g.free[sj * W + si])) {
-      let best = null;
-      for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
-        const i = si + di, j = sj + dj;
-        if (i >= 0 && j >= 0 && i < W && j < H && g.free[j * W + i]) { const dd = di * di + dj * dj; if (!best || dd < best[0]) best = [dd, i, j]; }
-      }
-      if (best) { si = best[1]; sj = best[2]; }
-    }
+    const si = Math.floor(p.x * R), sj = Math.floor(p.z * R);
     const prev = new Int32Array(W * H).fill(-1);
     const q = new Int32Array(W * H);
-    let qh = 0, qt = 0; const s0 = sj * W + si;
-    prev[s0] = s0; q[qt++] = s0;
+    let qh = 0, qt = 0;
+    if (si >= 0 && sj >= 0 && si < W && sj < H && g.free[sj * W + si]) {
+      prev[sj * W + si] = sj * W + si;
+      q[qt++] = sj * W + si;
+    } else {
+      // the leader stands in a collider's clearance (a pylon just touched): start from every free cell
+      // close by, nearest first, so a dead-end pocket on one side cannot hide the way on the other
+      const near = [];
+      for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+        const i = si + di, j = sj + dj;
+        if (i >= 0 && j >= 0 && i < W && j < H && g.free[j * W + i]) near.push([di * di + dj * dj, j * W + i]);
+      }
+      near.sort((a, b) => a[0] - b[0]);
+      for (const [, c] of near) { prev[c] = c; q[qt++] = c; }
+    }
     let found = -1;
     const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
     while (qh < qt) {
@@ -263,7 +268,7 @@
     }
     if (found < 0) return null;
     const path = [];
-    for (let c = found; ; c = prev[c]) { const ci = c % W; path.push([(ci + 0.5) / R, ((c - ci) / W + 0.5) / R]); if (c === s0) break; }
+    for (let c = found; ; c = prev[c]) { const ci = c % W; path.push([(ci + 0.5) / R, ((c - ci) / W + 0.5) / R]); if (prev[c] === c) break; }
     path.reverse();
     return path;
   }

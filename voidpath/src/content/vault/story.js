@@ -711,23 +711,25 @@ export default {
       },
     },
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // chapter's shopping (Orion's and Nyx's armor), then Window 9's rifle and the gauntlet.
   jumps: {
     // materialised at the interface (the Spire's CH4 card and the dive done)
     'ch4.vault': {
       chapter: 'ch4', map: 'vault', spawn: 'entry', level: 22, objective: 'ch4.dive',
-      flags: ['visited:vault'],
+      flags: ['visited:vault'], equip: { orion: { armor: 'eq_a_4' }, nyx: { armor: 'eq_a_3' } },
     },
     // through the firewall: the Stacks, crystals still to find
     'ch4.fields': {
       chapter: 'ch4', map: 'vault', spawn: 'west', level: 24, objective: 'ch4.crystals',
-      flags: thruGrid,
+      flags: thruGrid, equip: { orion: { armor: 'eq_a_4' }, nyx: { armor: 'eq_a_3' } },
     },
     // the core bridge open: the Corrupted Memory and Echo ahead
     'ch4.core': {
       chapter: 'ch4', map: 'vault', spawn: 'hub', level: 27, objective: 'ch4.core',
       flags: [...thruGrid, ...ch4Flags, 'story:bolt_seed', 'shard:vault:a', 'shard:vault:b', 'shard:vault:c', 'sw:vault:w',
-        'sw:vault:n1', 'sw:vault:n2', 'sw:vault:e', 'vault:swarm_down', 'seen:vault:bolt_reveal'],
-      items: { eq_w_nyx_4: 1, eq_w_orion_4: 1 },
+        'sw:vault:n1', 'sw:vault:n2', 'sw:vault:e', 'vault:swarm_down', 'seen:vault:bolt_reveal', 'chest:vault:rifle', 'chest:vault:gauntlet'],
+      equip: { orion: { weapon: 'eq_w_orion_4', armor: 'eq_a_4' }, nyx: { weapon: 'eq_w_nyx_4', armor: 'eq_a_3' } },
     },
   },
   doneFlags: {

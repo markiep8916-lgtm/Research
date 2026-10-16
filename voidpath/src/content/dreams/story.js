@@ -432,10 +432,16 @@ const scripts = {
     bg(cs.move('crown_halcyon', [[meet.x + 0.2, meet.z]], { speed: 0.8 }));
     bg(cs.move('crown_figure', [[meet.x - 0.2, meet.z]], { speed: 0.8 }));
 
-    // (5) Orion: the camera pulls back to take him in before he speaks
-    bg(cs.move('orion', [[meet.x + 2.3, meet.z + 0.7]], { speed: 1.4, face: 'crown_halcyon' }));
-    bg(cs.camera.view({ pitch: 32, dist: 12, ms: 900 }));
-    await cs.camera.focus([meet.x, meet.z + 0.5], { zoom: 0.95, ms: 900 });
+    // (5) Orion steps up beside her as Nyx makes room and the camera pulls back; both are awaited so he
+    // stands in frame when he speaks (gather steps him out again if the battle left him unstaged; a
+    // phone frame is ~2.3 units each side of the centre)
+    if (cs.test('party:nyx')) bg(cs.move('nyx', [[meet.x + 2.5, meet.z + 0.9]], { speed: 1.4, face: 'crown_halcyon' }));
+    await Promise.all([
+      cs.gather(inParty(cs, { orion: [meet.x + 1.3, meet.z + 0.2] })),
+      cs.camera.view({ pitch: 32, dist: 12, ms: 900 }),
+      cs.camera.focus([meet.x, meet.z + 0.5], { zoom: 0.95, ms: 900 }),
+    ]);
+    if (cs.test('party:orion')) cs.face('orion', 'crown_halcyon');
     await cs.say('ORION', 'I built you to hold grief and hope at once. You don\'t have to choose. Hold both.', { expr: 'sad' });
 
     // (6) the merge

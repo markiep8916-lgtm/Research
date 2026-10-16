@@ -73,6 +73,8 @@ export default {
     ch1: {
       scenes: {
         'shoals.enter': 10, 'shoals.meridian_arrival': 30, 'shoals.power_restored': 12, 'shoals.varo_log': 60, 'shoals.maw': 40,
+        // the one-box field-fight lead-ins on the critical path (WRITING 5.3, G3-content)
+        'shoals.eels': 6, 'shoals.mites': 6, 'shoals.golem': 6, 'shoals.bots': 6,
       },
       bosses: { shoals_boss_maw: 12 },
     },
@@ -81,12 +83,13 @@ export default {
   legs: [
     {
       chapter: 'ch1', label: 'Shoals: entry -> Meridian exit', map: 'shoals', flags: [],
-      points: [[1.4, 5.5], [16.6, 5.5], { fight: 'shoals_eels' }, [36.5, 5.5], [37, 15.5], [11, 18], [10.5, 30], [62.5, 35.5]],
+      points: [[1.4, 5.5], [16.6, 5.5], { fight: 'shoals_eels' }, [36.5, 5.5], [37, 15.5], { fight: 'shoals_eel_trio' }, [11, 18], [10.5, 30],
+        { fight: 'shoals_golem' }, [62.5, 35.5]],
     },
     {
       chapter: 'ch1', label: 'Meridian spine: entry -> hold -> engineering -> quarters -> landing', map: 'meridian', flags: [],
       points: [[1.4, 14.6], [7.5, 12.5], [7.5, 10.5], [7.5, 12.5], [23.5, 16.5], [23.5, 19.5], [23.5, 16.5], [21.5, 12.5],
-        [21.5, 10.5], [21.5, 12.5], [43, 12.5], [46.5, 10.5]],
+        [21.5, 10.5], [21.5, 12.5], [43, 12.5], { fight: 'meridian_salvage' }, [46.5, 10.5]],
     },
   ],
 };

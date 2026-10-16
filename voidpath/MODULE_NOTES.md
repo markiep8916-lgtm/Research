@@ -352,3 +352,72 @@ Files: src/core/state.js, src/battle/data.js, src/battle/model.js, tests/battle.
 - Boss difficulty depends on rest and level: 83% at starting levels, about 96% after resting at expected campaign levels (+1.4), about 43% with no rest after 8 fights. Without a heal point before the bridge, the climax may be too hard for some players.
 - Regular encounters are forgiving: even the random policy wins most of them, just slowly. That is intended for a proof of concept; turret_squad is the only one with real attrition.
 - Balance figures come from simulated policies, not human play. The heuristic is reasonable, not optimal: it sometimes Provokes into elemental fire it can't take, and boosts into unbroken foes when BP is near the cap.
+
+## Contract changes since gate G2 (G3-flow, G3-balance, C10-gamma, C11, I-sys)
+
+Collected by I-sys from docs/gates/C-gamma-reports.md and its own work. TECH_PLAN.md ("G3 and C-gamma
+cross-file fixes") lists the same changes as plan deviations; each file's header has the full API.
+
+### Field, cutscenes and flow
+- `cutscenes.leaveMap({ same })` (src/story/cutscene.js, G3-flow): `travel.arrive` and `cs.goto` call it
+  under the cover before the leader is placed elsewhere. It drops the running script's leader stand-in
+  (`__leader`) so the Player lands on the destination spawn, not at the stand-in's old coordinates (G3-01,
+  the void above the Halcyon). On a map change it also forgets the stepped-out members and the touched set.
+- Script end (I-sys, C7's request): the runner's `_release` now calls `world.releaseTouched()` (it
+  called `world.syncFlags()` before), so the World's own holds (a confronted field boss) go and the
+  flags apply as the script ends. Before, they went only on the field's next frame, and anything that
+  read the field in between (the human-pace walker planning a path the moment the field was free) saw a
+  beaten boss still standing, collider on: 'no path' on the Heart's one-cell spans. `cutscenes.ended`
+  counts outermost script ends (normal or aborted); `ExploreState._watchScripts()` runs `_scriptEnded()`
+  (re-seed triggers, release, companions, flag triggers) once per end, also for a script that started
+  and ended between two frames. `heart.settle` and the five `settle_*` triggers are gone.
+- `game.savePos()` (src/core/game.js, G3-flow): the position checkpoints and saves use. A spot the leader
+  cannot stand on (a transit or scene map, an unwalkable cell) is refused with a `console.warn` and
+  replaced by the map's Starchart destination spawn, else its walkable spawn nearest the bad spot, else the
+  location's dock, else `halcyon:start`. Load and Retry run the same check on the position they restore
+  (`_loadTarget`), and `_fixCheckpoint()` repairs a restored checkpoint that holds the void.
+- Retry auto-skip for any script (src/world/explore.js, G3-08): `ExploreState._run()` sets
+  `cutscenes.autoSkip` whenever the script it starts (trigger rect, talk, interactable) is
+  `game.retried.script`, then clears `game.retried`. The pre-fight part plays instantly even after another
+  script (a Med-Station visit) used Retry's own auto-skip. Field bosses keep their encounter-based path.
+- Battle tips (src/battle/battleState.js, G3-16): one tip per player turn; `TIP_AFTER = { learn:
+  'ultimateReady' }` keeps the learn tip queued until the ultimate prompt has shown.
+
+### Battle rules and presentation
+- `api.giveBp(memberId, n = 1) -> added` (src/battle/model.js, scripts.js, I-sys, C11's request): a living
+  party member gains up to `n` Boost points (capped at MAX_BP) and a `bp` event `{ actorId, bp, delta }`
+  moves the pips. The `ultimateReady` event still comes at that member's next turn start.
+- WARDEN's retry gift (src/content/warden/data.js): `heart_boss_warden_2`'s `onBegin` emits cue
+  `halcyon_gift` with no value (warden/fx.js plays the rise), then `api.giveBp(id, RETRY_BP - bp)` for each
+  living member (RETRY_BP = 3: one ultimate each), then HALCYON's line. Before, the script wrote `bp` itself
+  and the cue's value set the pips.
+- Command menu (src/battle/battleUI.js, I-sys, C11's request): on desktop it stays clear of the glowing
+  core of a foe whose art names a `core` point. Spots tried in order once per menu screen: the usual
+  place left of the formation, right of the formation, left of the core, below it, above it.
+  `_coreBoxes()` gives the boxes (about 16% of the foe's screen width, 48-110 px half-size).
+- Boss card: the subtitle (`.vb-card .sub`, e.g. "The Merciful Lock") fades in with the title (8-22% of
+  the 1.7 s card) and holds to 88%; before it only showed from 40%.
+
+### Jumps, balance and tools
+- `REG.jumps[id].equip = { [member]: { weapon?, armor?, accessory? } }` (src/story/jump.js, I-sys):
+  overrides the chapter kit slot by slot. Mid-chapter jumps of ch1-ch4 and the Heart's ascent now wear the
+  campaign route's gear at that point (`npm run balance -- --gear` prints it after each step); gear they
+  wear is no longer duplicated in `items`. `fin.warden` stays a first-timer (kit gear, keepsakes in the bag).
+  Voss from `ch3.voss` with the browser policy: 51% at L22 before, 86.3% now.
+- `tests/campaign.mjs` (G3-balance, C10-gamma, I-sys): `--check` fails on any regular-fight loss in a route
+  run (HP and EP carried; elites may lose in at most 5% of runs); every boss gets a second first-timer check
+  with the browser's autoplay policy (>= 70%); two-form bosses report losses per form and the Retry from the
+  later phase; routes rest at the Med-Stations the human-pace routes use; `--walk <x>` and `--gear`
+  what-ifs. `tools/boss-by-level.mjs --policy sim|browser`.
+- `tools/human-pace.mjs` (G3-flow): `--render-every <n>` / `VP_RENDER_EVERY` thin render (shots draw full
+  frames), `--idle <s>` (120), `--stall-wall <m>` (20), a blocked-goal fallback, `use()` presses Confirm
+  again when the interaction did not start, an `ABORT: ...` note instead of a silent stall,
+  `window.__PACE.interacts`. I-sys: a walk with no path plans again on a fresh grid for 3 virtual seconds
+  before it gives up, and the 'no path' note names the field bosses near the leader and their colliders.
+  A leader standing in a collider's clearance (right after touching a pylon) is planned from every free
+  cell close by, not only the nearest (a pocket behind the Third Tier's far pylon hid the processional). The routes chain title -> FINAL CHAPTER -> finale and call `shopWeapons` at
+  each chapter's shops (Halcyon fabricator before each flight, Ruse, the quartermaster after the cadets,
+  the Sanctum's fabricator).
+- npm scripts: `pace` (tools/human-pace.mjs), `pace:report` (tools/human-pace-report.mjs), `fights`
+  (tools/expected-fights.mjs).
+- `tools/play.mjs --timeout` counts from the moment a browser slot is taken, not from the wait in line.

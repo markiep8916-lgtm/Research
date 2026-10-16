@@ -129,11 +129,13 @@ function spire(kit) {
   screen(kit, -1.0);
   strobe(kit, -6.0);
   strobe(kit, 9.4, 2.5, 0);
-  flood(kit, -4.0, -0.4, { r: 3.4 });
-  flood(kit, 3.6, 0.6, { r: 3.0, color: '#fff2e4', k: 0.26 });
+  // the floods lay soft pools; the white key stands in front of the foes, not over them, so it lights
+  // the fronts of the porcelain troopers instead of blowing their tops into glare (I-art)
+  flood(kit, -4.0, -0.4, { r: 3.4, k: 0.17 });
+  flood(kit, 3.6, 0.6, { r: 3.0, color: '#fff2e4', k: 0.15 });
   floorPool(kit, -1.0, -4.4, 2.2, '#ffc04a', 0.22);
   kit.pointLight({ color: '#ffc04a', intensity: 10, distance: 7, decay: 1.6, position: [-1, 1.8, WALL_Z + 1.2] });
-  kit.pointLight({ color: '#f4f0ff', intensity: 16, distance: 10, decay: 1.5, position: [-3.6, 3.0, 0.2] });
+  kit.pointLight({ color: '#f4f0ff', intensity: 10, distance: 10, decay: 1.5, position: [-1.2, 3.4, 2.6] });
   barricade(kit, -10.4, -2.6, 2.8, 0.3);
   barricade(kit, 9.6, -3.6, 2.4, -0.2);
   crate(kit, -12.2, -4.6, 0.8, 0.2);
@@ -199,10 +201,11 @@ function command(kit) {
   kit.box([0.74, 0.06, 0.18], goldM, [-8.6, 2.06, -4.8]);
   kit.box([0.66, 0.16, 0.6], kit.plain('#3a2420', 0.55, 0.05), [-8.6, 0.5, -4.5]);
   const alert = strobe(kit, 7.2, 2.5, 12);
-  floorPool(kit, -4.0, -0.6, 3.6, '#f4f0ff', 0.26);
-  floorPool(kit, 3.6, 0.6, 3.0, '#fff2e4', 0.22);
+  floorPool(kit, -4.0, -0.6, 3.6, '#f4f0ff', 0.15);
+  floorPool(kit, 3.6, 0.6, 3.0, '#fff2e4', 0.13);
   floorPool(kit, 1.4, -3.8, 2.2, '#45d4ff', 0.22);
-  const white = kit.pointLight({ color: '#f4f0ff', intensity: 16, distance: 10, decay: 1.5, position: [-3.8, 3.0, 0.4] });
+  // the white key in front of Voss and her escort, not over them (it blew the escort into glare, I-art)
+  const white = kit.pointLight({ color: '#f4f0ff', intensity: 10, distance: 10, decay: 1.5, position: [-1.4, 3.4, 2.8] });
   foreground(kit);
   // state the reactions drive: `up` is the upload (cyan), `k` eases toward rest every frame
   const C = { up: 0, upRest: 0, k: 1, rest: 1, stutter: 0, cyan, gold, white, alert, screens, star, orbits, holoGlow, cyanBase: cyan.intensity, goldBase: gold.intensity, whiteBase: white.intensity };

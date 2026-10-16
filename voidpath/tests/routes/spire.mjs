@@ -29,6 +29,7 @@ export default {
       next: 'ch3.cells',
       async run(d) {
         await d.use('bolt', { optional: true });
+        await d.shopWeapons('fabricator');
         await d.fly('starchart', 'Security Spire');
         await d.pump(d.F('seen:spire:arrival'), { maxVt: 900 });
         d.milestone('spire arrival');
@@ -82,6 +83,8 @@ export default {
         await d.use('cells');
         await d.pump(d.F('story:cadets_freed'), { maxVt: 900 });
         d.milestone('cadets freed');
+        // the cadets open the quartermaster's stock on Deck 4 (G3-balance: G3's run never shopped here)
+        await d.shopWeapons('quartermaster');
         await d.med('med_cells');
         await ride(d, 'lift_block', 'window.__PACE.snap().z < 34');
       },

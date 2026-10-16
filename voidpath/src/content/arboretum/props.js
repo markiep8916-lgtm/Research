@@ -54,6 +54,8 @@ function mats(W) {
   W.arbMats = {
     flora,
     tech: W.mats.tile('arb_tech', { emissive: 2.4, roughness: 0.55, metalness: 0.35 }),
+    // the Choir's pods glow softer: WARDEN's gold grade (exposure 1.1, bloom 1.2) blew them into a haze
+    techSoft: W.mats.tile('arb_tech', { emissive: 1.0, roughness: 0.55, metalness: 0.35 }),
     decal: W.mats.decal('arb_decal'),
     bark: W.mats.tile('arb_bark', { emissive: 2.2, roughness: 0.85, metalness: 0 }),
     pipe: W.mats.tile('pipe', { roughness: 0.5, metalness: 0.45 }),
@@ -372,8 +374,8 @@ const props = {
       const x = (p.x0 + p.x1) / 2, w = p.x1 - p.x0;
       for (let z = p.z0; z <= p.z1 + 0.01; z += 1.6) {
         techBox(B, M.tech, x, z, w, 1.15, 0, 0.35, { front: tUV('steel'), back: tUV('steel'), left: tUV('steel'), right: tUV('steel'), top: tUV('steel') });
-        techBox(B, M.tech, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV('podEnd'), back: tUV('podEnd'), left: tUV('podSideGold'), right: tUV('podSideGold'), top: tUV('podTopGold') });
-        glow(W, G, '#ffd27a', 0.7, 0.3, x, 0.95, z + 0.2, false);
+        techBox(B, M.techSoft, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV('podEnd'), back: tUV('podEnd'), left: tUV('podSideGold'), right: tUV('podSideGold'), top: tUV('podTopGold') });
+        glow(W, G, '#ffd27a', 0.7, 0.18, x, 0.95, z + 0.2, false);
         W.addBox(x, z, w, 1.15);
       }
     },
@@ -383,8 +385,8 @@ const props = {
     textures: ['arb_tech'],
     build(W, p) {
       const B = W.batchFor(p.on), G = W.groupFor(p.on), M = mats(W);
-      B.faceZ(M.tech, p.x - 6.9, p.x + 6.9, 0, 3.0, p.z, 1, tUV('tiers'));
-      for (let k = 0; k < 4; k++) glow(W, G, '#ffe2a0', 1.6, 0.25, p.x - 4.5 + k * 3, 1.4 + (k % 2) * 0.8, p.z + 0.3, false);
+      B.faceZ(M.techSoft, p.x - 6.9, p.x + 6.9, 0, 3.0, p.z, 1, tUV('tiers'));
+      for (let k = 0; k < 4; k++) glow(W, G, '#ffe2a0', 1.6, 0.13, p.x - 4.5 + k * 3, 1.4 + (k % 2) * 0.8, p.z + 0.3, false);
       W.addEmitter('mote', { position: [p.x, 1.5, p.z + 0.8], area: [13, 2.4, 1.2], rate: 3 }, p.on);
     },
   },
@@ -417,7 +419,8 @@ const props = {
       W.track(glass.material);
       W.track(glass.geometry);
       G.add(glass);
-      glow(W, G, '#ffd27a', 1.6, 0.35, p.x, 0.9, p.z + 0.2, false);
+      // (small: from the aisle camera it sits on Sera's head, and WARDEN's bloom swells it)
+      glow(W, G, '#ffd27a', 1.6, 0.12, p.x, 0.9, p.z + 0.2, false);
       W.addEmitter('mote', { position: [p.x, 0.9, p.z], area: [2.2, 1.2, 1.2], rate: 3 }, p.on);
       W.addBox(p.x, p.z - 0.1, 2.4, 1.2);
       return { kind: 'arb.theoPod', actor, object: actor.object3d };

@@ -316,10 +316,6 @@ export default {
     // WARDEN at each lift arrival (once per tier)
     { id: 'warden_t2', on: 'enter', rect: [60.4, 46.2, 65.8, 50.8], when: 'chapter>=finale & story:dream_kade', once: true, script: 'heart.warden_tier' },
     { id: 'warden_t3', on: 'enter', rect: [62.2, 5.4, 66.8, 9.6], when: 'chapter>=finale & story:dream_nyx', once: true, script: 'heart.warden_tier' },
-    // a beaten field boss leaves the way clear (heart.settle)
-    ...[['wardens', 'heart:wardens_down'], ['choir', 'heart:choir_down'], ['echoes_t2', 'heart:echoes_t2_down'],
-      ['echoes_t3', 'heart:echoes_t3_down'], ['bellwarden', 'heart:bell_down']]
-      .map(([id, flag]) => ({ id: `settle_${id}`, on: 'flag', when: `chapter>=finale & ${flag}`, once: true, script: 'heart.settle' })),
     // the crown: the approach, WARDEN, the battle and the resolution (C8)
     { id: 'crown', on: 'enter', rect: [4.0, 12.6, 19.4, 19.6], when: 'story:dream_sera & !story:finale_done', once: true, script: 'dreams.crown' },
   ],

@@ -223,12 +223,6 @@ const scripts = {
     cs.flag('heart:bell_down');
   },
 
-  // A field boss's fight is over. Its flag is set inside its own script, while the World still holds
-  // the boss for that script, so the World keeps it standing (and its collider blocking a one-cell
-  // bridge) until flags sync again. This empty script runs from a flag trigger right after, and its
-  // end syncs the World with nothing held: the beaten boss fades and the way is clear.
-  'heart.settle': async () => {},
-
   // ---------------------------------------------------------------- the crown lift (no way back)
   'heart.crown_lift': async (cs) => {
     const pick = await cs.choice('Beyond this point there is no way back.', ['Ride to the crown.', 'Not yet.'], { cancelIndex: 1 });
@@ -444,24 +438,29 @@ export default {
       },
     },
   },
+  // Ascent jumps wear the reliquaries' gear a player has by then (the route's gear, `npm run balance
+  // -- --gear`); keepsakes nobody wears stay in the bag. fin.warden (warden/story.js) is a first-timer:
+  // its gear stays the chapter's kit.
   jumps: {
     // on the Moth's pier, the night behind them (the load trigger plays the arrival)
     'fin.heart': { chapter: 'finale', map: 'heart', spawn: 'dock', level: 27, objective: 'fin.go_heart', flags: NIGHT },
     // the Second Tier's lift arrival, Kade's dream behind them
     'fin.tier2': {
       chapter: 'finale', map: 'heart', spawn: 'tier2', level: 28, objective: 'fin.t2', flags: T1,
-      items: { eq_w_sera_4: 1, eq_x_keepsake_kade: 1 },
+      items: { eq_x_keepsake_kade: 1 }, equip: { sera: { weapon: 'eq_w_sera_4' } },
     },
     // the Third Tier's lift arrival
     'fin.tier3': {
       chapter: 'finale', map: 'heart', spawn: 'tier3', level: 30, objective: 'fin.t3', flags: T2,
-      items: { eq_w_sera_4: 1, eq_a_5: 1, eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1 },
+      items: { eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1 },
+      equip: { sera: { weapon: 'eq_w_sera_4' }, kade: { armor: 'eq_a_5' }, nyx: { armor: 'eq_a_4' } },
     },
     // the Sanctum, every dream behind them: the last rest, the crown lift ahead
     'fin.crown': {
       chapter: 'finale', map: 'heart', spawn: 'sanctum', level: 31, objective: 'fin.crown',
       flags: [...T3, 'story:dream_sera', 'seen:heart:dream_sera'],
-      items: { eq_w_sera_4: 1, eq_a_5: 1, eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1, eq_x_keepsake_sera: 1 },
+      items: { eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1 },
+      equip: { sera: { weapon: 'eq_w_sera_4' }, kade: { armor: 'eq_a_5' }, nyx: { armor: 'eq_a_4' }, orion: { accessory: 'eq_x_keepsake_sera' } },
     },
   },
   doneFlags: {

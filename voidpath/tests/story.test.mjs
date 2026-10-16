@@ -45,6 +45,7 @@ function makeCtx() {
     spawnNpc: (def) => { const a = new Npc(def); npcs.set(def.id, a); return a; },
     removeNpc: (id) => npcs.delete(id),
     syncFlags: () => log.push('syncFlags'),
+    releaseTouched: () => log.push('releaseTouched'),
     setScreens: (t) => log.push(`screens:${t}`),
     emote: () => Promise.resolve(),
     lighting: { setTag() {} }, particles: { emit() {} }, living: () => null,
@@ -584,4 +585,80 @@ test('abortAll rejects a cs call the script did not await without an unhandled r
   } finally {
     process.off('unhandledRejection', onUnhandled);
   }
+});
+
+// G3-01 (G3-flow): a running script's leader stand-in belongs to the place being left.
+test('travel.arrive under a script drops the leader stand-in before the map changes: the leader stays on the spawn', async () => {
+  const ctx = fresh();
+  const ex = ctx.explore;
+  let mid = null;
+  scripts['st.fly'] = async (cs) => {
+    await cs.move('leader', [[3.5, 1.5]]);   // the leader acts: a stand-in takes its place
+    assert.ok(ex.world.npc('__leader'), 'the stand-in exists');
+    await ctx.travel.arrive('st_far', 'b', { transition: 'none', kind: 'goto' });
+    mid = { proxy: !!ex.world.npc('__leader'), x: ex.player.x, z: ex.player.z };
+  };
+  await run(ctx, 'st.fly');
+  assert.deepEqual(mid, { proxy: false, x: 3.5, z: 2.5 }, 'no stand-in on the new map; the leader on spawn b');
+  assert.equal(ex.mapId, 'st_far');
+  assert.deepEqual([ex.player.x, ex.player.z], [3.5, 2.5], 'the script end does not pull the leader back');
+  assert.equal(ex.player.actor.object3d.visible, true);
+});
+
+test('game.savePos refuses a spot the leader cannot stand on and falls back to the dock, else the nearest spawn', (t) => {
+  const ctx = fresh();
+  const warn = t.mock.method(console, 'warn', () => {});
+  const ex = ctx.explore;
+  ex.player.setPosition(2.5, 2.5);
+  assert.deepEqual(ctx.game.savePos(), { map: 'st_room', x: 2.5, z: 2.5, facing: 'down' }, 'a floor cell is kept');
+  assert.equal(warn.mock.callCount(), 0);
+  ex.player.setPosition(0.5, 0.4);   // a wall cell ('#'): st_room has no dock, so its nearest spawn
+  assert.deepEqual(ctx.game.savePos(), { map: 'st_room', x: 1.5, z: 1.5, facing: 'down' });
+  ctx.game.requestCheckpoint();
+  assert.deepEqual(gameState.checkpoint, { map: 'st_room', x: 1.5, z: 1.5, facing: 'down' }, 'the checkpoint never keeps the void');
+  ex.mapId = 'st_far';
+  ex.player.setPosition(4.5, 2.5);   // st_far is a Starchart destination: its dock spawn wins over the nearer one
+  assert.deepEqual(ctx.game.savePos(), { map: 'st_far', x: 1.5, z: 1.5, facing: 'down' });
+  assert.equal(warn.mock.callCount(), 3);
+  assert.match(warn.mock.calls[0].arguments[0], /refusing to save the leader at st_room \(0.5, 0.4\)/);
+});
+
+// G3-04: a puzzle step logs a checkpoint (cs.checkpoint, written when its script ends); a wipe after it
+// retries there with the step kept, and the arrival before it does not play again.
+test('a wipe after a puzzle step checkpoint retries there with the step kept (G3-04)', async (t) => {
+  const ctx = fresh();
+  t.mock.method(console, 'error', () => {});
+  scripts['st.arrival'] = async (cs) => { await cs.say('KADE', 'We are here.'); cs.checkpoint(); };
+  scripts['st.valve'] = async (cs) => { cs.flag('st:valve_a'); cs.flag('st:valve_b'); cs.checkpoint(); };
+  scripts['st.wipe'] = async (cs) => { await cs.battle('drone_single'); };
+  await run(ctx, 'st.arrival', { trigger: { id: 'arrival', once: true } });
+  ctx.explore.player.setPosition(3.5, 2.5);
+  await run(ctx, 'st.valve');
+  assert.deepEqual(gameState.checkpoint, { map: 'st_room', x: 3.5, z: 2.5, facing: 'down' });
+  gameState.flags['st:after_valves'] = true;
+  const lost = run(ctx, 'st.wipe');
+  while (!ctx.game.states.battle.params) await tick();
+  ctx.game.states.battle.params.onEnd('defeat');
+  await tick();
+  const over = ctx.log.find((l) => Array.isArray(l) && l[0] === 'gameOver');
+  await over[1].onRetry();
+  await lost;
+  assert.equal(gameState.flags['st:valve_a'], true, 'both valves stay open');
+  assert.equal(gameState.flags['st:valve_b'], true);
+  assert.equal(gameState.flags['seen:st_room:arrival'], true, 'the arrival is not replayed');
+  assert.equal(gameState.flags['st:after_valves'], undefined, 'progress after the checkpoint rolls back');
+});
+
+// C7 / I-sys: a confronted field boss is held by the World until its script ends. The runner releases
+// those holds as the script ends, before anything reads the field again (a walker planning a path in
+// the same frame saw the beaten boss's collider).
+test('the World releases its holds the moment the outermost script ends', async () => {
+  const ctx = fresh();
+  const seen = [];
+  scripts['st.held'] = async (cs) => { cs.flag('st:boss_down'); };
+  ctx.cutscenes.ended = 0;
+  const done = run(ctx, 'st.held').then(() => seen.push(ctx.log.includes('releaseTouched')));
+  await done;
+  assert.deepEqual(seen, [true]);
+  assert.equal(ctx.cutscenes.ended, 1, 'the end is counted for the field');
 });

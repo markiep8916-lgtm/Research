@@ -662,6 +662,8 @@ export default {
       ],
     },
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // Shoals' and the Meridian's chest gear, and after the return the second shopping (ch2's kit).
   jumps: {
     // back at Driftmarket after the Maw: the load trigger plays driftmarket.return
     'ch1.return': {
@@ -669,6 +671,10 @@ export default {
       flags: ['story:ruse_met', 'story:maw_lore', 'story:varo_log', 'story:meridian_power', 'defeated:shoals_boss_maw', 'ult:nyx',
         'seen:driftmarket:arrival', 'talk:driftmarket:ruse', 'visited:driftmarket'],
       items: { lattice_coil: 1 }, objective: 'ch1.reach_wreck',
+      equip: {
+        kade: { weapon: 'eq_w_kade_2' }, sera: { weapon: 'eq_w_sera_2', accessory: 'eq_x_frost_charm' },
+        nyx: { weapon: 'eq_w_nyx_3', accessory: 'eq_x_varo_compass' },
+      },
     },
     // the coil in hand at the Halcyon's reactor
     'ch1.coil': {
@@ -676,6 +682,10 @@ export default {
       flags: ['story:ruse_met', 'story:maw_lore', 'story:varo_log', 'story:meridian_power', 'defeated:shoals_boss_maw', 'ult:nyx',
         'story:ringborn_seeding', 'story:nyx_for_real', 'seen:driftmarket:arrival', 'talk:driftmarket:ruse', 'visited:driftmarket'],
       items: { lattice_coil: 1, data_spike: 1 }, objective: 'ch1.install_coil',
+      equip: {
+        kade: { weapon: 'eq_w_kade_2', armor: 'eq_a_2' }, sera: { weapon: 'eq_w_sera_2', armor: 'eq_a_2', accessory: 'eq_x_frost_charm' },
+        nyx: { weapon: 'eq_w_nyx_3', armor: 'eq_a_2', accessory: 'eq_x_varo_compass' }, orion: { weapon: 'eq_w_orion_2', armor: 'eq_a_2' },
+      },
     },
   },
   doneFlags: {

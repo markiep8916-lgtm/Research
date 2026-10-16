@@ -41,6 +41,8 @@
 //                                               // a member in the battle with less EP than the
 //                                               // ultimate costs is raised to that cost ('ep' event)
 //   api.rechargeUltimates()                     // every ultimate usable again; cue 'ultimatesRecharged'
+//   api.giveBp(memberId, n = 1) -> added        // a living member gains n Boost points (capped at the
+//                                               // maximum); 'bp' event { actorId, bp, delta } (the pips)
 //
 // Durations: setUntargetable and setResist last the rest of the current round plus `rounds` more
 // (counted down at round start, like breaks).

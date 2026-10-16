@@ -349,7 +349,7 @@ function keysFor(dx, dz, run) {
 
 /** Walk to goal ({ x, z, tol } or { shape, reach }); returns the snapshot on arrival or when `until` holds. */
 async function walk(goal, { until = null, run = true, label = '' } = {}) {
-  let stuckRef = null, stuck = 0, wiggles = 0;
+  let stuckRef = null, stuck = 0, wiggles = 0, noPathAt = null;
   const guard = watchdog(`walk to ${label || JSON.stringify(goal)}`, { idle: 0 });
   for (;;) {
     const r = await page.evaluate(([g, u]) => {
@@ -383,9 +383,21 @@ async function walk(goal, { until = null, run = true, label = '' } = {}) {
     }
     if (r.steer.nopath) {
       await releaseAll();
-      notes.push(`no path to ${label || JSON.stringify(goal)} from ${r.map} (${r.x}, ${r.z}) at ${r.vt.toFixed(0)}`);
+      // the field may still be settling (a beaten boss fading, a gate opening): plan again on a fresh
+      // grid for a few virtual seconds before giving up
+      if (noPathAt == null) noPathAt = r.vt;
+      if (r.vt - noPathAt < 3) {
+        await page.evaluate(() => window.__PACE.invalidate());
+        await sleep(120);
+        continue;
+      }
+      const near = await page.evaluate(([x, z]) => Object.entries(window.__VP.ctx.game.states.explore.world.bosses)
+        .filter(([, b]) => Math.hypot(b.actor.x - x, b.actor.z - z) < 6)
+        .map(([id, b]) => `${id} present ${b.present} collider ${!!(b.collider && b.collider.enabled)}`), [r.x, r.z]);
+      notes.push(`no path to ${label || JSON.stringify(goal)} from ${r.map} (${r.x}, ${r.z}) at ${r.vt.toFixed(0)}${near.length ? `; field bosses near: ${near.join(', ')}` : ''}`);
       throw new Error(`no path: ${label}`);
     }
+    noPathAt = null;
     await setKeys(keysFor(r.steer.dx, r.steer.dz, run));
     // stuck detection on the virtual clock
     if (!stuckRef || Math.hypot(r.x - stuckRef.x, r.z - stuckRef.z) > 0.3) stuckRef = { x: r.x, z: r.z, t: r.vt };

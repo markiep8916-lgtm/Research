@@ -360,24 +360,32 @@ export default {
   speakers: {
     VARO: { portrait: 'varo', accent: '#ff9a3c' },
   },
+  // Mid-chapter jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`):
+  // the chapter's first shopping (Kade's and Sera's tier-2 weapons), then the chest gear on the way.
   jumps: {
     'ch1.shoals': {
       chapter: 'ch1', map: 'shoals', spawn: 'from_driftmarket', level: 8,
       flags: ['story:ruse_met', 'story:maw_lore', 'dm:legend_heard'], objective: 'ch1.reach_wreck',
+      equip: { kade: { weapon: 'eq_w_kade_2' }, sera: { weapon: 'eq_w_sera_2' } },
     },
     'ch1.wreck': {
       chapter: 'ch1', map: 'meridian', spawn: 'from_shoals', level: 10,
       flags: ['story:ruse_met', 'story:maw_lore', 'dm:legend_heard', 'seen:shoals:enter', 'chest:shoals:grotto', 'shoals:eels', 'shoals:mites', 'shoals:golem'],
-      items: { eq_x_frost_charm: 1 }, objective: 'ch1.reach_wreck',
+      objective: 'ch1.reach_wreck',
+      equip: { kade: { weapon: 'eq_w_kade_2' }, sera: { weapon: 'eq_w_sera_2', accessory: 'eq_x_frost_charm' } },
     },
     'ch1.maw': {
       chapter: 'ch1', map: 'meridian', spawn: 'reactor_hall', level: 12,
       flags: [
         'story:ruse_met', 'story:maw_lore', 'dm:legend_heard', 'seen:shoals:enter', 'seen:meridian:arrival',
         'sw:meridian:lever_a', 'sw:meridian:lever_b', 'story:meridian_power', 'seen:meridian:power', 'story:varo_log',
-        'chest:shoals:grotto', 'chest:meridian:long_gun', 'shoals:eels', 'shoals:mites', 'shoals:golem', 'shoals:bots',
+        'chest:shoals:grotto', 'chest:meridian:long_gun', 'chest:meridian:compass', 'shoals:eels', 'shoals:mites', 'shoals:golem', 'shoals:bots',
       ],
-      items: { eq_x_frost_charm: 1, eq_w_nyx_3: 1 }, objective: 'ch1.find_coil',
+      objective: 'ch1.find_coil',
+      equip: {
+        kade: { weapon: 'eq_w_kade_2' }, sera: { weapon: 'eq_w_sera_2', accessory: 'eq_x_frost_charm' },
+        nyx: { weapon: 'eq_w_nyx_3', accessory: 'eq_x_varo_compass' },
+      },
     },
   },
   doneFlags: {

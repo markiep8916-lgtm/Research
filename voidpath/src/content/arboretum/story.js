@@ -611,6 +611,8 @@ export default {
       },
     },
   },
+  // Mid-chapter jumps wear the chest gear a player has by then (the route's gear, `npm run balance --
+  // --gear`): Sera's Thornspear, then the Photon Prism.
   jumps: {
     // on the dock, before the arrival (the load trigger plays it)
     'ch2.arrival': { chapter: 'ch2', map: 'arboretum', spawn: 'dock', level: 12, flags: ['dest:arboretum', 'pro:flight_arboretum'], objective: 'ch2.go_arboretum' },
@@ -626,7 +628,7 @@ export default {
       flags: ['dest:arboretum', 'seen:arboretum:arrival', 'sw:arboretum:valve_a', 'sw:arboretum:valve_b', 'sw:arboretum:valve_c', 'sw:arboretum:valve_d',
         'arb:sluice', 'arb:sluice_hint', 'arb:valve_a_said', 'arb:valve_b_said', 'arb:spores', 'story:channels_drained', 'seen:arboretum:drained', 'tut:status:sleep',
         'chest:arboretum:spear'],
-      items: { eq_w_sera_3: 1 }, objective: 'ch2.stasis',
+      objective: 'ch2.stasis', equip: { sera: { weapon: 'eq_w_sera_3' } },
     },
     // the court before the Choir door, rested
     'ch2.gardener': {
@@ -634,7 +636,7 @@ export default {
       flags: ['dest:arboretum', 'seen:arboretum:arrival', 'sw:arboretum:valve_a', 'sw:arboretum:valve_b', 'sw:arboretum:valve_c', 'sw:arboretum:valve_d',
         'arb:sluice', 'arb:sluice_hint', 'arb:valve_a_said', 'arb:valve_b_said', 'arb:spores', 'arb:caretaker', 'story:channels_drained',
         'seen:arboretum:drained', 'seen:arboretum:stasis', 'tut:status:sleep', 'tut:summon', 'chest:arboretum:spear', 'chest:arboretum:prism'],
-      items: { eq_w_sera_3: 1, eq_x_photon_prism: 1 }, objective: 'ch2.choir_gate',
+      items: { eq_x_frost_charm: 1 }, objective: 'ch2.choir_gate', equip: { sera: { weapon: 'eq_w_sera_3', accessory: 'eq_x_photon_prism' } },
     },
     // in the Choir Chamber after the Gardener: the trigger by pod 2271 plays the scene
     'ch2.choir': {
@@ -643,7 +645,7 @@ export default {
         'arb:sluice', 'arb:sluice_hint', 'arb:spores', 'arb:caretaker', 'story:channels_drained', 'seen:arboretum:drained', 'seen:arboretum:stasis',
         'defeated:arb_boss_gardener', 'ult:sera', 'arb:mother7_freed', 'tut:status:sleep', 'tut:summon', 'tut:dome_light',
         'chest:arboretum:spear', 'chest:arboretum:prism'],
-      items: { eq_w_sera_3: 1, eq_x_photon_prism: 1 }, objective: 'ch2.find_theo',
+      items: { eq_x_frost_charm: 1 }, objective: 'ch2.find_theo', equip: { sera: { weapon: 'eq_w_sera_3', accessory: 'eq_x_photon_prism' } },
     },
   },
   doneFlags: {

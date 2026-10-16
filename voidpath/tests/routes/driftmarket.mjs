@@ -10,6 +10,8 @@ export default {
       async run(d) {
         // a word with HALCYON at her projector, then the Starchart
         await d.use('halcyon', { optional: true });
+        // the chapter's first shopping, as a player does before leaving (G3-balance)
+        await d.shopWeapons('fabricator');
         await d.fly('starchart', 'Driftmarket');
         await d.pump(d.F('story:ruse_met'), { maxVt: 3600 });
         d.milestone('driftmarket arrival');

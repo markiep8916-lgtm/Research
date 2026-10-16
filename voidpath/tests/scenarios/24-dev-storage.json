@@ -28,6 +28,7 @@
   {"waitFor": "S().state === 'explore' && !S().transitioning && S().map === 'dev_box'", "timeout": 400000},
   {"wait": 1000},
   {"shot": "03-continued"},
-  {"note": "still playable: walk north"},
-  {"until": "S().explore.z < 17.3", "max": 20, "do": [{"hold": "ArrowUp", "ms": 2500}]}
+  {"note": "still playable: walk north (under load a 2.5 s hold may move the leader only a few hundredths of a unit, so the check asks for a clear step and allows many holds)"},
+  {"eval": "(window.Z0 = S().explore.z, true)"},
+  {"until": "S().explore.z < Z0 - 0.5", "max": 120, "do": [{"hold": "ArrowUp", "ms": 2500}]}
 ]

@@ -16732,8 +16732,9 @@ var overrides = {
     voss: { xp: 0.6, atk: 1.14, mag: 1.14 },
     voss_overclock: { xp: 0.6, atk: 1.45, mag: 1.45 },
     voss_escort: { xp: 0.15 },
-    corrupted_memory: { mag: 0.8 },
-    // the Overwrite lesson costs at most a third of the squad's HP
+    // the Overwrite lesson costs about a quarter of the squad's HP: a squad that walks the core
+    // fields into it never wipes there (G3-03; the route lost it in 2 of 160 runs at 0.8)
+    corrupted_memory: { mag: 0.72 },
     echo: { maxHp: 1.5, atk: 1.2, mag: 1.2, xp: 0.75 },
     // 9-10 rounds, two Severances, a third cancelled
     // the Heart: a guardian's cradle rings already make its formations the longest of the game
@@ -16741,14 +16742,18 @@ var overrides = {
     // the Third Tier's eaters meet a squad fresh from the second Echoes: no wipe on the way (G3-03)
     dream_eater: { atk: 0.9, mag: 0.9 },
     warden_seraph: { atk: 0.95, mag: 0.95 },
-    // the Third Tier's Echoes meet a squad worn down by the climb (no rest since the Second Tier)
-    elite_sec_trooper: { atk: 0.88, mag: 0.88 },
-    elite_firewall_golem: { atk: 0.88, mag: 0.88 },
+    // the Choirlit Echoes are the finale's two elites: five rounds in the simulator, six or seven at
+    // human pace (C7 measured the first at 9 rounds, 158 s, and the finale at 31.6 min; I-sys)
+    elite_rime_golem: { maxHp: 0.8 },
+    elite_bloom_mantis: { maxHp: 0.8 },
+    // the Third Tier's Echoes meet a squad worn down by the climb
+    elite_sec_trooper: { atk: 0.88, mag: 0.88, maxHp: 0.9 },
+    elite_firewall_golem: { atk: 0.88, mag: 0.88, maxHp: 0.9 },
     // WARDEN's second form: the desperate double turn opens the round and comes back before the
     // healers act, so a squad in the Heart's gear still loses about one fight in fifteen (route
     // check 85-95%); its shield (below) breaks twice in a first-timer's form 2. Raw attack instead
-    // would sink a squad that arrives under-levelled (C11's fin.warden test: level 30, the
-    // chapter's starting bag, wins about 85%)
+    // would sink a squad that arrives under-levelled (C11's fin.warden test, the chapter's starting
+    // bag: about 90% at level 32, 84% at level 30)
     warden_unbound: { spd: 1.5, atk: 1.04, mag: 1.04, maxHp: 1.1 }
   },
   enemies: {
@@ -19094,6 +19099,16 @@ var BattleModel = class {
       },
       grantUltimate(memberId) {
         m._grantUltimate(memberId, ev());
+      },
+      giveBp(memberId, n = 1) {
+        const c = m.get(memberId);
+        if (!c || c.side !== "party" || !c.alive) return 0;
+        const delta = Math.max(0, Math.min(MAX_BP, c.bp + Math.round(n)) - c.bp);
+        if (delta) {
+          c.bp += delta;
+          ev().push({ type: "bp", actorId: c.id, bp: c.bp, delta });
+        }
+        return delta;
       },
       rechargeUltimates() {
         for (const p of m.party) p.ultimateUsed = false;
@@ -24692,7 +24707,9 @@ var CHARS = {
       hand: "lea",
       torso: (ty) => ty <= 5 ? "main" : ty === 6 ? "metal" : ty <= 8 ? "sec" : ty <= 10 ? "lea" : "sec"
     },
-    // Amber visor strip across the eyes.
+    // Amber visor strip across the eyes. Its emissive runs at half strength in the field and battle
+    // sheets: at full strength the high-tier bloom swelled it into an orb over his face (I-art).
+    glowScale: 0.5,
     over: {
       down: [[0, 7, [".nyyuyyyyuyyn.", ".mttttttttttm."]]],
       side: [[0, 7, [".....nnyyyyyu.", ".....mmttttttm"]]],
@@ -25512,7 +25529,7 @@ function cloneAnims(anims) {
   for (const k of Object.keys(anims)) out[k] = { ...anims[k], frames: anims[k].frames.slice() };
   return out;
 }
-function buildSheet(frames, cols, anims, facing) {
+function buildSheet(frames, cols, anims, facing, glowScale = 1) {
   const painters2 = frames.map((f) => f.render());
   const packed = packSheet(painters2, cols);
   const sp = packed.painter, W10 = sp.w;
@@ -25528,7 +25545,15 @@ function buildSheet(frames, cols, anims, facing) {
     }
   });
   const normal = makeNormalMap(sp, { frameW: packed.frameW, frameH: packed.frameH, bevel: 2, strength: 2, lumaRelief: 0.4 });
-  const emissive = any ? makeEmissiveMap(sp, (c, x, y) => glow8[y * W10 + x] === 1).canvas : null;
+  const em = any ? makeEmissiveMap(sp, (c, x, y) => glow8[y * W10 + x] === 1) : null;
+  if (em && glowScale !== 1) {
+    for (let y = 0; y < em.h; y++) for (let x = 0; x < em.w; x++) {
+      if (!glow8[y * W10 + x]) continue;
+      const c = em.get(x, y);
+      em.set(x, y, [c[0] * glowScale, c[1] * glowScale, c[2] * glowScale, 255]);
+    }
+  }
+  const emissive = em ? em.canvas : null;
   return {
     canvas: packed.canvas,
     normal: normal.canvas,
@@ -25647,7 +25672,7 @@ function buildFieldSprite(id) {
       ...FIELD_LAYOUT.map(([v, k, i, b]) => drawFieldFrame(ch, v, k, i, b)),
       ...poseLayout(poses).map(([pose, v]) => drawFieldFrame(ch, v, "idle", 0, false, pose))
     ];
-    return buildSheet(frames, 10, fieldAnims(poses), "down");
+    return buildSheet(frames, 10, fieldAnims(poses), "down", ch.glowScale ?? 1);
   });
 }
 var BW = 64;
@@ -26303,7 +26328,7 @@ function buildBattleSprite(id) {
       anims[name] = { frames: idx, fps, loop };
     }
     if (!anims.shoot) anims.shoot = { frames: anims.attack.frames.slice(0, 3), fps: 10, loop: false };
-    return buildSheet(frames, 8, anims, "left");
+    return buildSheet(frames, 8, anims, "left", CHARS[id]?.glowScale ?? 1);
   });
 }
 var FACE_P = [
@@ -31146,12 +31171,13 @@ var CSS19 = `
   font: 800 68px/1 var(--vp-font-display); letter-spacing: .24em; padding-left: .24em; color: #fff;
   text-shadow: 0 0 22px rgba(255,42,74,.8), 3px 3px 0 #5c0a18, -2px -2px 0 #5c0a18; animation: vb-card-slam 1.7s cubic-bezier(.2,.8,.2,1) forwards; }
 .vb-card .sub { position: absolute; left: 0; right: 0; top: 50%; margin-top: 42px; text-align: center; font: 600 15px/1 var(--vp-font-ui);
-  letter-spacing: .6em; padding-left: .6em; color: #ffc2cc; text-transform: uppercase; animation: vb-card-sub 1.7s ease-out forwards; }
+  letter-spacing: .6em; padding-left: .6em; color: #ffd6dc; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,42,74,.65), 1px 1px 0 #5c0a18;
+  animation: vb-card-sub 1.7s ease-out forwards; }
 @keyframes vb-card-band { 0% { opacity: 0; transform: scaleY(.1); } 10% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes vb-card-rule { 0% { transform: scaleX(0); } 18% { transform: scaleX(1); } 84% { opacity: 1; } 100% { opacity: 0; transform: scaleX(1.1); } }
 @keyframes vb-card-slam { 0% { opacity: 0; transform: scale(2.6); filter: brightness(3); } 12% { opacity: 1; transform: scale(.96); filter: brightness(1.6); }
   16% { transform: translate(-6px, 3px); } 20% { transform: translate(5px, -2px); filter: none; } 24% { transform: none; } 84% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0; transform: scale(1.06); } }
-@keyframes vb-card-sub { 0%, 20% { opacity: 0; letter-spacing: 1.1em; } 40% { opacity: 1; letter-spacing: .6em; } 84% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes vb-card-sub { 0%, 8% { opacity: 0; letter-spacing: 1.1em; } 22% { opacity: 1; letter-spacing: .6em; } 88% { opacity: 1; } 100% { opacity: 0; } }
 
 /* ---------------------------------------------------------------- ultimate cut-in */
 .vb-cut { --acc: var(--vp-amber); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -32933,6 +32959,7 @@ var BattleUI = class {
       const cssMax = this.compact ? 210 : this.root.classList.contains("is-short") ? 170 : 300;
       this.list.style.maxHeight = `${Math.max(96, Math.min(cssMax, Math.floor(room - chrome)))}px`;
       this._menuSize = { w: this.menu.offsetWidth || 250, h: this.menu.offsetHeight || 260 };
+      if (this.cmd) this.cmd.spot = null;
     }
     const { w: mw, h: mh2 } = this._menuSize;
     (_a5 = this.menu)._last || (_a5._last = { x: -1e4, y: -1e4 });
@@ -32949,7 +32976,37 @@ var BattleUI = class {
     const bottomLimit = this.H - this._partyH - 24;
     const x = clamp(left / z - mw - 14, 10, this.W - mw - 10);
     const y = clamp((v.rectY + v.rectH * 0.45) / z - mh2 * 0.5, topLimit, Math.max(topLimit, bottomLimit - mh2));
-    this._setPos(this.menu, x, y, this.menu._last);
+    const spots = [[x, y]];
+    const cores = this._coreBoxes();
+    if (cores.length) {
+      let right = 0;
+      for (const o of this.view.values()) if (o.side === "party" && o.rectW != null) right = Math.max(right, o.rectX + o.rectW);
+      const b = cores[0];
+      spots.push([right / z + 14, y], [b.x0 - 12 - mw, y], [x, b.y1 + 12], [x, b.y0 - 12 - mh2]);
+    }
+    const cmd = this.cmd;
+    if (cmd.spot == null || cmd.spot >= spots.length) {
+      const yMax = Math.max(topLimit, bottomLimit - mh2);
+      const clear2 = ([sx, sy]) => sx >= 10 && sx + mw <= this.W - 10 && sy >= topLimit && sy <= yMax && !cores.some((c) => sx < c.x1 && sx + mw > c.x0 && sy < c.y1 && sy + mh2 > c.y0);
+      cmd.spot = Math.max(0, spots.findIndex(clear2));
+    }
+    this._setPos(this.menu, spots[cmd.spot][0], spots[cmd.spot][1], this.menu._last);
+  }
+  /** Screen boxes (CSS px) round the cores of living foes whose art names a `core` point, largest first. */
+  _coreBoxes() {
+    const z = this.zoom;
+    const out = [];
+    for (const v of this.view.values()) {
+      if (v.side !== "enemy" || v.gone || v.rectW == null) continue;
+      const a = this.stage.actor(v.id);
+      if (!a?.points?.core) continue;
+      a.point("core", CORE_P);
+      this.engine.projectToScreen(CORE_P, this._pos);
+      const r = clamp(v.rectW / z * 0.16, 48, 110);
+      const cx = this._pos.x / z, cy = this._pos.y / z;
+      out.push({ x0: cx - r, y0: cy - r, x1: cx + r, y1: cy + r, r });
+    }
+    return out.sort((p, q) => q.r - p.r);
   }
   dispose() {
     this.cmd = null;
@@ -32967,6 +33024,7 @@ var BattleUI = class {
   }
 };
 var RET_P = new Vector310();
+var CORE_P = new Vector310();
 
 // src/battle/director.js
 import * as THREE12 from "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
@@ -39529,7 +39587,7 @@ var ExploreState = class {
     this._pending = [];
     this._exitInside = null;
     this._exitTarget = null;
-    this._scriptWasActive = false;
+    this._scriptsEnded = 0;
     this._storyHooked = false;
     this._trail = [];
     this._companions = /* @__PURE__ */ new Map();
@@ -39819,15 +39877,13 @@ var ExploreState = class {
   }
   update(dt, t) {
     if (!this._active || !this.world) return;
-    const { engine: engine2, input: input2, cutscenes: cutscenes2 } = this.ctx;
+    const { engine: engine2, input: input2 } = this.ctx;
     if (engine2.quality !== this._quality) {
       this._quality = engine2.quality;
       this.rig.setQuality(this._quality);
       this.world.setQuality(this._quality);
     }
-    const scripted = !!(cutscenes2 && cutscenes2.active);
-    if (this._scriptWasActive && !scripted) this._scriptEnded();
-    this._scriptWasActive = scripted;
+    this._watchScripts();
     const blocked = this._blocked();
     let moveInput = null;
     if (!blocked) {
@@ -39857,7 +39913,21 @@ var ExploreState = class {
     if (!this._busy) this._updateBosses();
     if (!this._busy) this._updateEncounters(moved);
   }
-  /** The outermost script ended (the runner returns the camera): re-seed triggers, release actors. */
+  /**
+   * An outermost script ended since the last frame, even one that started and ended between two
+   * frames or while the field was away (a battle): release what the field held for it.
+   */
+  _watchScripts() {
+    const { cutscenes: cutscenes2 } = this.ctx;
+    if (!cutscenes2 || cutscenes2.active || cutscenes2.ended === this._scriptsEnded) return;
+    this._scriptsEnded = cutscenes2.ended;
+    this._scriptEnded();
+  }
+  /**
+   * The outermost script ended (the runner returns the camera): re-seed triggers, release actors.
+   * releaseTouched re-syncs flags with nothing held, so a field boss whose defeat flag its own script
+   * set fades out (collider off, disarmed) at once.
+   */
   _scriptEnded() {
     this._seedTriggers();
     this.world.releaseTouched();
@@ -44860,6 +44930,8 @@ var story_default3 = {
       ]
     }
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // Shoals' and the Meridian's chest gear, and after the return the second shopping (ch2's kit).
   jumps: {
     // back at Driftmarket after the Maw: the load trigger plays driftmarket.return
     "ch1.return": {
@@ -44879,7 +44951,12 @@ var story_default3 = {
         "visited:driftmarket"
       ],
       items: { lattice_coil: 1 },
-      objective: "ch1.reach_wreck"
+      objective: "ch1.reach_wreck",
+      equip: {
+        kade: { weapon: "eq_w_kade_2" },
+        sera: { weapon: "eq_w_sera_2", accessory: "eq_x_frost_charm" },
+        nyx: { weapon: "eq_w_nyx_3", accessory: "eq_x_varo_compass" }
+      }
     },
     // the coil in hand at the Halcyon's reactor
     "ch1.coil": {
@@ -44901,7 +44978,13 @@ var story_default3 = {
         "visited:driftmarket"
       ],
       items: { lattice_coil: 1, data_spike: 1 },
-      objective: "ch1.install_coil"
+      objective: "ch1.install_coil",
+      equip: {
+        kade: { weapon: "eq_w_kade_2", armor: "eq_a_2" },
+        sera: { weapon: "eq_w_sera_2", armor: "eq_a_2", accessory: "eq_x_frost_charm" },
+        nyx: { weapon: "eq_w_nyx_3", armor: "eq_a_2", accessory: "eq_x_varo_compass" },
+        orion: { weapon: "eq_w_orion_2", armor: "eq_a_2" }
+      }
     }
   },
   doneFlags: {
@@ -48196,6 +48279,8 @@ var story_default4 = {
   speakers: {
     VARO: { portrait: "varo", accent: "#ff9a3c" }
   },
+  // Mid-chapter jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`):
+  // the chapter's first shopping (Kade's and Sera's tier-2 weapons), then the chest gear on the way.
   jumps: {
     "ch1.shoals": {
       chapter: "ch1",
@@ -48203,7 +48288,8 @@ var story_default4 = {
       spawn: "from_driftmarket",
       level: 8,
       flags: ["story:ruse_met", "story:maw_lore", "dm:legend_heard"],
-      objective: "ch1.reach_wreck"
+      objective: "ch1.reach_wreck",
+      equip: { kade: { weapon: "eq_w_kade_2" }, sera: { weapon: "eq_w_sera_2" } }
     },
     "ch1.wreck": {
       chapter: "ch1",
@@ -48211,8 +48297,8 @@ var story_default4 = {
       spawn: "from_shoals",
       level: 10,
       flags: ["story:ruse_met", "story:maw_lore", "dm:legend_heard", "seen:shoals:enter", "chest:shoals:grotto", "shoals:eels", "shoals:mites", "shoals:golem"],
-      items: { eq_x_frost_charm: 1 },
-      objective: "ch1.reach_wreck"
+      objective: "ch1.reach_wreck",
+      equip: { kade: { weapon: "eq_w_kade_2" }, sera: { weapon: "eq_w_sera_2", accessory: "eq_x_frost_charm" } }
     },
     "ch1.maw": {
       chapter: "ch1",
@@ -48232,13 +48318,18 @@ var story_default4 = {
         "story:varo_log",
         "chest:shoals:grotto",
         "chest:meridian:long_gun",
+        "chest:meridian:compass",
         "shoals:eels",
         "shoals:mites",
         "shoals:golem",
         "shoals:bots"
       ],
-      items: { eq_x_frost_charm: 1, eq_w_nyx_3: 1 },
-      objective: "ch1.find_coil"
+      objective: "ch1.find_coil",
+      equip: {
+        kade: { weapon: "eq_w_kade_2" },
+        sera: { weapon: "eq_w_sera_2", accessory: "eq_x_frost_charm" },
+        nyx: { weapon: "eq_w_nyx_3", accessory: "eq_x_varo_compass" }
+      }
     }
   },
   doneFlags: {
@@ -53085,7 +53176,7 @@ var enemies3 = {
         target: "ally",
         heal: 0.3,
         weight: 35,
-        cooldown: 1
+        cooldown: 2
       })
     ],
     drops: [{ id: "ether_plus", chance: 0.12, n: 1 }, { id: "thermal_charge", chance: 0.1, n: 1 }]
@@ -53881,6 +53972,8 @@ var story_default5 = {
       }
     }
   },
+  // Mid-chapter jumps wear the chest gear a player has by then (the route's gear, `npm run balance --
+  // --gear`): Sera's Thornspear, then the Photon Prism.
   jumps: {
     // on the dock, before the arrival (the load trigger plays it)
     "ch2.arrival": { chapter: "ch2", map: "arboretum", spawn: "dock", level: 12, flags: ["dest:arboretum", "pro:flight_arboretum"], objective: "ch2.go_arboretum" },
@@ -53916,8 +54009,8 @@ var story_default5 = {
         "tut:status:sleep",
         "chest:arboretum:spear"
       ],
-      items: { eq_w_sera_3: 1 },
-      objective: "ch2.stasis"
+      objective: "ch2.stasis",
+      equip: { sera: { weapon: "eq_w_sera_3" } }
     },
     // the court before the Choir door, rested
     "ch2.gardener": {
@@ -53946,8 +54039,9 @@ var story_default5 = {
         "chest:arboretum:spear",
         "chest:arboretum:prism"
       ],
-      items: { eq_w_sera_3: 1, eq_x_photon_prism: 1 },
-      objective: "ch2.choir_gate"
+      items: { eq_x_frost_charm: 1 },
+      objective: "ch2.choir_gate",
+      equip: { sera: { weapon: "eq_w_sera_3", accessory: "eq_x_photon_prism" } }
     },
     // in the Choir Chamber after the Gardener: the trigger by pod 2271 plays the scene
     "ch2.choir": {
@@ -53978,8 +54072,9 @@ var story_default5 = {
         "chest:arboretum:spear",
         "chest:arboretum:prism"
       ],
-      items: { eq_w_sera_3: 1, eq_x_photon_prism: 1 },
-      objective: "ch2.find_theo"
+      items: { eq_x_frost_charm: 1 },
+      objective: "ch2.find_theo",
+      equip: { sera: { weapon: "eq_w_sera_3", accessory: "eq_x_photon_prism" } }
     }
   },
   doneFlags: {
@@ -54044,7 +54139,9 @@ var MOOD5 = {
   hall: mood3({ fog: "#0a1718", sky: "#82dae0", key: 1.25, keyColor: "#ffcb8a" }),
   stasis: mood3({ fog: "#0d1715", sky: "#98d4c4", hemi: 1.1, key: 1.3, keyColor: "#ffd9a0", exposure: 1.6 }),
   court: mood3({ fog: "#121a10", sky: "#a6d89a", key: 1.15, keyColor: "#ffd890" }),
-  choir: mood3({ fog: "#17120a", sky: "#ffe2a0", ground: "#1a1408", hemi: 0.55, key: 0.5, keyColor: "#ffe0a0", fill: 0.4, exposure: 0.78, bloom: 0.7, saturation: 1.05 }),
+  // the Choir's glow is soft and its exposure near neutral, so WARDEN's gold grade (exposure 1.1,
+  // bloom 1.2, absolute) lifts it instead of whiting it out (arboretum.theo, I-art)
+  choir: mood3({ fog: "#17120a", sky: "#ffe2a0", ground: "#1a1408", hemi: 0.45, key: 0.41, keyColor: "#ffe0a0", fill: 0.33, exposure: 0.98, bloom: 0.8, saturation: 1.05 }),
   view: mood3({ fog: "#101a18", sky: "#ffd9a8", key: 1.35, keyColor: "#ffcf8c", hemi: 0.8 })
 };
 var fern = (x, z, extra = {}) => ({ t: "arb.fern", x, z, ...extra });
@@ -54137,6 +54234,17 @@ var props4 = [
   { t: "arb.decal", x: 3.4, z: 32.2, kind: "litterB", w: 2, d: 2, rot: 0.9 },
   { t: "arb.decal", x: 10, z: 18.6, kind: "mossPatch", w: 3, d: 3, rot: 0.2 },
   { t: "arb.decal", x: 5, z: 21, kind: "puddle", w: 2.4, d: 2, rot: 2.6 },
+  // moss creeping over the hall's brick in soft patches (in place of whole moss cells)
+  ...[
+    [4.6, 30.6, 3.4, 0.7],
+    [13.2, 31.8, 2.6, 2.4],
+    [7.2, 34.6, 2.2, 1.1],
+    [12.4, 37.4, 3, 2.9],
+    [2.8, 38.8, 2.6, 0.3],
+    [3.2, 17.2, 2.8, 1.6],
+    [13.6, 21.6, 3.2, 0.5],
+    [8, 22.8, 2, 2]
+  ].map(([x, z, w, rot]) => ({ t: "arb.decal", x, z, kind: "mossPatch", w, d: w * 0.9, rot })),
   sprinkler(13, 34),
   vines(1, 15, 15.02, { on: "n14" }),
   // ---- Stasis Gardens
@@ -54159,6 +54267,7 @@ var props4 = [
   fern(70.3, 21, { s: 1.2 }),
   shaft2(64, 24.5, { s: 1.4 }),
   { t: "arb.rootMound", x: 64, z: 19 },
+  ...[[60.4, 18.6, 2.6, 1.2], [67.8, 23.8, 3, 0.4], [61.4, 25.6, 2.4, 2.2], [68.4, 17.2, 2.2, 2.7]].map(([x, z, w, rot]) => ({ t: "arb.decal", x, z, kind: "mossPatch", w, d: w * 0.9, rot })),
   // ---- Choir Chamber: pods like pews either side of the aisle, Theo's at its head
   { t: "arb.choirPods", x0: 57.6, x1: 61.6, z0: 4.4, z1: 12.4 },
   { t: "arb.choirPods", x0: 66.4, x1: 70.4, z0: 4.4, z1: 12.4 },
@@ -54289,15 +54398,17 @@ var lights4 = [
   { x: 64, y: 1.6, z: 15.6, color: "#ffd27a", intensity: 9, distance: 5, mode: "pulse", amount: 0.3, speed: 0.4 },
   { x: 64, y: 0.8, z: 20.6, color: "#8fe08a", intensity: 4, distance: 5, tag: "gardener", when: "!defeated:arb_boss_gardener" },
   // choir chamber: white-gold pod glow on black, soft gold haze
-  gold(59.6, 6, { intensity: 6 }),
-  gold(68.4, 6, { intensity: 6 }),
-  gold(59.6, 10.5, { intensity: 6 }),
-  gold(68.4, 10.5, { intensity: 6 }),
-  gold(64, 2.4, { intensity: 8, distance: 5, mode: "pulse", amount: 0.25, speed: 0.35 }),
-  { x: 64, y: 2.6, z: 8, color: "#ffe9b0", intensity: 7, distance: 9, mode: "pulse", amount: 0.15, speed: 0.3 },
-  { x: 58, y: 2.8, z: 2, color: "#7fe8ff", intensity: 6, distance: 6 },
-  { x: 70, y: 2.8, z: 2, color: "#ffb35a", intensity: 6, distance: 6 },
-  { x: 64, y: 2.2, z: 4, color: "#ffd27a", intensity: 22, distance: 10, tag: "choir_gold", when: "arb:choir_gold" },
+  gold(59.6, 6, { intensity: 5 }),
+  gold(68.4, 6, { intensity: 5 }),
+  gold(59.6, 10.5, { intensity: 5 }),
+  gold(68.4, 10.5, { intensity: 5 }),
+  gold(64, 2.4, { intensity: 6.5, distance: 5, mode: "pulse", amount: 0.25, speed: 0.35 }),
+  { x: 64, y: 2.6, z: 8, color: "#ffe9b0", intensity: 5.6, distance: 9, mode: "pulse", amount: 0.15, speed: 0.3 },
+  { x: 58, y: 2.8, z: 2, color: "#7fe8ff", intensity: 5, distance: 6 },
+  { x: 70, y: 2.8, z: 2, color: "#ffb35a", intensity: 5, distance: 6 },
+  // WARDEN's gold (arboretum.theo drives it to 24-32): high over the squad, far from the pod tiers and
+  // Sera's head, so under WARDEN's grade it gilds the chamber instead of whiting it out
+  { x: 64, y: 5.2, z: 9.6, color: "#ffd27a", intensity: 22, distance: 13, tag: "choir_gold", when: "arb:choir_gold" },
   // the matriarch's pink rim among the seed drawers
   { x: 46.5, y: 2.2, z: 8.6, color: "#ff8ac0", intensity: 12, distance: 5, when: "!defeated:arb_elite_matriarch" },
   // the glass and the seed vault
@@ -54477,10 +54588,11 @@ var arboretum_default = {
     r: wall5("arb_roots", { side: "arb_roots", low: "arb_roots", cap: "arb_soil", height: 0.6, roughness: 0.85, metalness: 0.05 }),
     // garden walkways: verdigris deck plates, moss taking them back cell by cell
     ",": floor4("arb_deck", [["arb_moss", 0.26], ["arb_moss_b", 0.18], ["arb_deck_b", 0.14]], { roughness: 0.6, metalness: 0.35, grime: 0.04 }),
-    ".": floor4("arb_court", [["arb_court_b", 0.3], ["arb_moss_b", 0.12]], { roughness: 0.6, metalness: 0.2, grime: 0.05 }),
+    // (whole-cell moss on the brick read as a green checkerboard; the moss here is decals, I-art)
+    ".": floor4("arb_court", [["arb_court_b", 0.3]], { roughness: 0.6, metalness: 0.2, grime: 0.05 }),
     "=": floor4("arb_deck", [["arb_deck_b", 0.25]], { roughness: 0.5, metalness: 0.45, emissive: 2.2 }),
     o: floor4("arb_pad", null, { roughness: 0.55, metalness: 0.35, emissive: 2.2 }),
-    k: floor4("arb_choir_floor", [["arb_choir_floor_b", 0.3]], { roughness: 0.35, metalness: 0.4, emissive: 1.6 }),
+    k: floor4("arb_choir_floor", [["arb_choir_floor_b", 0.3]], { roughness: 0.35, metalness: 0.4, emissive: 1.1 }),
     A: canal(`sw:arboretum:valve_a | ${SLUICE}`),
     B: canal(`sw:arboretum:valve_b | ${SLUICE}`),
     C: canal(`!sw:arboretum:valve_b | ${SLUICE}`)
@@ -57777,6 +57889,8 @@ function mats3(W10) {
   W10.arbMats = {
     flora: flora2,
     tech: W10.mats.tile("arb_tech", { emissive: 2.4, roughness: 0.55, metalness: 0.35 }),
+    // the Choir's pods glow softer: WARDEN's gold grade (exposure 1.1, bloom 1.2) blew them into a haze
+    techSoft: W10.mats.tile("arb_tech", { emissive: 1, roughness: 0.55, metalness: 0.35 }),
     decal: W10.mats.decal("arb_decal"),
     bark: W10.mats.tile("arb_bark", { emissive: 2.2, roughness: 0.85, metalness: 0 }),
     pipe: W10.mats.tile("pipe", { roughness: 0.5, metalness: 0.45 }),
@@ -58066,8 +58180,8 @@ var props5 = {
       const x = (p.x0 + p.x1) / 2, w = p.x1 - p.x0;
       for (let z = p.z0; z <= p.z1 + 0.01; z += 1.6) {
         techBox(B, M.tech, x, z, w, 1.15, 0, 0.35, { front: tUV("steel"), back: tUV("steel"), left: tUV("steel"), right: tUV("steel"), top: tUV("steel") });
-        techBox(B, M.tech, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV("podEnd"), back: tUV("podEnd"), left: tUV("podSideGold"), right: tUV("podSideGold"), top: tUV("podTopGold") });
-        glow4(W10, G5, "#ffd27a", 0.7, 0.3, x, 0.95, z + 0.2, false);
+        techBox(B, M.techSoft, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV("podEnd"), back: tUV("podEnd"), left: tUV("podSideGold"), right: tUV("podSideGold"), top: tUV("podTopGold") });
+        glow4(W10, G5, "#ffd27a", 0.7, 0.18, x, 0.95, z + 0.2, false);
         W10.addBox(x, z, w, 1.15);
       }
     }
@@ -58076,8 +58190,8 @@ var props5 = {
     textures: ["arb_tech"],
     build(W10, p) {
       const B = W10.batchFor(p.on), G5 = W10.groupFor(p.on), M = mats3(W10);
-      B.faceZ(M.tech, p.x - 6.9, p.x + 6.9, 0, 3, p.z, 1, tUV("tiers"));
-      for (let k = 0; k < 4; k++) glow4(W10, G5, "#ffe2a0", 1.6, 0.25, p.x - 4.5 + k * 3, 1.4 + k % 2 * 0.8, p.z + 0.3, false);
+      B.faceZ(M.techSoft, p.x - 6.9, p.x + 6.9, 0, 3, p.z, 1, tUV("tiers"));
+      for (let k = 0; k < 4; k++) glow4(W10, G5, "#ffe2a0", 1.6, 0.13, p.x - 4.5 + k * 3, 1.4 + k % 2 * 0.8, p.z + 0.3, false);
       W10.addEmitter("mote", { position: [p.x, 1.5, p.z + 0.8], area: [13, 2.4, 1.2], rate: 3 }, p.on);
     }
   },
@@ -58108,7 +58222,7 @@ var props5 = {
       W10.track(glass.material);
       W10.track(glass.geometry);
       G5.add(glass);
-      glow4(W10, G5, "#ffd27a", 1.6, 0.35, p.x, 0.9, p.z + 0.2, false);
+      glow4(W10, G5, "#ffd27a", 1.6, 0.12, p.x, 0.9, p.z + 0.2, false);
       W10.addEmitter("mote", { position: [p.x, 0.9, p.z], area: [2.2, 1.2, 1.2], rate: 3 }, p.on);
       W10.addBox(p.x, p.z - 0.1, 2.4, 1.2);
       return { kind: "arb.theoPod", actor, object: actor.object3d };
@@ -58439,12 +58553,11 @@ function choirGate(kit) {
   const { WALL_Z: WALL_Z3, WALL_H: WALL_H2 } = kit;
   kit.floor((x, z) => {
     if (z === WALL_Z3) return "arb_moss";
-    return r() < 0.3 ? "arb_court_b" : r() < 0.08 ? "arb_moss_b" : "arb_court";
+    return r() < 0.3 ? "arb_court_b" : "arb_court";
   }, {
     arb_court: { roughness: 0.6, metalness: 0.2 },
     arb_court_b: { roughness: 0.6, metalness: 0.2 },
-    arb_moss: { roughness: 0.78, metalness: 0.08 },
-    arb_moss_b: { roughness: 0.78, metalness: 0.08 }
+    arb_moss: { roughness: 0.78, metalness: 0.08 }
   });
   kit.wallRun(["arb_wall"], { opts: { arb_wall: { emissiveIntensity: 2.2, roughness: 0.72, metalness: 0.3 } } });
   glassWall(kit, [-10, -3, 6], WALL_H2);
@@ -58475,6 +58588,9 @@ function choirGate(kit) {
   decal2(kit, "mossPatch", BOSS[0] - 1.8, BOSS[1] + 2.8, 3.4, 3.4, 0.9);
   decal2(kit, "mossPatch", BOSS[0] + 1.6, BOSS[1] - 1.8, 3, 3, 2.4);
   decal2(kit, "petals", 1.8, 2.6, 2.6, 2.6, 1.6);
+  for (const [x, z, w, rot] of [[6.6, 1.4, 2.8, 0.4], [-9.2, 0.6, 3.2, 1.7], [1.2, 4.8, 2.4, 2.9], [9.6, -2.2, 2.6, 1.1], [-7, 5.4, 2.8, 0.2], [11.4, 4.2, 2.2, 2.2]]) {
+    decal2(kit, "mossPatch", x, z, w, w * 0.9, rot);
+  }
   B.build(kit.root);
   const shaft5 = kit.shaft([BOSS[0] + 1.6, 9, BOSS[1] - 2.4], { width: 2.6, height: 10, color: "#ffd890", opacity: 0.1, tilt: 0.28, lean: 0.16 });
   const spot6 = kit.spotLight({ color: "#ffd890", intensity: 0, distance: 18, angle: 0.42, penumbra: 0.6, decay: 1.2, position: [BOSS[0] + 1.5, 12, BOSS[1] - 1], target: [BOSS[0], 0, BOSS[1]] });
@@ -59661,9 +59777,21 @@ var story_default6 = {
       }
     }
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // chapter's shopping before the flight (Kade's and Orion's tier-3 weapons, Kade's armor), then the
+  // Armory's plate, the Oathkeeper and the Vital Core (G3-balance: with the chapter-start kit Voss
+  // won only 51% at L22).
   jumps: {
     // the Spire dock on arrival (the load trigger plays the arrival)
-    "ch3.spire": { chapter: "ch3", map: "spire", spawn: "dock", level: 17, flags: ["unlock:spire"], objective: "ch3.go_spire" },
+    "ch3.spire": {
+      chapter: "ch3",
+      map: "spire",
+      spawn: "dock",
+      level: 17,
+      flags: ["unlock:spire"],
+      objective: "ch3.go_spire",
+      equip: { kade: { weapon: "eq_w_kade_3", armor: "eq_a_3" }, orion: { weapon: "eq_w_orion_3" } }
+    },
     // at the paired grids with the first grid open
     "ch3.cells": {
       chapter: "ch3",
@@ -59671,7 +59799,8 @@ var story_default6 = {
       spawn: "junction",
       level: 19,
       flags: [...CH3_FLAGS, "seen:spire:checkpoint", "seen:spire:riot", "sw:spire:grid_a", "spire:said_t1", "tut:status:marked", "tut:status:jam"],
-      objective: "ch3.grids_2"
+      objective: "ch3.grids_2",
+      equip: { kade: { weapon: "eq_w_kade_3", armor: "eq_a_3" }, orion: { weapon: "eq_w_orion_3" } }
     },
     // the cadets freed, at the Deck 5 lift
     "ch3.upper": {
@@ -59690,9 +59819,11 @@ var story_default6 = {
         "spire:said_t2",
         "story:cadets_freed",
         "tut:status:marked",
-        "tut:status:jam"
+        "tut:status:jam",
+        "chest:spire:armory_plate"
       ],
-      objective: "ch3.climb"
+      objective: "ch3.climb",
+      equip: { kade: { weapon: "eq_w_kade_3", armor: "eq_a_4" }, sera: { armor: "eq_a_3" }, orion: { weapon: "eq_w_orion_3" } }
     },
     // the command lobby before Voss (the boss check level, with the Oathkeeper)
     "ch3.voss": {
@@ -59713,12 +59844,18 @@ var story_default6 = {
         "spire:mk3_down",
         "seen:spire:quarters",
         "chest:spire:oathkeeper",
+        "chest:spire:armory_plate",
+        "chest:spire:lounge",
         "tut:status:marked",
         "tut:status:jam",
         "tut:mk3_lock"
       ],
-      items: { eq_w_kade_4: 1 },
-      objective: "ch3.command"
+      objective: "ch3.command",
+      equip: {
+        kade: { weapon: "eq_w_kade_4", armor: "eq_a_4", accessory: "eq_x_vital_core" },
+        sera: { armor: "eq_a_3" },
+        orion: { weapon: "eq_w_orion_3", accessory: "eq_x_stim_chip" }
+      }
     }
   },
   doneFlags: {
@@ -59988,8 +60125,9 @@ var lights5 = [
   sigil(7, 42.6),
   { x: 3, y: 0.6, z: 52, color: "#ff8a3a", intensity: 6, distance: 3.5, when: "story:core_open" },
   // the checkpoint: floods over the lanes, red lamps on the north wall, gold screens, the pylon
-  flood(18, 50.5),
-  flood(26, 50.5),
+  // (the entry lanes' floods are WARDEN's gold: spire.arrival pans over them under WARDEN's line)
+  { ...flood(18, 50.5, 24), color: "#ffc04a" },
+  { ...flood(26, 50.5, 24), color: "#ffc04a" },
   flood(35, 51, 18),
   flood(44, 50.5),
   flood(53, 50.5),
@@ -60000,7 +60138,9 @@ var lights5 = [
   sigil(26, 48.6),
   sigil(44, 48.6),
   sigil(62, 48.6),
-  { x: 34.5, y: 3, z: 49.6, color: "#ffc04a", intensity: 16, distance: 7, mode: "pulse", amount: 0.25, speed: 0.9, tag: "pylon" },
+  // the pylon's gold reaches the lanes either side of it, so WARDEN's first line here (spire.arrival)
+  // plays on gold light, not the grey deck (G2 rule 14, I-art)
+  { x: 34.5, y: 2.6, z: 49.8, color: "#ffc04a", intensity: 16, distance: 10.5, mode: "pulse", amount: 0.25, speed: 0.9, tag: "pylon" },
   { x: 39.5, y: 1.3, z: 49.2, color: "#ff3b4e", intensity: 6, distance: 3.5 },
   { x: 57.5, y: 1.3, z: 49.2, color: "#ff3b4e", intensity: 6, distance: 3.5 },
   { x: 21.5, y: 0.7, z: 52.4, color: "#ff4a3a", intensity: 6, distance: 3.5 },
@@ -63483,11 +63623,11 @@ function spire(kit) {
   screen(kit, -1);
   strobe2(kit, -6);
   strobe2(kit, 9.4, 2.5, 0);
-  flood3(kit, -4, -0.4, { r: 3.4 });
-  flood3(kit, 3.6, 0.6, { r: 3, color: "#fff2e4", k: 0.26 });
+  flood3(kit, -4, -0.4, { r: 3.4, k: 0.17 });
+  flood3(kit, 3.6, 0.6, { r: 3, color: "#fff2e4", k: 0.15 });
   floorPool2(kit, -1, -4.4, 2.2, "#ffc04a", 0.22);
   kit.pointLight({ color: "#ffc04a", intensity: 10, distance: 7, decay: 1.6, position: [-1, 1.8, WALL_Z3 + 1.2] });
-  kit.pointLight({ color: "#f4f0ff", intensity: 16, distance: 10, decay: 1.5, position: [-3.6, 3, 0.2] });
+  kit.pointLight({ color: "#f4f0ff", intensity: 10, distance: 10, decay: 1.5, position: [-1.2, 3.4, 2.6] });
   barricade2(kit, -10.4, -2.6, 2.8, 0.3);
   barricade2(kit, 9.6, -3.6, 2.4, -0.2);
   crate2(kit, -12.2, -4.6, 0.8, 0.2);
@@ -63575,10 +63715,10 @@ function command(kit) {
   kit.box([0.74, 0.06, 0.18], goldM, [-8.6, 2.06, -4.8]);
   kit.box([0.66, 0.16, 0.6], kit.plain("#3a2420", 0.55, 0.05), [-8.6, 0.5, -4.5]);
   const alert2 = strobe2(kit, 7.2, 2.5, 12);
-  floorPool2(kit, -4, -0.6, 3.6, "#f4f0ff", 0.26);
-  floorPool2(kit, 3.6, 0.6, 3, "#fff2e4", 0.22);
+  floorPool2(kit, -4, -0.6, 3.6, "#f4f0ff", 0.15);
+  floorPool2(kit, 3.6, 0.6, 3, "#fff2e4", 0.13);
   floorPool2(kit, 1.4, -3.8, 2.2, "#45d4ff", 0.22);
-  const white = kit.pointLight({ color: "#f4f0ff", intensity: 16, distance: 10, decay: 1.5, position: [-3.8, 3, 0.4] });
+  const white = kit.pointLight({ color: "#f4f0ff", intensity: 10, distance: 10, decay: 1.5, position: [-1.4, 3.4, 2.8] });
   foreground2(kit);
   const C = { up: 0, upRest: 0, k: 1, rest: 1, stutter: 0, cyan: cyan2, gold: gold3, white, alert: alert2, screens: screens3, star, orbits, holoGlow, cyanBase: cyan2.intensity, goldBase: gold3.intensity, whiteBase: white.intensity };
   kit.command = C;
@@ -64729,6 +64869,8 @@ var story_default7 = {
       }
     }
   },
+  // Jumps wear what a player has by then (the route's gear, `npm run balance -- --gear`): the
+  // chapter's shopping (Orion's and Nyx's armor), then Window 9's rifle and the gauntlet.
   jumps: {
     // materialised at the interface (the Spire's CH4 card and the dive done)
     "ch4.vault": {
@@ -64737,7 +64879,8 @@ var story_default7 = {
       spawn: "entry",
       level: 22,
       objective: "ch4.dive",
-      flags: ["visited:vault"]
+      flags: ["visited:vault"],
+      equip: { orion: { armor: "eq_a_4" }, nyx: { armor: "eq_a_3" } }
     },
     // through the firewall: the Stacks, crystals still to find
     "ch4.fields": {
@@ -64746,7 +64889,8 @@ var story_default7 = {
       spawn: "west",
       level: 24,
       objective: "ch4.crystals",
-      flags: thruGrid
+      flags: thruGrid,
+      equip: { orion: { armor: "eq_a_4" }, nyx: { armor: "eq_a_3" } }
     },
     // the core bridge open: the Corrupted Memory and Echo ahead
     "ch4.core": {
@@ -64767,9 +64911,11 @@ var story_default7 = {
         "sw:vault:n2",
         "sw:vault:e",
         "vault:swarm_down",
-        "seen:vault:bolt_reveal"
+        "seen:vault:bolt_reveal",
+        "chest:vault:rifle",
+        "chest:vault:gauntlet"
       ],
-      items: { eq_w_nyx_4: 1, eq_w_orion_4: 1 }
+      equip: { orion: { weapon: "eq_w_orion_4", armor: "eq_a_4" }, nyx: { weapon: "eq_w_nyx_4", armor: "eq_a_3" } }
     }
   },
   doneFlags: {
@@ -68344,11 +68490,11 @@ var CORE_THEME = {
   background: "#0b0420",
   fog: "#1c0a2c",
   fogDensity: 0.02,
-  hemi: ["#8a64d8", "#0c0412", 0.8],
+  hemi: ["#8a64d8", "#0c0412", 0.95],
   key: ["#e4d4ff", 1, [-6, 12, 10]],
   rimParty: ["#ffb46a", 22],
   rimEnemy: ["#ff6ad8", 24],
-  fill: ["#c0a8ff", 0.45]
+  fill: ["#c0a8ff", 0.55]
 };
 var coreInside = (x, z) => {
   const u = (x + 0.5) / 14.5, v = (z + 0.5 - 1.5) / 8.2;
@@ -68789,7 +68935,7 @@ var enemies6 = {
     art: "rime_golem",
     tint: GILT_PALE,
     ...statLine(31, "elite"),
-    shield: 7,
+    shield: 5,
     weaknesses: ["thermal", "gauntlet", "lance"],
     stage: { slot: ELITE_BACK, scale: 1.12 },
     actions: [
@@ -68824,7 +68970,7 @@ var enemies6 = {
     art: "bloom_mantis",
     tint: GILT_PALE,
     ...statLine(31, "elite"),
-    shield: 5,
+    shield: 3,
     actionsPerRound: 2,
     weaknesses: ["cryo", "rifle", "gauntlet"],
     stage: { slot: ELITE_FRONT },
@@ -68859,7 +69005,7 @@ var enemies6 = {
     tint: GILT,
     script: "elite_trooper",
     ...statLine(31, "elite"),
-    shield: 5,
+    shield: 4,
     weaknesses: ["lance", "thermal", "volt"],
     stage: { slot: ELITE_FRONT },
     actions: [
@@ -68883,7 +69029,7 @@ var enemies6 = {
     tint: GILT_PALE,
     script: "firewall_golem",
     ...statLine(31, "elite"),
-    shield: 7,
+    shield: 5,
     weaknesses: ["cryo", "void", "lance"],
     stage: { slot: ELITE_BACK, scale: 1.1 },
     actions: [
@@ -69274,12 +69420,6 @@ var scripts8 = {
     await cs.battle("heart_elite_bell");
     cs.flag("heart:bell_down");
   },
-  // A field boss's fight is over. Its flag is set inside its own script, while the World still holds
-  // the boss for that script, so the World keeps it standing (and its collider blocking a one-cell
-  // bridge) until flags sync again. This empty script runs from a flag trigger right after, and its
-  // end syncs the World with nothing held: the beaten boss fades and the way is clear.
-  "heart.settle": async () => {
-  },
   // ---------------------------------------------------------------- the crown lift (no way back)
   "heart.crown_lift": async (cs) => {
     const pick4 = await cs.choice("Beyond this point there is no way back.", ["Ride to the crown.", "Not yet."], { cancelIndex: 1 });
@@ -69538,6 +69678,9 @@ var story_default8 = {
       }
     }
   },
+  // Ascent jumps wear the reliquaries' gear a player has by then (the route's gear, `npm run balance
+  // -- --gear`); keepsakes nobody wears stay in the bag. fin.warden (warden/story.js) is a first-timer:
+  // its gear stays the chapter's kit.
   jumps: {
     // on the Moth's pier, the night behind them (the load trigger plays the arrival)
     "fin.heart": { chapter: "finale", map: "heart", spawn: "dock", level: 27, objective: "fin.go_heart", flags: NIGHT },
@@ -69549,7 +69692,8 @@ var story_default8 = {
       level: 28,
       objective: "fin.t2",
       flags: T1,
-      items: { eq_w_sera_4: 1, eq_x_keepsake_kade: 1 }
+      items: { eq_x_keepsake_kade: 1 },
+      equip: { sera: { weapon: "eq_w_sera_4" } }
     },
     // the Third Tier's lift arrival
     "fin.tier3": {
@@ -69559,7 +69703,8 @@ var story_default8 = {
       level: 30,
       objective: "fin.t3",
       flags: T22,
-      items: { eq_w_sera_4: 1, eq_a_5: 1, eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1 }
+      items: { eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1 },
+      equip: { sera: { weapon: "eq_w_sera_4" }, kade: { armor: "eq_a_5" }, nyx: { armor: "eq_a_4" } }
     },
     // the Sanctum, every dream behind them: the last rest, the crown lift ahead
     "fin.crown": {
@@ -69569,7 +69714,8 @@ var story_default8 = {
       level: 31,
       objective: "fin.crown",
       flags: [...T32, "story:dream_sera", "seen:heart:dream_sera"],
-      items: { eq_w_sera_4: 1, eq_a_5: 1, eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1, eq_x_keepsake_sera: 1 }
+      items: { eq_x_keepsake_kade: 1, eq_x_keepsake_nyx: 1, eq_x_keepsake_orion: 1 },
+      equip: { sera: { weapon: "eq_w_sera_4" }, kade: { armor: "eq_a_5" }, nyx: { armor: "eq_a_4" }, orion: { accessory: "eq_x_keepsake_sera" } }
     }
   },
   doneFlags: {
@@ -70016,14 +70162,6 @@ var heart_default = {
     // WARDEN at each lift arrival (once per tier)
     { id: "warden_t2", on: "enter", rect: [60.4, 46.2, 65.8, 50.8], when: "chapter>=finale & story:dream_kade", once: true, script: "heart.warden_tier" },
     { id: "warden_t3", on: "enter", rect: [62.2, 5.4, 66.8, 9.6], when: "chapter>=finale & story:dream_nyx", once: true, script: "heart.warden_tier" },
-    // a beaten field boss leaves the way clear (heart.settle)
-    ...[
-      ["wardens", "heart:wardens_down"],
-      ["choir", "heart:choir_down"],
-      ["echoes_t2", "heart:echoes_t2_down"],
-      ["echoes_t3", "heart:echoes_t3_down"],
-      ["bellwarden", "heart:bell_down"]
-    ].map(([id, flag2]) => ({ id: `settle_${id}`, on: "flag", when: `chapter>=finale & ${flag2}`, once: true, script: "heart.settle" })),
     // the crown: the approach, WARDEN, the battle and the resolution (C8)
     { id: "crown", on: "enter", rect: [4, 12.6, 19.4, 19.6], when: "story:dream_sera & !story:finale_done", once: true, script: "dreams.crown" }
   ],
@@ -72033,7 +72171,7 @@ var column2 = {
 var PIERS = [
   [36.5, 28.5, 1.4],
   [40, 36.5, 1.1],
-  [40, 21, 1],
+  [40, 21, 1, -0.6],
   [3.5, 27.5, 1],
   [69, 27.5, 1],
   [27, 26, 0.8],
@@ -72047,8 +72185,8 @@ var abyss5 = {
   build(W10) {
     const M = mats6(W10), B = W10.batchFor(null), G5 = W10.groupFor(null);
     const r0 = rnd7(77);
-    for (const [x, z, s] of PIERS) {
-      const top = 22, bot = -30, h = top - bot;
+    for (const [x, z, s, top = 22] of PIERS) {
+      const bot = -30, h = top - bot;
       const core3 = new THREE35.CylinderGeometry(0.9 * s, 1 * s, h, 8, 1, true);
       const uv = core3.attributes.uv;
       for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6 * s, uv.getY(i) * h);
@@ -72063,10 +72201,11 @@ var abyss5 = {
       for (let y = -12; y < top; y += 5.5) {
         put4(B, M.gilt, new THREE35.CylinderGeometry(1.32 * s, 1.32 * s, 0.22, 10, 1, true), [x, y, z]);
       }
+      if (top < 22) put4(B, M.gilt, new THREE35.CylinderGeometry(1.5 * s, 1.1 * s, 0.5, 10), [x, top + 0.25, z]);
       const seam = new THREE35.Mesh(new THREE35.PlaneGeometry(0.06, h), additive2("#ffc860", 1.1, 0.8));
       seam.position.set(x, (top + bot) / 2, z + 1.02 * s);
       G5.add(seam);
-      if (s > 0.9) {
+      if (s > 0.9 && top > 6) {
         const set = glowSet("hr_banner");
         const ban = new THREE35.Mesh(new THREE35.PlaneGeometry(0.9, 3.6), new THREE35.MeshStandardMaterial({
           map: textureSet("hr_banner").map,
@@ -73107,9 +73246,13 @@ var scripts9 = {
     await cs.say("HALCYON", "I know. Me too.", { expr: "calm" });
     bg8(cs.move("crown_halcyon", [[meet.x + 0.2, meet.z]], { speed: 0.8 }));
     bg8(cs.move("crown_figure", [[meet.x - 0.2, meet.z]], { speed: 0.8 }));
-    bg8(cs.move("orion", [[meet.x + 2.3, meet.z + 0.7]], { speed: 1.4, face: "crown_halcyon" }));
-    bg8(cs.camera.view({ pitch: 32, dist: 12, ms: 900 }));
-    await cs.camera.focus([meet.x, meet.z + 0.5], { zoom: 0.95, ms: 900 });
+    if (cs.test("party:nyx")) bg8(cs.move("nyx", [[meet.x + 2.5, meet.z + 0.9]], { speed: 1.4, face: "crown_halcyon" }));
+    await Promise.all([
+      cs.gather(inParty6(cs, { orion: [meet.x + 1.3, meet.z + 0.2] })),
+      cs.camera.view({ pitch: 32, dist: 12, ms: 900 }),
+      cs.camera.focus([meet.x, meet.z + 0.5], { zoom: 0.95, ms: 900 })
+    ]);
+    if (cs.test("party:orion")) cs.face("orion", "crown_halcyon");
     await cs.say("ORION", "I built you to hold grief and hope at once. You don't have to choose. Hold both.", { expr: "sad" });
     bg8(cs.move("crown_figure", [[meet.x, meet.z]], { speed: 0.8 }));
     cs.flash("#ffffff", 1.2, 0.5);
@@ -74680,19 +74823,14 @@ var bossScripts7 = {
   warden_unbound: {
     thresholds: [0.75, 0.5, 0.25],
     // heart_boss_warden_2 (Retry from the second form): the crown is already flooded with the Choir's
-    // light, Voss keeps watch here too, and HALCYON's gift comes as Boost. The api has no Boost call,
-    // so the script raises the members' bp and the cue carries the new values to the pips.
+    // light, Voss keeps watch here too, and HALCYON's gift comes as Boost: the cue's rise, then each
+    // traveler's pips fill through api.giveBp's 'bp' events.
     onBegin(api) {
       api.cue("choir_flood", { targetId: api.enemies()[0]?.id });
       armVoss(api);
       api.mem.requiemAt = 0;
-      const gift2 = [];
-      for (const p of api.party()) {
-        const delta = Math.max(0, RETRY_BP - p.bp);
-        p.bp += delta;
-        gift2.push({ id: p.id, bp: p.bp, delta });
-      }
-      api.cue("halcyon_gift", { value: gift2 });
+      api.cue("halcyon_gift");
+      for (const p of api.party()) api.giveBp(p.id, RETRY_BP - p.bp);
       api.say("HALCYON", "I can give you this much. Once more.", { portrait: "holo" });
     },
     // The transform from form 1: every ultimate is ready again, and HALCYON says so from BOLT.
@@ -78760,6 +78898,7 @@ var CutsceneRunner = class {
     this.choices = [];
     this.autoSkip = null;
     this.touched = /* @__PURE__ */ new Set();
+    this.ended = 0;
     this._session = null;
     this._hinted = false;
     this._skippable = null;
@@ -78942,6 +79081,7 @@ var CutsceneRunner = class {
   _release(s, normal) {
     const { ui: ui2, input: input2, game: game2 } = this.ctx;
     const ex = this._explore();
+    this.ended++;
     this._resetHold();
     this._dropProxy(s);
     for (const a of s.gathered.values()) this._vanish(a, 0.3);
@@ -78957,7 +79097,7 @@ var CutsceneRunner = class {
       if (s.screens || s.moodFx) ex.world?.setScreens(null);
       if (ex.world) ex.camera.reset({ ms: normal && !this._quick(s) ? 600 : 1 });
       this.touched.clear();
-      ex.world?.syncFlags();
+      ex.world?.releaseTouched();
       if (normal && s.musicChanged && game2.name === "explore") ex.restoreMusic();
       ex.unlock("cutscene");
     } else this.touched.clear();
@@ -79718,7 +79858,7 @@ function buildJumpState(target, REG2) {
   const items2 = { ...kit.items || {} };
   for (const [id, n] of Object.entries(jump?.items || {})) items2[id] = (items2[id] || 0) + n;
   const equipOut = {};
-  for (const id of party) if (kit.equip?.[id]) equipOut[id] = { ...kit.equip[id] };
+  for (const id of party) if (kit.equip?.[id] || jump?.equip?.[id]) equipOut[id] = { ...kit.equip?.[id], ...jump?.equip?.[id] };
   const done = Object.entries(REG2.objectives || {}).filter(([, d]) => !d.side && chapterIndex2(d.chapter) >= 0 && chapterIndex2(d.chapter) < ci).map(([id]) => id);
   let map = jump?.map || start.map;
   let spawn = jump?.spawn || start.spawn;
