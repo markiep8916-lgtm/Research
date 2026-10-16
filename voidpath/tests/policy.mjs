@@ -192,8 +192,9 @@ export function policyAction(m, actorId, memo = new Map()) {
     }
     const expose = firstSkill((d) => d.kind === 'debuff' && d.target === 'enemy');
     if (expose && !boss.buffs.def) return { kind: 'skill', skillId: expose.id, targetId: boss.id };
+    // one boosted hitter at a time, as a person does: no new buff while an ally still carries one
     const ally = firstSkill((d) => d.kind === 'buff' && d.target === 'ally');
-    const carry = allies.find((p) => p.id !== actorId && !p.buffs.atk && p.stats.atk >= p.stats.mag);
+    const carry = !allies.some((p) => p.buffs.atk?.stage > 0) && allies.find((p) => p.id !== actorId && p.stats.atk >= p.stats.mag);
     if (ally && carry && actor.ep > 40) return { kind: 'skill', skillId: ally.id, targetId: carry.id };
   }
 
@@ -223,8 +224,12 @@ export function createPolicy() {
     const a = { actorId, ...policyAction(m, actorId, st.memo) };
     const type = a.kind === 'attack' ? a.weapon : a.kind === 'skill' ? SKILLS[a.skillId]?.type : null;
     const target = a.kind === 'skill' ? SKILLS[a.skillId]?.target : 'enemy';
-    st.last = !type || target === 'randomEnemies' ? []
-      : target === 'enemies' ? m.validTargets(actorId, 'enemy').map((id) => ({ id, type })) : [{ id: a.targetId, type }];
+    // a volley at random foes counts as tried on all of them, as a player reads the flashes: the
+    // foes it hit on a weakness reveal it, so only the others are noted (G3-06: without this the
+    // browser's autoplay kept probing with Quickdraw)
+    st.last = !type ? []
+      : target === 'enemies' || target === 'randomEnemies' ? m.validTargets(actorId, 'enemy').map((id) => ({ id, type }))
+        : [{ id: a.targetId, type }];
     return a;
   };
   fn.observed = false;

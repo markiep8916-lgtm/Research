@@ -283,6 +283,16 @@ export default {
       id: 'eels', art: 'void_eel', name: 'VOID EELS', x: 19.4, z: 4.8, facing: 'left', encounter: 'shoals_eels',
       script: 'shoals.eels', triggerRadius: 2.8, radius: 0.9, when: 'chapter>=ch1 & !shoals:eels',
     },
+    // G3-02: two more visible fights on the path, so the Shoals' fights come spaced, not back to back:
+    // a mite nest at the foot of the descent and a rime golem at the head of the first ice bridge
+    {
+      id: 'mites', art: 'ice_mite', name: 'ICE MITES', x: 36.8, z: 13.6, facing: 'up', encounter: 'shoals_eel_trio',
+      script: 'shoals.mites', triggerRadius: 2.6, radius: 0.8, when: 'chapter>=ch1 & !shoals:mites',
+    },
+    {
+      id: 'golem', art: 'rime_golem', name: 'RIME GOLEM', x: 19.0, z: 38.6, facing: 'down', encounter: 'shoals_golem',
+      script: 'shoals.golem', triggerRadius: 2.6, radius: 1.0, when: 'chapter>=ch1 & !shoals:golem',
+    },
     // M3: the optional elite guarding the Ice Heart
     {
       id: 'colossus', art: 'rime_golem', name: 'RIME COLOSSUS', x: 52.0, z: 24.6, facing: 'left',

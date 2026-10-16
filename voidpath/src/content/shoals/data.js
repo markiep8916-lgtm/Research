@@ -16,7 +16,9 @@
 // Zones: shoals_tunnels (Blue Tunnels), shoals_deep (The Deep Ice), meridian_spine (the wreck).
 // The eel's dive is taught deterministically (7.7, G2): `shoals_eels` is a visible field encounter at
 // the east end of the Shoals Mouth (map boss `eels`), and the first eel to act dives by script, so
-// the `untargetable` tip always shows before the Maw.
+// the `untargetable` tip always shows before the Maw. Two more visible fights space the Shoals out
+// (G3-02): `shoals_eel_trio` (map boss `mites`, a mite nest with an eel in it, at the foot of the
+// descent) and `shoals_golem` (map boss `golem`, the first ice bridge).
 // Numbers come from statLine (balance.js); C10 tunes them through overrides.
 
 import { statLine } from '../balance.js';
@@ -231,6 +233,8 @@ const encounters = {
   meridian_bot_golem: enc('meridian_bot_golem', ['rime_golem', 'salvage_bot'], 'meridian'),
   meridian_bot_mites: enc('meridian_bot_mites', ['ice_mite', 'salvage_bot', 'ice_mite'], 'meridian'),
   meridian_scrap: enc('meridian_scrap', ['salvage_bot', 'void_eel', 'salvage_bot'], 'meridian'),
+  // the field fight on the spine (shoals.bots); two bots alone come in under the HP-lost floor at L12
+  meridian_salvage: enc('meridian_salvage', ['ice_mite', 'salvage_bot', 'salvage_bot'], 'meridian'),
 
   // the boss
   shoals_boss_maw: {
@@ -255,12 +259,15 @@ const zones = {
   meridian_spine: ['meridian_bots', 'meridian_bot_golem', 'meridian_bot_mites', 'meridian_scrap', 'meridian_bots', 'meridian_bot_mites'],
 };
 
-// Rates from the measured critical-path distance (G2 C3-2, with W-1's walked distance surviving side
-// rooms): about 2.9 fights over the tunnels' 66 units, 2.5 over the deep's 59 and 2.8 over the spine's
-// 61, so with the eel field fight and the Maw chapter 1 has 10-11 fights.
+// Rates (G3-02): at {6,11} a fight came every ~20 units and the Shoals played ten fights back to back
+// (median gap ~6 s at human pace). Near the 11.7 default (about one per 39 units), the tunnels and the
+// deep give 2-4 random fights between three visible lessons on the path (the eels at the Mouth, the
+// mite nest at the foot of the descent, the rime golem at the first bridge); with the spine, the
+// salvage bots met in the open on it (meridian map boss `bots`) and the Maw, chapter 1 has 10-12
+// fights (tests/campaign.mjs geometry 9.6 on the critical path; the chests add walking).
 const zoneRates = {
-  shoals_tunnels: { grace: 6, sigma: 11 },
-  shoals_deep: { grace: 6, sigma: 11 },
+  shoals_tunnels: { grace: 11, sigma: 22 },
+  shoals_deep: { grace: 11, sigma: 22 },
   meridian_spine: { grace: 6, sigma: 10 },
 };
 

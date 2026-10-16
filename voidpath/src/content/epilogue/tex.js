@@ -45,16 +45,17 @@ function ice(t, seed, deep) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 32, 2, seed, 4);
     const m = tn(x, y, 32, 32, 6, seed + 3, 2);
-    const v = (deep ? 4.4 : 5.2) + (n - 0.5) * 1.8 + (m - 0.5) * 0.5;
+    const v = (deep ? 4.6 : 5.2) + (n - 0.5) * 1.0 + (m - 0.5) * 0.3;
     t.px(x, y, dpick(ICE, v, x, y), 0.52 + (n - 0.5) * 0.06);
   }
   // fractures: thin dark lines where a warped noise crosses its middle, each with a lit lip below
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const w = tn(x, y, 32, 32, 2, seed + 9, 2);
     const f = Math.abs(tn(x + w * 10, y - w * 7, 32, 32, deep ? 3 : 2, seed + 11, 2) - 0.5);
-    if (f < 0.018) {
-      t.px(x, y, ICE[deep ? 1 : 2], 0.42);
-      t.px(x, y + 1, ICE[7], 0.56);
+    // kept close in value to the ice round them: at 32 px a dark crack stamps across a whole shore
+    if (f < 0.014) {
+      t.px(x, y, ICE[deep ? 3 : 4], 0.44);
+      t.px(x, y + 1, ICE[6], 0.54);
     }
   }
   // bubbles caught in the ice
@@ -80,10 +81,11 @@ function glare(t, seed) {
 function snow(t, seed, rough) {
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 32, 2, seed, 4);
-    const ridge = Math.sin(((x + y * 0.35) / 32) * Math.PI * 2 * (rough ? 3 : 2) + n * 5.5);
-    const v = 6.0 + ridge * (rough ? 0.9 : 0.6) + (n - 0.5) * 1.0;
+    // soft, noise-bent ridges: strong regular stripes turn every cell into a visible square
+    const ridge = Math.sin(((x + y * 0.35) / 32) * Math.PI * 2 * (rough ? 3 : 2) + n * 8.5);
+    const v = 6.2 + ridge * (rough ? 0.45 : 0.3) + (n - 0.5) * 1.1;
     let c = dpick(SNOW, v, x, y);
-    if (ridge > 0.82 && n > 0.45) c = DAWN[5];
+    if (ridge > 0.9 && n > 0.58) c = DAWN[5];
     t.px(x, y, c, 0.5 + ridge * 0.05);
   }
   for (let i = 0; i < 7; i++) {

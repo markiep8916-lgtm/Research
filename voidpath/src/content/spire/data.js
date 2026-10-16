@@ -242,6 +242,9 @@ const bossScripts = {
 // ---------------------------------------------------------------- encounters and zones
 
 const enc = (id, list, extra = {}) => ({ id, enemies: list, backdrop: 'spire', boss: false, canFlee: true, music: 'battle_2', ...extra });
+// A random fight with a riot drone never shows the jam tip: only the scripted lesson (spire_riot)
+// teaches it, so the tip waits for it even if a drone is met first (G3-16).
+const noJamTip = () => ({ tips: [{ on: 'status:jam', lines: [] }] });
 
 const encounters = {
   // scripted lessons (one new mechanic each, G2 rule 6)
@@ -258,16 +261,20 @@ const encounters = {
       lines: [{ speaker: 'KADE', text: 'Mk-III. It locked on to one of us. *Defend*, or Break it before it fires.' }],
     }],
   }),
-  // Checkpoint, Barracks, Armory, the cell block
-  spire_cp_pair: enc('spire_cp_pair', ['sec_trooper', 'riot_drone']),
+  // the Checkpoint (before the riot drone's lesson, so no drones: G3-16)
+  spire_cp_duo: enc('spire_cp_duo', ['sec_trooper', 'sec_trooper']),
+  spire_cp_guard: enc('spire_cp_guard', ['sec_trooper', 'laser_turret']),
+  spire_cp_trio: enc('spire_cp_trio', ['sec_trooper', 'sec_trooper', 'sec_trooper']),
+  // Barracks, Armory, the cell block
+  spire_cp_pair: enc('spire_cp_pair', ['sec_trooper', 'riot_drone'], noJamTip()),
   spire_cp_turret: enc('spire_cp_turret', ['sec_trooper', 'laser_turret', 'sec_trooper']),
-  spire_cp_riot: enc('spire_cp_riot', ['riot_drone', 'riot_drone']),
-  spire_cp_squad: enc('spire_cp_squad', ['sec_trooper', 'sec_trooper', 'riot_drone']),
+  spire_cp_riot: enc('spire_cp_riot', ['riot_drone', 'riot_drone'], noJamTip()),
+  spire_cp_squad: enc('spire_cp_squad', ['sec_trooper', 'sec_trooper', 'riot_drone'], noJamTip()),
   // Officers' Deck, Training Hall, Firing Range
   spire_up_mk3: enc('spire_up_mk3', ['sec_trooper', 'sentinel_mk3']),
-  spire_up_turret: enc('spire_up_turret', ['laser_turret', 'riot_drone']),
+  spire_up_turret: enc('spire_up_turret', ['laser_turret', 'riot_drone'], noJamTip()),
   spire_up_lock: enc('spire_up_lock', ['sentinel_mk3', 'laser_turret']),
-  spire_up_squad: enc('spire_up_squad', ['sec_trooper', 'riot_drone', 'sec_trooper']),
+  spire_up_squad: enc('spire_up_squad', ['sec_trooper', 'riot_drone', 'sec_trooper'], noJamTip()),
   spire_honour: enc('spire_honour', ['honour_guard', 'honour_guard', 'honour_guard']),
 
   // the boss
@@ -289,6 +296,9 @@ const encounters = {
 };
 
 const zones = {
+  // the Checkpoint is walked before the riot drone's scripted lesson: no drones there, so the jam is
+  // first met (and its tip first shown) in spire_riot (G3-16)
+  spire_checkpoint: ['spire_cp_duo', 'spire_cp_guard', 'spire_cp_turret', 'spire_cp_trio', 'spire_cp_guard'],
   spire_barracks: ['spire_cp_pair', 'spire_cp_turret', 'spire_cp_riot', 'spire_cp_squad', 'spire_cp_pair', 'spire_cp_squad'],
   spire_upper: [
     'spire_up_mk3', 'spire_up_turret', 'spire_up_lock', 'spire_up_squad',
@@ -319,9 +329,11 @@ const shops = {
 };
 
 // From the critical path with the chests on the way (tests/routes/spire.mjs legs, expected-fights): 175
-// units in the lower decks and 139 on Deck 5 give 4.5 random fights, so with the troopers, the riot
-// drone, the Mk-III and Voss chapter 3 has 8-9 fights (11.7: 8-10).
+// units in the lower decks (the Checkpoint and the Barracks zones) and 139 on Deck 5 give about 4.5
+// random fights, so with the troopers, the riot drone, the Mk-III and Voss chapter 3 has 8-9 fights
+// (11.7: 8-10).
 const zoneRates = {
+  spire_checkpoint: { grace: 15, sigma: 28 },
   spire_barracks: { grace: 15, sigma: 28 },
   spire_upper: { grace: 15, sigma: 28 },
 };

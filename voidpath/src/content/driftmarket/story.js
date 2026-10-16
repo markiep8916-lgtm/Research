@@ -319,9 +319,10 @@ const scripts = {
       await cs.say('MARTA', 'The Meridian\'s plate. First ship on my wall, and the last one up. Took 80 years.');
       return;
     }
+    // the dockmaster's wall of berth plates (Juno keeps the tape joke, G3-17); the plate favour fills it
     await cs.say([
-      { speaker: 'MARTA', text: 'Your robot patched the Moth\'s hull with *tape*.' },
-      { speaker: 'MARTA', text: 'It\'s holding. I don\'t like that it\'s holding.' },
+      { speaker: 'MARTA', text: 'See that wall? A plate for every ship that ever docked here. It\'s empty.' },
+      { speaker: 'MARTA', text: 'Eighty years. Nobody comes in from outside. Then you lot.' },
     ]);
   },
 
@@ -388,7 +389,8 @@ const scripts = {
   'driftmarket.harl': async (cs) => {
     cs.face('harl', 'leader');
     if (!cs.test('dm:harl_treated')) {
-      await cs.say({ speaker: 'HARL', text: 'Ship-people. Back in your can.' });
+      // he said his line at the arrival; now he only glares (G3-17)
+      await cs.say({ speaker: 'HARL', text: 'Still here. Fine. Don\'t touch anything.' });
       await cs.narrate('He keeps his left hand tucked under his arm. The glove is scorched through.');
     } else if (cs.test('leader:sera')) {
       await cs.say('HARL', 'Doc. Hand\'s fine. Don\'t tell anyone.');

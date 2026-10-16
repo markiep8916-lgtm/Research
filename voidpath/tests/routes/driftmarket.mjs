@@ -49,6 +49,22 @@ export default {
         // settle on the Halcyon before walking: the flight's cockpit map can still answer the first snapshot
         await d.pump('window.__PACE.snap().map === "halcyon"', { minVt: 1.5 });
         d.milestone('halcyon');
+        // G3-01: the flight home lands the leader on the Halcyon's berth, and the autosave and the
+        // checkpoint keep a spot the leader can stand on (they kept the void above the map before)
+        const at = await d.eval(() => {
+          const { game, state } = window.__VP.ctx;
+          const ex = game.states.explore;
+          let auto = null;
+          try { auto = JSON.parse(localStorage.getItem('voidpath.save.auto') || 'null'); } catch (e) { auto = null; }
+          const ok = (q) => !!q && q.map === ex.mapId && ex.world.walkable(q.x, q.z);
+          const pos = auto && auto.pos;
+          return {
+            x: ex.player.x, z: ex.player.z, here: ex.world.walkable(ex.player.x, ex.player.z),
+            cp: state.checkpoint, cpOk: ok(state.checkpoint), auto: pos || null, autoOk: !pos || ok(pos),
+          };
+        });
+        d.note(`flight home: leader at halcyon (${at.x.toFixed(2)}, ${at.z.toFixed(2)}) walkable ${at.here}; checkpoint ${JSON.stringify(at.cp)} ok ${at.cpOk}; autosave pos ${JSON.stringify(at.auto)} ok ${at.autoOk}`);
+        if (!at.here || !at.cpOk || !at.autoOk) throw new Error('the flight home left the leader or a save off the walkable map (G3-01)');
       },
     },
     // the coil in the Halcyon's reactor: WARDEN's first words, the CHAPTER TWO card

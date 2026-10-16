@@ -3,14 +3,14 @@
 // Kade's dream, the south pylon and the chord across the shaft, the Dawnspear, the Choir's Wardens and
 // the lift; the Second Tier (WARDEN, Nyx's dream, the north chord and the Choir, the Choir Mantle, the
 // south pylon, a rest and a Party Talk, the far span to the first Choirlit Echoes, the lift); the Third
-// Tier (WARDEN, Orion's dream, the south pylon, the second Echoes, the far pylon, the processional and
+// Tier (WARDEN, Orion's dream, the south pylon, a rest, the second Echoes, the far pylon, the processional and
 // Sera's dream); the Sanctum's rest, the crown lift and the Crown (C8's dreams.crown with C11's
 // WARDEN, then the EPILOGUE card).
 // Chain: (vault.mjs) -> finale -> fin.tier2 -> fin.tier3 -> fin.crown -> (the epilogue's route).
 
 /** Rides a same-map lift and waits until the leader stands near (x, z). */
 async function ride(d, id, [x, z]) {
-  const near = `(() => { const p = window.__VP.debug.state(); return p.map === 'heart' && Math.hypot(p.x - ${x}, p.z - ${z}) < 3; })()`;
+  const near = `(() => { const s = window.__VP.debug.state(), p = s.explore; return s.map === 'heart' && !!p && Math.hypot(p.x - ${x}, p.z - ${z}) < 3; })()`;
   for (let k = 0; ; k++) {
     await d.use(id);
     try {
@@ -78,8 +78,8 @@ export default {
         await ride(d, 'lift_t2', [67.9, 5.1]);
       },
     },
-    // the Third Tier: WARDEN, Orion's dream, the south pylon, the second Echoes, the far pylon, the
-    // processional
+    // the Third Tier: WARDEN, Orion's dream, the south pylon, a rest, the second Echoes, the far pylon,
+    // the processional
     'fin.tier3': {
       level: 30,
       next: 'fin.crown',
@@ -93,6 +93,7 @@ export default {
         await d.use('t3_north', { optional: true });
         await d.use('pylon_t3a');
         await d.pump(d.F('sw:heart:t3a'));
+        await d.med('med_t3');
         await d.fightBoss({ at: [47.6, 17.6], script: 'heart.echoes_t3', done: d.F('heart:echoes_t3_down') });
         d.milestone('echoes t3');
         await d.use('pylon_t3b');
@@ -111,7 +112,7 @@ export default {
         await d.med('med_sanctum');
         await d.shot('c07-sanctum', { hi: true });
         d.choose('Ride to the crown.');
-        await d.use('crown_lift', { after: '(() => window.__VP.debug.state().map === "heart" && window.__VP.debug.state().z > 19)()' });
+        await d.use('crown_lift', { after: '(() => { const s = window.__VP.debug.state(); return s.map === "heart" && !!s.explore && s.explore.z > 19; })()' });
         d.milestone('crown');
         await d.shot('c07-crown', { hi: true });
         await d.fightBoss({ at: [13.0, 17.0], script: 'dreams.crown', done: d.F('story:finale_done') });
@@ -151,10 +152,14 @@ export default {
       points: [[44.4, 41.0], [46.4, 36.0], [49.0, 32.9], [47.4, 31.0], { fight: 'heart_elite_rings' }, [44.4, 27.0]],
     },
     {
-      chapter: 'finale', label: 'Heart: the Third Tier -> the south pylon -> the Echoes -> the far pylon -> the processional -> the Sanctum',
+      chapter: 'finale', label: 'Heart: the Third Tier -> the south pylon -> the rest',
+      map: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'],
+      points: [[67.9, 5.1], [65.7, 6.8], [66.6, 11.6], [66.6, 14.8], [64.0, 20.0], [59.2, 22.2], [52.0, 22.0], [48.6, 20.0]],
+    },
+    {
+      chapter: 'finale', label: 'Heart: the rest -> the Echoes -> the far pylon -> the processional -> the Sanctum',
       map: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2', 'sw:heart:t3a', 'sw:heart:t3b'],
-      points: [[67.9, 5.1], [65.7, 6.8], [66.6, 11.6], [66.6, 14.8], [64.0, 20.0], [59.2, 22.2], [52.0, 22.0], [48.4, 18.4],
-        { fight: 'heart_elite_spire' }, [46.2, 13.0], [47.0, 8.4], [50.9, 5.2], [47.0, 8.4], [46.2, 13.0], [40.5, 13.0], [33.5, 13.5],
+      points: [[48.6, 20.0], [48.4, 18.4], { fight: 'heart_elite_spire' }, [46.2, 13.0], [47.0, 8.4], [50.9, 5.2], [47.0, 8.4], [46.2, 13.0], [40.5, 13.0], [33.5, 13.5],
         [31.8, 12.6]],
     },
     {

@@ -43,14 +43,36 @@ function inParty(cs, slots) {
 const leaderOf = (cs) => MEMBERS.find((m) => cs.test(`leader:${m}`)) || 'kade';
 
 /** One cut of the epilogue: fade, the vignette's traveler leads, a staged goto, the shot, fade in. */
-async function cut(cs, { member, map, at, view, focus, zoom = 0.84, spawns = [], fade = 700 }) {
+async function cut(cs, { member, map, at, view, focus, zoom = 0.84, spawns = [], fade = 700, fx = MORNING_FX }) {
   await cs.fadeOut({ ms: fade });
+  cs.fx(fx);
   if (member) cs.scene({ leader: member });
   await cs.goto(map, at, { scene: true, transition: 'none' });
   for (const [id, def] of spawns) await cs.spawn(id, { ...def, fade: 0 });
+  temperGlow(cs, ['leader', ...spawns.map(([id]) => id)], 0.35);
   await cs.camera.view({ ...view, ms: 1 });
   await cs.camera.focus(focus, { zoom, ms: 1 });
   bg(cs.fadeIn({ ms: 800 }));
+}
+
+// the vignettes' grade: a quiet morning aboard, bloom held down so the pods, the memorial and Sera's
+// halo stay light and not glare; the shore hands back Ione's own
+const MORNING_FX = { bloom: { strength: 0.55, threshold: 0.88 }, grade: { exposure: 0.96 } };
+const SHORE_FX = { bloom: { strength: 0.95, threshold: 0.8 }, grade: { exposure: 1.0 } };
+// the Arboretum's own light is dim green: the glass gets a brighter morning
+const GLASS_FX = { bloom: { strength: 0.55, threshold: 0.88 }, grade: { exposure: 1.14 } };
+
+/**
+ * Sprites' emissive pixels (Sera's halo, Orion's cutter) bloom over faces in a close shot: scaled by
+ * `k` for the vignette; the actor gets its own value back on the shore (1).
+ */
+function temperGlow(cs, ids, k) {
+  for (const id of ids) {
+    const m = cs.actor(id)?.actor?.mesh?.material;
+    if (!m || !('emissiveIntensity' in m)) continue;
+    m.userData.baseEmissive ??= m.emissiveIntensity;
+    m.emissiveIntensity = m.userData.baseEmissive * k;
+  }
 }
 
 /**
@@ -80,6 +102,8 @@ const scripts = {
     cs.flag('story:revival_authorized');
     bg(cs.camera.pan([[5.4, 20.4], [8.6, 20.4]], { sec: 4 }));
     await cs.narrate('One by one, the pods change their minds.');
+    // high enough to look over pod 2271's sign in the Medical Bay below
+    bg(cs.camera.view({ pitch: 40, dist: 10, ms: 1800 }));
     bg(cs.camera.focus([3.8, 27.2], { zoom: 0.8, ms: 1800 }));
     await cs.move('leader', [[6.4, 27.6], [3.4, 28.3]], { speed: 2.2, face: 'up' });
     cs.anim('leader', 'kneel');
@@ -97,8 +121,8 @@ const scripts = {
     });
     cs.flag('epi:theo_pod');
     cs.sfx('wake', { volume: 0.7 });
-    cs.particles('frost', [3.6, 1.1, 30.9], { count: 36 });
-    cs.particles('steam', [3.6, 0.4, 31.0], { count: 14 });
+    cs.particles('frost', [3.6, 1.1, 30.9], { count: 12 });
+    cs.particles('steam', [3.6, 0.4, 31.0], { count: 6 });
     await cs.wait(1.0);
     await cs.spawn('ep_theo', { sprite: 'theo', x: 3.6, z: 30.9, facing: 'down', name: 'THEO', fade: 0.5 });
     await cs.move('ep_theo', [[3.6, 31.5]], { speed: 0.7, face: 'leader' });
@@ -116,7 +140,7 @@ const scripts = {
     // the Arboretum glass, the next morning: the two of them looking out, MOTHER-7 tending behind
     await cut(cs, {
       map: 'arboretum', at: { x: 12.8, z: 2.6, facing: 'up' },
-      view: { pitch: 26, dist: 12 }, focus: [14.6, 3.0], zoom: 0.84,
+      view: { pitch: 26, dist: 12 }, focus: [14.6, 3.0], zoom: 0.84, fx: GLASS_FX,
       spawns: [
         ['ep_theo_glass', { sprite: 'theo', x: 14.0, z: 2.5, facing: 'up', name: 'THEO' }],
         ['ep_mother7', { sprite: 'mother7', x: 17.6, z: 4.8, facing: 'left', name: 'MOTHER-7' }],
@@ -132,7 +156,8 @@ const scripts = {
     cs.music('driftmarket', { fade: 1.5 });
     await cut(cs, {
       member: 'nyx', map: 'driftmarket', at: { x: 31.2, z: 2.5, facing: 'up' },
-      view: { pitch: 14, dist: 12 }, focus: [30.8, 1.0], zoom: 1,
+      // in under the lantern strings (their posts stand at z 9.6), low on the glass and the ships
+      view: { pitch: 20, dist: 7.5 }, focus: [30.5, 1.4], zoom: 1,
       spawns: [['ep_ruse', { sprite: 'ruse', x: 29.8, z: 2.4, facing: 'up', name: 'RUSE' }]],
     });
     await cs.wait(2.0);
@@ -173,6 +198,8 @@ const scripts = {
     cs.flag('story:bolt_away', false);
     cs.scene({ leader: lead });
     cs.music('ione', { fade: 2.5 });
+    temperGlow(cs, ['leader'], 1);
+    cs.fx(SHORE_FX);
     await cs.goto('ione', 'shore', { transition: 'none' });
     // the post-game travelers and Theo wait off stage until this script ends (touched actors are the
     // script's): the four on the ice now are the party itself
@@ -180,6 +207,7 @@ const scripts = {
     await cs.gather(inParty(cs, { sera: SLOTS.sera, kade: SLOTS.kade, nyx: SLOTS.nyx, orion: SLOTS.orion }));
     await cs.move('bolt', [SLOTS.bolt], { speed: 3, face: 'up' });
     for (const id of MEMBERS) if (cs.test(`party:${id}`)) cs.face(id, 'up');
+    temperGlow(cs, ['leader', ...MEMBERS.filter((id) => cs.test(`party:${id}`))], 0.5);
     await cs.camera.view({ pitch: 12, dist: 14, ms: 1 });
     await cs.camera.focus([22.6, 4.6], { zoom: 1, ms: 1 });
     bg(cs.fadeIn({ ms: 1800 }));
@@ -328,8 +356,8 @@ export default {
         { t: 'ep.easel', x: 24.8, z: 12.9, rot: 0.35, when: 'chapter>=epilogue' },
       ],
       lights: [
-        { x: 3.4, y: 1.4, z: 27.9, color: '#9fe8ff', intensity: 6, distance: 4, when: 'chapter>=epilogue' },
-        { x: 3.6, y: 1.3, z: 31.0, color: '#bff4ff', intensity: 7, distance: 4, when: 'chapter>=epilogue & epi:theo_pod' },
+        { x: 3.4, y: 1.6, z: 28.6, color: '#9fe8ff', intensity: 3.5, distance: 4, when: 'chapter>=epilogue' },
+        { x: 3.6, y: 1.3, z: 31.4, color: '#bff4ff', intensity: 3.5, distance: 4, when: 'chapter>=epilogue & epi:theo_pod' },
         { x: 24.8, y: 1.6, z: 13.4, color: '#ffcf8a', intensity: 5, distance: 3.5, when: 'chapter>=epilogue' },
       ],
       interactables: [

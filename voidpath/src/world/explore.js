@@ -727,7 +727,14 @@ export class ExploreState {
    * deferred saves are the runner's), keeping field control paused until it ends.
    */
   _run(script, args = {}) {
-    const { cutscenes } = this.ctx;
+    const { cutscenes, game } = this.ctx;
+    // the script of a battle lost and retried, started again however (a trigger rect, a talk, a
+    // console): its pre-fight part plays instantly, as a field boss's does (G2 F-2, G3-08). Retry's own
+    // autoSkip only reaches the first script after the respawn; a Med-Station visit would spend it.
+    if (typeof script === 'string' && game?.retried?.script === script) {
+      game.retried = null;
+      cutscenes.autoSkip = script;
+    }
     this._busy = true;
     this._target = null;
     this.ctx.ui.hud.setPrompt(null);

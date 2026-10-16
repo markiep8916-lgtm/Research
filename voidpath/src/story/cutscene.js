@@ -18,6 +18,8 @@
 //   rethrow(err)              extra: how script errors surface after cleanup (default: thrown async)
 //   queue(kind) -> bool       extra: 'checkpoint' | 'save' queued until the outermost script ends
 //                             (false when no script runs: the caller applies it now)
+//   leaveMap({ same })        extra: travel.arrive / cs.goto place the leader elsewhere: the stand-in is
+//                             dropped first; on a map change stepped-out members and exemptions are forgotten
 //   touched                   extra: Set of actor ids the running script touched (exempt from `when`, 3.8)
 //   choices                   extra: debug answers for the next cs.choice calls
 //   autoSkip                  extra: script id that runs in instant mode up to its first cs.battle (Retry)
@@ -193,6 +195,21 @@ export class CutsceneRunner {
     else this.ctx.ui.dialog.clear();
     this._explore()?.unlockAll();
     this.ctx.ui.menuEnabled = true;
+  }
+
+  /**
+   * The leader is about to be placed somewhere else under a running script (travel.arrive, cs.goto):
+   * the Player takes the stand-in's place first, so the stand-in cannot pull it back to where it
+   * stood (on a map change: the old map's coordinates, G3-01). On a map change the stepped-out
+   * members and the exemptions belong to the map being left and are forgotten.
+   */
+  leaveMap({ same = false } = {}) {
+    const s = this._session;
+    if (!s) return;
+    this._dropProxy(s);
+    if (same) return;
+    s.gathered.clear();
+    this.touched.clear();
   }
 
   queue(kind) {
@@ -1056,9 +1073,7 @@ class Cs {
     return this._do(async () => {
       const r = this._r, s = this._s;
       // the stand-in, stepped-out members and exemptions belong to the map being left
-      r._dropProxy(s);
-      s.gathered.clear();
-      r.touched.clear();
+      r.leaveMap();
       await travel.arrive(mapId, spawn, { transition, scene, kind: 'goto', ...(r._quick(s) ? { duration: 0.3 } : {}) });
       if (s.screens) r._world()?.setScreens(s.screens[0], s.screens[1]);
     });

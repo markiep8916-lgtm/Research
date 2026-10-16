@@ -4,6 +4,9 @@
 //   shoals.enter            Shoals load trigger: the singing ice
 //   shoals.eels             field encounter `eels` at the east end of the Shoals Mouth: the void eels
 //                           (teaches the dive before the Maw, G2)
+//   shoals.mites            field encounter `mites` at the foot of the descent (G3-02)
+//   shoals.golem            field encounter `golem` at the first ice bridge of the Deep Ice (G3-02)
+//   shoals.bots             field encounter `bots` on the Meridian's spine, before the landing (G3-02)
 //   shoals.meridian_arrival Meridian load trigger (key): the broken spine, "Not all hands", two levers
 //   shoals.lever            each emergency lever (switch script); the first one gets Orion's line and
 //                           the objective of the lever still to pull (ch1.power_eng / ch1.power_hold)
@@ -14,7 +17,8 @@
 // Field scripts: shoals.view, shoals.nyx_lockbox (Nyx), shoals.orion_terminal (Orion), shoals.ribbons,
 // shoals.quarters_door, shoals.reactor_door, shoals.long_gun, shoals.varo_log_after, shoals.colossus.
 // Objectives ch1.restore_power, ch1.power_eng, ch1.power_hold, ch1.varo_quarters, ch1.find_coil.
-// Local flags: shoals:lockbox, shoals:danjuma, shoals:ribbon_tied, shoals:eels.
+// Local flags: shoals:lockbox, shoals:danjuma, shoals:ribbon_tied, shoals:eels, shoals:mites, shoals:golem,
+// shoals:bots.
 //
 // Staging runs under the lines (WRITING 1.8): walks, pans and fades start without `await` (bg) unless
 // the next line needs them, and scenes end without walking the party back (the runner fades the
@@ -65,6 +69,36 @@ const scripts = {
     await cs.say('NYX', 'Void eels. They go under, then come up biting.', { expr: 'determined' });
     await cs.battle('shoals_eels');
     cs.flag('shoals:eels');
+  },
+
+  // G3-02: the visible mite nest and rime golem (one box each, then the fight)
+  'shoals.mites': async (cs) => {
+    cs.anim('mites', 'special');
+    cs.particles('frost', [36.8, 0.4, 13.6], { count: 24 });
+    bg(cs.gather(beside(cs, { nyx: [-0.9, 0.5] })));
+    await cs.say('NYX', 'Ice mites. One\'s nothing. A nest is a bad afternoon.', { expr: 'determined' });
+    await cs.battle('shoals_eel_trio');
+    cs.flag('shoals:mites');
+  },
+
+  'shoals.golem': async (cs) => {
+    cs.anim('golem', 'special');
+    cs.sfx('rumble', { pitch: 0.8 });
+    cs.shake(0.08, 0.5);
+    cs.particles('frost', [19.0, 1.2, 38.6], { count: 30 });
+    await cs.narrate('Rime slides off a cargo frame. It stands up, and up.');
+    await cs.battle('shoals_golem');
+    cs.flag('shoals:golem');
+  },
+
+  'shoals.bots': async (cs) => {
+    cs.anim('bots', 'special');
+    cs.sfx('spark', { pitch: 0.8 });
+    cs.particles('spark', [37.0, 0.8, 14.6], { count: 16 });
+    bg(cs.gather(beside(cs, { kade: [-0.9, 0.5] })));
+    await cs.say('KADE', 'Two salvage bots and a mite. Same target. They weld themselves back.', { expr: 'determined' });
+    await cs.battle('meridian_salvage');
+    cs.flag('shoals:bots');
   },
 
   'shoals.view': async (cs) => {
@@ -291,10 +325,13 @@ export default {
   scenes: [
     { id: 'shoals.enter', chapter: 'ch1', order: 30, budget: { boxes: 2, sec: 15 }, jump: 'ch1.shoals' },
     { id: 'shoals.eels', chapter: 'ch1', order: 35, budget: { boxes: 1, sec: 10 }, jump: 'ch1.shoals', at: 'shoals:mouth' },
+    { id: 'shoals.mites', chapter: 'ch1', order: 36, budget: { boxes: 1, sec: 10 }, jump: 'ch1.shoals' },
+    { id: 'shoals.golem', chapter: 'ch1', order: 37, budget: { boxes: 1, sec: 10 }, jump: 'ch1.shoals' },
     // jump / at: where the contact sheet stands before it runs a key scene staged in the Meridian
     { id: 'shoals.meridian_arrival', chapter: 'ch1', order: 40, key: true, budget: { boxes: 7, sec: 60 }, jump: 'ch1.wreck', at: 'meridian:from_shoals' },
     { id: 'shoals.power_restored', chapter: 'ch1', order: 50, budget: { boxes: 2, sec: 15 }, jump: 'ch1.wreck', at: 'meridian:entry' },
     { id: 'shoals.varo_log', chapter: 'ch1', order: 60, key: true, budget: { boxes: 12, sec: 150 }, jump: 'ch1.maw', at: 'meridian:log' },
+    { id: 'shoals.bots', chapter: 'ch1', order: 65, budget: { boxes: 1, sec: 10 }, jump: 'ch1.maw' },
     { id: 'shoals.maw', chapter: 'ch1', order: 70, key: true, budget: { boxes: 16, sec: 120 }, jump: 'ch1.maw', at: 'meridian:reactor_hall' },
   ],
   objectives: {
@@ -330,7 +367,7 @@ export default {
     },
     'ch1.wreck': {
       chapter: 'ch1', map: 'meridian', spawn: 'from_shoals', level: 10,
-      flags: ['story:ruse_met', 'story:maw_lore', 'dm:legend_heard', 'seen:shoals:enter', 'chest:shoals:grotto'],
+      flags: ['story:ruse_met', 'story:maw_lore', 'dm:legend_heard', 'seen:shoals:enter', 'chest:shoals:grotto', 'shoals:eels', 'shoals:mites', 'shoals:golem'],
       items: { eq_x_frost_charm: 1 }, objective: 'ch1.reach_wreck',
     },
     'ch1.maw': {
@@ -338,7 +375,7 @@ export default {
       flags: [
         'story:ruse_met', 'story:maw_lore', 'dm:legend_heard', 'seen:shoals:enter', 'seen:meridian:arrival',
         'sw:meridian:lever_a', 'sw:meridian:lever_b', 'story:meridian_power', 'seen:meridian:power', 'story:varo_log',
-        'chest:shoals:grotto', 'chest:meridian:long_gun',
+        'chest:shoals:grotto', 'chest:meridian:long_gun', 'shoals:eels', 'shoals:mites', 'shoals:golem', 'shoals:bots',
       ],
       items: { eq_x_frost_charm: 1, eq_w_nyx_3: 1 }, objective: 'ch1.find_coil',
     },
@@ -347,7 +384,7 @@ export default {
     ch1: [
       'seen:shoals:enter', 'seen:meridian:arrival', 'seen:meridian:power', 'sw:meridian:lever_a', 'sw:meridian:lever_b',
       'chest:shoals:grotto', 'chest:meridian:long_gun', 'tut:untargetable', 'tut:maw_dive', 'tut:ultimateReady', 'shoals:eels',
-      'visited:shoals', 'visited:meridian',
+      'shoals:mites', 'shoals:golem', 'shoals:bots', 'visited:shoals', 'visited:meridian',
     ],
   },
   preload: { meridian: ['npc:varo'] },

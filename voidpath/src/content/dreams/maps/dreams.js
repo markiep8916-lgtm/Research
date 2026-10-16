@@ -152,6 +152,13 @@ const orionProps = [
   { t: 'dr.dais', x: O + 8.5, z: 4.4, r: 1.5, glass: true },
   { t: 'dr.halo', x: O + 8.5, z: 4.4, r: 1.62, y: 0.1, glow: false },
   { t: 'floorPlane', x: O + 8.5, z: 8.4, w: 1.6, d: 6.0, tex: 'dr_runner_pearl', emissive: 1.4 },
+  // the crew's stations in two perfect files, every seat squared to the glass and every seat empty
+  // (pearl seats from the walls' own textures: the map stays inside its texture budget)
+  ...[6.4, 9.0].flatMap((z) => [4.2, 12.8].flatMap((x) => [
+    { t: 'console', x: O + x, z },
+    { t: 'box', x: O + x, z: z + 0.95, w: 0.62, d: 0.56, h: 0.42, emissive: 1.2, tex: { front: 'dr_pearl_low', side: 'dr_pearl_low', top: 'dr_pearl_cap' } },
+    { t: 'box', x: O + x, z: z + 1.2, w: 0.62, d: 0.1, h: 0.5, y: 0.42, emissive: 1.2, solid: false, tex: { front: 'dr_pearl_low', side: 'dr_pearl_low', top: 'dr_pearl_cap' } },
+  ])),
 ];
 const orionLights = [
   // her dais lit from both front corners, high, so neither she nor the traveler before her burns out

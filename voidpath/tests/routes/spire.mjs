@@ -2,7 +2,7 @@
 // Security Spire, the Checkpoint, the Barracks and the first grid, the swap and Kade's override, the
 // cadets, the Mk-III on the Officers' Deck, Kade's quarters and the Oathkeeper, the oath recording in
 // the Training Hall, COMMANDER VOSS and the CHAPTER FOUR card.
-// Chain: ch3 -> ch3.cells -> ch3.upper -> ch3.voss.
+// Chain: (arboretum.mjs) -> ch3 -> ch3.cells -> ch3.upper -> ch3.voss -> ch4.vault (vault.mjs).
 
 // The walker finds its own way round barricades, bunks and the Training Hall's walls (the shortest
 // walkable path, as expected-fights joins the legs), so the route names only the places a player
@@ -73,8 +73,9 @@ export default {
           await d.pump();
         }
         await d.journal('journal-ch3-swap');
+        // the override panel: use() presses again when a Confirm is not taken
         await d.use('grid_t3');
-        await d.pump(d.F('sw:spire:override'));
+        await d.pump(d.F('sw:spire:override'), { maxVt: 120 });
         await d.journal('journal-ch3-override');
         await d.go(50, 39);
         await d.shot('c03-cells', { hi: true });
@@ -113,7 +114,7 @@ export default {
     // COMMANDER VOSS (Retry after a loss), her upload, the CHAPTER FOUR card
     'ch3.voss': {
       level: 22,
-      next: 'ch4',
+      next: 'ch4.vault',
       async run(d) {
         await d.med('med_lobby');
         await d.shot('c05-command', { hi: true });

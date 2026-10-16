@@ -12,7 +12,10 @@
     "scenarios": "node tools/scenarios.mjs",
     "scriptcheck": "node tools/scriptcheck.mjs",
     "balance": "node tests/campaign.mjs",
-    "contact": "node tools/contact-sheet.mjs"
+    "contact": "node tools/contact-sheet.mjs",
+    "pace": "node tools/human-pace.mjs",
+    "pace:report": "node tools/human-pace-report.mjs",
+    "fights": "node tools/expected-fights.mjs"
   },
   "devDependencies": {
     "esbuild": "0.24.0",

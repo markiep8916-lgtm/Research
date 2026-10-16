@@ -378,11 +378,19 @@ function pearlLow(t, seed) {
 
 /** Dark polished glass for HALCYON's dais: deep teal-black, a soft sky reflection, a cyan seam ring. */
 function glassTop(t, seed) {
-  const DEEP = ['#04090c', '#071016', '#0b1820', '#10222c', '#183240', '#244658'];
+  // deep sea-glass, not black: it must read as a lit surface under her, never as a hole (G2 rule 20)
+  const DEEP = ['#10303e', '#16404f', '#1c5062', '#246276', '#2e768a', '#3c8c9e', '#56a6b4'];
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
     const n = tn(x, y, 32, 32, 2, seed, 3);
-    const sheen = Math.max(0, 1 - Math.abs(x + y - 30) / 7) * 1.4;
-    t.px(x, y, dpick(DEEP, 1.4 + (n - 0.5) * 0.8 + sheen, x, y), 0.5);
+    const sheen = Math.max(0, 1 - Math.abs(x + y - 30) / 7) * 2.2;
+    t.px(x, y, dpick(DEEP, 2.0 + (n - 0.5) * 1.2 + sheen, x, y), 0.5);
+  }
+  // the bridge's calm stars, reflected
+  let r = seed;
+  for (let i = 0; i < 9; i++) {
+    r = (r * 1103515245 + 12345) & 0x7fffffff;
+    const x = r % 32, y = (r >> 8) % 32;
+    t.glow(x, y, i % 3 ? '#cfefff' : '#ffe8b0', i % 3 ? '#4a7686' : '#806a40');
   }
   for (let i = 0; i < 32; i++) {
     t.glow(i, 0, MINT[2], MINT[0]).glow(0, i, MINT[2], MINT[0]);

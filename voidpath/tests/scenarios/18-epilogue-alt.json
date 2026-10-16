@@ -15,7 +15,7 @@
   {"eval":"window.INTO = (id) => { const w = WLD(); const t = w.map.triggers.find((x) => x.id === id); const [x0, z0, x1, z1] = t.rect; const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2; const out = []; for (const [dx, dz, key, face] of [[-1, 0, 'ArrowRight', 'right'], [1, 0, 'ArrowLeft', 'left'], [0, -1, 'ArrowDown', 'down'], [0, 1, 'ArrowUp', 'up']]) { for (let d = 0.7; d < 4.5; d += 0.4) { const x = dx < 0 ? x0 - d : dx > 0 ? x1 + d : cx, z = dz < 0 ? z0 - d : dz > 0 ? z1 + d : cz; let ok = true; for (let k = 0; k <= 12; k++) if (!w.walkable(x + (cx - x) * k / 12, z + (cz - z) * k / 12)) { ok = false; break; } if (ok) { out.push({ x, z, key, face, d }); break; } } } const c = out.sort((a, b) => a.d - b.d)[0]; __VP.debug.teleport(c.x, c.z, c.face); window.KEY = c.key; return c; }"},
   {"eval":"window.BY = (id, dz = 1.0) => { const i = __VP.debug.mapInfo().interactables.find((x) => x.id === id); return __VP.debug.teleport(i.x, i.z + dz, 'up'); }"},
   {"eval":"window.LIGHTS = () => { for (const i of WLD().map.interactables) if (i.kind === 'switch' && i.flag) __VP.debug.flags({ [i.flag]: true }); return true; }"},
-  {"eval":"window.ERRS = []; (() => { const e = console.error.bind(console); console.error = (...a) => { window.ERRS.push(String(a[0]).slice(0, 160)); e(...a); }; })()"},
+  {"eval":"(window.ERRS = [], (() => { const e = console.error.bind(console); console.error = (...a) => { window.ERRS.push(String(a[0]).slice(0, 160)); e(...a); }; })(), true)"},
   {"eval":"__VP.debug.jumpTo('finale').then((st) => { window.J = st; })"},
   {"waitFor":"window.J && S().map === 'halcyon' && !S().transitioning","timeout":3600000},
   {"eval":"__VP.debug.encounters(false)"},

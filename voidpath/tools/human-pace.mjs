@@ -17,6 +17,17 @@
 //   --page <file>    built page (default dist/index.html)
 //   --strict         exit 1 on any page error or console error
 //   --list           print the route segments and exit
+//   --render-every <n>  thin render: draw every n-th frame only (default VP_RENDER_EVERY or 1). Game
+//                    logic and the virtual clock still step every frame; transitions and shots draw
+//                    in full. About n times cheaper on SwiftShader; the numbers do not change.
+//   --idle <s>       abort when the field stays free and the awaited condition false this long (120)
+//   --stall-wall <m> abort when the page's clock has not moved for m wall minutes (VP_STALL_WALL, 20)
+//
+// Robustness: use() checks that its Confirm started that interaction (a nearby prompt can take it) and
+// presses again; the Starchart, shop and pause menu are waited for with retries; a panel left open,
+// a blocked state that no longer changes, a field with nothing to wait for, or a page whose clock
+// stopped end the run with a clear error (in the notes, the log and report.json) instead of a silent
+// stall; a goal cell that is blocked (a field boss, a prop) is approached from the nearest open point.
 //
 // How it stays "human" on SwiftShader (a few frames per second):
 // - Virtual time: an init script feeds requestAnimationFrame a clock that advances exactly 100 ms
@@ -73,6 +84,9 @@ const SIZE = opt('--size', '512x288').split('x').map(Number);
 const CMD = Number(opt('--cmd', 2.2));
 const PAGE = opt('--page', path.join(ROOT, 'dist/index.html'));
 const STRICT = has('--strict');
+const RENDER_EVERY = Math.max(1, Math.floor(Number(opt('--render-every', process.env.VP_RENDER_EVERY || 1)) || 1));
+const IDLE_VT = Number(opt('--idle', 120));
+const STALL_WALL_MS = Number(opt('--stall-wall', process.env.VP_STALL_WALL || 20)) * 60000;
 
 const routes = await loadRoutes();
 if (has('--list')) {
@@ -96,6 +110,25 @@ const VTIME = `(() => {
   window.__vt = () => (vnow == null ? 0 : vnow / 1000);
 })();`;
 
+// Thin render: the engine draws every n-th frame (the game still updates every frame); transitions
+// and frames a shot asks for (window.__fullRender) always draw.
+const THIN = `(() => {
+  const N = ${RENDER_EVERY};
+  if (N <= 1) return;
+  const iv = setInterval(() => {
+    const e = window.__VP && window.__VP.ctx && window.__VP.ctx.engine;
+    if (!e || e.__thin) return;
+    const render = e.render.bind(e);
+    let k = 0;
+    e.render = (...a) => {
+      if (window.__fullRender > 0) { window.__fullRender--; return render(...a); }
+      if (e._tr || k++ % N === 0) return render(...a);
+    };
+    e.__thin = true;
+    clearInterval(iv);
+  }, 100);
+})();`;
+
 const wall0 = Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const notes = [];      // the driver's notes (stuck, fallbacks, anomalies)
@@ -106,6 +139,7 @@ const browser = await launchBrowser();
 const context = await newContext(browser, { size: SIZE });
 const page = await context.newPage();
 await page.addInitScript(VTIME);
+await page.addInitScript(THIN);
 page.on('console', (m) => {
   const t = m.type();
   if ((t === 'error' || t === 'warning') && !/fonts|ERR_FAILED/.test(m.text())) { consoleErr.push({ type: t, text: m.text() }); console.log(`[console.${t}] ${m.text()}`); }
@@ -136,7 +170,10 @@ async function press(key) { await releaseAll(); await page.keyboard.press(key, {
 
 async function shot(name, { hi = false } = {}) {
   try {
-    if (hi) { await page.setViewportSize({ width: 1280, height: 720 }); await vwait(0.35); }
+    // a thin-rendered page draws the next frames in full, so the shot holds a current frame
+    await page.evaluate(() => { window.__fullRender = 8; });
+    if (hi) { await page.setViewportSize({ width: 1280, height: 720 }); await vwait(0.35); } else await vwait(0.3);
+    await page.evaluate(() => { window.__fullRender = 4; });
     await page.screenshot({ path: path.join(OUT, 'shots', `${name}.png`), timeout: 300000 });
     if (hi) { await page.setViewportSize({ width: SIZE[0], height: SIZE[1] }); await vwait(0.2); }
     say('shot', name);
@@ -228,15 +265,76 @@ async function handle(s) {
   return !s.free;
 }
 
+/** Ends the run with a clear error: in the notes (report.json, summary) and on the console. */
+function abort(msg, s) {
+  const where = s ? ` [${s.map} (${s.x}, ${s.z}) vt ${Number(s.vt).toFixed(0)} cs ${s.cs} prompt ${s.prompt} target ${s.target}]` : '';
+  notes.push(`ABORT: ${msg}${where}`);
+  say('ABORT:', msg + where);
+  throw new Error(msg);
+}
+
+const PANELS = ['menu', 'shop', 'star', 'saves'];
+
+/**
+ * Stall guard for the driver loops (G3-25). check(s) aborts, after retries, when the page clock stops
+ * moving (wall time), a panel nobody drives stays open (Escape is tried first), a blocked state stops
+ * changing (Enter and ArrowUp are tried first), or the field stays free with nothing awaited (`idle`).
+ */
+function watchdog(label, { idle = IDLE_VT } = {}) {
+  let clock = null, panel = null, same = null, free = null, presses = 0;
+  return async (s) => {
+    const wall = Date.now();
+    if (!clock || s.vt !== clock.vt) clock = { vt: s.vt, wall };
+    else if (wall - clock.wall > STALL_WALL_MS) abort(`${label}: the page clock has not moved for ${((wall - clock.wall) / 60000).toFixed(0)} wall minutes`, s);
+    const open = PANELS.find((k) => s[k]);
+    if (!open) panel = null;
+    else if (!panel || panel.k !== open) panel = { k: open, vt: s.vt, tries: 0 };
+    else if (s.vt - panel.vt > 20) {
+      if (panel.tries >= 3) abort(`${label}: the ${open} panel stays open and nothing drives it`, s);
+      panel.tries++;
+      panel.vt = s.vt;
+      notes.push(`${label}: the ${open} panel was left open; Escape (try ${panel.tries})`);
+      await press('Escape');
+    }
+    const sig = JSON.stringify([s.state, s.map, s.x, s.z, s.cs, s.dlg, s.say, s.results, s.screen, s.card, s.equip, s.title,
+      s.battleRound, s.trans, s.party, s.free, open]);
+    if (!same || same.sig !== sig) same = { sig, vt: s.vt };
+    else if (!s.free && s.vt - same.vt > 240 + 60 * presses) {
+      if (presses >= 3) abort(`${label}: blocked and unchanged for ${(s.vt - same.vt).toFixed(0)} s (dialog ${JSON.stringify(s.dlg)}, say ${JSON.stringify(s.say)}, screen ${s.screen})`, s);
+      presses++;
+      notes.push(`${label}: blocked and unchanged for ${(s.vt - same.vt).toFixed(0)} s; synthetic ${presses % 2 ? 'Enter' : 'ArrowUp + Enter'} (try ${presses})`);
+      if (presses % 2 === 0) await press('ArrowUp');
+      await press('Enter');
+    }
+    if (!(s.free && s.until === false && !s.moving)) free = null;
+    else if (!free) free = s.vt;
+    else if (idle && s.vt - free > idle) abort(`${label}: the field has been free for ${(s.vt - free).toFixed(0)} s and the awaited condition is still false`, s);
+  };
+}
+
 /** Wait (handling dialog, battles, ...) until the field is free and `until` holds (a page expression). */
-async function pump(until = null, { maxVt = 1800, minVt = 0 } = {}) {
+async function pump(until = null, { maxVt = 1800, minVt = 0, idle = IDLE_VT } = {}) {
   const t0 = await vt();
+  const guard = watchdog(`pump(${until})`, { idle });
   for (;;) {
     const s = await page.evaluate((u) => { const s = window.__PACE.snap(); s.until = u ? !!(new Function(`return (${u});`))() : true; return s; }, until);
     if (s.vt - t0 > maxVt) { notes.push(`pump timeout (${until}) at ${s.vt.toFixed(0)}: ${JSON.stringify(s).slice(0, 400)}`); throw new Error(`pump timeout: ${until}`); }
+    await guard(s);
     const blocked = await handle(s);
     if (!blocked && s.free && s.until && s.vt - t0 >= minVt) return s;
     await sleep(70);
+  }
+}
+
+/** Wait until `test(snapshot)` holds, handling dialog meanwhile; false after `sec` virtual seconds. */
+async function waitSnap(test, sec) {
+  const t0 = await vt();
+  for (;;) {
+    const s = await snap();
+    if (test(s)) return s;
+    if (s.vt - t0 > sec) return false;
+    if (s.dlg || s.say) await handle(s);
+    await sleep(80);
   }
 }
 
@@ -252,6 +350,7 @@ function keysFor(dx, dz, run) {
 /** Walk to goal ({ x, z, tol } or { shape, reach }); returns the snapshot on arrival or when `until` holds. */
 async function walk(goal, { until = null, run = true, label = '' } = {}) {
   let stuckRef = null, stuck = 0, wiggles = 0;
+  const guard = watchdog(`walk to ${label || JSON.stringify(goal)}`, { idle: 0 });
   for (;;) {
     const r = await page.evaluate(([g, u]) => {
       const s = window.__PACE.snap();
@@ -260,8 +359,28 @@ async function walk(goal, { until = null, run = true, label = '' } = {}) {
       return s;
     }, [goal, until]);
     if (r.until) { await releaseAll(); return r; }
-    if (!r.free) { await releaseAll(); await handle(r); stuckRef = null; await sleep(70); continue; }
+    if (!r.free) { await releaseAll(); await guard(r); await handle(r); stuckRef = null; await sleep(70); continue; }
     if (r.steer.arrived) { await releaseAll(); return r; }
+    if (r.steer.nopath && goal.x != null && !goal.alt) {
+      // the goal cell is blocked (a field boss, a prop): aim at the nearest open point around it
+      const alt = await page.evaluate((g) => {
+        for (const rad of [1.0, 1.6, 2.2]) {
+          for (let k = 0; k < 12; k++) {
+            const a = (k / 12) * Math.PI * 2;
+            const c = { x: g.x + Math.cos(a) * rad, z: g.z + Math.sin(a) * rad, tol: g.tol || 0.6 };
+            const p = window.__PACE.plan(c);
+            if (p && p.length) return c;
+          }
+        }
+        return null;
+      }, goal);
+      if (alt) {
+        notes.push(`goal ${label || JSON.stringify(goal)} is blocked; aiming at (${alt.x.toFixed(2)}, ${alt.z.toFixed(2)})`);
+        goal = { ...alt, alt: true };
+        await page.evaluate(() => window.__PACE.invalidate());
+        continue;
+      }
+    }
     if (r.steer.nopath) {
       await releaseAll();
       notes.push(`no path to ${label || JSON.stringify(goal)} from ${r.map} (${r.x}, ${r.z}) at ${r.vt.toFixed(0)}`);
@@ -276,7 +395,15 @@ async function walk(goal, { until = null, run = true, label = '' } = {}) {
       if (stuck > 5) {
         notes.push(`steering stuck near ${r.map} (${r.x}, ${r.z}) toward ${label || JSON.stringify(goal)}; nudged by teleport`);
         const nxt = await page.evaluate((g) => { const p = window.__PACE.plan(g); return p && p[Math.min(p.length - 1, 6)]; }, goal);
-        if (nxt) await page.evaluate(([x, z]) => window.__VP.debug.teleport(x, z), nxt);
+        // a teleport inside a field boss's radius would seed it disarmed (explore.js): arm the bosses
+        // as a walk-in from afar would, so the nudge cannot skip a confrontation
+        if (nxt) {
+          await page.evaluate(([x, z]) => {
+            window.__VP.debug.teleport(x, z);
+            const e = window.__VP.ctx.game.states.explore;
+            for (const [id, b] of Object.entries(e.world.bosses || {})) if (b.present) e._armed.set(id, true);
+          }, nxt);
+        }
         stuck = 0;
       } else {
         // wiggle sideways a moment
@@ -321,24 +448,52 @@ async function use(id, { choices = [], until = null, after = null, run = true, o
     }
     if (until && r.until) return r;
     if (await faceTarget(t, id)) {
-      choiceQueue.push(...choices);
       await vwait(0.3);
-      await press('Enter');
-      // let the interaction start, then play it out
-      const t0 = (await snap()).vt;
-      for (;;) { const q = await snap(); if (!q.free || q.vt - t0 > 1.2) break; await sleep(60); }
-      return noPump ? snap() : pump(after);
-    }
-    notes.push(`facing ${id} failed, retry ${attempt}`);
+      const took = await confirmTaken(t, id);
+      if (took === id) {
+        choiceQueue.push(...choices);
+        // let the interaction start, then play it out
+        const t0 = (await snap()).vt;
+        for (;;) { const q = await snap(); if (!q.free || q.vt - t0 > 1.2) break; await sleep(60); }
+        return noPump ? snap() : pump(after);
+      }
+      if (took) {
+        // a nearby prompt (a lift, a cadet walking past) took the Confirm: let that play out, go again
+        notes.push(`use ${id}: the Confirm went to ${took}; again`);
+        await pump();
+      } else {
+        const q = await snap();
+        if (optional) { notes.push(`optional ${id}: Confirm not taken after 3 presses (prompt ${q.prompt}, target ${q.target})`); return null; }
+        abort(`use ${id}: the Confirm was not taken after 3 presses (the prompt names ${q.target || 'nothing'})`, q);
+      }
+    } else notes.push(`facing ${id} failed, retry ${attempt}`);
     await page.evaluate(() => window.__PACE.invalidate());
   }
   if (optional) return null;
-  throw new Error(`could not use ${id}`);
+  abort(`could not use ${id} after 6 attempts`, await snap());
+}
+
+/** Press Confirm (up to 3 times, facing again in between) until the field starts an interaction: its id, or null. */
+async function confirmTaken(t, id) {
+  const n0 = await page.evaluate(() => window.__PACE.interacts.length);
+  for (let k = 0; k < 3; k++) {
+    if (k) await faceTarget(t, id);
+    await press('Enter');
+    const t0 = (await snap()).vt;
+    for (;;) {
+      const q = await page.evaluate((n) => ({ s: window.__PACE.snap(), it: window.__PACE.interacts.slice(n) }), n0);
+      if (q.it.length) return q.it[0].id;
+      if (q.s.vt - t0 > 1.5) break;
+      if (q.s.dlg || q.s.say) await handle(q.s);
+      await sleep(60);
+    }
+  }
+  return null;
 }
 
 /** Med-Station: Restore, then a Party Talk when one is offered. */
 async function med(id, { talk = true } = {}) {
-  await use(id, { choices: ['Restore'] });
+  await use(id, { choices: ['Rest'] });   // 'Restore' at a Med-Station, 'Rest' at an inn
   if (!talk) return;
   const pts = await page.evaluate(() => window.__PACE.ptalks());
   if (pts.length) {
@@ -353,6 +508,17 @@ const mstate = () => page.evaluate(() => {
   return { open: m.isOpen, tab: m.tab, mode: pg.mode, slot: pg._slot, member: pg._member };
 });
 
+/** Pause menu: Tab until it opens (a Tab can land while the field is still busy), else abort. */
+async function openMenu() {
+  for (let k = 0; k < 3; k++) {
+    await press('Tab');
+    if (await waitSnap((q) => q.menu, 3)) { await vwait(0.5); return; }
+    const q = await snap();
+    if (!q.free) await pump();
+  }
+  abort('the pause menu did not open after 3 presses of Tab', await snap());
+}
+
 async function closeMenu() {
   await press('Tab'); await vwait(0.6);
   for (let i = 0; i < 3 && (await mstate()).open; i++) { await press('Escape'); await vwait(0.5); }
@@ -360,10 +526,8 @@ async function closeMenu() {
 
 /** Pause menu -> Equip -> member -> accessory slot -> the item, as a player does after a tip. */
 async function equipAccessory(memberIdx, itemId) {
-  await press('Tab');
-  await vwait(1.0);
+  await openMenu();
   let m = await mstate();
-  if (!m.open) { notes.push('pause menu did not open'); return false; }
   for (let i = 0; i < 8 && m.tab !== 1; i++) { await press('KeyE'); await vwait(0.5); m = await mstate(); }
   await vwait(1.5);
   await shot('menu-equip-tab', { hi: true });
@@ -383,7 +547,7 @@ async function equipAccessory(memberIdx, itemId) {
 
 /** Pause menu -> Journal: a shot and the text in the notes. */
 async function journal(name) {
-  await press('Tab'); await vwait(0.8);
+  await openMenu();
   let m = await mstate();
   for (let i = 0; i < 8 && m.tab !== 3; i++) { await press('KeyE'); await vwait(0.4); m = await mstate(); }
   await vwait(2.5);
@@ -397,10 +561,13 @@ async function journal(name) {
 async function fly(chartId, destName) {
   const t = await page.evaluate((i) => window.__PACE.targetOf(i), chartId);
   if (!t) throw new Error(`no Starchart "${chartId}" here`);
-  await walk({ shape: t.shape, reach: t.reach }, { label: chartId });
-  await faceTarget(t, chartId);
-  await press('Enter');
-  for (let i = 0; i < 100; i++) { const s = await snap(); if (s.star) break; if (s.dlg) await handle(s); await sleep(100); }
+  for (let k = 0; ; k++) {
+    await use(chartId, { noPump: true });
+    if (await waitSnap((q) => q.star, 20)) break;
+    if (k >= 2) abort(`the Starchart panel did not open at ${chartId}`, await snap());
+    notes.push(`the Starchart panel did not open; again (${k + 1})`);
+    await pump();
+  }
   await vwait(2.5);
   await shot(`starchart-${destName.toLowerCase()}`, { hi: true });
   for (let i = 0; i < 8; i++) {
@@ -409,7 +576,11 @@ async function fly(chartId, destName) {
     await press('ArrowRight'); await vwait(0.6);
   }
   await vwait(1.5);
-  await press('Enter');
+  for (let k = 0; ; k++) {
+    await press('Enter');
+    if (await waitSnap((q) => !q.star, 5)) break;
+    if (k >= 2) abort(`the Starchart did not take the course to ${destName}`, await snap());
+  }
   milestone(`fly ${destName}`);
   return pump(null, { minVt: 2 });
 }
@@ -418,7 +589,7 @@ async function fly(chartId, destName) {
 async function shopWeapons(id) {
   await use(id, { noPump: true });
   // the shop holds its script open: wait for the window
-  for (let i = 0; i < 60; i++) { const s = await snap(); if (s.shop) break; if (s.dlg) await handle(s); await sleep(100); }
+  if (!(await waitSnap((q) => q.shop, 30))) abort(`the shop ${id} did not open`, await snap());
   await vwait(3.0);
   await shot('shop-open', { hi: true });
   const plan = await page.evaluate(() => {

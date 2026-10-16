@@ -334,6 +334,12 @@ export default {
     { id: 'power', on: 'flag', when: 'chapter>=ch1 & sw:meridian:lever_a & sw:meridian:lever_b & !story:meridian_power', once: true, script: 'shoals.power_restored' },
   ],
   bosses: [
+    // G3-02: two salvage bots on the spine between the quarters and the landing (the focus-fire foe,
+    // met in the open; the landing's Med-Station follows)
+    {
+      id: 'bots', art: 'salvage_bot', name: 'SALVAGE BOTS', x: 37.0, z: 14.6, facing: 'left', encounter: 'meridian_salvage',
+      script: 'shoals.bots', triggerRadius: 2.6, radius: 0.9, when: 'chapter>=ch1 & !shoals:bots',
+    },
     {
       id: 'maw', art: 'maw_lurk', name: 'THE MAW', x: 51.0, z: 5.4, facing: 'left', encounter: 'shoals_boss_maw',
       script: 'shoals.maw', triggerRadius: 3.8, radius: 2.4, focus: true, light: 'maw',

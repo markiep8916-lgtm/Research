@@ -10,7 +10,15 @@ export default {
       level: 22,
       next: 'ch4.fields',
       async run(d) {
-        await d.pump(d.F('seen:vault:arrival'), { minVt: 1 });
+        // chained from the CHAPTER FOUR card (or a jump, which runs no load trigger) the party stands in
+        // the Spire's antechamber: it dives through the neural interface as a player does
+        if (d.jumped) { await d.eval(() => window.__VP.debug.goto('spire', 'antechamber')); await d.pump(null, { minVt: 1 }); }
+        if ((await d.snap()).map === 'spire') {
+          await d.shot('c06-antechamber', { hi: true });
+          await d.use('interface');
+          d.milestone('dive');
+        }
+        await d.pump(d.F('seen:vault:arrival'), { minVt: 1, maxVt: 900 });
         d.milestone('vault');
         await d.shot('c06-interface', { hi: true });
         await d.use('echo_sato', { optional: true });
@@ -61,6 +69,7 @@ export default {
     // the Core: a rest at the Index, the Corrupted Memory, the core Med-Station, ECHO (Retry after a loss)
     'ch4.core': {
       level: 27,
+      next: 'finale',
       async run(d) {
         await d.med('med_hub');
         await d.fightBoss({ at: [41.0, 7.6], script: 'vault.overwrite', done: d.F('vault:overwrite_down') });
@@ -71,6 +80,11 @@ export default {
           onLoss: async () => { if ((await d.snap()).map === 'vault') await d.med('med_core', { talk: false }); },
         });
         d.milestone('ch4 done');
+        // the aftermath ends on the Halcyon bridge with the FINAL CHAPTER card
+        await d.pump('window.__VP.ctx.state.story.chapter === "finale"', { maxVt: 900 });
+        d.milestone('final card');
+        await d.vwait(2);
+        await d.shot('c06-final-card', { hi: true });
       },
     },
   },

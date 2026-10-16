@@ -256,7 +256,7 @@ const dais = {
   build(W, p) {
     const B = W.batchFor(p.on);
     const capM = p.glass
-      ? W.mats.tile('dr_glass', { emissive: 1.2, roughness: 0.12, metalness: 0.6 })
+      ? W.mats.tile('dr_glass', { emissive: 2.0, roughness: 0.2, metalness: 0.2 })
       : W.mats.tile('dr_hall_cap', { emissive: 1.3, roughness: 0.4, metalness: 0.15 });
     const goldM = W.mats.tile('dr_gold', { emissive: 1.6, roughness: 0.3, metalness: 0.75 });
     const r = p.r || 1.5;

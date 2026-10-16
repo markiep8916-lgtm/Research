@@ -66,8 +66,8 @@ const memorial = {
     const B = W.batchFor(p.on), G = W.groupFor(p.on);
     const { x, z } = p;
     const stone = W.mats.plain('#1c2430', { roughness: 0.3, metalness: 0.4 });
-    const face = W.mats.tile('ep_slab', { emissive: 1.8, roughness: 0.25, metalness: 0.3 });
-    const light = W.mats.plain('#bff4ff', { roughness: 0.4, metalness: 0, emissive: '#7fe0f0', emissiveIntensity: 1.6 });
+    const face = W.mats.tile('ep_slab', { emissive: 0.95, roughness: 0.25, metalness: 0.3 });
+    const light = W.mats.plain('#bff4ff', { roughness: 0.4, metalness: 0, emissive: '#7fe0f0', emissiveIntensity: 0.9 });
     // a low plinth, the slab on it, a thin lit sill
     B.box(all(stone), x, z, 2.6, 0.7, 0, 0.16, 0);
     B.box({ ...all(stone), front: face }, x, z - 0.06, 2.0, 0.22, 0.16, 1.86, 0);
@@ -76,9 +76,9 @@ const memorial = {
     for (const dx of [-1.16, 1.16]) {
       put(B, stone, new THREE.CylinderGeometry(0.1, 0.13, 0.62, 10), [x + dx, 0.47, z + 0.05]);
       put(B, light, new THREE.CylinderGeometry(0.06, 0.06, 0.12, 10), [x + dx, 0.84, z + 0.05]);
-      glowAt(W, G, '#a8eef8', 0.7, 0.9, x + dx, 0.95, z + 0.1);
+      glowAt(W, G, '#a8eef8', 0.6, 0.5, x + dx, 0.95, z + 0.1);
     }
-    glowAt(W, G, '#9fe8ff', 2.4, 0.22, x, 1.1, z + 0.3);
+    glowAt(W, G, '#9fe8ff', 2.0, 0.1, x, 1.1, z + 0.3);
     W.addBox(x, z, 2.6, 0.7);
   },
 };
@@ -114,7 +114,7 @@ const pod = {
 
     let shown = W.test(p.status) ? 1 : 0, target = shown;
     hinge.rotation.y = -1.75 * shown;
-    frost.material.color.set('#bff4ff').multiplyScalar(0.2 + shown * 0.5);
+    frost.material.color.set('#bff4ff').multiplyScalar(0.15 + shown * 0.2);
     return {
       kind: 'ep.pod',
       setState(open, instant = false) {
@@ -125,7 +125,7 @@ const pod = {
       update(dt) {
         if (shown !== target) shown = target > shown ? Math.min(target, shown + dt / 1.3) : Math.max(target, shown - dt / 1.3);
         hinge.rotation.y = -1.75 * ease(shown);
-        frost.material.color.set('#bff4ff').multiplyScalar(0.2 + shown * 0.5);
+        frost.material.color.set('#bff4ff').multiplyScalar(0.15 + shown * 0.2);
       },
     };
   },
@@ -315,13 +315,14 @@ const ridge = {
 };
 
 const hole = {
-  textures: ['ep_snow'],
+  textures: ['ep_snow', 'ep_seed', 'metal_side'],
   build(W, p) {
     const B = W.batchFor(p.on), G = W.groupFor(p.on);
     const { x, z } = p, R = p.r || 0.9;
-    const water = W.mats.plain('#1e6a5a', { roughness: 0.15, metalness: 0.1, emissive: '#2ac08a', emissiveIntensity: 0.9 });
+    // the open water, green with the kelp under it (the seeding texture), and a winch of plain iron
+    const water = W.mats.tile('ep_seed', { emissive: 1.1, roughness: 0.12, metalness: 0.1 });
     const rim = W.mats.tile('ep_snow', { emissive: 1.2, roughness: 0.9, metalness: 0 });
-    const iron = W.mats.plain('#2a2c34', { roughness: 0.6, metalness: 0.6 });
+    const iron = W.mats.tile('metal_side', { emissive: 0.8, roughness: 0.6, metalness: 0.6 });
     put(B, water, new THREE.CircleGeometry(R, 20), [x, 0.015, z], [-Math.PI / 2, 0, 0]);
     put(B, rim, new THREE.TorusGeometry(R + 0.05, 0.1, 5, 24), [x, 0.03, z], [-Math.PI / 2, 0, 0], [1, 1, 0.5]);
     // the tripod winch, a line down into the green, a lantern
@@ -338,7 +339,7 @@ const hole = {
     }
     put(B, iron, new THREE.CylinderGeometry(0.012, 0.012, 2.1, 4), [x, 1.05, z]);
     glowAt(W, G, '#ffb850', 0.9, 1.0, x + 0.12, 1.95, z + 0.05);
-    glowAt(W, G, '#5cffb0', 1.8, 0.5, x, 0.2, z);
+    glowAt(W, G, '#5cffb0', 1.6, 0.28, x, 0.2, z);
     W.addEmitter('spore', { position: [x, 0.2, z], area: [R * 1.4, 0.2, R * 1.4], rate: 1.2 }, p.on);
     W.addCircle(x, z, R + 0.2);
   },

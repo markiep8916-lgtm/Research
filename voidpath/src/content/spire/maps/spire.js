@@ -519,7 +519,7 @@ export default {
     { id: 'gate', name: 'Barracks', subtitle: 'Deck 4 · Barracks', rect: [13.5, 41.5, 25, 47], cam: [44.4, 44.8], zone: null, puzzle: true, mood: MOOD.barracks, banner: false },
     { id: 'barracks', name: 'Barracks', subtitle: 'Deck 4 · Barracks', rect: [13.5, 41.5, 71, 47], cam: [44.4, 44.8], zone: 'spire_barracks', mood: MOOD.barracks },
     { id: 'dock', name: 'Spire Dock', subtitle: 'Deck 4 · Moth Berth', rect: [0.5, 41.5, 13.5, 54], cam: [46.6, 50.2], zone: null, mood: MOOD.dock },
-    { id: 'checkpoint', name: 'Checkpoint', subtitle: 'Deck 4 · Security Entry', rect: [13.5, 47.5, 71, 54], cam: [49.6, 50.0], zone: 'spire_barracks', mood: MOOD.checkpoint },
+    { id: 'checkpoint', name: 'Checkpoint', subtitle: 'Deck 4 · Security Entry', rect: [13.5, 47.5, 71, 54], cam: [49.6, 50.0], zone: 'spire_checkpoint', mood: MOOD.checkpoint },
   ],
   spawns: {
     dock: { x: 6.0, z: 51.0, facing: 'right' },

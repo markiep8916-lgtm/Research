@@ -43,6 +43,11 @@
 // chapter XP that lands the party on each boss's level, and every boss's 8-10 rounds with two
 // Breaks against a first-timer's gear (G2 C10-3, bar rule 7). WARDEN keeps C11's HP and offence
 // (warden/data.js `tuned`); only its second form's speed is C10's (10-14 rounds across both forms).
+// Gate G3 (G3-balance): every boss's route check sits at 91-94% so a first-timer at the level the
+// critical path delivers wins at least four fights in five, with the simulator's policy and with the
+// browser's autoplay (createPolicy); no regular fight wipes a squad that carries its wounds along the
+// route; the Arboretum's XP is trimmed so a curious first-timer (G3's human-pace runs walked about
+// 1.2x the critical path, chests included) meets the Gardener within a level of the plan.
 
 import { BATTLE_RULES, ENEMIES, PARTY_DEFS } from '../battle/data.js';
 
@@ -116,30 +121,38 @@ export const overrides = {
     pro_drone_glitch: { maxHp: 2.75 },                 // lives long enough for the tutorial's Break
     pro_drone: { xp: PROLOGUE_XP },
     pro_drone_ram: { xp: PROLOGUE_XP },
-    pro_crawler: { xp: PROLOGUE_XP },
-    pro_turret: { xp: PROLOGUE_XP },
+    // the engineering pairs and turret trios come back to back after the gallery: softer, so a squad
+    // carrying its wounds through them never wipes (G3-03)
+    pro_crawler: { xp: PROLOGUE_XP, atk: 0.85 },
+    pro_turret: { xp: PROLOGUE_XP, atk: 0.9, mag: 0.9 },
     sentinel_mk1: { xp: PROLOGUE_XP, maxHp: 1.4 },     // the squad lasts until a rail charge fires
-    pro_sentinel: { maxHp: 1.07, atk: 1.11, mag: 1.11 },  // no PROLOGUE_XP: a boss is worth about half a level
+    // a boss is worth about half a level; a first-timer wins 9 in 10 (G3-06)
+    pro_sentinel: { maxHp: 1.07, atk: 1.1, mag: 1.1, xp: 0.9 },
     rime_golem: { maxHp: 1.5 },                        // must be Broken, not just outlasted
-    maw: { maxHp: 1.25, atk: 1.12, mag: 1.12 },        // 8-10 rounds against a first-timer (G2 C10-3)
+    // 8-10 rounds against a first-timer (G2 C10-3); worth a little less, so chapter 1 ends near 12
+    maw: { maxHp: 1.3, atk: 1.13, mag: 1.13, xp: 0.85 },
     // the Arboretum's foes sleep and summon more than they hit: they hit harder to cost 15-35% HP
-    spore_drone: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
+    spore_drone: { atk: 1.3, mag: 1.3, maxHp: 1.15 },
     bloom_mantis: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
     rootling: { atk: 1.35, mag: 1.35, maxHp: 1.15 },
-    feral_caretaker: { atk: 2, mag: 2, maxHp: 1.4 },
-    // the chapter ends at 17; her numbers are C4's, a little sharper for a squad that rested in the hall
-    gardener: { xp: 0.3, atk: 1.05, mag: 1.05 },
+    feral_caretaker: { atk: 1.7, mag: 1.7, maxHp: 1.4 },     // a little softer: no stasis wipe (G3-03)
+    // the chapter ends at 17; her numbers are C4's, sharper and a little tougher for a squad that rested
+    // in the hall: 8-10 rounds for a first-timer at 17-19 (G3-05)
+    gardener: { xp: 0.25, maxHp: 1.06, atk: 1.18, mag: 1.18 },
     honour_guard: { xp: 0.35 },                        // three of them: worth about a level, like the other rare finds
     // Voss: the overclock is the dangerous half, so a squad in the chapter's chest gear still loses
     // about one fight in ten (route check 85-95%) and a first-timer who bought the Security Plate
     // wins four in five, while a weaker squad still lives to see the overclock (spire.test seeds)
     voss: { xp: 0.6, atk: 1.14, mag: 1.14 },
-    voss_overclock: { xp: 0.6, atk: 1.4, mag: 1.4 },
+    voss_overclock: { xp: 0.6, atk: 1.45, mag: 1.45 },
     voss_escort: { xp: 0.15 },
-    corrupted_memory: { mag: 0.85 },                   // the Overwrite lesson costs at most a third of the squad's HP
+    corrupted_memory: { mag: 0.8 },                    // the Overwrite lesson costs at most a third of the squad's HP
     echo: { maxHp: 1.5, atk: 1.2, mag: 1.2, xp: 0.75 },   // 9-10 rounds, two Severances, a third cancelled
     // the Heart: a guardian's cradle rings already make its formations the longest of the game
     choir_guardian: { maxHp: 0.6 },
+    // the Third Tier's eaters meet a squad fresh from the second Echoes: no wipe on the way (G3-03)
+    dream_eater: { atk: 0.9, mag: 0.9 },
+    warden_seraph: { atk: 0.95, mag: 0.95 },
     // the Third Tier's Echoes meet a squad worn down by the climb (no rest since the Second Tier)
     elite_sec_trooper: { atk: 0.88, mag: 0.88 },
     elite_firewall_golem: { atk: 0.88, mag: 0.88 },
@@ -148,7 +161,7 @@ export const overrides = {
     // check 85-95%); its shield (below) breaks twice in a first-timer's form 2. Raw attack instead
     // would sink a squad that arrives under-levelled (C11's fin.warden test: level 30, the
     // chapter's starting bag, wins about 85%)
-    warden_unbound: { spd: 1.5, atk: 1.04, mag: 1.04, maxHp: 1.05 },
+    warden_unbound: { spd: 1.5, atk: 1.04, mag: 1.04, maxHp: 1.1 },
   },
   enemies: {
     pro_drone_glitch: { xp: 100 },   // the tutorial levels Kade up before Sera joins
@@ -161,7 +174,7 @@ export const overrides = {
     warden_unbound: { shield: 2 },   // its weak points move after every Break: two Breaks per form
   },
   // chapter 1, 2, 3, 4 and finale foes (their bosses too)
-  xpByLevel: [[8, 12, 0.85], [13, 17, 0.94], [18, 22, 1.08], [23, 27, 0.86], [28, 33, 0.67]],
+  xpByLevel: [[8, 12, 0.92], [13, 17, 0.84], [18, 22, 1.12], [23, 27, 0.86], [28, 33, 0.67]],
   // Duos lack area skills and a spare healer, so their foes shrink more than in the POC.
   rules: { partyScale: { hp: [0, 0.45, 0.5, 0.85, 1], dmg: [0, 0.7, 0.7, 0.92, 1] } },
   zoneRate: {},

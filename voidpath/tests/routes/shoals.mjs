@@ -17,13 +17,20 @@ export default {
         await d.use('dm.marble', { optional: true });
         await d.use('deep_rim', { optional: true });
         await d.shot('c03-shoals', { hi: true });
-        await d.go(63.8, 35.5, { until: 'window.__PACE.snap().map === "meridian"' });
+        // the exit rect starts at x 63.55 and x 63.95 is off the nav grid: a tight tolerance steps in
+        await d.go(63.7, 35.5, { tol: 0.2, until: 'window.__PACE.snap().map === "meridian"' });
       },
     },
     // the Meridian: the hold lever, ribbons, the engineering lever, Varo's log, the footlocker
     'ch1.wreck': {
       next: 'ch1.maw',
       async run(d) {
+        // a jump runs no load triggers: step back out to the Shoals and in again, so the arrival plays
+        if (d.jumped) {
+          await d.eval(() => window.__VP.debug.goto('shoals', 'from_meridian'));
+          await d.pump(null, { minVt: 1 });
+          await d.go(63.7, 35.5, { tol: 0.2, until: 'window.__PACE.snap().map === "meridian"' });
+        }
         await d.pump(d.F('seen:meridian:arrival'), { minVt: 1 });
         d.milestone('meridian');
         await d.use('dm.berth_plate', { optional: true });

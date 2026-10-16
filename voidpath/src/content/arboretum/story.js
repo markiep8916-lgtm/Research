@@ -74,9 +74,12 @@ const scripts = {
   // ---------------------------------------------------------------- the arrival (K)
   'arboretum.arrival': async (cs) => {
     bg(cs.letterbox(true));
-    // the deck in one breath: the Moth's pad, the flooded canal, the ferns beyond it
-    await cs.camera.pan([[6.5, 47.5], [12.5, 46.5], [17.5, 47.0]], { sec: 2.6 });
-    await cs.gather(inParty(cs, { sera: [9.6, 45.4], orion: [8.4, 46.4], kade: [10.6, 46.6], nyx: [8.2, 44.9] }));
+    // the deck in one breath while the squad steps off the pad: the Moth's pad, the flooded canal,
+    // the ferns beyond it (G3-09: no staging is awaited on its own)
+    await Promise.all([
+      cs.camera.pan([[6.5, 47.5], [12.5, 46.5], [17.5, 47.0]], { sec: 1.4 }),
+      cs.gather(inParty(cs, { sera: [9.6, 45.4], orion: [8.4, 46.4], kade: [10.6, 46.6], nyx: [8.2, 44.9] })),
+    ]);
     cs.face('sera', 'right');
     bg(cs.camera.focus([10.4, 46.0], { zoom: 0.88, ms: 900 }));
     cs.particles('firefly', [11.5, 1.4, 46.0], { count: 14 });
@@ -93,10 +96,12 @@ const scripts = {
     await cs.say('NYX', 'Ship-people grow gardens on their ships? Huh.');
     bg(cs.camera.focus(CANAL_A, { zoom: 0.9, ms: 900 }));
     cs.face('orion', 'right');
-    await cs.say('ORION', 'The channels are flooded. There will be a valve. There\'s always a valve.');
+    await cs.say('ORION', 'The channels are flooded. There\'s always a valve.');
     cs.objective('ch2.drain');
-    await cs.ungather();
-    await cs.camera.reset({ ms: 700 });
+    // a wipe in the gardens retries from here, after the scene, not before it (G3-04)
+    cs.checkpoint();
+    cs.save();
+    await Promise.all([cs.ungather(), cs.camera.reset({ ms: 700 })]);
   },
 
   // ---------------------------------------------------------------- the valves (11.8)
@@ -114,6 +119,7 @@ const scripts = {
       await cs.say('ORION', 'One down. Water has to go somewhere.');
       await cs.ungather();
       if (!cs.test('sw:arboretum:valve_b')) cs.objective('ch2.drain_2');
+      cs.checkpoint();
       return;
     }
     if (id === 'valve_b') {
@@ -128,6 +134,7 @@ const scripts = {
       await cs.say('NYX', 'It went somewhere.', { expr: 'surprised' });
       await cs.ungather();
       cs.objective('ch2.drain_3');
+      cs.checkpoint();
       return;
     }
     // the sluice: left (valve_c) then right (valve_d)
@@ -150,15 +157,17 @@ const scripts = {
     cs.flag('story:channels_drained');
     cs.sfx('rumble', { volume: 0.7 });
     cs.shake(0.05, 0.9);
-    await cs.camera.focus(BASIN, { zoom: 0.92, ms: 800 });
     cs.particles('steam', [8.0, 0.2, 26.0], { count: 30 });
-    await cs.wait(1.6);
-    // back to the party at the sluice (Orion walks up under the pan), so the speakers are on screen
-    await Promise.all([beside(cs, 'orion'), cs.camera.reset({ ms: 800 })]);
+    await cs.camera.focus(BASIN, { zoom: 0.92, ms: 600 });
+    // back to the party at the sluice while the basin still drains (Orion walks up under the pan),
+    // so the speakers are on screen; Sera steps up under his line (G3-09: no waits)
+    await Promise.all([beside(cs, 'orion'), cs.camera.reset({ ms: 1000 })]);
+    const sera = bg(beside(cs, 'sera', 0.95));
     await cs.say('ORION', 'Every channel on the deck just drained. Sluices are honest machines.', { expr: 'smile' });
-    await beside(cs, 'sera', 0.95);
+    await sera;
     await cs.say('SERA', 'The Stasis Gardens are across. If they moved Theo, he\'s in there.', { expr: 'determined' });
     cs.objective('ch2.stasis');
+    cs.checkpoint();
     await cs.ungather();
   },
 
@@ -240,6 +249,7 @@ const scripts = {
     cs.anim('sera', 'kneel');
     await cs.say('SERA', 'You kept them alive. That\'s tending.', { expr: 'sad' });
     await cs.say('MOTHER-7', 'Then I may rest. Bram would want me to rest.');
+    await cs.say('MOTHER-7', 'The seed vault is still cold. Earth\'s seeds, every one. Keep them for new soil.');
     await cs.say('SERA', 'Rest. We\'ll take it from here.', { expr: 'determined' });
     cs.anim('sera', null);
     cs.sfx('unlock');
@@ -289,8 +299,10 @@ const scripts = {
     await cs.say('NYX', 'Your Warden thinks Elysia\'s gone?');
     await cs.say('KADE', 'Security Command keeps the long-range archive. If there\'s a reason, it\'s there.', { expr: 'determined' });
     cs.face('sera', 'up');
-    cs.anim('sera', 'hand_to_chest');
     await cs.say('SERA', 'Then we find it. And then we come back for him.', { expr: 'determined' });
+    // to the pod, hand on her heart: the promise is the last thing before the card (G3-10)
+    cs.anim('sera', 'hand_to_chest');
+    await cs.say('SERA', 'Not yet, Theo. Soon. I promise.', { expr: 'sad' });
     cs.anim('sera', null);
     cs.flag('arb:choir_gold', false);
     cs.flag('story:theo_found');
@@ -306,7 +318,7 @@ const scripts = {
 
   'arboretum.theo_pod': async (cs) => {
     await cs.narrate('Pod 2271. LINDQVIST, T. The plate calls him *harmonised*. He is smiling.');
-    if (cs.test('leader:sera')) await cs.say('SERA', 'Not yet, Theo. Soon. I promise.', { expr: 'sad' });
+    if (cs.test('leader:sera')) await cs.say('SERA', 'Still here, Theo. Soon.', { expr: 'sad' });
   },
 
   // ---------------------------------------------------------------- field scripts

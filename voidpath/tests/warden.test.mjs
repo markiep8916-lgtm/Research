@@ -1,12 +1,14 @@
 // warden (C11): the final boss's contracts (TECH_PLAN 7.9). Both forms in one battle, the transform
 // and its music, Retry from the second form, the Last Lullaby named for its target, the Lullaby never
 // twice in a row, Voss keeping watch over Kade, the ultimates recharged, the Choir and Theo's voice,
-// and the first-timer's fight inside its targets (10-14 rounds, Breaks in both forms).
+// HALCYON's Boost opening the retry, and the first-timer's fight inside its targets (10-14 rounds,
+// Breaks in both forms) at the level the finale route delivers (fin.warden: 32).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerAllData, REG } from '../src/content/data.js';
-import { ENEMIES, ENCOUNTERS } from '../src/battle/data.js';
+import { ENEMIES, ENCOUNTERS, BATTLE_RULES } from '../src/battle/data.js';
 import { BOSS_SCRIPTS } from '../src/battle/scripts.js';
+import { RETRY_BP } from '../src/content/warden/data.js';
 import { BattleModel } from '../src/battle/model.js';
 import { gameState } from '../src/core/state.js';
 import { buildJumpState, applyJumpState } from '../src/story/jump.js';
@@ -110,6 +112,24 @@ test('warden: one battle plays every beat in order (transform, recharge, Choir, 
   for (const t of log.filter((e) => e.type === 'telegraph' && /Last Lullaby for/.test(e.text))) {
     assert.ok(t.text.includes(m.get(t.targetId).name), t.text);
   }
+});
+
+test('warden: Retry from the second form opens with HALCYON\'s gift (Boost for one ultimate each)', () => {
+  applyJumpState(buildJumpState('fin.warden', REG));
+  const m = new BattleModel({ party: gameState.party, encounterId: 'heart_boss_warden_2', rng: makeRng(3) });
+  const ev = m.begin();
+  const gift = ev.find((e) => e.type === 'cue' && e.name === 'halcyon_gift');
+  assert.ok(gift, 'the gift cue');
+  assert.ok(m.party.every((p) => p.bp === RETRY_BP));
+  assert.deepEqual(gift.value.map((g) => g.bp), m.party.map(() => RETRY_BP));
+  assert.equal(ev[ev.indexOf(gift) + 1].speaker, 'HALCYON');
+  // every member can open with an ultimate (the menu agrees with the pips)
+  for (const p of m.party) {
+    const u = m.getMenu(p.id).skills.find((s) => s.ultimate);
+    if (u) assert.notEqual(u.reason, `Needs ${BATTLE_RULES.ultimateBp} BP`, p.id);
+  }
+  const { m: won } = fight('heart_boss_warden_2', 7);
+  assert.equal(won.result, 'victory');
 });
 
 test('warden: Theo\'s voice wakes every sleeper at form 2\'s half', () => {

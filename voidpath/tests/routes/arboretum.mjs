@@ -128,9 +128,11 @@ export default {
 
   plan: {
     ch2: {
+      // WRITING 5.10's plans (the parenthesised seconds, not the box budgets); the two lead-ins 8 s
+      // like the prologue's scripted-fight lead-ins
       scenes: {
-        'arboretum.arrival': 70, 'arboretum.spores': 10, 'arboretum.channels_drained': 15, 'arboretum.stasis_gardens': 45,
-        'arboretum.caretaker': 10, 'arboretum.gardener': 120, 'arboretum.theo': 150,
+        'arboretum.arrival': 40, 'arboretum.spores': 8, 'arboretum.channels_drained': 12, 'arboretum.stasis_gardens': 30,
+        'arboretum.caretaker': 8, 'arboretum.gardener': 70, 'arboretum.theo': 120,
       },
       bosses: { arb_boss_gardener: 17 },
     },

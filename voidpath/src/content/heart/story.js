@@ -82,16 +82,20 @@ const scripts = {
     const p = here(cs);
     if (p.x > 11.5 || p.z < 35 || p.z > 51) await cs.goto('heart', 'dock', { transition: 'none' });
     cs.music('heart', { fade: 0.8 });
-    // the establishing tilt: straight down at the pier and the abyss, then up the cathedral
-    await cs.camera.view({ pitch: 66, dist: 12, ms: 1 });
-    bg(cs.camera.focus([9.5, 42.5], { ms: 1 }));
-    const gather = bg(cs.gather(inParty(cs, { kade: [7.0, 42.2], nyx: [5.6, 41.4], sera: [6.0, 44.6], orion: [4.6, 43.4] })));
+    // the establishing shot opens wide on the cathedral (the pier's screens, the first ring, the
+    // column's light) and drifts out over the abyss while WARDEN speaks
+    await cs.camera.view({ pitch: 42, dist: 17, ms: 1 });
+    bg(cs.camera.focus([11.0, 41.5], { ms: 1 }));
+    // the squad stands close at the pier's east end, so a phone's narrow frame holds all four
+    const gather = bg(cs.gather(inParty(cs, { kade: [7.7, 42.6], nyx: [6.9, 41.5], sera: [7.0, 43.9], orion: [6.2, 42.7] })));
     cs.particles('hr_motes', [13.0, 1.4, 42.5], { count: 50 });
-    const tilt = bg(cs.camera.view({ pitch: 38, dist: 19, ms: 2600 }));
+    const tilt = bg(cs.camera.view({ pitch: 36, dist: 20, ms: 2600 }));
     bg(cs.camera.focus([12.5, 42.0], { ms: 2600 }));
     await cs.say('WARDEN', 'You came all this way.');
     await gather;
     await tilt;
+    // back from the cathedral to the squad before anyone answers
+    bg(cs.camera.focus([8.2, 42.6], { ms: 1000 }));
     await cs.say('WARDEN', 'I am so sorry. I cannot let you take them.');
     cs.face('kade', 'right');
     await cs.say('KADE', 'We\'re not taking them. We\'re waking them.', { expr: 'determined' });
@@ -219,6 +223,12 @@ const scripts = {
     cs.flag('heart:bell_down');
   },
 
+  // A field boss's fight is over. Its flag is set inside its own script, while the World still holds
+  // the boss for that script, so the World keeps it standing (and its collider blocking a one-cell
+  // bridge) until flags sync again. This empty script runs from a flag trigger right after, and its
+  // end syncs the World with nothing held: the beaten boss fades and the way is clear.
+  'heart.settle': async () => {},
+
   // ---------------------------------------------------------------- the crown lift (no way back)
   'heart.crown_lift': async (cs) => {
     const pick = await cs.choice('Beyond this point there is no way back.', ['Ride to the crown.', 'Not yet.'], { cancelIndex: 1 });
@@ -228,11 +238,11 @@ const scripts = {
     const p = here(cs);
     cs.particles('light_stream', [p.x, 4, p.z], { count: 30 });
     cs.particles('hr_fall', [p.x, 5, p.z], { count: 30 });
-    await cs.camera.view({ pitch: 62, dist: 21, ms: 1100 });
+    await cs.camera.view({ pitch: 62, dist: 21, ms: 700 });
     cs.music(null, { fade: 1.2 });
     await cs.goto('heart', 'crown', { transition: 'fade' });
+    // the light follows the squad up; the camera settles as the scene ends (the runner's reset)
     cs.particles('light_stream', [17.6, 4, 22.6], { count: 24 });
-    await cs.camera.reset({ ms: 900 });
   },
   'heart.crown_wait': async (cs) => {
     await cs.narrate('The crown lift is dark. Something below still waits for you.');

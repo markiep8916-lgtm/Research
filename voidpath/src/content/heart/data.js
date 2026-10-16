@@ -73,7 +73,8 @@ const enemies = {
   choir_guardian: {
     kind: 'choir_guardian', name: 'Choir Guardian', script: 'choir_guardian', ...statLine(30, 'armored'), shield: 6,
     shieldGain: 2, maxShieldCap: 10,
-    weaknesses: ['gauntlet', 'volt', 'lance'],
+    // rifle among them, so the squad Breaks it often enough for the growing shield to show
+    weaknesses: ['gauntlet', 'rifle', 'lance'],
     actions: [
       hit('guard_bash', 'Cradle Bash', 'gauntlet', 1.25, 60, 'The round shield, brought down hard.'),
       hit('guard_censer', 'Censer Swing', 'thermal', 0.5, 30, 'Embers of incense over everyone.', { target: 'all', anim: 'enemyBeam', cooldown: 1 }),
@@ -327,7 +328,7 @@ const zones = {
 };
 
 // Measured with tools/expected-fights.mjs on tests/routes/heart.mjs: the critical path walks 140 units
-// in heart_ascent (the Dock's ring and the Second Tier, most of each ring walked) and 65 in heart_crown
+// in heart_ascent (the Dock's ring and the Second Tier, most of each ring walked) and 67 in heart_crown
 // (the Third Tier's long arc and the processional). The map already sits at the 72 x 56 cell limit,
 // so these rates stay well above back-to-back pacing (grace 6, sigma 10): 4.3 random fights expected,
 // with the Wardens, the Choir, two Echoes and WARDEN on the way, 9.3 in all (target 8-10, 2 elites

@@ -20,6 +20,8 @@
 //   kind 'load' | 'respawn'                 load triggers only (the state just came from a save / snapshot)
 //   kind 'goto' | 'lift' | 'teleport' | 'transit'   nothing
 // Scene and transit maps (and `scene: true`) never fire triggers, save or set the checkpoint.
+// Under the cover a running script's leader stand-in is dropped first (cutscenes.leaveMap), so the
+// leader lands on the spawn, never at the stand-in's spot on the map left behind (G3-01).
 // Travelling to the current map teleports under the cover without a rebuild.
 
 import { gameState } from '../core/state.js';
@@ -121,6 +123,9 @@ export const travel = {
     try {
       const cover = async () => {
         onCover?.();
+        // a running script's leader stand-in (and, on a map change, its stepped-out members) belongs
+        // to the place being left: the Player lands on the spawn, not at the stand-in's old spot (G3-01)
+        cutscenes.leaveMap({ same });
         const jobs = [];
         if (caption) jobs.push(ui.cards.caption(caption, { ms: quick ? 300 : 1600 }));
         if (wait) jobs.push(wait);

@@ -18,6 +18,8 @@
 //   requestCheckpoint(); requestAutosave()   queued while a script runs (6.2), else applied now
 //   flushQueue(queue, scriptId)       the runner applies a finished script's queue at the leader's position
 //   setCheckpoint(pos?); autosave(); write(slot) -> ok; saveMenu(); loadMenu(); loadData(saveData); leaderPos(); forget()
+//   savePos()                         leaderPos(), or the map's dock / nearest spawn when the leader stands
+//                                     somewhere unwalkable: checkpoints and saves never keep the void (G3-01)
 //   autosaves (count), inBattle, autoResolve / policy (debug), onBattleEvent / onBattleStart (debug hooks)
 //
 // Whenever gameState.checkpoint changes (here, or a Med-Station Restore in ExploreState) the game
@@ -30,12 +32,47 @@ import { BattleModel } from '../battle/model.js';
 import { ENCOUNTERS } from '../battle/data.js';
 import { REG, getMap, locationOfMap } from '../content/registry.js';
 import { CHAPTER_START } from '../content/chapters.js';
+import { cellSpec, isWalkableSpec } from '../world/mapdef.js';
 import { travel } from '../story/travel.js';
 
 const MEMORY_NOTICE = 'Saving is unavailable in this view. Progress lasts until the page closes.';
 
 // Errors inside transition callbacks reject a promise; rethrow them so #vp-fatal shows them.
 const surface = (e) => setTimeout(() => { throw e; });
+
+/** A spot the leader can stand on: a real (not transit or scene) map, a walkable cell (G3-01). */
+function standable(p) {
+  const def = p && getMap(p.map);
+  if (!def || def.transit || def.scene || !Number.isFinite(p.x) || !Number.isFinite(p.z)) return false;
+  return isWalkableSpec(cellSpec(def, Math.floor(p.x), Math.floor(p.z)));
+}
+
+/**
+ * Where to stand instead of an unwalkable spot on `mapId`: the map's Starchart dock, else its spawn
+ * nearest to `near`; else the location's dock; else the Halcyon start. -> { map, x, z, facing }
+ */
+function fallbackSpot(mapId, near = null) {
+  const at = (map, spawn) => {
+    const sp = getMap(map)?.spawns?.[spawn];
+    const p = sp && { map, x: sp.x, z: sp.z, facing: sp.facing || 'down' };
+    return p && standable(p) ? p : null;
+  };
+  const def = getMap(mapId);
+  if (def && !def.transit && !def.scene) {
+    const dock = REG.destinations.find((d) => d.map === mapId);
+    const p = dock && at(mapId, dock.spawn);
+    if (p) return p;
+    const dist = (sp) => (near ? Math.hypot(sp.x - near.x, sp.z - near.z) : 0);
+    const names = Object.keys(def.spawns || {}).sort((a, b) => dist(def.spawns[a]) - dist(def.spawns[b]));
+    for (const n of names) {
+      const q = at(mapId, n);
+      if (q) return q;
+    }
+  }
+  const loc = locationOfMap(mapId);
+  const dock = loc && REG.destinations.find((d) => d.loc === loc && getMap(d.map));
+  return (dock && at(dock.map, dock.spawn)) || at('halcyon', 'start') || { map: 'halcyon', x: 0, z: 0, facing: 'down' };
+}
 
 export class Game {
   constructor(ctx) {
@@ -134,22 +171,31 @@ export class Game {
         this._snapCp = gameState.checkpoint;
       },
     });
+    if (ok) this._fixCheckpoint();
     return ok;
   }
 
-  /** [map, spawn] a save resumes at: its position, else its checkpoint, else its location's dock. */
+  /**
+   * [map, spot] a save resumes at: its position, else its checkpoint, if the leader can stand there;
+   * else the map's dock or nearest spawn (an old save may hold the void spot of G3-01).
+   */
   _loadTarget(data) {
-    const valid = (p) => {
-      const def = p && getMap(p.map);
-      if (!def || def.transit || def.scene) return false;
-      return p.x >= 0 && p.z >= 0 && p.x < def.w && p.z < def.h;
-    };
     for (const p of [data.pos, data.checkpoint]) {
-      if (valid(p)) return [p.map, { x: p.x, z: p.z, facing: p.facing || 'down' }];
+      if (standable(p)) return [p.map, { x: p.x, z: p.z, facing: p.facing || 'down' }];
     }
-    const loc = data.pos && locationOfMap(data.pos.map);
-    const dock = loc && REG.destinations.find((d) => d.loc === loc && getMap(d.map));
-    return dock ? [dock.map, dock.spawn] : ['halcyon', 'start'];
+    const bad = data.pos || data.checkpoint;
+    const p = fallbackSpot(bad?.map || 'halcyon', bad);
+    console.warn(`game: the save's position ${bad ? `${bad.map} (${bad.x}, ${bad.z})` : '(none)'} is not walkable; resuming at ${p.map} (${p.x}, ${p.z})`);
+    return [p.map, { x: p.x, z: p.z, facing: p.facing }];
+  }
+
+  /** A loaded or restored checkpoint the leader cannot stand on moves to where the journey resumed. */
+  _fixCheckpoint() {
+    const cp = gameState.checkpoint;
+    if (!cp || standable({ map: cp.map || this.states.explore.mapId, x: cp.x, z: cp.z })) return;
+    const p = this.savePos();
+    gameState.checkpoint = { map: p.map, x: p.x, z: p.z, facing: p.facing };
+    this._snap();
   }
 
   /** Drop the session state of the last journey: snapshot, checkpoint identity, any battle. */
@@ -175,6 +221,18 @@ export class Game {
     return { map: ex.mapId, x: +p.x.toFixed(3), z: +p.z.toFixed(3), facing: p.facing };
   }
 
+  /**
+   * The leader's position for a checkpoint or a save. A spot the leader cannot stand on (the void,
+   * a wall) is refused with a warning and replaced by the map's dock or nearest spawn (G3-01).
+   */
+  savePos() {
+    const pos = this.leaderPos();
+    if (standable(pos)) return pos;
+    const p = fallbackSpot(pos.map, pos);
+    console.warn(`game: refusing to save the leader at ${pos.map} (${pos.x}, ${pos.z}), which is not walkable; using ${p.map} (${p.x}, ${p.z})`);
+    return p;
+  }
+
   requestCheckpoint() {
     if (!this.ctx.cutscenes.queue('checkpoint')) this.setCheckpoint();
   }
@@ -196,7 +254,7 @@ export class Game {
     if (queue.save) this.autosave();
   }
 
-  setCheckpoint(pos = this.leaderPos()) {
+  setCheckpoint(pos = this.savePos()) {
     gameState.checkpoint = { map: pos.map, x: pos.x, z: pos.z, facing: pos.facing };
     this._snap();
   }
@@ -216,7 +274,7 @@ export class Game {
 
   /** serialize() at the leader's position into `slot`; the memory-storage notice shows once. */
   write(slot) {
-    const r = writeSlot(slot, serialize(gameState, this.leaderPos()));
+    const r = writeSlot(slot, serialize(gameState, this.savePos()));
     if (r.storage === 'memory' && !this._noticed) {
       this._noticed = true;
       this.ctx.ui.hud.toast(MEMORY_NOTICE, { icon: 'save', duration: 6000 });
@@ -409,8 +467,8 @@ export class Game {
       return this.newJourney();
     }
     cutscenes.autoSkip = script;
-    const cp = snap.checkpoint?.map ? snap.checkpoint : snap.pos;
-    await travel.arrive(cp.map, { x: cp.x, z: cp.z, facing: cp.facing || 'down' }, {
+    const [map, at] = this._loadTarget({ pos: snap.checkpoint?.map ? snap.checkpoint : snap.pos, checkpoint: snap.pos });
+    await travel.arrive(map, at, {
       kind: 'respawn',
       onCover: () => {
         this._closeScreens();
@@ -423,6 +481,7 @@ export class Game {
         this.inBattle = false;
       },
     });
+    this._fixCheckpoint();
     return true;
   }
 

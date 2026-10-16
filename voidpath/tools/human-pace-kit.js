@@ -1,6 +1,7 @@
 // Page-side kit of the human-pace tool (tools/human-pace.mjs installs it after boot; TECH_PLAN 10.2,
 // G2 T-1). Exposes window.__PACE = { snap, steer, plan, targetOf, log, acc, boxes, battles,
-// humanPolicy, setDelay, flag, ptalks, invalidate }.
+// humanPolicy, interacts, setDelay, flag, ptalks, invalidate }.
+// - interacts: [{ id, vt }] of every interaction the field started (ExploreState._interact).
 // - acc: seconds per chapter in field-walk / field-idle / cutscene / battle / menu / transition, on the
 //   virtual clock (each rendered frame = 0.1 s; the init script fakes rAF time, engine.timeScale = 2).
 // - log: timeline of cutscenes (outermost `cs` / `csEnd` and every script, nested ones too, as
@@ -22,6 +23,13 @@
   let cmdDelay = 2.2;
   const push = (type, data) => log.push({ t: +vt().toFixed(1), ch: chap(), type, ...data });
   ctx.cutscenes.onTrace = (phase, id, depth) => push('script', { phase, id, depth });
+  // every interaction the field starts: use() checks that its Confirm was taken, and by what
+  const interacts = [];
+  {
+    const e = ex();
+    const orig = e._interact.bind(e);
+    e._interact = (it) => { interacts.push({ id: it && it.id, vt: +vt().toFixed(2) }); return orig(it); };
+  }
 
   // ---------------------------------------------------------------- per-frame accounting
   let lastDlg = null, curBox = null, lastSay = null, lastMusic, lastCs, lastObj, lastMap, lastChapter, wasBattle = false;
@@ -326,7 +334,7 @@
   }
 
   window.__PACE = {
-    snap, steer, plan, targetOf, log, acc, boxes, battles, humanPolicy,
+    snap, steer, plan, targetOf, log, acc, boxes, battles, humanPolicy, interacts,
     setDelay: (s) => { cmdDelay = s; },
     flag: (f) => !!ctx.state.flags[f],
     ptalks: () => (ex() && ex()._partyTalks ? ex()._partyTalks().map(([id, pt]) => id + ':' + pt.title) : []),

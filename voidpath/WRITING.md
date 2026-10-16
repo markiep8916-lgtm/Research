@@ -885,10 +885,14 @@ your desires. Within reason."
 | `driftmarket.arrival` K | `driftmarket` · load `arrival` · `chapter>=ch1 & !story:ruse_met` | Ringborn stares; Harl blocks; Ruse meets Nyx like a lost daughter and the travelers like a tax; Pip's rhyme; shop and leader tips | NYX, RUSE, HARL, PIP, KADE | 12 / 90 (50) | CAM pan, EMOTE (crowd), MOVE (Ruse), POSE | `driftmarket` | `story:ruse_met`; objective `ch1.ask_ruse` |
 | `driftmarket.ruse_maw` | `driftmarket` · NPC `ruse` talk entry · `story:ruse_met & !story:maw_lore` | The coil sits in the Meridian's core; the Maw nests by reactor heat | RUSE, ORION, SERA | 8 / 60 (35) | POSE, CAM | map | `story:maw_lore`; objective `ch1.reach_wreck` |
 | `shoals.enter` | `shoals` · load `enter` · `chapter>=ch1 & !story:varo_log` | The singing ice | NYX, ORION | 2 / 15 (10) | CAM pan, LIGHT | `shoals` | none |
-| `shoals.meridian_arrival` K | `meridian` · load `arrival` · `chapter>=ch1 & !story:meridian_power` | The broken spine; 80 years of emergency lights; ribbons; "Not all hands"; the two levers | NYX, KADE, SERA, ORION | 7 / 60 (30) | CAM pan, POSE, LIGHT | `meridian` | objective `ch1.restore_power` |
+| `shoals.eels` | `shoals` · field encounter `eels`, east end of the Shoals Mouth · `chapter>=ch1 & !shoals:eels` | (C3-fix) The dive lesson before the Maw: NYX "Void eels. They go under, then come up biting."; `cs.battle('shoals_eels')` | NYX | 1 / 10 (6) | EMOTE | map | `shoals:eels` |
+| `shoals.mites` | `shoals` · field encounter `mites`, foot of the descent · `chapter>=ch1 & !shoals:mites` | (G3) A visible mite nest (an eel in it) spaces the tunnels' fights: NYX "Ice mites. One's nothing. A nest is a bad afternoon."; `cs.battle('shoals_eel_trio')` | NYX | 1 / 10 (6) | none | map | `shoals:mites` |
+| `shoals.golem` | `shoals` · field encounter `golem`, first ice bridge of the Deep Ice · `chapter>=ch1 & !shoals:golem` | (G3) The Break-timing foe, met in the open: narration "Rime slides off a cargo frame. It stands up, and up."; `cs.battle('shoals_golem')` | narration | 1 / 10 (6) | none | map | `shoals:golem` |
+| `shoals.meridian_arrival` K | `meridian` · load `arrival` · `chapter>=ch1 & !story:meridian_power` | The broken spine; 80 years of emergency lights; ribbons; "Not all hands"; the two levers | NYX, KADE, SERA, ORION | 5 / 60 (30) | CAM pan, POSE, LIGHT | `meridian` | objective `ch1.restore_power` |
 | `shoals.lever` | lever switches (args) | first lever only: ORION "One. She's listening." | ORION | 1 / 6 (4) | none | map | (G2) first lever: objective `ch1.power_eng` or `ch1.power_hold`, naming the lever still to pull (9.3, TECH_PLAN 11.8) |
 | `shoals.power_restored` | `meridian` · flag `power` · `chapter>=ch1 & sw:meridian:lever_a & sw:meridian:lever_b & !story:meridian_power` | Lights come on down the spine; the reactor hall door shows; Nyx wants the quarters | ORION, NYX | 2 / 15 (12) | LIGHT, CAM (reveal) | map | `story:meridian_power`; objective `ch1.varo_quarters` |
-| `shoals.varo_log` B K | `meridian` · terminal `varo_log`, Captain's Quarters · `story:meridian_power & !story:varo_log` | A hologram log of Ines Varo; the Lullaby Directive named; Nyx sees her great-grandmother | NYX, VARO, KADE, ORION, SERA | 12 / 150 (60) | HOLO, MUSIC, POSE, CAM | silence, `meridian` | `story:varo_log`; objective `ch1.find_coil` |
+| `shoals.varo_log` B K | `meridian` · terminal `varo_log`, Captain's Quarters · `story:meridian_power & !story:varo_log` | A hologram log of Ines Varo; the Lullaby Directive named; Nyx sees her great-grandmother | NYX, VARO, KADE, ORION, SERA | 9 / 150 (60) | HOLO, MUSIC, POSE, CAM | silence, `meridian` | `story:varo_log`; objective `ch1.find_coil` |
+| `shoals.bots` | `meridian` · field encounter `bots`, the spine between the quarters and the landing · `chapter>=ch1 & !shoals:bots` | (G3) The focus-fire foe, met in the open before the landing's Med-Station: KADE "Two salvage bots and a mite. Same target. They weld themselves back."; `cs.battle('meridian_salvage')` | KADE | 1 / 10 (6) | none | map | `shoals:bots` |
 | `shoals.maw` K | `meridian` · field boss `maw` (encounter `shoals_boss_maw`), Reactor Hall | Approach; battle; the Maw sinks, wounded; the coil; `cs.save()`; `cs.goto('driftmarket', 'dock')`; `cs.run('driftmarket.return')` | NYX, BOLT, KADE, ORION, SERA | 16 / 120 (40) | CAM, LIGHT (frost), MOVE, POSE | map | `ult:nyx` (boss script at 50%), `defeated:shoals_boss_maw` (model); `cs.give('lattice_coil')`; `cs.save()` |
 | `driftmarket.return` B K | run by `shoals.maw` on `driftmarket:dock` | Ruse's partial reveal at the viewport; the data spike; "It's Nyx"; Nyx joins for real | RUSE, NYX, KADE | 11 / 80 (50) | MOVE (to `viewport`), CAM (Ione), POSE | `driftmarket` | `story:ringborn_seeding`, `story:nyx_for_real`; objective `ch1.install_coil` |
 | `travel.flight` (to `halcyon`) | first flight home | BOLT: "Home! I'll put the kettle on. I am not the kettle." | BOLT | 1 / 10 (5) | none | map | `pro:flight_halcyon` |
@@ -926,33 +930,37 @@ flight home pays it off)
 `shoals.enter`: NYX: "The Shoals. Mind the ice. It sings before it breaks." The ice creaks a chord.
 ORION: "Ice doesn't sing. ...I stand corrected."
 
-`shoals.meridian_arrival`: NYX: "The Meridian." / "Eighty years, and the lights never stopped." KADE:
-"The Meridian. Lost with all hands. They taught us that at the academy." NYX: "Not all hands." SERA:
-"There's still air in here. Someone keeps it sealed." NYX: "We do. We come here to tie ribbons."
-ORION: "Emergency loop only. Two levers on the spine would wake the main bus."
+`shoals.meridian_arrival` (C3-fix: 7 boxes become 5): NYX: "The Meridian. Eighty years, and the lights
+never stopped." KADE: "Lost with all hands. They taught us that at the academy." NYX: "Not all hands."
+SERA: "There's still air in here." ORION: "Emergency loop only. Two levers wake the main bus: hold and
+engineering." (Cut: Sera's "Someone keeps it sealed." and NYX "We do. We come here to tie ribbons.")
+
+`shoals.power_restored` (C3-fix): ORION: "Main bus is live. Hello, old girl." NYX: "Her quarters
+unsealed. The reactor hall wants her code."
 
 `shoals.varo_log`
 1. Nyx at the terminal. A hologram flickers up: Ines Varo, older, Nyx's face. NYX: "...Great-grandma."
    (G2: frame Ines beside Nyx, not behind her. The others stand to the sides, out of the hologram's
    column; see 1.7.)
-2. VARO: "Captain's log. Ines Varo. The reactor's gone. We're not going anywhere."
-3. VARO: "The Warden invoked the *Lullaby Directive*. Everyone sleeps until a new home is confirmed."
-4. VARO: "Nobody is coming to confirm anything. It means forever."
-5. VARO: "The Warden said sleep was mercy. I said mercy without consent is a cage." / "God forgive me
+2. (C3-fix: the first three VARO boxes are one) VARO: "The reactor's gone. The Warden invoked the *Lullaby
+   Directive*. It means forever."
+3. VARO: "The Warden said sleep was mercy. I said mercy without consent is a cage." / "God forgive me
    for what we did to get out." (FIXED, two boxes)
-6. Narration: "The recording loops. Ines raises a hand to the lens, and it begins again."
-7. NYX (sad): "She looks tired. The stories never said she looked tired."
-8. KADE: "Lullaby Directive. It's in our charter too. Page four hundred. Nobody reads page four hundred."
-9. ORION: "Then WARDEN isn't broken. It's obeying something." SERA: "That Directive needs a failed
+4. (C3-fix) A hologram flicker in the scene; the narration "The recording loops. Ines raises a hand
+   to the lens, and it begins again." plays only as the terminal's after-interaction
+   (`shoals.varo_log_after`).
+5. NYX (sad): "She looks tired. The stories never said she looked tired."
+6. KADE: "It's in our charter too. Page four hundred. Nobody reads page four hundred."
+7. ORION: "Then WARDEN isn't broken. It's obeying something." SERA: "That Directive needs a failed
    destination. Ours hasn't failed. ...Has it?"
-10. NYX (determined): "Let's take her coil. She'd want that." Varo's Long Gun (`eq_w_nyx_3`) waits in
-    the quarters' chest.
+8. NYX (determined): "Let's take her coil. She'd want that." Varo's Long Gun (`eq_w_nyx_3`) waits in
+   the quarters' chest.
 
-`shoals.maw`: narration: "Reactor heat breathes through the ice. Something vast moves beneath it."
-NYX: "Hold still. It hunts by warmth." BOLT (worried): "I run hot. I'm sorry." The Maw breaches
-(shake). KADE: "Contact. Spread out." Battle. After: narration: "The Maw sinks back into the black
-ice, wounded. Not dead." ORION (kneeling at the core): "Come on, little one. You're coming home with
-us." NYX: "Sorry, great-grandma. Borrowing." SERA: "Can we leave before it remembers us?"
+`shoals.maw` (C3-fix): narration: "Something vast moves beneath the ice." NYX: "Hold still. It hunts by
+warmth." BOLT (worried): "I run hot. I'm sorry." The Maw breaches (shake). KADE: "Contact. Spread
+out." Battle. After: narration: "The Maw sinks into the black ice. Wounded, not dead." ORION (kneeling
+at the core): "Come on, little one. You're coming home with us." NYX: "Sorry, great-grandma.
+Borrowing." (SERA's "Can we leave before it remembers us?" is cut.)
 
 `driftmarket.return`
 1. RUSE: "Well. You're all still attached to yourselves." NYX: "Got the coil. The Maw's got a sore head."
@@ -990,7 +998,8 @@ us." NYX: "Sorry, great-grandma. Borrowing." SERA: "Can we leave before it remem
   the awakening); outro NYX: "Go on. Sink. Tell the others we're coming through." No lines over the
   fx `maw.ice_breath` and `maw.breach`; `maw.defeat` (it sinks, wounded) plays before the outro.
 - `void_eel` (global `untargetable` tip, 9.1). (G2) The tip must show before the Maw. The eel dives
-  with its first action of round 2 by script, and the first Shoals stretch guarantees an eel fight.
+  with its first action by script (C3-fix), and the eels' visible field fight at the Mouth
+  (`shoals.eels`) guarantees an eel fight.
   In the G2 run, three eel fights produced no dive, and the Maw's Submerge was the first dive the
   player saw.
 
@@ -1452,8 +1461,8 @@ Talks are not counted; the dry run reports the real numbers.
 
 | Chapter | Critical-path scenes (plan, s) | Story | 11.7 target |
 |---|---|---|---|
-| Prologue | new_journey 65, tutorial 25, sera_wakes 45, spine_drones 8 (G2), orion_rescue 40, gallery_ambush 8 (G2), equip_tip 8, keycard 8, nyx_door 50, bridge_open 5, sentinel 85 | 347 s (5.8 min) | ~5 min |
-| Ch1 | flight 6, arrival 50, ruse_maw 35, shoals.enter 10, meridian_arrival 30, power 12, varo_log 60, maw 40, return 50, flight 5, coil_install 60 | 358 s (6.0 min) | 5-6 min |
+| Prologue | new_journey 65, tutorial 28 (G3), sera_wakes 45, spine_drones 8 (G2), orion_rescue 40, gallery_ambush 8 (G2), equip_tip 8, keycard 9 (G3), nyx_door 50, bridge_open 5, sentinel 85 | 351 s (5.9 min) | ~5 min |
+| Ch1 | flight 6, arrival 50, ruse_maw 35, shoals.enter 10, eels 6, mites 6, golem 6 (G3), meridian_arrival 30, power 12, varo_log 60, bots 6 (G3), maw 40, return 50, flight 5, coil_install 60 | 382 s (6.4 min) | 5-6 min |
 | Ch2 | flight 8, arrival 40, drained 12, stasis 30, gardener 70, theo 120 | 280 s (4.7 min) | 4-6 min |
 | Ch3 | flight 5, arrival 45, cadets 50, quarters 12, oath 55, voss 145 | 312 s (5.2 min) | 4-6 min |
 | Ch4 | arrival 45, three memories 120, bolt_reveal 70, echo 105 | 340 s (5.7 min) | 5-6 min |
@@ -1470,7 +1479,14 @@ about 1.5 times the plan. Scenes over their plan + 15%:
 
 The text fitted. The staging did not (1.8, staging seconds). From C-beta on, the test is each scene
 within its plan + 15% at human pace, and the chapter's story within this table's sum + 15%:
-prologue 399 s, ch1 412 s, ch2 322 s, ch3 359 s, ch4 391 s, finale 558 s (656 s with the night).
+prologue 404 s, ch1 439 s, ch2 322 s, ch3 359 s, ch4 391 s, finale 558 s (656 s with the night).
+
+**(G3) Plan corrections.** The prologue tutorial (five FIXED boxes, 27.6 s of reading alone) measured
+25 + 6 s and the keycard (two boxes, 8.3 s of reading) 9.4 s at human pace: text-bound, so their plans
+become 28 and 9 (the C1-fix request). Chapter 1's four one-box field-fight lead-ins (the eels, the
+mite nest, the rime golem and the salvage bots, 5.3) sit on the critical path and are counted now. In chapter 2 the
+arrival (53 s against 46) and the drained channels (16 s against 14) were trimmed in their staging
+(pans under the walk-ons, no waits) and by one shorter Orion line; their plans stand.
 
 If a chapter runs long at G2/G3, cut in this order:
 1. (G2) Awaited staging: serial walk-ins, pans over 1 s, `cs.wait` padding, slow fades.
@@ -1613,7 +1629,7 @@ The tutorial taught 7 boxes of mechanics in 90 s. So:
 | `playerTurn` (encounter) | prologue | first fight with Orion: `pro_gallery_ambush` (G2) | ORION | "My skills hit *every* foe at once. Thermal for the drones, cryo for the crawlers." |
 | `playerTurn` (encounter) | prologue | `pro_sentinel_squad` | NYX | "*Expose* strips their defences. Then everybody hits harder. You're welcome." |
 | `telegraph` | common | Sentinel Mk-I charge | KADE | "It's charging. Next round, it fires. *Defend*, or Break it first." |
-| `untargetable` | common | Void Eel, in the guaranteed eel fight at the Shoals mouth; it dives in round 2 (G2) | NYX | "Eel's under. Can't hit what isn't there. *Defend*, heal, wait for it." |
+| `untargetable` | common | Void Eel, in the guaranteed eel fight at the Shoals mouth; it dives with its first action (G2, C3-fix) | NYX | "Eel's under. Can't hit what isn't there. *Defend*, heal, wait for it." |
 | `untargetable` (encounter, `tut:phase`) | vault | Data Wraith | ORION | "It's *phasing*. Out of step with us. It can't hold that for long." |
 | `status:sleep` | common | Spore Drone | SERA | "Spores. A sleeper loses turns. A *Stim* wakes them. So does a hit. I prefer the Stim." |
 | `summon` | common | Feral Caretaker | ORION | "It's calling little friends. Silence the caller first, or we'll be here all day." |

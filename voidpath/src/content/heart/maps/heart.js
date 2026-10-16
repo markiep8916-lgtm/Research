@@ -13,9 +13,9 @@
 //                                bridge lights back north, the long span to the lift pad, where the first
 //                                Choirlit Echoes wait
 //   Third Tier (north-east)      the lift arrives by the north-east (WARDEN, then Orion's dream; the
-//                                Bellwarden's alcove behind); one long arc: the south pylon, the second
-//                                Echoes at the processional, the far pylon at the arc's west end; both
-//                                lit, the processional west
+//                                Bellwarden's alcove behind); one long arc: the south pylon, a rest, the
+//                                second Echoes at the processional, the far pylon at the arc's west end;
+//                                both lit, the processional west
 //   The Crown Approach and the Sanctum   the processional (Sera's dream), the last Med-Station, the
 //                                fabricator, Nyx's cache, the falling light back to the dock, the crown
 //                                lift ("Beyond this point there is no way back.")
@@ -49,7 +49,7 @@ const MOOD = {
   dock: mood({ fog: '#0e1434', sky: '#ffcf8a', keyColor: '#ffdcae' }),
   t1: mood(),
   t2: mood({ fog: '#101436', sky: '#ffe0a8', ground: '#1a1d4e' }),
-  t3: mood({ fog: '#120f30', sky: '#ffe4b4', ground: '#1e1a48', hemi: 0.82, key: 1.0 }),
+  t3: mood({ fog: '#17143c', sky: '#ffe4b4', ground: '#221d50', hemi: 0.88, key: 1.0, exposure: 1.05 }),
   sanctum: mood({ fog: '#18163a', sky: '#ffd49a', hemi: 0.86, keyColor: '#ffe2b8', exposure: 1.04 }),
   crown: mood({ fog: '#1c1838', density: 0.015, sky: '#fff0c8', ground: '#241c4a', hemi: 0.8, key: 1.0, keyColor: '#fff2d6', bloom: 0.9, exposure: 0.95 }),
 };
@@ -64,6 +64,7 @@ const ELITE_T2 = [45.7, 28.6];          // on the lift pad's rim, at the end of 
 const ELITE_T3 = at('t3', 166);
 const WARDENS_T1 = at('t1', 44, 10.4);
 const BELL_T3 = at('t3', 303);
+const MED_T3 = at('t3', 138, 11.9);     // the Third Tier's rest, in sight of the second Echoes
 const OCULUS = [R.crown.cx, R.crown.cz];
 
 // ---------------------------------------------------------------- props
@@ -144,6 +145,8 @@ const lights = [
   lamp(53.1, 37.4, GOLD, 7, { y: 0.9 }), lamp(57.9, 39.6, DAWN, 7, { y: 0.9 }),
   // the first lift's span, and the Bellwarden's alcove
   lamp(33.2, 53.8, ROSE, 8, { y: 1.0 }), rim('t3', 330, ROSE, 8),
+  // the Third Tier's west end, where the processional leaves the arc: lanterns over the inner lip
+  rim('t3', 188, GOLD, 11, false), rim('t3', 214, AMBER, 10, false),
   ...PADS.map((p) => lamp(p.cx, p.cz, WHITE, p.id === 'lift_crown' ? 14 : 12, { y: 2.5 })),
   lamp(ELITE_T2[0] + 1.2, ELITE_T2[1] + 1.4, ROSE, 9, { y: 1.4 }),
   // the processional and the Sanctum
@@ -273,9 +276,11 @@ export default {
   ],
   interactables: [
     { id: 'starchart', kind: 'starchart', x: 3.2, z: 40.2 },
-    // Med-Stations: the pier, the Second Tier's west arc, the Sanctum (the last before the crown lift)
+    // Med-Stations: the pier, the Second Tier's west arc and the Third Tier's south arc (each in
+    // sight of its Choirlit Echoes), the Sanctum (the last before the crown lift)
     { id: 'med_dock', kind: 'med', x: 6.6, z: 39.2, r: 0.5, prop: 'heart.med' },
     { id: 'med_t2', kind: 'med', ...xz(at('t2', 188, 11.9)), r: 0.5, prop: 'heart.med' },
+    { id: 'med_t3', kind: 'med', ...xz(MED_T3), r: 0.5, prop: 'heart.med' },
     { id: 'med_sanctum', kind: 'med', x: 31.2, z: 12.0, box: [30.6, 11.6, 31.8, 12.4], prop: 'heart.med' },
     // the pylons: each pans to the bridge it lights (11.8)
     { id: 'pylon_t1', kind: 'switch', ...xz(PYLON_T1), r: 0.45, flag: 'sw:heart:t1', mode: 'once', reveal: 'br_t1', script: 'heart.pylon', label: 'Touch', prop: 'heart.pylon' },
@@ -311,6 +316,10 @@ export default {
     // WARDEN at each lift arrival (once per tier)
     { id: 'warden_t2', on: 'enter', rect: [60.4, 46.2, 65.8, 50.8], when: 'chapter>=finale & story:dream_kade', once: true, script: 'heart.warden_tier' },
     { id: 'warden_t3', on: 'enter', rect: [62.2, 5.4, 66.8, 9.6], when: 'chapter>=finale & story:dream_nyx', once: true, script: 'heart.warden_tier' },
+    // a beaten field boss leaves the way clear (heart.settle)
+    ...[['wardens', 'heart:wardens_down'], ['choir', 'heart:choir_down'], ['echoes_t2', 'heart:echoes_t2_down'],
+      ['echoes_t3', 'heart:echoes_t3_down'], ['bellwarden', 'heart:bell_down']]
+      .map(([id, flag]) => ({ id: `settle_${id}`, on: 'flag', when: `chapter>=finale & ${flag}`, once: true, script: 'heart.settle' })),
     // the crown: the approach, WARDEN, the battle and the resolution (C8)
     { id: 'crown', on: 'enter', rect: [4.0, 12.6, 19.4, 19.6], when: 'story:dream_sera & !story:finale_done', once: true, script: 'dreams.crown' },
   ],
@@ -350,4 +359,4 @@ export default {
   ambient,
 };
 
-export const KEY = { PYLON_T1, PYLON_T2, PYLON_T3A, PYLON_T3B, ELITE_T2, ELITE_T3, WARDENS_T1, BELL_T3, OCULUS, W, H };
+export const KEY = { PYLON_T1, PYLON_T2, PYLON_T3A, PYLON_T3B, ELITE_T2, ELITE_T3, WARDENS_T1, BELL_T3, MED_T3, OCULUS, W, H };

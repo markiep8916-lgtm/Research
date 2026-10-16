@@ -18,8 +18,10 @@
 //                   (heavy, all), which a Break cancels.
 //
 // `heart_boss_warden_2` is form 2 alone, for "Retry from the second form" (retryPhase); it opens on the
-// flooded crown. Music: `final_boss`, then `final_boss_2` on the transform (it quotes the lullaby); the
-// retry starts on it.
+// flooded crown, and HALCYON's gift from the transform comes again as Boost: every traveler starts with
+// enough for one ultimate (RETRY_BP), which the full fight's squad brings into form 2 as momentum (the
+// retry otherwise loses about one fight in four against one in eight for form 2 inside the full fight).
+// Music: `final_boss`, then `final_boss_2` on the transform (it quotes the lullaby); the retry starts on it.
 // Numbers come from statLine; tuning against the first-timer target (10-14 rounds across both forms,
 // 2+ Breaks per form) lives in balance.js overrides (C10) and in the HP factors below. Single-target
 // powers are fair to a first-timer: no untelegraphed move takes a member from full HP to 0, and a
@@ -135,6 +137,9 @@ function vossKeepsWatch(api, h) {
   api.say('KADE', '...Commander.', { expr: 'sad' });
 }
 
+// Boost each traveler starts the retry with: one ultimate's worth (BATTLE_RULES.ultimateBp).
+export const RETRY_BP = 3;
+
 function armVoss(api) {
   const kade = api.member('kade');
   if (kade?.alive) api.protect('kade');
@@ -187,11 +192,20 @@ const bossScripts = {
   warden_unbound: {
     thresholds: [0.75, 0.5, 0.25],
     // heart_boss_warden_2 (Retry from the second form): the crown is already flooded with the Choir's
-    // light, and Voss keeps watch here too.
+    // light, Voss keeps watch here too, and HALCYON's gift comes as Boost. The api has no Boost call,
+    // so the script raises the members' bp and the cue carries the new values to the pips.
     onBegin(api) {
       api.cue('choir_flood', { targetId: api.enemies()[0]?.id });
       armVoss(api);
       api.mem.requiemAt = 0;
+      const gift = [];
+      for (const p of api.party()) {
+        const delta = Math.max(0, RETRY_BP - p.bp);
+        p.bp += delta;
+        gift.push({ id: p.id, bp: p.bp, delta });
+      }
+      api.cue('halcyon_gift', { value: gift });
+      api.say('HALCYON', 'I can give you this much. Once more.', { portrait: 'holo' });
     },
     // The transform from form 1: every ultimate is ready again, and HALCYON says so from BOLT.
     onTransform(api, e) {

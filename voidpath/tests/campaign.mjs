@@ -9,15 +9,17 @@
 //   route    R seeded playthroughs. A chapter starts where the previous chapter's route ended
 //            (levels, gear, items, credits; the prologue starts from New Journey): scripted fights,
 //            field encounters on the path, random fights rolled while walking, party joins,
-//            Med-Station rests, chests (gear goes on through Optimize), shopping and the boss. HP and
-//            EP carry between fights and field items patch the party up. XP, credits, levels add up.
+//            Med-Station rests, chests (walked to, as the human-pace routes open them; gear goes on
+//            through Optimize), shopping and the boss. HP and EP carry between fights and field items
+//            patch the party up. XP, credits, levels add up.
 //   regular  every encounter of each zone the route crosses, and every scripted fight: N
 //            fresh-party battles with the party, levels, gear and bestiary the reference route has
 //            there (the zone's middle fight)
 //   bosses   two checks per boss (C10-3): the route check (N battles at the chapter's end level
 //            after a rest with the route's gear) and the first-timer check (a second route that
 //            leaves the chapter's chest gear in the bag and buys only shop gear with its credits, at
-//            the level that route delivers)
+//            the level that route delivers), played with the simulator's policy and again with the
+//            browser's autoplay policy (createPolicy without observe, G3-06)
 //   economy  credits earned against one weapon upgrade per member plus a consumable restock
 //   kits     the next chapter's kit (REG.kits) against the gear and credits the route ends with
 //   report   mechanic frequencies per boss and zone: telegraphs (lock-on, charge) answered by Defend
@@ -42,13 +44,17 @@
 //   --scale <kind>.<stat>=<x>   what-if multiplier on a kind's registered number (balance.js
 //                           overrides.scale: maxHp, atk, def, mag, res, spd, xp, credits; repeatable)
 //   --enemy <kind>.<field>=<v>  what-if absolute field (overrides.enemies: shield, shieldGain, ...)
+//   --walk <x>              what-if: every zone stretch walked x times as far (a curious first-timer:
+//                           G3's human-pace runs met about 1.5x the random fights geometry predicts),
+//                           to estimate the levels a human-pace run reaches its bosses at (G3-07)
 //   --verbose               one row per encounter, every walk leg
 //
 // Targets (--check, 10.4, 11.7, G2): regular fights win >= 98%, median 2-4 rounds, 15-35% party HP
 // lost (an elite fight on the critical path: >= 95%, 4-8 rounds, 20-50%); route boss check 85-95% in
 // a median of 6-10 rounds (Warden 10-14 across both forms); first-timer boss check >= 75% first-try
 // wins, a median of 8-10 rounds and 2+ Breaks (a two-form boss: 2+ in each form), the boss
-// untargetable on under 25% of the party's turns; the fights a chapter delivers (scripted + field +
+// untargetable on under 25% of the party's turns, and >= 70% in 8-10 rounds with the browser's
+// policy (G3-06); no regular fight lost in any route run, an elite fight in at most 5% (G3-03); the fights a chapter delivers (scripted + field +
 // expected random + boss) inside 11.7 (prologue 7-9, ch1 10-12, ch2-ch4 8-10); the party arrives at
 // the boss at the chapter's end level (mean level -0.1 to +0.6, counting the share of the next level)
 // and ends the chapter at the next start level (+-1);
@@ -68,7 +74,7 @@ import { buildJumpState, applyJumpState, setMemberLevel } from '../src/story/jum
 import { CHAPTERS, chapterDef } from '../src/content/chapters.js';
 import { testCond } from '../src/world/cond.js';
 import { makeRng } from '../src/core/util.js';
-import { policyAction, observe } from './policy.mjs';
+import { policyAction, observe, createPolicy } from './policy.mjs';
 
 // ------------------------------------------------------------------ options
 
@@ -100,6 +106,7 @@ const whatIf = (name) => multi(name).map((a) => {
   if (!kind || !field || !Number.isFinite(Number(v))) throw new Error(`campaign: ${name} needs <kind>.<field>=<number> ("${a}")`);
   return [kind, field, Number(v)];
 });
+const WALK = Math.max(0.1, Number(opt('--walk', 1)) || 1);
 const SCALE_TRY = whatIf('--scale');
 const ENEMY_TRY = whatIf('--enemy');
 const BOSS_N = Math.max(400, N * 3);   // boss win rates need the bigger sample
@@ -111,7 +118,8 @@ const TARGETS = {
   // an elite fight on the critical path (the finale's two, 11.7): longer and costlier, still a sure win
   elite: { win: 0.95, rounds: [4, 8], hpLost: [0.2, 0.5] },
   boss: { win: [0.85, 0.95], rounds: [6, 10] },
-  firstTimer: { win: 0.75, rounds: [8, 10], breaks: 2, hidden: 0.25 },
+  // `browserWin`: the same check with the in-game autoplay policy (createPolicy, G3-06)
+  firstTimer: { win: 0.75, browserWin: 0.7, rounds: [8, 10], breaks: 2, hidden: 0.25 },
   bossRounds: { heart_boss_warden: [10, 14] },
   // 11.7 (prologue: G2 C1-2's 7-9 around the plan's 8)
   fights: { prologue: [7, 9], ch1: [10, 12], ch2: [8, 10], ch3: [8, 10], ch4: [8, 10], finale: [8, 10] },
@@ -120,9 +128,10 @@ const TARGETS = {
   levelSlack: 1,
   cancel: [0.3, 0.7],
 };
-// Break-cancel windows (10.4): the boss kind and what its Breaks should cancel. With a `cue`, on the
-// rounds that open with it (the Gardener's dome light: a window is cancelled when the boss is Broken
-// in it before it heals); otherwise on the boss's `charge` telegraphs (Echo's Severance).
+// Break-cancel windows (10.4): the boss kind and what its Breaks should cancel. With a `cue`, a window
+// opens with it and lasts until the boss heals (the Gardener's dome light: she gathers the light and
+// heals a round later, G3-05); it is cancelled when the boss is Broken in it before it heals.
+// Otherwise on the boss's `charge` telegraphs (Echo's Severance).
 const CANCEL_CHECKS = {
   vault_boss_echo: { kind: 'echo', label: 'Severance cancelled by a Break' },
   arb_boss_gardener: { kind: 'gardener', cue: 'domeLight', label: 'Gardener heals cancelled by a Break' },
@@ -168,10 +177,11 @@ const ROUTES = {
   ],
   ch1: [
     { shop: ['fabricator', 'ruse'] },
-    { walk: 'shoals', path: ['spawn:from_driftmarket', [36.5, 5.5], [37, 15.5], [11, 18], [10.5, 30], [62.5, 35.5], 'exit:to_meridian'] },
+    { walk: 'shoals', path: ['spawn:from_driftmarket', 'chest:grotto', 'inter:lockbox', [37, 15.5], 'chest:west_cache', [10.5, 30],
+      'chest:deep_rim', [62.5, 35.5], 'exit:to_meridian'] },
     { chests: ['shoals'] },
-    { walk: 'meridian', path: ['spawn:from_shoals', 'inter:lever_a', 'inter:lever_b', { set: ['story:meridian_power'] },
-      'inter:varo_log', { set: ['story:varo_log'] }, 'inter:med'] },
+    { walk: 'meridian', path: ['spawn:from_shoals', 'chest:hold_cache', 'inter:lever_a', 'chest:eng_cache', 'inter:lever_b',
+      { set: ['story:meridian_power'] }, 'inter:varo_log', { set: ['story:varo_log'] }, 'chest:long_gun', 'chest:compass', 'inter:med'] },
     { chests: ['meridian'] },
     { rest: 'meridian' },
     { boss: 'shoals_boss_maw' },
@@ -183,11 +193,16 @@ const ROUTES = {
   // `plan` splits 11.7's 340 units over the zones until the maps land.
   ch2: [
     { shop: ['fabricator', 'ruse'] },
-    // valve A, valve B (the twist), then the sluice: left (C) then right (D)
-    { walk: 'arboretum', path: ['spawn:dock', 'inter:valve_a', 'inter:valve_b', 'inter:valve_c', 'inter:valve_d',
-      { set: ['arb:sluice', 'story:channels_drained'] }, 'inter:med_hall'], plan: { arb_gardens: 190 } },
+    // valve A, valve B (the twist) and the pump house's Med-Station (G3-03), then the sluice: left (C)
+    // then right (D)
+    { walk: 'arboretum', path: ['spawn:dock', 'inter:valve_a', 'chest:fern_cache', 'inter:valve_b', 'chest:prism', 'inter:med_pump'],
+      plan: { arb_gardens: 90 } },
+    { rest: 'arboretum' },
+    { walk: 'arboretum', path: ['inter:med_pump', 'chest:spear', 'inter:valve_c', 'inter:valve_d',
+      { set: ['arb:sluice', 'story:channels_drained'] }, 'inter:med_hall'], flags: ['sw:arboretum:valve_a', 'sw:arboretum:valve_b'],
+      plan: { arb_gardens: 100 } },
     { rest: 'arboretum' },   // the hall's Med-Station, before the Stasis Gardens
-    { walk: 'arboretum', flags: ['arb:sluice', 'story:channels_drained'], path: ['inter:med_hall', 'spawn:stasis', 'boss:gardener'],
+    { walk: 'arboretum', flags: ['arb:sluice', 'story:channels_drained'], path: ['inter:med_hall', 'spawn:stasis', 'chest:stasis_cache', 'boss:gardener'],
       plan: { arb_stasis: 150 } },
     { chests: ['arboretum'] },
     { rest: 'arboretum' },
@@ -229,10 +244,10 @@ const ROUTES = {
   ],
   // the finale (WRITING 5.7, 12.5 heart): the shops, then up the Heart, with the chests on the
   // way: the dock tier (Kade's dream), its pylon and the lift; tier 2 (Nyx's dream), its pylon, the
-  // Second Tier's Med-Station and the lift; tier 3 (Orion's dream), its two pylons and the
-  // processional; the crown approach (Sera's dream), the Sanctum's Med-Station and fabricator, and the
-  // crown lift; WARDEN in both forms. Each dream gives its keepsake. The guarded lift, the north chord
-  // and the two Choirlit Echoes come from the map's fields. `plan` and `planFights` (11.7's two elite
+  // Second Tier's Med-Station and the lift; tier 3 (Orion's dream), its pylons with the Third Tier's
+  // Med-Station between them, and the processional; the crown approach (Sera's dream), the Sanctum's
+  // Med-Station and fabricator, and the crown lift; WARDEN in both forms. Each dream gives its
+  // keepsake. The guarded lift, the north chord and the two Choirlit Echoes come from the map's fields. `plan` and `planFights` (11.7's two elite
   // fights) stand in while the heart map is not registered.
   finale: [
     { shop: ['fabricator', 'ruse'] },
@@ -242,8 +257,11 @@ const ROUTES = {
     { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['inter:med_t2', 'inter:lift_t2', 'spawn:tier3'],
       plan: { heart_ascent: 40 }, planFights: ['heart_elite_frost'] },
     { give: ['eq_x_keepsake_kade', 'eq_x_keepsake_nyx', 'eq_x_keepsake_orion'] },
-    { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['spawn:tier3', 'chest:t3_north', 'inter:pylon_t3a', 'inter:pylon_t3b',
-      'inter:med_sanctum', 'inter:crown_lift'], plan: { heart_crown: 120 }, planFights: ['heart_elite_guard'] },
+    { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2'], path: ['spawn:tier3', 'chest:t3_north', 'inter:pylon_t3a', 'inter:med_t3'],
+      plan: { heart_crown: 40 } },
+    { rest: 'heart' },   // the Third Tier's Med-Station, in sight of the second Echoes (C7)
+    { walk: 'heart', flags: ['sw:heart:t1', 'sw:heart:t2', 'sw:heart:t3a'], path: ['inter:med_t3', 'inter:pylon_t3b',
+      'inter:med_sanctum', 'inter:crown_lift'], plan: { heart_crown: 80 }, planFights: ['heart_elite_guard'] },
     { give: ['eq_x_keepsake_sera'] },
     // the reliquary past the Bellwarden (an optional elite) stays shut
     { chests: ['heart'], skip: ['bell'] },
@@ -1170,7 +1188,7 @@ function expectedFights(chapter, samples = 4000) {
       if (walk.map !== plan.map) Object.assign(walk, { map: plan.map, zone: null, walked: 0 });
       for (const ev of plan.events) {
         if (ev.battle || ev.lift) Object.assign(walk, { zone: ev.lift ? null : walk.zone, walked: 0 });
-        else if (ev.zone) walkPiece(walk, ev, rng, () => 1, (zone) => { byZone[zone] = (byZone[zone] || 0) + 1; });
+        else if (ev.zone) walkPiece(walk, stretch(ev), rng, () => 1, (zone) => { byZone[zone] = (byZone[zone] || 0) + 1; });
       }
     }
   }
@@ -1179,6 +1197,9 @@ function expectedFights(chapter, samples = 4000) {
 }
 
 // Walks one piece of path; `onFight(zone)` runs for each roll that starts a fight.
+// A zone stretch as a --walk what-if walks it.
+const stretch = (ev) => (WALK === 1 ? ev : { ...ev, len: ev.len * WALK });
+
 function walkPiece(walk, piece, rng, factor, onFight) {
   if (piece.zone !== walk.zone) Object.assign(walk, { zone: piece.zone, walked: 0 });
   const { grace, sigma } = zoneRate(piece.zone);
@@ -1459,17 +1480,22 @@ function tallyFor(tally, kind) {
 }
 
 // Plays one battle with gameState.party (mutated in place). `tally`: mechanic counters by enemy kind.
+// `policy`: 'sim' (policyAction fed every event through observe) or 'browser' (createPolicy() with no
+// observe calls: what the in-game autoplay of debug.autoplay('policy') and tools/human-pace.mjs
+// plays, G3-06).
 // Returns the result plus, for bosses, Breaks on them and the party turns they were untargetable on.
-function fight(encounterId, seed, tally = null) {
+function fight(encounterId, seed, tally = null, policy = 'sim') {
   const m = new BattleModel({ party: gameState.party, encounterId, rng: makeRng(seed) });
   const memo = new Map();
+  const choose = policy === 'browser' ? createPolicy() : (mm, id) => ({ actorId: id, ...policyAction(mm, id, memo) });
   const maxHp = sum(m.party, (p) => p.maxHp);
   const hp0 = sum(m.party, (p) => p.hp);
   // formBreaks / formRounds: Breaks on the boss and rounds fought per boss form (a transform starts the next)
   const out = { items: {}, invalid: 0, ultGranted: 0, ultUsed: 0, ultOnBreak: 0, bossBreaks: 0, formBreaks: [0], formStart: [1] };
   let turns = 0;
   let hidden = 0;
-  const windows = new Map();   // round -> { broken, healed } (cue windows, CANCEL_CHECKS)
+  const windows = [];   // { broken, healed, kind } (cue windows, CANCEL_CHECKS); the last one may be open
+  let open = null;
   const transformed = new Set(m.enemies.map((e) => e.key));   // kinds already counted
   const isBoss = (id) => String(id).startsWith('e') && !!m.get(id)?.boss;
   const feed = (events) => {
@@ -1481,8 +1507,8 @@ function fight(encounterId, seed, tally = null) {
         if (isBoss(ev.targetId)) {
           out.bossBreaks++;
           out.formBreaks[out.formBreaks.length - 1]++;
-          const w = windows.get(m.round);
-          if (w && !w.healed) w.broken = true;
+          if (open) open.broken = true;
+          open = null;
         }
       }
       if (ev.type === 'transform' && isBoss(ev.targetId)) {
@@ -1491,11 +1517,13 @@ function fight(encounterId, seed, tally = null) {
       }
       if (ev.type === 'cue' && ev.value !== false && Object.values(CANCEL_CHECKS).some((c) => c.cue === ev.name)) {
         const boss = m.enemies.find((e) => e.alive && e.boss);
-        windows.set(m.round, { broken: !!boss?.broken, healed: false, kind: boss?.key });
+        open = { broken: !!boss?.broken, healed: false, kind: boss?.key };
+        windows.push(open);
+        if (open.broken) open = null;
       }
-      if (ev.type === 'heal' && isBoss(ev.targetId)) {
-        const w = windows.get(m.round);
-        if (w && !w.broken) w.healed = true;
+      if (ev.type === 'heal' && isBoss(ev.targetId) && open) {
+        open.healed = true;
+        open = null;
       }
       if (ev.type === 'learn' && ev.ultimate) out.ultGranted++;
       if (tally && (ev.type === 'transform' || ev.type === 'summon') && !transformed.has(ev.kind)) {
@@ -1521,7 +1549,7 @@ function fight(encounterId, seed, tally = null) {
     turns++;
     if (m.enemies.some((e) => e.alive && e.boss && e.untargetable > 0)) hidden++;
     const armed = m.enemies.filter((e) => e.alive && (e.charge || e.lockOnTarget)).map((e) => [e, !!e.charge]);
-    const a = { actorId: actor.id, ...policyAction(m, actor.id, memo) };
+    const a = choose(m, actor.id);
     const target = a.targetId ? m.get(a.targetId) : null;
     let ev = m.act(a);
     if (ev.length === 1 && ev[0].type === 'message') {
@@ -1542,7 +1570,7 @@ function fight(encounterId, seed, tally = null) {
     }
   }
   if (tally) {
-    for (const w of windows.values()) {
+    for (const w of windows) {
       if (!w.kind) continue;
       const t = tallyFor(tally, w.kind);
       t.windows++;
@@ -1641,7 +1669,7 @@ function runRoute(chapter, seed, { ref = null, firstTimer = false, carry = null 
         }
         if (!ev.zone) continue;
         if (ref && ev.zone !== walk.zone) (ref.zoneSnaps[ev.zone] ||= []).push(snapshot());
-        walkPiece(walk, ev, rng, encounterFactor, (zone) => {
+        walkPiece(walk, stretch(ev), rng, encounterFactor, (zone) => {
           const table = ENCOUNTER_TABLES[zone] || [];
           if (!table.length) return;
           if (ref) (ref.zoneSnaps[zone] ||= []).push(snapshot());
@@ -1744,13 +1772,13 @@ function verdict(ok, label, detail) {
 
 // N battles per encounter id; `weights` (the zone table) repeats each result by how often the
 // table rolls that encounter, so the group summary matches what a player meets.
-function battleGroup(chapter, snap, ids, { level, tally, seedBase, weights = ids, n = N }) {
+function battleGroup(chapter, snap, ids, { level, tally, seedBase, weights = ids, n = N, policy = 'sim' }) {
   const rows = [];
   for (const id of new Set(ids)) {
     const res = [];
     for (let i = 0; i < n; i++) {
       restore(chapter, snap, level);
-      res.push(fight(id, seedBase + i * 7919, tally));
+      res.push(fight(id, seedBase + i * 7919, tally, policy));
     }
     rows.push({ id, res, weight: weights.filter((w) => w === id).length });
   }
@@ -1831,8 +1859,8 @@ function fightsLine(runs) {
   };
 }
 
-function bossCheck(chapter, snap, step, level, tally) {
-  const res = battleGroup(chapter, snap, [step.boss], { level, tally, seedBase: 90000, n: BOSS_N })[0].res;
+function bossCheck(chapter, snap, step, level, tally, policy = 'sim') {
+  const res = battleGroup(chapter, snap, [step.boss], { level, tally, seedBase: 90000, n: BOSS_N, policy })[0].res;
   const s = summarize(res);
   const lv = Object.entries(typeof level === 'number' ? Object.fromEntries(snap.party.map((id) => [id, level])) : level);
   const lvText = [...new Set(lv.map(([, l]) => l))].length === 1 ? `L${lv[0][1]}` : `L${lv.map(([id, l]) => `${id[0]}${l}`).join('/')}`;
@@ -1885,6 +1913,33 @@ function reportChapter(chapter) {
     `${Object.keys(lostTo).length ? ` [${Object.entries(lostTo).map(([id, n]) => `${id} ${n}`).join(', ')}]` : ''}, ` +
     `walks back to rest a KO ${f1(mean(runs, (r) => r.backToRest))}, boss won first try ${pct(mean(runs, (r) => (r.bossWin ? 1 : 0)))}`);
   verdict(inRange(Math.round(delivered.total), TARGETS.fights[chapter]), 'fights delivered (11.7)', `${f1(delivered.total)} (${TARGETS.fights[chapter].join('-')})`);
+  // G3-03: the route plays every fight from the HP and EP the fights before left (field items and
+  // the rests it passes patch the party up). No regular fight may cost a try, in the route's runs
+  // or the first-timer's; an elite fight at most one try in twenty runs (its 95% target).
+  const bosses = new Set(route.filter((s) => s.boss).map((s) => s.boss));
+  const routeLosses = (list) => {
+    const out = { regular: {}, elite: {} };
+    for (const r of list) {
+      for (const [id, n] of Object.entries(r.lostTo)) {
+        if (bosses.has(id)) continue;
+        const k = isEliteFight(id) ? 'elite' : 'regular';
+        out[k][id] = (out[k][id] || 0) + n;
+      }
+    }
+    return out;
+  };
+  const lossText = (o) => Object.entries(o).map(([id, n]) => `${id} ${n}`).join(', ');
+  const rl = routeLosses(runs);
+  const fl = routeLosses(ft.runs);
+  const regLost = sum(Object.values(rl.regular)) + sum(Object.values(fl.regular));
+  verdict(regLost === 0, 'regular fights lost on the route (G3-03)',
+    `${regLost} in ${runs.length} + ${ft.runs.length} first-timer runs${regLost ? ` [route: ${lossText(rl.regular) || '-'}; first-timer: ${lossText(fl.regular) || '-'}]` : ''}`);
+  const eliteIds = [...new Set([...Object.keys(rl.elite), ...Object.keys(fl.elite)])];
+  if (eliteIds.length) {
+    const worst = Math.max(...eliteIds.map((id) => Math.max((rl.elite[id] || 0) / runs.length, (fl.elite[id] || 0) / ft.runs.length)));
+    verdict(worst <= 1 - TARGETS.elite.win, 'elite fights lost on the route (G3-03)',
+      `worst ${pct(worst)} of runs (<= ${pct(1 - TARGETS.elite.win)}) [route: ${lossText(rl.elite) || '-'}; first-timer: ${lossText(fl.elite) || '-'}]`);
+  }
   const bossLevel = mean(runs, (r) => r.bossLevel || 0);
   verdict(inRange(bossLevel - def.levels[1], TARGETS.bossLevel), `level at the boss (plan ${def.levels[1]})`,
     `${bossLevel.toFixed(2)} (whole levels ${mean(runs, (r) => mean(Object.values(r.bossLevels || { x: 0 }))).toFixed(2)}) after ${mean(runs, (r) => r.xp).toFixed(0)} XP`);
@@ -1969,6 +2024,10 @@ function reportChapter(chapter) {
         `win ${pct1(b.s.win)} (>= ${pct(t.win)}), median ${b.s.rounds} rounds (${rt.join('-')}), Breaks ${b.s.breaks} (>= ${t.breaks}${twoForm ? ' per form' : ''})` +
         `${formText(b.s)}, untargetable on ${pct(b.s.hidden)} of party turns, HP lost ${pct(b.s.hpLost)}`);
       console.log(`         gear: ${b.gear}; credits ${ftSnap.credits}; in the bag: ${Object.keys(ftSnap.items).filter((id) => ITEMS[id]?.equip).join(', ') || 'nothing'}`);
+      // the same party with the policy the browser's autoplay plays (G3-06)
+      const bb = bossCheck(chapter, ftSnap, step, lv, {}, 'browser');
+      verdict(bb.s.win >= t.browserWin && inRange(bb.s.rounds, rt), `boss ${step.boss} (first-timer, browser policy)`,
+        `win ${pct1(bb.s.win)} (>= ${pct(t.browserWin)}), median ${bb.s.rounds} rounds (${rt.join('-')}), Breaks ${bb.s.breaks}${formText(bb.s)}, HP lost ${pct(bb.s.hpLost)}`);
       retryLine(ftSnap, lv);
       const ftBought = {};
       for (const r of ft.runs) for (const g of r.boughtGear) ftBought[g] = (ftBought[g] || 0) + 1 / ft.runs.length;
@@ -2036,7 +2095,8 @@ console.log(`VOIDPATH campaign balance: ${FIGHTS_ONLY ? 'geometry only' : `${N} 
   `${FORCE_PLACEHOLDERS ? ', placeholders forced' : ''}` +
   TRY.map(([id, kinds]) => `, trying ${id} = ${kinds}`).join('') +
   Object.entries(RATE_TRY).map(([z, r]) => `, trying ${z} at { grace ${r.grace}, sigma ${r.sigma} }`).join('') +
-  [...SCALE_TRY.map(([k, f, v]) => `, ${k}.${f} x${v}`), ...ENEMY_TRY.map(([k, f, v]) => `, ${k}.${f} = ${v}`)].join(''));
+  [...SCALE_TRY.map(([k, f, v]) => `, ${k}.${f} x${v}`), ...ENEMY_TRY.map(([k, f, v]) => `, ${k}.${f} = ${v}`)].join('') +
+  (WALK !== 1 ? `, zone walking x${WALK}` : ''));
 for (const c of CHAPTERS) {
   if (!ROUTES[c.id] || (ONLY.length && !ONLY.includes(c.id))) continue;
   reportChapter(c.id);

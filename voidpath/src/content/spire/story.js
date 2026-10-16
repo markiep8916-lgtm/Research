@@ -63,13 +63,10 @@ const scripts = {
   'spire.arrival': async (cs) => {
     bg(cs.letterbox(true));
     cs.music('spire', { fade: 0.6 });
-    // the flight's stand-in can hand the leader over at its cockpit seat, not at the berth: start on the dock
-    const p = here(cs);
-    if (p.x > 13.5 || p.z < 41.5) await cs.goto('spire', 'dock', { transition: 'none' });
     // the checkpoint first: barricades, the sigil pylon, every screen showing WARDEN
     await cs.camera.focus([31.0, 50.2], { zoom: 0.95, ms: 1 });
     // the squad ends short of the Checkpoint's trigger (x 15.5): the player walks into the troopers
-    bg(cs.gather(inParty(cs, { kade: [14.2, 50.4], nyx: [13.2, 51.6], sera: [13.0, 49.4], orion: [12.2, 51.0] })));
+    const gathered = bg(cs.gather(inParty(cs, { kade: [14.2, 50.4], nyx: [13.2, 51.6], sera: [13.0, 49.4], orion: [12.2, 51.0] })));
     cs.light('sigil', { intensity: 13 });
     cs.light('pylon', { intensity: 20 });
     const pan = bg(cs.camera.pan([[31.0, 50.2], [17.0, 50.4]], { sec: 3 }));
@@ -77,6 +74,8 @@ const scripts = {
     cs.light('sigil', { intensity: 9 });
     cs.light('pylon', { intensity: 16 });
     await pan;
+    // the walk-on ends under WARDEN's line; with lines skipped, wait for it so Kade speaks on screen
+    await gathered;
     bg(cs.move('kade', [[15.0, 50.4]], { speed: 1.6, face: 'right' }));
     await cs.say('KADE', 'This was my deck.');
     bg(cs.emote('nyx', 'sweat', { wait: false }));
@@ -343,6 +342,9 @@ const scripts = {
     cs.flag('story:ch3_done');
     cs.light('flare', { color: '#ff9a4a', intensity: 14 });
     await cs.say('ORION', 'That key opens the core antechamber. The only door to WARDEN.', { expr: 'determined' });
+    // the chapter closes on grief, not exposition: her last order, acknowledged (G3-11)
+    cs.face('kade', 'left');
+    await cs.say('KADE', 'Copy, Commander.', { expr: 'sad' });
     cs.save();
     await cs.ungather();
     await cs.card('ch4');

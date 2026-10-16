@@ -6,7 +6,8 @@
 // BattleState owns battle music: encounter.music, then encounter.phaseMusic[kind] on a transform.
 // Tips (TECH_PLAN 7.7): every event played adds its keys (the event type, 'status:<stat>', 'cue:<name>',
 // 'bp3', plus 'begin' and 'playerTurn'); before the next command menu the first unseen tip whose key
-// matched is shown in the dialog strip and its flag set (encounter tips override ctx.content.tips).
+// matched is shown in the dialog strip and its flag set (encounter tips override ctx.content.tips);
+// one tip per player turn, and the learn tip waits for the ultimate prompt (TIP_AFTER).
 // Battle speed comes from ctx.settings.battleSpeed (else the UI setting; 1 / 1.5 / 2). While an enemy
 // acts, holding confirm plays the turn faster.
 
@@ -41,6 +42,9 @@ export function resultMembers(party, before, ups) {
     learned: ups.filter((u) => u.type === 'learn' && u.memberId === p.id).map((u) => u.name),
   }));
 }
+
+/** Tips that wait for another tip to have shown (key -> the tip it follows). */
+const TIP_AFTER = { learn: 'ultimateReady' };
 
 /** Tip keys an event contributes (TECH_PLAN 7.7). */
 export function tipKeys(e) {
@@ -286,14 +290,26 @@ export class BattleState {
     return g ? { lines: g.lines || [], flag: g.flag || `tut:${key}` } : null;
   }
 
-  /** Shows the first unseen tip whose key matched an event, then sets its flag. */
+  /** A tip that would still show: it has lines and its flag is not set. */
+  _tipDue(key, flags) {
+    const tip = this._tipFor(key);
+    return tip && tip.lines.length && !(tip.flag && flags[tip.flag]) ? tip : null;
+  }
+
+  /**
+   * Shows the first unseen tip whose key matched an event, then sets its flag: one tip per player
+   * turn. A tip in TIP_AFTER stays queued while the tip it follows is still due (G3-16: at an
+   * ultimate awakening the ultimate prompt shows first, the learn tip on a later turn).
+   */
   async _showTip() {
     const flags = (this.ctx.state || gameState).flags;
-    while (this._tipQueue.length) {
-      const key = this._tipQueue.shift();
+    for (let i = 0; i < this._tipQueue.length; i++) {
+      const key = this._tipQueue[i];
+      const tip = this._tipDue(key, flags);
+      if (tip && TIP_AFTER[key] && this._tipDue(TIP_AFTER[key], flags)) continue;
+      this._tipQueue.splice(i--, 1);
       this._tipSeen.add(key);
-      const tip = this._tipFor(key);
-      if (!tip || !tip.lines.length || (tip.flag && flags[tip.flag])) continue;
+      if (!tip) continue;
       if (tip.flag) flags[tip.flag] = true;
       this._lastSpeaker = null;
       for (const line of tip.lines) await this._sayLine(line);

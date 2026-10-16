@@ -3,8 +3,8 @@
 // over steel, sprinkler rain, fireflies, glowing water channels. 1 cell = 1 world unit, +Z = south.
 //
 //   The Dock (south-west)     the Moth's pad, a Starchart, a Med-Station, valve A by the dock canal
-//   The Fern Walk (south)     raised fern beds wind east (zone arb_gardens); the spore drones' lesson
-//   The Pump House (south-east)  valve B by the pump canal; the tending drones            puzzle area
+//   The Fern Walk (south)     raised fern beds wind east (zone arb_fern); the spore drones' lesson
+//   The Pump House (south-east)  valve B by the pump canal; the tending drones; a Med-Station   puzzle area
 //   The Glasshouse (middle)   tall planters wind back west (zone arb_gardens); the Seedling Spear
 //   The Channels (west)       the hall's basin and the sluice valves, left and right      puzzle area
 //   Stasis Gardens (north)    pods banked in roots, sorted like seed packets (zone arb_stasis); the
@@ -327,7 +327,7 @@ export default {
     },
     { id: 'glasshouse', name: 'The Glasshouse', subtitle: 'The Arboretum · Tall Beds', rect: [16.6, 28.4, 71.5, 42.4], zone: 'arb_gardens', mood: MOOD.glass },
     { id: 'dock', name: 'The Dock', subtitle: 'The Arboretum · Moth Berth', rect: [0.5, 42.4, 14, 55.5], zone: null, mood: MOOD.dock },
-    { id: 'fern', name: 'The Fern Walk', subtitle: 'The Arboretum · Under the Domes', rect: [14, 42.4, 58.5, 55.5], zone: 'arb_gardens', mood: MOOD.fern },
+    { id: 'fern', name: 'The Fern Walk', subtitle: 'The Arboretum · Under the Domes', rect: [14, 42.4, 58.5, 55.5], zone: 'arb_fern', mood: MOOD.fern },
     { id: 'pump', name: 'The Pump House', subtitle: 'The Arboretum · Irrigation', rect: [58.5, 42.4, 71.5, 55.5], zone: null, puzzle: true, mood: MOOD.pump },
   ],
   spawns: {
@@ -386,6 +386,11 @@ export default {
     {
       id: 'valve_b', kind: 'switch', x: 61.0, z: 45.9, box: [60.6, 45.4, 61.5, 46.3], flag: 'sw:arboretum:valve_b', mode: 'toggle',
       label: 'Turn', prop: 'switch.valve', propFields: { x: 61.0, z: 45.6 }, script: 'arboretum.valve', sfx: 'valve',
+    },
+    // a rest between the Fern Walk and the Glasshouse, the two garden stretches (G3-03)
+    {
+      id: 'med_pump', kind: 'med', x: 68.4, z: 45.66, box: [67.88, 45.0, 68.92, 45.68], prop: 'med', propFields: { x: 68.4, z: 45.34 },
+      prompt: 'A Med-Station by the pumps, humming along with them. Restore the squad?',
     },
     // the Channels: the sluice, left then right (the combination)
     {
