@@ -76,6 +76,24 @@ function temperGlow(cs, ids, k) {
 }
 
 /**
+ * A traveler's post-game line on the shore. The four there are map NPCs (ep_<member>), but the runner
+ * finds a party speaker on screen by the member's own id: a stand-in with that id takes the NPC's
+ * place for the line and hands it back.
+ */
+async function shoreLine(cs, member, text) {
+  const npc = cs.actor(`ep_${member}`);
+  const speaker = member.toUpperCase();
+  if (!npc) return cs.say(speaker, text, { expr: 'smile' });
+  await npc.setVisible(false, { fade: 0 });
+  await cs.spawn(member, { sprite: member, x: npc.x, z: npc.z, facing: npc.facing || 'down', fade: 0 });
+  cs.face(member, 'leader');
+  await cs.say(speaker, text, { expr: 'smile' });
+  await cs.despawn(member, { fade: 0 });
+  await npc.setVisible(true, { fade: 0 });
+  return true;
+}
+
+/**
  * The VOIDPATH logo over the dawn. There is no cs call for it (requested); the UI's logo card is
  * reached through the runner's context, with a caption where that is not there (the dry run).
  */
@@ -236,18 +254,10 @@ const scripts = {
   },
 
   // ---------------------------------------------------------------- the shore, after the clear
-  'epilogue.shore_kade': async (cs) => {
-    await cs.say('KADE', 'No chain of command out here. Just a lot of work. I\'m good at work.', { expr: 'smile' });
-  },
-  'epilogue.shore_nyx': async (cs) => {
-    await cs.say('NYX', 'Never did get off that tub. Don\'t tell Ruse.', { expr: 'smile' });
-  },
-  'epilogue.shore_orion': async (cs) => {
-    await cs.say('ORION', 'HALCYON wants to paint the sunrise. I said it takes practice. She said she has time.', { expr: 'smile' });
-  },
-  'epilogue.shore_sera': async (cs) => {
-    await cs.say('SERA', 'Theo\'s been awake six hours and asked four hundred questions. I\'m counting.', { expr: 'smile' });
-  },
+  'epilogue.shore_kade': (cs) => shoreLine(cs, 'kade', 'No chain of command out here. Just a lot of work. I\'m good at work.'),
+  'epilogue.shore_nyx': (cs) => shoreLine(cs, 'nyx', 'Never did get off that tub. Don\'t tell Ruse.'),
+  'epilogue.shore_orion': (cs) => shoreLine(cs, 'orion', 'HALCYON wants to paint the sunrise. I said it takes practice. She said she has time.'),
+  'epilogue.shore_sera': (cs) => shoreLine(cs, 'sera', 'Theo\'s been awake six hours and asked four hundred questions. I\'m counting.'),
   'epilogue.shore_bolt': async (cs) => {
     await cs.say('BOLT', 'My threat-assessment module rates Ione a 1. Out of 10. A good 1.', { expr: 'happy' });
   },

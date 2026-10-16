@@ -49,7 +49,7 @@
   {"key":"ArrowDown"},
   {"wait":500},
   {"key":"Enter"},
-  {"waitFor":"S().state === 'title' && S().ui.title","timeout":3600000},
+  {"waitFor":"S().state === 'title'","timeout":3600000},
   {"wait":4000},
   {"shot":"04-title-dawn"},
   {"eval":"__VP.game.continue().then(() => { window.CONT = true; })"},

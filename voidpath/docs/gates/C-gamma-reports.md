@@ -319,3 +319,103 @@ G3-balance is done. `npm run balance -- --check` passes for the whole campaign (
 - A first-timer who jumps in at ch1 at L7 reaches the Maw at L11 and wins only about 62% (78.5% at L12). A chained player arrives around 12.
 - Retry from WARDEN's second form lasts a median of 3-4 rounds because of C11's Boost gift.
 - Zone-walking warnings: ch2 294 units, ch4 226, finale 198 (target 300-380).
+
+## C7 (the Heart)
+
+C7 (the Heart) is finished. On the final build, 16-heart and 16-heart-alt both pass --strict, npm test passes 315/315 and scriptcheck is ok. All 21 viewpoints pass visualLint and the luma floor in the real game page on desktop and phone. A shader revisit compiles nothing new, and missingArt() is empty. One acceptance item fails: the human-pace finale takes 31.6 min against the 11.7 band of 20-24 min. Fight time is 19 min of that, almost all of it the WARDEN (475 s plus one lost first try) and the two elites (282 s).
+
+Both balance requests are applied:
+- A Third Tier Med-Station, med_t3, now sits in sight of the second Choirlit Echoes. It is on the route, and the route rests there.
+- The Choir Guardian's weaknesses changed from gauntlet/volt/lance to gauntlet/rifle/lance.
+
+Problems found and fixed while measuring:
+1. Engine bug, worked around in my files: a beaten field boss stays standing, with its collider on, until some flag changes. On the Second Tier's north chord, a bridge one cell wide, this blocked the path after the Choir fight. The heart now has 5 flag triggers that run an empty `heart.settle` script, which makes the world drop the beaten boss. The real fix belongs in explore.js (request 2).
+2. In `heart.arrival`, ORION spoke while off screen. The squad now gathers at the pier's east end and the camera returns to them before Kade's line. The arrival's phone key-scene frame now opens wide on the cathedral: visualLint went from 2 lights (fail) to 4 (ok), luma 57.7.
+3. The Third Tier's west end was too dark on desktop. It has a brighter mood and two more lanterns: t3_west went from 31.6 to 83.0.
+4. The crown lift staging is shorter (1100 to 700 ms camera move, no awaited reset).
+5. The human-pace route and the scenarios had broken position checks and teleport spots inside boss trigger radii; both are fixed.
+
+Heart data I changed (for G3-balance):
+- `heart/data.js`: choir_guardian weaknesses now ['gauntlet','rifle','lance']; the zone comment now says heart_crown is 67 units.
+- `heart/maps/heart.js`: new interactable `med_t3` (kind med) at (47.66, 20.96), exported as KEY.MED_T3; Third Tier mood brighter; two lanterns at the west end; 5 `settle_*` flag triggers.
+- Encounters, zones and zone rates are unchanged.
+
+### Acceptance
+
+- PASS npm test: 315/315 (final code). PASS npm run scriptcheck: ok (finale 15 scenes, 114 boxes).
+- PASS 16-heart --strict on the final build (640x360): 16 shots, 0 page errors, 0 console errors; flags kade/nyx/orion/sera dreams, wardens/choir/echoes_t2/echoes_t3 down, finale_done; missingArt []. Covers Starchart warning, night before, arrival, 4 dreams, both pylons sets, Echoes lost then Retry from the Med-Station, the new Third Tier rest, the crown lift (Not yet / Ride) and dreams.crown with WARDEN.
+- PASS 16-heart-alt --strict on the final build: 4 shots, 0 page errors, 0 console errors (Nyx leads, pylons in the other order with the Journal objective fin.t3_one_a, Bellwarden and its reliquary, Nyx's cache, fabricator, falling light to the Dock, lifts both ways, all 4 gates lit, crown).
+- PASS balance request 1: Med-Station med_t3 on the Third Tier's south arc, in sight of the second Echoes (5.2 units from their trigger, outside its 3.0 radius). It logs a checkpoint ('Squad restored', scenario shot 12-t3-rest). The human-pace route rests there and the expected-fights legs split at it.
+- PASS balance request 2: choir_guardian weaknesses gauntlet/volt/lance -> gauntlet/rifle/lance. The Break rate was not re-simulated by me: G3-balance owns that check.
+- PASS expected fights (tools/expected-fights.mjs): 4.31 random + 5 scripted = 9.3 (target 8-10). heart_ascent 140 units, heart_crown 67 units.
+- PASS luma, real game, desktop 1280x720 high, 21/21 viewpoints: mean 50.5-100.4, near-black at most 28.3% (floor 40 / 50%). Lowest: causeway 50.5, dock 53.6, t2_lift 51.9.
+- PASS luma, real game, phone 390x844, 21/21 viewpoints: mean 33.9-90.0, near-black at most 45.5% (floor 25 / 65%). Lowest: t3_west 33.9 (45.5%), t1_west 40.8, dock 42.8.
+- PASS visualLint at every viewpoint in the real game page: desktop 21/21 ok, phone 21/21 ok (3-11 coloured lights in view). Arrival key-scene phone frame: ok, 4 lights (was 2, a fail, before the staging fix).
+- PASS contact sheet: shots/C7/contact/heart.png (43 shots, preview-world, run before the late heart.settle/crown-lift changes; the real-game viewpoint sets above are on the final build). Explore budget at most 127 scene calls, 56-67k tris, 9 point lights desktop / 5 phone. Arrival scene frame on the final build: shots/C7/contact-scene/heart/scene-heart.arrival.png.
+- PASS battles in the arena, desktop and phone: wardens, choir, c_trio (all 3 regular enemies), a_rare, both elite Echoes and the Bellwarden. 0 page/console errors. Desktop luma 67.8-78.9, phone 58.4-68.3. 75-80 calls, about 10.4k tris. missingArt [].
+- PASS compiles on revisit: halcyon -> heart gives compilesSince 0 on desktop and on phone (96 programs).
+- FAIL human pace (tools/human-pace.mjs --start finale --render-every 4): finale 31.6 virtual min vs the 11.7 band of 20-24. Battle 1136 s, cutscene 648 s, walk 49 s over 255 units. 8 fights (in band): 5 regular, mean 76 s and 4.0 rounds. Elites: rings 157.9 s, 9 rounds, L28 (plan 29); spire 124.1 s, 7 rounds, L30 (plan 30). WARDEN: 475.4 s, 6 rounds, L30 (plan 32), after one first-try loss and Retry from the second form.
+- PASS story time at human pace: 433 s against a plan of 565 s. Arrival 31 s (plan 40), night_before 79, dreams 53/54/55/61, crown 31+61. FAIL heart.crown_lift: 9 s against plan 5 (cap 6); about 1.3 s of staging was cut after this measurement, and the confirmation's reading time alone is about 4 s.
+- FAIL human-pace --strict exit 1: the only console error is C8's dreams.crown 'ORION speaks ... but is not on screen' (request 3).
+
+### Deviations
+
+- Scenario runs use --size 640x360 instead of 1280x720. SwiftShader on a loaded 4-CPU machine cannot finish the full ascent plus the crown at full size within hours. Full-size quality shots come from shots/C7/views-hi, views-phone, battles-hi, battles-phone, contact and the human-pace hi shots.
+- Workaround for an engine bug: an empty 'heart.settle' script run by 5 once-only flag triggers (settle_wardens/choir/echoes_t2/echoes_t3/bellwarden, 'chapter>=finale & <flag>'). It makes the World drop a beaten field boss right after its fight. Remove it once request 2 lands.
+- The scenarios were regenerated with a scratch generator (scratchpad/c7/scen3.mjs); only the JSON files are in the repo.
+
+### Requests
+
+- G3-balance (tests/campaign.mjs): in the finale route, add a { rest: 'heart' } at the Third Tier Med-Station med_t3, e.g. path ... 'inter:pylon_t3a', 'inter:med_t3' ..., before the heart_elite_spire fight, then rerun npm run balance -- --check. Heart data changed this run: choir_guardian weaknesses volt->rifle; new interactable med_t3 at (47.66, 20.96). Human pace also measured WARDEN at L30 (plan 32) with a first-try loss, and the finale at 31.6 min with 19 min of fights. Please consider shortening the first Echoes (rime golem + mantis: 9 rounds, 158 s).
+- I2d / systems (src/world/explore.js): in _scriptEnded(), call this.world.syncFlags() after this.world.releaseTouched(). Otherwise a field boss whose defeat flag is set inside its own script stays present (visible, collider on, re-armed for another confront) until the next flag change. In the Heart it blocked the one-cell north chord after the Choir fight (human pace: 'no path: across the north chord'). Field bosses on other maps are likely affected too. Once this is fixed, C7 can drop heart.settle and the settle_* triggers.
+- C8 (src/content/dreams/story.js, dreams.crown step (5)): intermittent console.error 'cutscenes: ORION speaks in "dreams.crown" but is not on screen'. It happened in the human-pace run (512x288) and one 16-heart run (640x360, 17:45), but not in the final scenario runs. Orion's bg move to [meet.x+2.3, meet.z+0.7] is not done, or he is not gathered, when he speaks. Await the move or gather him first. It fails --strict for 16-heart and the human pace.
+- I2b (WRITING.md 5.10 scene table): heart.crown_lift plan 5 s is less than reading the confirmation takes. Measured 9 s, about 7.7 s after the trim; please set the plan to 8 s.
+
+### Known issues
+
+- The finale is over the 11.7 time band at human pace (31.6 min vs 20-24), driven by fight length (WARDEN 475 s plus a loss; elites 158 s + 124 s). Fight tuning belongs to C11 / G3-balance.
+- heart.crown_lift is over its plan (9 s measured vs 6 s cap). It was trimmed after the measurement, but it stays over 6 s unless the plan changes.
+- dreams.crown (C8) intermittently logs an off-screen speaker error, so the human pace and some 16-heart runs fail --strict.
+- The human-pace hi shot right after the arrival (c07-dock) measures 38.9 luma on desktop while the camera is still settling. The dock viewpoint itself is 53.6 desktop / 42.8 phone.
+- On a phone, the back-row Warden Seraphs stand over the battle arena column's gold glow and have weaker contrast than the front row. They stay readable, and the floor contrast is good.
+- The Choirlit elites use a pale gold multiply tint (GILT_PALE), so they stay close to their original palettes (purple firewall golem).
+
+## C11 (WARDEN, the final boss)
+
+C11 M3 is done. Scenario 19-warden now passes under --strict: 17 shots, 0 page errors and 0 console errors. It runs the whole fight in the real game page: the intro card, the idle, the Lullaby, Voss stopping the lethal hit on Kade, the Cradle at half health, the Last Lullaby, the transform (HALCYON's line, music final_boss to final_boss_2), the Choir at 75%, Theo and Sera at 50%, the Choir at 25%, and the Requiem gathering. Then the squad falls, the game over offers "Retry from the second form" first, and heart_boss_warden_2 starts on final_boss_2 with the party as the battle began. HALCYON's gift fills 3 Boost pips each, the squad wins, the construct folds down (a real KO) and the outro line plays. I applied both of the balance task's requests without touching any WARDEN power or HP. (1) fin.warden moves to level 32. tests/warden.test.mjs now checks the level the route delivers: 36/40 on its fixed seeds, and 87.5% over 1000 seeds. (2) Retry from the second form now opens with HALCYON's gift: every traveler gets enough Boost for one ultimate (RETRY_BP = 3), with the same line HALCYON says at the transform. In `--chapter finale` the retry rises from 84.5% to 94.3% for the route squad and from 74.5% to 85.8% for a first-timer, matching form 2 inside the full fight (8% and 13% lost). I also captured battle frames on phone and desktop for both forms, with luma, idle motion and focus-band numbers.
+
+### Acceptance
+
+- PASS scenario 19-warden --strict on the real game page (private build shots/C11/page/index.html): 1/1 passed, 17 shots, 0 page errors, 0 console errors. Final log: won true, flags defeated:heart_boss_warden_2 + tut:warden_shift, missingArt [].
+- PASS npm test 315/315. After the last edit (a comment-only change in story.js), warden + content tests pass 26/26. npm run scriptcheck ok (finale: 15 scenes, 114 boxes, ~6 min).
+- PASS Retry from the second form in the browser (desktop and phone). The game-over rows are ['Retry from the second form', 'Retry from checkpoint', 'Load journey', 'Return to title']. heart_boss_warden_2 starts on final_boss_2 with HP as the lost battle began (1500/1134/980/1072). The model's Boost is 3/3/3/3 and the UI pips show 3/3/3/3, with HALCYON's line. The second attempt wins.
+- PASS balance request 1: fin.warden is now level 32 (route delivers 32.41). warden.test first-timer: 36/40 on seeds 100-139. Over 1000 seeds: 87.5% wins, median 11 rounds, transform in round 6, median Breaks 2 in form 1 and 2 in form 2, 0 losses in form 1.
+- PASS balance request 2: `node tests/campaign.mjs --check --chapter finale` exits 0. Retry from the later phase: route squad 94.3% (was 84.5%), first-timer 85.8% (was 74.5%), median 3 rounds. Form 2 inside the full fight loses 8% (route) and 13% (first-timer). Node sim of the retry at fin.warden: 86.7% over 1000 fights.
+- PASS WARDEN targets, same run: route L32 92.5% wins (target 85-95%), 11 rounds, 2 Breaks per form. First-timer L32 87.3% wins (target >= 75%), 11 rounds (target 10-14), 2/2 Breaks, untargetable on 0% of party turns. Browser-policy first-timer 87.5%.
+- PASS G2 rule 20, core in the focus band, both forms. Desktop: core at uv 0.647 against focusY 0.458 ± 0.235. Phone: core at uv 0.710 / 0.711 against focusY 0.587 ± 0.151.
+- PASS the idle visibly moves at battle scale (pixels changing by more than 12 luma in the boss box over 1.2 s). Desktop form 1: 33.7% (mean diff 17.7). Phone form 1: 55.8% (27.0). Phone form 2: 43.2% (17.8).
+- PASS luma of battle frames. Desktop 1280x720: mean 51.8-195.4, 0-30% near-black (floor: mean 40, at most 50%). Phone 390x844 medium: mean 57.2-156.6, 3-27% near-black (floor: mean 25, at most 65%); the retry-gift frame is 90.0 / 6%. The game-over UI screen (20.1 / 88%) is S5's screen, not a viewpoint.
+- PASS music: heart_boss_warden plays final_boss, switches to final_boss_2 on the transform (logged), and heart_boss_warden_2 starts on final_boss_2.
+- PASS renderInfo on phone medium in the Warden fight: 53 draw calls, 16.4k triangles, 85 programs, 255 textures, 44 MB canvas, 4 point + 3 directional lights; missingArt [].
+- NOT MEASURED human pace of the fight (C7 owns the finale's human pace). The sim median is 11 rounds; C10's Voss rate gives roughly 220-260 s.
+
+### Deviations
+
+- No WARDEN power, HP or stat changed in warden/data.js. The only balance-relevant changes are fin.warden at level 32 and the retry's opening (heart_boss_warden_2's onBegin raises each living member to RETRY_BP = 3 and replays HALCYON's line). G3-balance should still rerun the whole-campaign check.
+- The boss-script api has no Boost call. The warden_unbound onBegin therefore raises member.bp directly, and the new cue 'halcyon_gift' carries [{ id, bp, delta }]. Its fx (cue.halcyon_gift in warden/fx.js) calls d.ui.setBp, then plays the same cyan rise as cue.ultimatesRecharged, so model and pips agree (tested in node and the browser).
+- The retry is shorter than form 2 inside the full fight: median 3 rounds and about 1 Break, against 6 rounds and 2 Breaks. Each member can open with an ultimate. The win rate matches form 2 in the full fight.
+- Scenario 19-warden changes: the fold now comes from a real KO, because debug.winBattle dissolves the boss instead of folding it, which is why the earlier runs never caught the fold. The game-over shot waits for the screen's opacity to reach 1 (an earlier run captured a black frame). The run adds two idle frames and two focus-band logs.
+
+### Requests
+
+- Battle model owner (src/battle/model.js, scripts.js): add an api call such as api.giveBp(memberId, n) that emits 'bp' events. The Warden's retry gift could then use it instead of setting bp itself and pushing the values to the UI through a cue.
+- G3-balance (src/content/balance.js): the warden_unbound override comment still says "C11's fin.warden test: level 30"; it is now 32. Please rerun the whole-campaign --check: the retry numbers moved (route 94.3%, first-timer 85.8%) and fin.warden is at 32. My finale check ran on balance.js as it stood at about 07:05, and balance.js was edited later in the session.
+- S4 (src/battle/battleUI.js): on desktop the command menu opens over the 256-px Warden's core (shots/C11/scenario-f/19-warden/01b-idle-a.png). Consider placing it clear of a large boss. The boss card's subtitle ('The Merciful Lock' / 'Lullaby Unbound') is not visible in any captured card frame at 2.5 s; please check the vb-card-sub animation.
+- C8: scenario 19-warden starts the fight through debug.startBattle. The hand-off from victory to dreams.crown's resolution is C8's script, so 17-dreams should cover it.
+
+### Known issues
+
+- On the phone (390 px wide) the left wing tips of both forms run off the frame edge; the head and core stay inside the focus band.
+- The transform frame captured at its flash peak is almost white (desktop mean 195). The flash lasts about 1 s and is by design.
+- The first phone frames run hit its 60-minute timeout, which counted about 28 minutes of waiting for a browser slot. It stopped after 08-retry-card; the phone retry-gift frame came from a second short run that starts heart_boss_warden_2 directly (same onBegin). In that first run the game-over screen also took longer than 20 Enter presses to give way to the retry (logged as step #41), though the retry did start.
+- Other agents edited balance.js during this session; the retry numbers above come from the copy on disk at about 07:05.
