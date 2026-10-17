@@ -1,5 +1,14 @@
 # VOIDPATH: module contracts
 
+> **Release note (I-release).** This file holds the proof-of-concept contracts. The full game's contracts
+> (multi-map world, story and cutscene runner, progression and saves, battle extensions, UI, content
+> registry, lints and tools) live in `TECH_PLAN.md` (sections 2-10, then its "Wave S deviations" and the
+> cross-file fixes after C-alpha and G3), and `MODULE_NOTES.md` records each module's notes and the
+> contract changes made after gate G2. New modules since the POC: `src/story/`, `src/content/`,
+> `src/world/{cond,mapdef,camera,sky,water,actors}.js`, `src/core/{state,progression,shop,save,perf,programs}.js`,
+> `src/battle/{scripts,arena,director,actionfx}.js`, `src/ui/` (menu tabs, shop, Starchart, saves, cards,
+> screens) and `tools/` (scenarios, human-pace, contact sheets, script check).
+
 Single source of truth for how modules talk to each other. Read `DESIGN.md` first for the vision.
 Exported names and signatures below are **binding**: implement them exactly. You may add extra
 exports, options and internal helpers freely. If you truly need a contract change, implement the

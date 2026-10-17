@@ -421,3 +421,47 @@ cross-file fixes") lists the same changes as plan deviations; each file's header
 - npm scripts: `pace` (tools/human-pace.mjs), `pace:report` (tools/human-pace-report.mjs), `fights`
   (tools/expected-fights.mjs).
 - `tools/play.mjs --timeout` counts from the moment a browser slot is taken, not from the wait in line.
+
+## Contract changes in the final polish (I-polish, I-release)
+
+Recorded by I-release from the I-polish report (docs/gates/C-gamma-reports.md, "I-polish").
+
+### UI
+- `ui.cards.credits({ lines, transparent, duration })` (src/ui/cards.js): `duration` (seconds) stretches the
+  gaps between credit groups so the roll moves at about 26 px/s, and the speed is worked out from the
+  remaining distance and time, so the roll ends on time even after a resize. `game.finish` passes 150
+  (`CREDITS_S`). Fast mode still passes speed 4000. Hold-to-skip counts 1 s of real (wall-clock) time.
+- Screen input locks (src/ui/screens.js): the "Signal lost" and "Journey complete" screens ignore input
+  for 0.8 s of wall-clock time after they open (`_lockUntil`); before, the lock counted game time and on
+  slow frames swallowed keys (an 18-epilogue-alt hang). `_lock` is gone.
+- Boss card (src/battle/battleUI.js): a long title shrinks to fit the card ('COMMANDER VOSS' fits on a
+  phone); the card scrim is lighter and fades out at the top, bottom and sides.
+
+### Battle stage
+- `CORE_TOP.compact` 0.12 -> 0.2 (src/battle/stage.js): on a phone a boss's head stays below the help strip.
+- Portrait full-width fit: a fitBox boss (Gardener, Maw, Voss, Echo, WARDEN) fits its whole width on a
+  portrait screen; the half-width is capped at `WIDE_SPAN` 0.92 NDC, because frame-0 bounds miss wider
+  wing frames.
+- The tilt-shift band (`stage.fx.focusY` / `band`) spans the boss's fitBox core and the party, so a tall
+  boss's top stays sharp (WARDEN: focusY 0.55 +- 0.38 at 640x360).
+
+### Look and staging
+- `MOODS` speaker grades (src/story/cutscene.js mood table) take `rel`: WARDEN's mood scales the scene or
+  area grade (bloom x1.15, exposure x1.08, each capped at the larger of the base and 1.15 / 1.0,
+  saturation x0.85; tints stay absolute) instead of replacing it. The base is the scene's `cs.fx` /
+  `cs.memory` grade if set, else the area mood. `cs.fx` and `cs.memory` re-derive the mood fx.
+- `MEMORY_FX`: bloom 1.25 -> 0.8, exposure 1.08 -> 1.0 (the Vault memory scenes no longer blow out).
+- `cs.spawn(id, { ..., projector })` (src/story/cutscene.js, I-release): passes `projector: false` to the
+  NpcDef, so a hologram can stand without HALCYON's projector disc. The crown embrace spawns WARDEN's and
+  HALCYON's figures that way (the discs washed the two figures out on a phone).
+- The epilogue's credits camera pan lasts 145 s (the credits run 150 s).
+- `cs.card(chapterId)` (src/story/cutscene.js, I-release) restores the squad (`healParty()`) under the card's
+  black, with the chapter change. Before, the party that won a chapter's boss walked into the next dungeon
+  on what it had left (the Vault: wounded from Voss, with no Med-Station before the Grid's lessons), while
+  the campaign routes start every chapter rested; the chained human-pace run lost a regular Vault fight there.
+
+### Balance
+- `voss_escort` atk and mag x0.9 (src/content/balance.js, I-release): the first-timer check goes from 77.5%
+  to 84.8% (browser policy 76.5% to 84.5%), the route check stays inside 85-95% (93.5%). The browser's
+  battle is the simulator's: 16 seeded fights (SENTINEL L8, Voss L23, debug.autoplay('policy')) replayed
+  the node traces action for action (shots/I-release/boss/).

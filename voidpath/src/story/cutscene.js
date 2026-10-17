@@ -776,10 +776,10 @@ class Cs {
     return this._r._actor(this._s, id);
   }
 
-  spawn(id, { sprite, x, z, facing = 'down', hologram = false, fade = 0.3, name, pose } = {}) {
+  spawn(id, { sprite, x, z, facing = 'down', hologram = false, fade = 0.3, name, pose, projector } = {}) {
     return this._do(async () => {
       const world = this._r._world();
-      const a = world.spawnNpc({ id, sprite, x, z, facing, hologram, name, pose });
+      const a = world.spawnNpc({ id, sprite, x, z, facing, hologram, name, pose, projector });
       this._r.touched.add(id);
       const sec = this._r._capMs(this._s, fade * 1000) / 1000;
       if (sec > 0) {
@@ -951,6 +951,9 @@ class Cs {
       await delay(r._quick(s) ? 0 : 900);
       if (s.aborted) return;
       story.setChapter(chapterId);
+      // a new chapter starts rested, as the campaign routes assume (10.4): the squad that just beat a
+      // chapter's boss does not walk into the next dungeon on 1 HP before its first Med-Station
+      healParty();
       if (c.traveler && gameState.party.some((m) => m.id === c.traveler)) {
         s.leaderRestore = null;
         if (gameState.leader !== c.traveler) r._leaderNow(c.traveler);

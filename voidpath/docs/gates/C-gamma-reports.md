@@ -719,3 +719,73 @@ Checks: npm test 322/322, scriptcheck ok, and these strict scenarios passed with
 - Theo's WARDEN scene on desktop is bright (105.1 luma) but readable, and lower than before (exposure 1.1 to 1.0, bloom 1.2 to 0.92).
 - In headless SwiftShader runs, game time runs at about 0.2x, so the 150 s credits take about 12 min of wall time in scenarios that do not hold to skip (18-epilogue took 901 s).
 - Epilogue length at human pace with the longer credits is estimated, not measured (about 5.3 min against the 5-7 min band).
+
+## I-release (release pass; verdict in RELEASE.md)
+
+The release pass is finished, and docs/gates/RELEASE.md says SHIP with the measured numbers. Unit tests pass 322/322, scriptcheck is ok (76 scenes, 482 boxes) and `npm run balance -- --check` passes for the whole campaign (92 ok, 0 fail). 34 of the 35 strict scenarios pass with 0 errors. The exception is one step of 15-vault-alt, explained under known issues. On the final `node build.mjs`, 01-boot passes strict.
+
+The game plays from the title to THE END in three human-pace legs: prologue through ch3 (pace-a), ch4 again after the fixes (pace-ch4), and the finale plus epilogue (pace-b). In total that is 2.64 h, 59 fight entries and 0 page errors.
+
+**Boss first tries.** Run with the same seed, the browser's fight is exactly the simulator's fight. 16 seeded fights (SENTINEL at L8, Voss at L23) matched node action for action (403 party actions) with the same end HP, so neither side had a bug.
+- Voss lost because the playthrough's gear was older than the simulator's route gear, and the escorts' lock-on beams did the damage. I set voss_escort atk and mag to x0.9. With the playthrough's gear the browser now wins 7 of 8 seeds, exactly as node predicted. The first-timer check goes from 77.5% to 84.8%, and the route check stays at 93.5%.
+- SENTINEL wins 94-96% at the playthrough's levels and 8 of 8 seeded browser fights, so I left it unchanged. I found no difference in code, state or policy, so the two playthrough losses look like bad luck (about 5% each).
+
+**Vault stall.** It had two causes:
+- The party entered ch4 wounded from Voss, with no Med-Station before the Grid. `cs.card()` now restores the squad under the chapter card.
+- The route did not survive a Retry rolling the Grid back. tests/routes/vault.mjs now replays what was undone.
+
+The ch4 leg then ran from its jump to the FINAL CHAPTER card with no stall.
+
+Polish requests (4) are all done:
+- The crown holograms spawn with `projector: false`; cs.spawn needed a small pass-through change for this. The desktop embrace frame drops from 77.4 to 66.9 luma.
+- The credits camera pan lasts 145 s.
+- The dead `_lock` line in preview-ui is removed.
+- 18-epilogue waits for the screen buttons before its shot.
+- MODULE_NOTES.md records the polish contract changes.
+
+Perf, README and docs are finished. The README has 11 screenshots, each under 400 KB, and CONTRACTS.md now points to TECH_PLAN.md and MODULE_NOTES.md.
+
+### Acceptance
+
+- PASS npm test: 322/322 after the last code change (shots/I-release/npm-test-3.txt); npm run scriptcheck ok (76 scenes, 482 boxes, 233 scripts)
+- PASS npm run balance -- --check, whole campaign, after the Voss easing: 92 ok, 0 FAIL, 3 zone-walking warnings (shots/I-release/balance-check-2.txt)
+- PASS (34/35) (1) strict sweep, --jobs 1, 0 page and 0 console errors: 01-06, 10-14 with their alts (earlier run), plus 15-vault, 16-18 with their alts and 20-29 (sweep3.log). 19-warden passes at 640x360 (19-warden-640); at 1280x720 it timed out on a debug-pause step. 15-vault-alt fails step 42 (the west relay wait) in 3 runs; the rest of that scenario passes
+- PASS (1) stale scenario expectations fixed: 15-vault and 15-vault-alt answer the rifle's 'Equip now?' prompt (jumps now wear the route's gear), and 15-vault's Echo step had a statement eval that was a SyntaxError inside play.mjs's return(); 15-vault now passes (1379 s, 15 shots)
+- PASS (2) vault chain: pace-ch4 ran from the ch4.vault jump through to the FINAL CHAPTER card with no stall: 23.3 min (inside the band), 8 fights (mean 66 s, 3.4 rounds), ECHO won first try at L26 (plan 27) in 16 rounds, 0 page errors, missingArt empty. So title -> THE END chains as pace-a, then pace-ch4, then pace-b
+- PASS (3) the browser fight equals the simulator's: 16/16 seeded fights identical action for action (SENTINEL L8: 8 wins in 5-9 rounds; Voss L23: 8 wins in 6-11 rounds; 403 party actions, same end HP)
+- PASS (3) Voss first try in the browser with the playthrough's gear at L23, after voss_escort x0.9: 7/8 wins (87.5%), the same 8 results node predicted. Simulator: route-gear win 71.5% -> 81.8%; first-timer 77.5% -> 84.8%; browser policy 76.5% -> 84.5% (median 8 rounds); route 93.5% (target 85-95%)
+- PASS (3) SENTINEL browser first try at the route's level: 8/8 wins; sim 94-96% at 8/8/7/7 and first-timer 93.5% in 9 rounds; left unchanged
+- PASS (4) polish requests: crown holograms with projector:false (desktop embrace 77.4 -> 66.9 luma, near-white 2.1% -> 0.5%); credits pan 145 s; dead _lock line removed; 18-epilogue waits for .vp-scr.is-on .vp-scr-btns; MODULE_NOTES records the polish contract changes
+- PASS (5) perf on phone medium (SwiftShader, 585x1266 render): Driftmarket 49-84 scene calls / 6.4-8.4k triangles / 38.8 canvas MB; Heart 71-113 calls / 51-63k triangles / 71.9 MB; WARDEN fight 58 calls / 16.6k triangles / 78.9 MB, all inside the 11.6 budgets. fps 1.0-1.6 (software rendering, no real phone). First load: DOMContentLoaded 0.63 s, ready and title at 4.3 s
+- PASS (5) size: dist/index.html 2.59 MB (0.82 MB gzipped), dist/artifact.html 2.10 MB (0.69 MB gzipped), both under 16 MB
+- PASS (6) README finished; docs/screenshots has 11 PNGs (01-11), each under 400 KB, no spoilers in file names, all linked from the README. Unlinked POC jpgs removed; the 3 jpgs the contact-sheet tool uses are kept
+- PASS (7) docs/gates/RELEASE.md: verdict, chapter minutes (prologue 23.5, ch1 27.4, ch2 26.5, ch3 25.6, ch4 21.2 / 23.3, finale 28.3, epilogue 6.1; total 158.6 min = 2.64 h), 59 fight entries, boss levels and first-try results, 3 scene overruns, errors, perf, size, cut list (nothing cut) and 8 ranked known issues
+- PASS (8) final node build.mjs at 17:48; 01-boot strict on it: PASS 117 s, 6 shots, 0 page errors, 0 console errors
+
+### Deviations
+
+- Healing at chapter cards is a game-flow change, made under the 'real bug in any file' rule (src/story/cutscene.js cs.card calls healParty). Recorded in MODULE_NOTES and RELEASE.md
+- cs.spawn now passes `projector` to the NpcDef (src/story/cutscene.js). This was needed for the dreams request; before, NpcDef supported the option but cs.spawn dropped it
+- SENTINEL was not eased. The browser fight matches the simulator and wins 8/8 seeds and 94-96% at the route's level, so the 'ease until >= 70%' condition did not apply
+- The browser boss runs used thin rendering (draw every 30th frame), no command delay, q=low at 640x360 and debug.equip for the playthrough's gear, so they finish in minutes. The battle model and policy are unchanged by this
+- README battle screenshots reuse frames from this pass's strict sweep (03-battle 07-break, 12-shoals 10-mid-battle), because fresh battle captures at 1280x720 were too slow on SwiftShader. The phone shot is new
+- Added a short pointer note to CONTRACTS.md (an I3 deliverable in TECH_PLAN 13)
+- TECH_PLAN.md was not edited (not owned); the contract changes are in MODULE_NOTES.md
+
+### Requests
+
+- TECH_PLAN owner: under 'G3 and C-gamma cross-file fixes', record: cs.card heals the squad; cs.spawn takes `projector`; voss_escort atk and mag x0.9; ui.cards.credits `duration`; wall-clock screen locks; stage CORE_TOP.compact 0.2 / WIDE_SPAN 0.92 / a tilt band spanning core and party; MOODS rel and the MEMORY_FX values. All are in MODULE_NOTES.md
+- Owner of the arb_* / spire_* zones (pacing): ch2 and ch3 run 26.5 and 25.6 min at human pace (band 16-20); a curious route walks 579 and 421 zone units and meets 14 / 10 fights, and reaches the bosses 2 levels high. Consider lower zone rates or shorter side rooms
+- Owner of tools/human-pace.mjs routes: the walker never buys armour or Revive Kits, so its squad is weaker than the simulator's first-timer. If routes should model a real first-timer, consider a restock step (Revive Kits) and an Optimize press after chests
+
+### Known issues
+
+- Ch2 and ch3 are long at human pace: 26.5 and 25.6 min against 16-20; the whole game is 2.64 h against the planned 1.9-2.3 h
+- Real-phone fps is unmeasured; SwiftShader gives 1.0-1.6 fps (render budgets are met)
+- 15-vault-alt step 42 (the west-relay wait) timed out in 3 runs; each time the switch finished within a minute after the loop gave up. An instrumented copy passes it in 35 s and the same relay works in 15-vault and pace-ch4. Root cause not found
+- 19-warden passes only at 640x360 on SwiftShader
+- 18-epilogue's 13-complete shot misses the Journey complete screen even though its buttons are in the DOM (headless capture); 18-epilogue-alt captures the screen
+- Scene overruns: prologue.new_journey 78 s (cap 75), driftmarket.ruse_maw 42 (40), driftmarket.return 61 (57); the prologue had 10 fights against 7-9
+- SENTINEL was lost on the first try in both playthroughs despite a 94-96% simulated rate (judged as chance). Voss with the playthrough's bag and no Revive Kit: about 65%
+- 10 WebGL 'texSubImage2D: no canvas' warnings after a Vault Retry in pace-a (warnings only)
+- Art items carried over: desktop command menu overlaps the Gardener; Theo's WARDEN scene is bright on desktop; the Choir pod on a phone is 64% near-black; the crown embrace phone frame was not re-measured

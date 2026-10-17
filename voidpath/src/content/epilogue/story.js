@@ -246,7 +246,7 @@ const scripts = {
     cs.objective('epi.shore');
     cs.save();
     // the credits roll over the shore with the camera drifting along the water
-    bg(cs.camera.pan([[22.6, 4.6], [25.0, 4.8]], { sec: 70 }));
+    bg(cs.camera.pan([[22.6, 4.6], [25.0, 4.8]], { sec: 145 }));
     const end = await cs.ending();
     if (end !== 'ione') return;
     // Return to Ione: the leader turns from the water; the others stay on as the shore's NPCs

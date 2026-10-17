@@ -145,7 +145,9 @@ export const overrides = {
     // wins four in five, while a weaker squad still lives to see the overclock (spire.test seeds)
     voss: { xp: 0.6, atk: 1.14, mag: 1.14 },
     voss_overclock: { xp: 0.6, atk: 1.45, mag: 1.45 },
-    voss_escort: { xp: 0.15 },
+    // the escorts' lock-on beams caused most of the KOs in the browser playthroughs' lost first tries;
+    // x0.9 takes the first-timer check from 77% to 85% (I-release)
+    voss_escort: { xp: 0.15, atk: 0.9, mag: 0.9 },
     // the Overwrite lesson costs about a quarter of the squad's HP: a squad that walks the core
     // fields into it never wipes there (G3-03; the route lost it in 2 of 160 runs at 0.8)
     corrupted_memory: { mag: 0.72 },

@@ -64,6 +64,7 @@
   {"shot":"12-the-end"},
   {"key":"Enter"},
   {"waitFor":"S().ui.screen === 'Journey complete'","timeout":3600000},
+  {"waitFor":"!!document.querySelector('.vp-scr.is-on .vp-scr-btns')","timeout":600000},
   {"wait":2500},
   {"shot":"13-complete"},
   {"log":"JSON.stringify(__VP.debug.listSaves().find((x) => x.slot === 'auto'))"},

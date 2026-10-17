@@ -22,16 +22,31 @@ export default {
         d.milestone('vault');
         await d.shot('c06-interface', { hi: true });
         await d.use('echo_sato', { optional: true });
-        await d.fightBoss({ at: [25.4, 47.2], script: 'vault.wraiths', done: d.F('vault:wraiths_down') });
-        await d.use('echo_jun', { optional: true });
-        await d.use('rifle');
-        await d.fightBoss({ at: [37.4, 31.4], script: 'vault.firewall', done: d.F('vault:firewall_down') });
-        await d.use('sw_fw');
-        await d.pump(d.F('sw:vault:fw'));
-        d.milestone('firewall');
-        await d.use('echo_voss', { optional: true });
-        await d.use('stacks', { optional: true });
-        await d.go(19.5, 19.0);
+        // A lost fight on the Grid ends in Retry, which restores the last checkpoint (the arrival) and
+        // undoes the wraiths, the firewall and its switch: each pass replays only what is undone.
+        const has = (flag) => d.eval((f) => !!window.__VP.ctx.state.flags[f], flag);
+        for (let pass = 0; ; pass++) {
+          await d.fightBoss({ at: [25.4, 47.2], script: 'vault.wraiths', done: d.F('vault:wraiths_down') });
+          if (pass === 0) await d.use('echo_jun', { optional: true });
+          await d.use('rifle', { optional: pass > 0 });
+          await d.fightBoss({ at: [37.4, 31.4], script: 'vault.firewall', done: d.F('vault:firewall_down') });
+          if (!(await has('sw:vault:fw'))) {
+            await d.use('sw_fw');
+            await d.pump(d.F('sw:vault:fw'));
+          }
+          if (pass === 0) {
+            d.milestone('firewall');
+            await d.use('echo_voss', { optional: true });
+            await d.use('stacks', { optional: true });
+          }
+          try {
+            await d.go(19.5, 19.0);
+            break;
+          } catch (e) {
+            if (pass >= 2 || !/no path/.test(e.message) || (await has('sw:vault:fw'))) throw e;
+            d.note(`ch4.vault: ${e.message} after a Retry rolled the Grid back; replaying it (pass ${pass + 2})`);
+          }
+        }
       },
     },
     // the Memory Fields: west (one switch), north (two), the Index, east (the swing), BOLT's seed

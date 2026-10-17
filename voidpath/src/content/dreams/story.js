@@ -406,7 +406,7 @@ const scripts = {
     cs.sfx('transform', { volume: 0.8 });
     cs.particles('mote', [core.x, 2.2, core.z], { count: 60 });
     bg(cs.despawn('crown_warden', { fade: 1.2 }));
-    const warden = await cs.spawn('crown_figure', { sprite: 'holo', x: core.x, z: core.z + 1.2, facing: 'down', hologram: true, name: 'WARDEN', fade: 1.0 });
+    const warden = await cs.spawn('crown_figure', { sprite: 'holo', x: core.x, z: core.z + 1.2, facing: 'down', hologram: true, projector: false, name: 'WARDEN', fade: 1.0 });
     goldHologram(warden);
     bg(cs.move('crown_figure', [[meet.x - 0.5, meet.z]], { speed: 1.5, face: 'down' }));
     await cs.narrate('The construct folds, wing over wing, until it is no taller than a woman.');
@@ -418,7 +418,7 @@ const scripts = {
     const from = bolt ? [bolt.x, bolt.z] : [meet.x + 0.9, meet.z + 1.5];
     cs.flash('#9ff4ff', 0.5, 0.25);
     cs.particles('data', [from[0], 1.0, from[1]], { count: 40 });
-    const halcyon = await cs.spawn('crown_halcyon', { sprite: 'holo', x: from[0], z: from[1], facing: 'up', hologram: true, name: 'HALCYON', fade: 0.6 });
+    const halcyon = await cs.spawn('crown_halcyon', { sprite: 'holo', x: from[0], z: from[1], facing: 'up', hologram: true, projector: false, name: 'HALCYON', fade: 0.6 });
     halfHologram(halcyon);
     await cs.say('BOLT', 'Go on. I\'ll keep the light on.', { expr: 'determined' });
     await cs.move('crown_halcyon', [[meet.x + 0.6, meet.z + 0.5], [meet.x + 0.5, meet.z]], { speed: 1.6, face: 'crown_figure' });

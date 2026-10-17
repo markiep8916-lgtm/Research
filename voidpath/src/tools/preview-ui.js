@@ -560,7 +560,6 @@ const SCENES = {
   'title-continue': () => { ui.title.show({ onStart: () => {}, onContinue: () => ui.hud.toast('Continue'), onLoad: () => ui.saves.open({ mode: 'load', slots: SLOTS }), hasSave: true }); ui.title._toMenu(); },
   'gameover-load': () => {
     ui.screens.gameOver({ onRetry: () => {}, onLoad: () => ui.saves.open({ mode: 'load', slots: SLOTS }), onTitle: () => {} });
-    ui.screens._lock = 0;
     ui.screens._select(1, false);
     ui.screens._activate(1);
   },
