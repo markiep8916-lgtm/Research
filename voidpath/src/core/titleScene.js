@@ -348,7 +348,8 @@ export class TitleScene {
    */
   _fit() {
     const k = this._k;
-    const s0 = lerp(0.55, 0.06, k), s1 = lerp(0.97, 0.94, k);
+    // wide: the line starts right of the tagline's end and of the menu's selection bar (R4)
+    const s0 = lerp(0.6, 0.06, k), s1 = lerp(0.975, 0.94, k);
     const dMin = lerp(8.6, 9, k);
     this._D = dMin;
     this._tx = 2;

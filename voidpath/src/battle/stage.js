@@ -6,8 +6,8 @@
 // Party formations depend on the party size (PARTY_LAYOUTS). Bosses stand at BOSS_SLOT with their adds
 // at ADD_SLOTS; EnemyDef.stage = { slot: [x, z], scale, spawn: 'holo' | 'rise', size: { w, h } }
 // overrides the slot, scales the sprite, picks the summon entrance and sizes a missing art's
-// placeholder. The camera fit uses each enemy art's fitBox, so huge bosses may bleed off-frame
-// instead of shrinking the party. Mid-battle changes: addCombatant (summons), transform (sheet swap),
+// placeholder. The camera fit uses each enemy art's fitBox, so huge bosses may bleed off the top or
+// bottom instead of shrinking the party (a portrait frame keeps their full width). Mid-battle changes: addCombatant (summons), transform (sheet swap),
 // setUntargetable (submerge / phase / shield). Enemy art keys come from the combatant (`art`), else
 // ENEMIES[kind].art, else the kind; ENEMIES[kind].tint multiplies the sprite.
 //
@@ -26,8 +26,12 @@ import { release } from '../core/programs.js';
 import { damp, ease } from '../core/util.js';
 
 const FOV = 30;
-// highest screen fraction a fitBox core may reach (just under the turn bar)
-const CORE_TOP = { compact: 0.12, wide: 0.1 };
+// highest screen fraction a fitBox core may reach: under the turn bar, and on phones also under the
+// command help strip that spans the screen below it (R2)
+const CORE_TOP = { compact: 0.2, wide: 0.1 };
+// portrait: the half-width (NDC) a large boss's whole art may take; the margin covers wing frames
+// wider than frame 0, whose bounds are the ones measured
+const WIDE_SPAN = 0.92;
 const PITCH = THREE.MathUtils.degToRad(26);
 const TILT = 0.36;                 // sprites lean back a little less than the camera pitch
 const COS_T = Math.cos(TILT), SIN_T = Math.sin(TILT);
@@ -402,8 +406,9 @@ export class BattleStage {
   /**
    * Fits camera distance + view offset so every combatant sits inside the UI-free band. An enemy art
    * with a fitBox only needs that core rect on screen: it may rise above the band (up to CORE_TOP, the
-   * top bar's edge) and the rest of the art bleeds past the frame, so a huge boss does not shrink the
-   * party on phones.
+   * top bar's edge) and the rest of the art bleeds past the frame vertically, so a huge boss does not
+   * shrink the party on phones; across, a portrait frame still holds the whole art (wings). The tilt
+   * band then spans the cores and the party, so a boss's head never blurs (R1).
    */
   _fit(snap = true) {
     const aspect = this.engine.size.aspect;
@@ -412,17 +417,21 @@ export class BattleStage {
     const coreTop = this.compact ? CORE_TOP.compact : CORE_TOP.wide;
     const hr = bottom - top;
     const cf = (top + bottom) / 2;
-    const pts = [], cores = [];
+    const pts = [], cores = [], wide = [];
+    const at = (x, y, z) => new THREE.Vector3(x, y * COS_T, z - y * SIN_T);
     _box.makeEmpty();
     for (const a of this.actors.values()) {
       if (a.side === 'enemy' && !a.alive) continue;
-      const f = a.fit, fh = a.sheet.frameH, s = a.scale;
+      const f = a.fit, fh = a.sheet.frameH, fw = a.sheet.frameW, s = a.scale;
       const yTop = ((fh - f.y0) / 32) * s, yBot = a.sheet.fitBox ? ((fh - 1 - f.y1) / 32) * s : 0;
-      const x = a.home.x + ((f.x0 + f.x1 + 1) / 2 - a.sheet.frameW / 2) / 32 * s;
+      const x = a.home.x + ((f.x0 + f.x1 + 1) / 2 - fw / 2) / 32 * s;
       const hw = a.side === 'party' ? a.halfW : ((f.x1 - f.x0 + 1) / 64) * s;
-      const list = a.side === 'enemy' && a.sheet.fitBox ? cores : pts;
-      for (const y of [yBot, yTop]) {
-        list.push(new THREE.Vector3(x - hw, y * COS_T, a.home.z - y * SIN_T), new THREE.Vector3(x + hw, y * COS_T, a.home.z - y * SIN_T));
+      const core = a.side === 'enemy' && a.sheet.fitBox;
+      const list = core ? cores : pts;
+      for (const y of [yBot, yTop]) list.push(at(x - hw, y, a.home.z), at(x + hw, y, a.home.z));
+      if (core && this.compact) {
+        const b = a.art2d, y = (yTop + yBot) / 2;
+        wide.push(at(a.home.x + (b.x0 - fw / 2) / 32 * s, y, a.home.z), at(a.home.x + (b.x1 + 1 - fw / 2) / 32 * s, y, a.home.z));
       }
     }
     for (const p of pts) _box.expandByPoint(p);
@@ -436,6 +445,7 @@ export class BattleStage {
     // between coreTop and the band bottom, which may push the party lower in the band.
     const ext = { x0: 0, x1: 0, y0: 0, y1: 0 };
     const core = { y0: 0, y1: 0 };
+    const art = { x0: 0, x1: 0 };
     let place = cf;
     const project = (p, D) => {
       _w.copy(p).sub(target).addScaledVector(this._camDir, -D).applyQuaternion(_qi);
@@ -461,6 +471,13 @@ export class BattleStage {
       }
       if (!pts.length) { ext.y0 = core.y0; ext.y1 = core.y1; }
       if (ext.x1 - ext.x0 > (this.compact ? 1.62 : 1.8) || ext.y1 - ext.y0 > 2 * hr * 0.97) return false;
+      art.x0 = ext.x0; art.x1 = ext.x1;
+      for (const p of wide) {
+        const n = project(p, D);
+        art.x0 = Math.min(art.x0, n.x);
+        art.x1 = Math.max(art.x1, n.x);
+      }
+      if (art.x1 - art.x0 > 2 * WIDE_SPAN) return false;
       place = cf;
       if (!cores.length) return true;
       // screen fraction of NDC y: place - (y - mid) / 2
@@ -476,8 +493,18 @@ export class BattleStage {
       if (measure(mid)) hi = mid; else lo = mid;
     }
     measure(hi);
-    this._goal = { target, dist: hi, offX: (ext.x0 + ext.x1) / 4, offY: 0.5 - place - (ext.y0 + ext.y1) / 4 };
+    // centred on the combatants, shifted only as far as a wide boss's art needs to stay in frame
+    const cx = Math.min(art.x0 + WIDE_SPAN, Math.max(art.x1 - WIDE_SPAN, (ext.x0 + ext.x1) / 2));
+    this._goal = { target, dist: hi, offX: cx / 2, offY: 0.5 - place - (ext.y0 + ext.y1) / 4 };
     this.fx = { focusY: 1 - place, band: hr * 0.42, falloff: this.compact ? 0.2 : 0.24 };
+    if (cores.length) {
+      // screen fractions (0 = top) of the cores and the combatants: the band spans both (R1)
+      const mid = (ext.y0 + ext.y1) / 2;
+      const sy = (y) => place - (y - mid) / 2;
+      const y0 = Math.min(sy(core.y1), pts.length ? sy(ext.y1) : 1), y1 = Math.max(sy(core.y0), pts.length ? sy(ext.y0) : 0);
+      this.fx.focusY = 1 - (y0 + y1) / 2;
+      this.fx.band = Math.max(this.fx.band, (y1 - y0) / 2 + 0.03);
+    }
     if (snap) this._applyFit(1);
   }
 

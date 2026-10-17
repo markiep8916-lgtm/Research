@@ -36,6 +36,7 @@ import { cellSpec, isWalkableSpec } from '../world/mapdef.js';
 import { travel } from '../story/travel.js';
 
 const MEMORY_NOTICE = 'Saving is unavailable in this view. Progress lasts until the page closes.';
+const CREDITS_S = 150;     // the ending's credits roll, closing line included
 
 // Errors inside transition callbacks reject a promise; rethrow them so #vp-fatal shows them.
 const surface = (e) => setTimeout(() => { throw e; });
@@ -534,7 +535,8 @@ export class Game {
     markCleared();
     const fast = this.ctx.cutscenes.fast;
     audio.music('credits');
-    await ui.cards.credits({ lines: REG.credits, transparent: true, ...(fast ? { speed: 4000 } : {}) });
+    // WRITING 5.10 plans about 150 s of credits, music only (the credits track runs 2+ minutes)
+    await ui.cards.credits({ lines: REG.credits, transparent: true, ...(fast ? { speed: 4000 } : { duration: CREDITS_S }) });
     await ui.cards.end({ text: 'THE END', ...(fast ? { ms: 300 } : {}) });
     return new Promise((resolve) => {
       ui.screens.complete({

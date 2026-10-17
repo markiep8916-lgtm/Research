@@ -1743,15 +1743,12 @@ export function textureHasAlpha(name) {
   return !!(DEFS[name] && (DEFS[name].alpha || name === 'stars_layer'));
 }
 
-let flatCanvas = null;
-
+// Each raw texture gets its own 4x4 flat normal: a shared one was blanked for every cached raw texture
+// when the art cache evicted any one of them (texSubImage2D "no canvas" in later arenas).
 function flatNormal() {
-  if (!flatCanvas || !flatCanvas.width) {
-    const p = new Painter(4, 4);
-    p.rect(0, 0, 4, 4, [128, 128, 255, 255]);
-    flatCanvas = p.canvas;
-  }
-  return flatCanvas;
+  const p = new Painter(4, 4);
+  p.rect(0, 0, 4, 4, [128, 128, 255, 255]);
+  return p.canvas;
 }
 
 const canvasOf = (v) => (v instanceof Painter ? v.canvas : v);

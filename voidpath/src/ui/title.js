@@ -57,6 +57,8 @@ const CSS = `
 .vp-title.is-menu .vp-title-lower { bottom: calc(9% + var(--vp-safe-bottom)); }
 .vp-title.is-menu .vp-title-menu { display: block; animation: vp-tmenu .35s var(--vp-ease-out); }
 @keyframes vp-tmenu { from { opacity: 0; transform: translateY(8px); } }
+/* wide screens: the menu sits left of centre, under the planet, so the travelers on the right stay clear of it (R4) */
+@media (min-aspect-ratio: 4/3) { .vp-title-lower { right: 16%; } }
 .vp-title-foot { position: absolute; left: 16px; right: 16px; bottom: calc(18px + var(--vp-safe-bottom)); text-align: center; color: var(--vp-ink-faint); letter-spacing: .3em; }
 .vp-title-ctl { position: absolute; left: 50%; top: 50%; width: min(760px, calc(100% - 24px)); max-height: calc(100% - 40px); box-sizing: border-box; padding: 20px 22px 16px;
   transform: translate(-50%, -48%); opacity: 0; visibility: hidden; transition: opacity .2s, transform .28s var(--vp-ease-out), visibility 0s linear .2s; display: flex; flex-direction: column; }

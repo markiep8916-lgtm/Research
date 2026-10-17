@@ -155,6 +155,9 @@ const scripts = {
       { speaker: 'ORION', text: 'Three memory crystals. They\'ll open the core. And... I\'d like to see them.', expr: 'sad' },
     ]);
     cs.objective('ch4.crystals');
+    // a wipe in the Grid retries from here, after the scene, not before it (G3-04)
+    cs.checkpoint();
+    cs.save();
     await cs.ungather();
   },
 
@@ -190,6 +193,7 @@ const scripts = {
     cs.flag('vault:stacks_open');
     await bring(cs, args, ['orion']);
     await cs.say('ORION', 'There. A bridge where the wall was. She builds them out of light.', { expr: 'smile' });
+    cs.checkpoint();
     await cs.ungather();
   },
 

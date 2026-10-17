@@ -176,7 +176,7 @@ export class Screens {
         if (t >= 1) this._counters = [];
       }
     }
-    if (!focused || this._lock > 0) { this._lock -= dt; return; }
+    if (!focused || performance.now() < this._lockUntil) return;
     const inp = this.ui.input;
     const n = this._rows.length;
     if (inp.repeat('up') || inp.repeat('left')) { inp.consume('up'); inp.consume('left'); this._select((this._sel + n - 1) % n, true); }
@@ -190,7 +190,9 @@ export class Screens {
     this.isOpen = true;
     this._sel = 0;
     this._busy = false;
-    this._lock = 0.8;              // ignore mashed buttons from the fight that just ended
+    // ignore mashed buttons from the fight that just ended: 0.8 s of wall clock, so a slow frame rate
+    // never stretches it
+    this._lockUntil = performance.now() + 800;
     this.root.appendChild(view);
     this.root.classList.add('is-live');
     this.ui._ctxPush('screens', 'menu');
@@ -205,7 +207,7 @@ export class Screens {
       const row = el('div', { class: `vp-row${b.hl ? ' is-hl' : ''}`, role: 'button', text: b.label });
       bindPointer(row, {
         onHover: () => this._select(i, true),
-        onActivate: () => { if (this._lock <= 0) { this._select(i, false); this._activate(i); } },
+        onActivate: () => { if (performance.now() >= this._lockUntil) { this._select(i, false); this._activate(i); } },
       });
       return row;
     });

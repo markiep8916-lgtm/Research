@@ -347,8 +347,11 @@ const CSS = `
 
 /* ---------------------------------------------------------------- boss intro card */
 .vb-card { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* the scrim is dense only behind the name and the rule, and fades out above, below and at the sides (R3) */
 .vb-card .band { position: absolute; left: 0; right: 0; top: 50%; height: 168px; margin-top: -92px;
-  background: linear-gradient(90deg, rgba(14,2,6,0), rgba(14,2,6,.86) 14%, rgba(14,2,6,.86) 86%, rgba(14,2,6,0)); animation: vb-card-band 1.7s var(--vp-ease-out) forwards; }
+  background: linear-gradient(180deg, rgba(14,2,6,0), rgba(14,2,6,.64) 30%, rgba(14,2,6,.64) 70%, rgba(14,2,6,0));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  animation: vb-card-band 1.7s var(--vp-ease-out) forwards; }
 .vb-card .rule { position: absolute; left: 6%; right: 6%; top: 50%; height: 3px; margin-top: 28px; transform-origin: 50% 50%;
   background: linear-gradient(90deg, transparent, #c8102e 18%, #ff5a70 50%, #c8102e 82%, transparent); box-shadow: 0 0 16px #ff2a4a; animation: vb-card-rule 1.7s var(--vp-ease-out) forwards; }
 .vb-card .ttl { position: absolute; left: 0; right: 0; top: 50%; margin-top: -58px; text-align: center; white-space: nowrap;
@@ -1311,10 +1314,13 @@ export class BattleUI {
 
   /** Boss intro card (~1.7 s): the name slams in across the screen over a crimson rule. */
   bossCard({ title = '', subtitle = '' } = {}) {
-    const node = el('div', { class: 'vb-card' }, [
-      el('div', { class: 'band' }), el('div', { class: 'rule' }), el('div', { class: 'ttl', text: title }), el('div', { class: 'sub', text: subtitle }),
-    ]);
+    const name = el('span', { text: title });
+    const ttl = el('div', { class: 'ttl' }, [name]);
+    const node = el('div', { class: 'vb-card' }, [el('div', { class: 'band' }), el('div', { class: 'rule' }), ttl, el('div', { class: 'sub', text: subtitle })]);
     this.root.appendChild(node);
+    // a long name on a narrow screen ("COMMANDER VOSS" on a phone) shrinks to fit instead of clipping
+    const room = this.root.clientWidth * 0.94, w = name.offsetWidth;
+    if (w > room) ttl.style.fontSize = `${Math.floor(parseFloat(getComputedStyle(ttl).fontSize) * room / w)}px`;
     this.audio?.sfx('card');
     this.after(0.2, () => this.engine.shake?.(0.12, 0.3));
     return new Promise((resolve) => this._drive(node, 1.7, { onDone: resolve }));

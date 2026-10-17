@@ -15,8 +15,8 @@
 //   cue.protect          the start: a silver glint over Kade (Voss keeping watch)
 //   cue.protected        Voss's voice: a silver ward over Kade as the lethal blow breaks on it
 //   cue.ultimatesRecharged   HALCYON's gift from BOLT: cyan light rises under every traveler
-//   cue.halcyon_gift     the same gift opening Retry from the second form: the rise, and the Boost it
-//                        gives fills each traveler's pips (the cue's value: [{ id, bp, delta }])
+//   cue.halcyon_gift     the same gift opening Retry from the second form: the rise (no value; the
+//                        pips fill through the 'bp' events of api.giveBp that follow the cue)
 //   cue.choir_flood      the transform: the Choir's light floods the crown
 //   cue.theo             Theo's voice: morning light on the squad
 //   cue.choir_voices     the sleepers' voices rise (the arena raises the columns)

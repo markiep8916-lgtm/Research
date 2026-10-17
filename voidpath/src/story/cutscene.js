@@ -76,21 +76,25 @@ const PARTY_SPEAKERS = { KADE: 'kade', NYX: 'nyx', ORION: 'orion', SERA: 'sera' 
 const LEADER_PROXY = '__leader';
 const PARTY_ACTOR = 'party:';
 
-// Speaker moods (ui.registerSpeaker mood): a look applied while that speaker's lines are shown.
+// Speaker moods (ui.registerSpeaker mood): a look applied while that speaker's lines are shown. `rel`
+// scales the look under it (the area's mood, or a scene's cs.fx / cs.memory grade) instead of
+// replacing it, so WARDEN lifts a dark room a little and never washes out a bright one: exposure and
+// bloom are capped at the larger of the base and maxExposure / maxBloom; `fx` holds the absolute rest.
 const MOODS = {
   warden: {
+    rel: { bloom: 1.15, maxBloom: 1.15, exposure: 1.08, maxExposure: 1.0, saturation: 0.85 },
     fx: {
-      bloom: { strength: 1.2 },
-      grade: { exposure: 1.1, saturation: 0.9, contrast: 1.04, shadowTint: [1.02, 0.96, 0.84], highlightTint: [1.14, 1.02, 0.78], vignette: 0.56 },
+      grade: { contrast: 1.04, shadowTint: [1.02, 0.96, 0.84], highlightTint: [1.14, 1.02, 0.78], vignette: 0.56 },
     },
     screens: 'warden_sigil',
   },
 };
-// cs.memory: replayed memories in HALCYON's mind (cyan-violet grade, chromatic edge, scanlines)
+// cs.memory: replayed memories in HALCYON's mind (cyan-violet grade, chromatic edge, scanlines); the
+// bloom stays low because the memory sets are lit by bright hologram projectors
 const MEMORY_FX = {
-  bloom: { strength: 1.25 },
+  bloom: { strength: 0.8 },
   grade: {
-    saturation: 0.8, contrast: 1.16, exposure: 1.08, aberration: 0.005, grain: 0.07, vignette: 0.64,
+    saturation: 0.8, contrast: 1.16, exposure: 1.0, aberration: 0.005, grain: 0.07, vignette: 0.64,
     shadowTint: [0.8, 0.7, 1.26], highlightTint: [0.78, 1.1, 1.2],
   },
 };
@@ -124,7 +128,8 @@ class Session {
     this.leaderRestore = null;    // cs.scene: the leader to restore at the end
     this.musicChanged = false;
     this.fx = null;               // cs.fx / cs.memory override
-    this.moodFx = null;           // speaker mood on top of it
+    this.mood = null;             // the speaker mood shown now (MOODS entry)
+    this.moodFx = null;           // its fx on top of it
     this.screens = null;          // cs.screens texture (and group)
     this.letterbox = false;
     this.faded = false;
@@ -579,9 +584,31 @@ export class CutsceneRunner {
   _applyMood(s, mood) {
     const ex = this._explore();
     if (!ex?.world) return;
-    s.moodFx = mood ? mood.fx || null : null;
+    s.mood = mood;
+    s.moodFx = this._moodFx(s, mood, ex);
     ex.fxOverride = mergeFx(s.fx, s.moodFx);
     ex.world.setScreens(mood?.screens || (s.screens ? s.screens[0] : null), mood?.screens ? undefined : s.screens?.[1]);
+  }
+
+  /** The scene's grade changed (cs.fx, cs.memory): a relative mood follows it. */
+  _refreshFx(s, ex) {
+    s.moodFx = this._moodFx(s, s.mood, ex);
+    ex.fxOverride = mergeFx(s.fx, s.moodFx);
+  }
+
+  /** A mood's fx; a relative mood scales the scene's grade, else the area's current mood (R5). */
+  _moodFx(s, mood, ex) {
+    if (!mood) return null;
+    const r = mood.rel;
+    if (!r) return mood.fx || null;
+    const area = ex.rig?.fx || {};
+    const bloom = s.fx?.bloom?.strength ?? area.bloom ?? 1;
+    const exposure = s.fx?.grade?.exposure ?? area.exposure ?? 1;
+    const saturation = s.fx?.grade?.saturation ?? area.saturation ?? 1;
+    return mergeFx(mood.fx || {}, {
+      bloom: { strength: Math.min(bloom * r.bloom, Math.max(bloom, r.maxBloom)) },
+      grade: { exposure: Math.min(exposure * r.exposure, Math.max(exposure, r.maxExposure)), saturation: saturation * r.saturation },
+    });
   }
 
   async _say(s, raw, script) {
@@ -888,7 +915,7 @@ class Cs {
     const s = this._s;
     s.fx = mergeFx(s.fx, partial);
     const ex = this._r._explore();
-    if (ex) ex.fxOverride = mergeFx(s.fx, s.moodFx);
+    if (ex) this._r._refreshFx(s, ex);
   }
 
   memory(on) {
@@ -898,7 +925,7 @@ class Cs {
     s.memory = !!on;
     s.fx = on ? mergeFx(s.fx, MEMORY_FX) : null;
     const ex = this._r._explore();
-    if (ex) ex.fxOverride = mergeFx(s.fx, s.moodFx);
+    if (ex) this._r._refreshFx(s, ex);
     this._r._scanlines(!!on);
   }
 

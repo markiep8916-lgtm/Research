@@ -63,13 +63,14 @@ const scripts = {
   'spire.arrival': async (cs) => {
     bg(cs.letterbox(true));
     cs.music('spire', { fade: 0.6 });
-    // the checkpoint first: barricades, the sigil pylon, every screen showing WARDEN
-    await cs.camera.focus([31.0, 50.2], { zoom: 0.95, ms: 1 });
+    // the checkpoint first: barricades, the sigil pylon, every screen showing WARDEN; the pan opens on
+    // the pylon itself, so even a phone's narrow frame holds WARDEN's gold as the line starts (R7)
+    await cs.camera.focus([33.5, 50.2], { zoom: 0.95, ms: 1 });
     // the squad ends short of the Checkpoint's trigger (x 15.5): the player walks into the troopers
     const gathered = bg(cs.gather(inParty(cs, { kade: [14.2, 50.4], nyx: [13.2, 51.6], sera: [13.0, 49.4], orion: [12.2, 51.0] })));
     cs.light('sigil', { intensity: 13 });
     cs.light('pylon', { intensity: 20 });
-    const pan = bg(cs.camera.pan([[31.0, 50.2], [17.0, 50.4]], { sec: 3 }));
+    const pan = bg(cs.camera.pan([[33.5, 50.2], [17.0, 50.4]], { sec: 3.4 }));
     await cs.say('WARDEN', 'Remain calm. Return to your pod. You are loved.');
     cs.light('sigil', { intensity: 9 });
     cs.light('pylon', { intensity: 16 });
@@ -249,9 +250,10 @@ const scripts = {
     cs.music(null, { fade: 1.2 });
     // the squad to the sides of the projector pad, never between it and the camera (G2 rule 13)
     bg(cs.gather(inParty(cs, { kade: [21.9, 17.1], nyx: [27.1, 17.2], orion: [21.2, 18.3], sera: [27.8, 18.3] })));
-    bg(cs.camera.focus([24.5, 16.6], { zoom: 0.84, ms: 1000 }));
+    // on the projector, wide enough that a phone frame holds both holograms whole (R6)
+    bg(cs.camera.focus([24.5, 16.3], { zoom: 0.9, ms: 1000 }));
     cs.sfx('glitch');
-    cs.light('recorder', { intensity: 15 });
+    cs.light('recorder', { intensity: 22 });   // the beam lights the pad round the wider frame (R6)
     bg(cs.spawn('voss_holo', { sprite: 'voss', x: 23.7, z: 16.1, facing: 'right', hologram: true, name: 'VOSS', fade: 0.8 }));
     await cs.spawn('young_kade', { sprite: 'kade', x: 25.3, z: 16.3, facing: 'left', hologram: true, name: 'YOUNG KADE', fade: 0.8 });
     cs.face('kade', 'right');

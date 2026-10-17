@@ -6,7 +6,7 @@
 // Tier (WARDEN, Orion's dream, the south pylon, a rest, the second Echoes, the far pylon, the processional and
 // Sera's dream); the Sanctum's rest, the crown lift and the Crown (C8's dreams.crown with C11's
 // WARDEN, then the EPILOGUE card).
-// Chain: (vault.mjs) -> finale -> fin.tier2 -> fin.tier3 -> fin.crown -> (the epilogue's route).
+// Chain: (vault.mjs) -> finale -> fin.tier2 -> fin.tier3 -> fin.crown -> epilogue (epilogue.mjs).
 
 /** Rides a same-map lift and waits until the leader stands near (x, z). */
 async function ride(d, id, [x, z]) {
@@ -109,6 +109,7 @@ export default {
     // the Sanctum: the last rest, the crown lift, the Crown (C8, C11)
     'fin.crown': {
       level: 31,
+      next: 'epilogue',
       async run(d) {
         await d.med('med_sanctum');
         await d.shopWeapons('fabricator');   // the Sanctum's fabricator, beside its Med-Station
@@ -118,6 +119,8 @@ export default {
         d.milestone('crown');
         await d.shot('c07-crown', { hi: true });
         await d.fightBoss({ at: [13.0, 17.0], script: 'dreams.crown', done: d.F('story:finale_done') });
+        // the resolution and the EPILOGUE card end on the Halcyon, where epilogue.mjs plays on
+        await d.pump(`window.__VP.debug.state().chapter === 'epilogue' && window.__VP.debug.state().map === 'halcyon'`, { maxVt: 900 });
         d.milestone('finale done');
       },
     },
