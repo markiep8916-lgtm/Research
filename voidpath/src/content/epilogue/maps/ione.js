@@ -123,10 +123,16 @@ export default {
     { x: 15.0, y: 1.6, z: 6.2, color: '#ffa8b8', intensity: 7, distance: 9 },
     { x: 29.0, y: 1.6, z: 6.2, color: '#ffa8b8', intensity: 7, distance: 9 },
     { x: 22.0, y: 2.6, z: 8.0, color: '#ffd2b0', intensity: 6, distance: 8 },
+    // small pools at the water's edge, rose and ice-blue, so a narrow phone frame on the shore still
+    // holds warm and cold light
+    { x: 19.6, y: 1.0, z: 7.0, color: '#ff9fb8', intensity: 3.5, distance: 4.5 },
+    { x: 24.4, y: 1.0, z: 7.0, color: '#9fd8ff', intensity: 3.5, distance: 4.5 },
     // the berth: the beacon's amber, the Starchart's cyan, the Moth's cockpit
     { x: 2.8, y: 4.4, z: 8.6, color: '#ffb54a', intensity: 9, distance: 8, mode: 'pulse', amount: 0.25, speed: 0.9, tag: 'ep_beacon' },
     { x: 10.6, y: 1.4, z: 12.6, color: '#5cd8ff', intensity: 8, distance: 6 },
     { x: 6.0, y: 1.6, z: 13.8, color: '#7fe8d0', intensity: 5, distance: 5 },
+    // the landing plate's warm work lamp, south of the Moth
+    { x: 8.4, y: 1.0, z: 16.4, color: '#ffb46a', intensity: 3, distance: 4 },
     // the seed camp: lantern amber over the green of the holes
     { x: 35.6, y: 0.8, z: 11.4, color: '#5cffb0', intensity: 5, distance: 5, mode: 'pulse', amount: 0.2, speed: 0.6 },
     { x: 39.0, y: 0.8, z: 14.8, color: '#5cffb0', intensity: 4.5, distance: 4.5, mode: 'pulse', amount: 0.2, speed: 0.5 },
@@ -134,6 +140,9 @@ export default {
     { x: 41.0, y: 2.4, z: 12.0, color: '#ffb850', intensity: 7, distance: 6 },
     // the cold blue the snow keeps to the south
     { x: 22.0, y: 3.0, z: 18.0, color: '#a8c4ff', intensity: 6, distance: 12, decorative: true },
+    // the ridges: blue snow-shadow under the crest, the dawn catching its lip
+    { x: 20.2, y: 1.2, z: 16.6, color: '#8fb4ff', intensity: 3, distance: 5 },
+    { x: 23.8, y: 1.6, z: 15.2, color: '#ffc4a0', intensity: 3, distance: 5 },
   ],
   ambient: [
     { preset: 'snow', x: 22, y: 4.0, z: 12, area: [44, 2, 24], rate: 6 },

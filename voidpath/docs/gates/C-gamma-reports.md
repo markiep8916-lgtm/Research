@@ -539,3 +539,124 @@ I-sys is done. All 11 items are delivered, and every check I ran passes.
 - The human-pace finale shopping at the Halcyon and Sanctum fabricators bought no weapons: their stock at that point has none. The calls are there for parity with the campaign route.
 - G3-content's report: after a Retry from a regular-fight wipe in ch2, the restored spores field boss can block the human-pace walker. The new 3-second re-plan may help; not tested.
 - dist/index.html was rebuilt by my builds; dist/artifact.html was already modified by others.
+
+## C8 (the dreams, the resolution and the epilogue)
+
+C8 M3 and the measurements are done. All four scenarios (17-dreams, 17-dreams-alt, 18-epilogue, 18-epilogue-alt) pass --strict on the final code. One human-pace run covered dream.night through the epilogue with 0 console and 0 page errors, and every scene is inside its plan + 15%. Desktop high and phone medium frames of each dream, the crown resolution and the Ione shore all meet the G2 luma floor. visualLint is ok at every viewpoint (dreams x4 and ione x4 on desktop; ione x4 on phone). npm test passes 322/322 and scriptcheck is ok.
+
+Known bug fixed: dreams.crown step (5), 'ORION speaks ... not on screen'. Orion is now gathered with cs.gather and awaited together with the camera pull-back (Promise.all), so he is stepped out again if the battle left him unstaged. He stands at meet+(1.3, 0.2), inside a phone frame, and Nyx steps aside so no one covers anyone. The same phone check found that SERA's 'And Theo?' was off frame because she started walking only as she spoke. Her walk now starts under HALCYON's line.
+
+Other fixes from looking at the frames:
+(1) Portrait phones. The field camera pulls back on a phone, and from there a dark crown-ring column covered half of every crown frame. A new crownView() helper keeps the landscape shots as they were; on a portrait screen each shot uses pitch at least 48 and dist at most 11, which gives the same width with the camera inside the rim. phone4 has no occluder.
+(2) The embrace ('I was so afraid for them.') washed out to two white blobs under WARDEN's gold mood. Three changes:
+- The meeting point moved 0.8 south of the oculus lip.
+- The shot is now steeper (pitch 56).
+- Both holograms burn a step below full until the merge; wholeHologram restores HALCYON's cyan.
+Desktop now reads as two figures.
+(3) Ione: 5 small coloured lights, so the phone viewpoints pass visualLint (was 1-2 lights; now 3-5).
+(4) shoreLine guard: a leader's own shore talk speaks from the leader instead of failing to despawn the leader.
+(5) 18-epilogue no longer talks to the hidden ep_<leader> NPC. The ending runs at normal speed, and an Enter loop handles the 'Journey complete' screen.
+
+Credits and 25-dev-demo: the hold-to-skip credits are S5's cards.credits, unchanged since Wave S; a single Enter never skipped them. What the dev demo now rolls is C8's REG.credits list (WRITING 10). I did not change credit behaviour in this run.
+
+### Acceptance
+
+- PASS known bug: dreams.crown step (5) awaits Orion's gather with the camera. 0 'not on screen' errors in 17-dreams (including a lost WARDEN fight and Retry), 17-dreams-alt, the human pace (crown via the real trigger), phone2, phone3 and phone4. The phone pass also caught SERA off frame at 'And Theo?'; that is fixed and 0 errors afterwards.
+- PASS 17-dreams --strict (final desktop crown code): 14 shots, 0 page errors, 0 console errors, 442 s.
+- PASS 17-dreams-alt --strict on the final crown code: 8 shots, 0/0 errors, 439 s.
+- PASS 18-epilogue --strict: 17 shots, 0/0 errors, 550 s. Checks: revival_authorized, game_clear and unlock:ione set, auto save {cleared, location Ione}, shore talks orion/sera/nyx/theo plus BOLT, Orion's beacon, reloadAuto lands on the shore with no epilogue replay, Starchart to Driftmarket (dm_ruse, dm_tobin), memorial; missingArt [].
+- PASS 18-epilogue-alt --strict: 7 shots, 0/0 errors, 182 s (title dawn, Continue onto the shore).
+- PASS one human pace (tools/human-pace.mjs --start dream.night --render-every 3 --strict, chained into epilogue): 10.4 virtual min, 0 console errors, 0 page errors. Story seconds against plan: night_before 83/90, kade 47/60, nyx (Stay.) 53/60, orion 44/60, sera 47/60, dreams.crown 33+62=95/190, heart.arrival 30/40, epilogue.main 156/300 (credits included). All within plan + 15%. Rows ['Return to Ione*', 'Return to title'] seen. WARDEN was resolved by the model (fight timing is C11's).
+- FAIL (request) epilogue chapter length: 3.5 min at human pace against the 11.7 band of 5-7 min. The credits roll lasts about 40-49 s; the plan assumes about 150 s. The fix is in S5/game (see requests).
+- PASS desktop 1280x720 high luma (shots/C8/final). Dream views: kade 131.5/1%, nyx 77.3/4%, orion 136.6/1%, sera 125.0/2%. Crown 0-9: mean 51.3-116.8, near-black 22-42%. Epilogue 1-11: 41.4-91.4, 24-49% (skiffs 43.8/49%, halberd 41.4/45%; letterboxed frames). Ione shore 127.7, berth 120.2, camp 139.6, ridges 139.2, near-black 0-1%. Floor is mean 40 and at most 50%.
+- PASS phone 390x844 medium luma. Dream scenes (shots/C8/phone): kade 88.9/88.3, nyx 67.2/60.2, orion 99.3/88.0, sera 86.1/87.7, near-black 17-22%. Crown (shots/C8/phone4): 68.1-133.0, 18-30%. Ione (phone2): 127.9-138.0, 0%. Contact sheet phone views: dreams 51.6-104.2, ione 127.0-137.1; epilogue.main opening 28.0/58%. Floor is mean 25 and at most 65%.
+- PASS visualLint ok in the real game page: dreams kade/nyx/orion/sera desktop (lights 6/6/6/4); ione shore/berth/camp/ridges desktop (7/5/5/7) and phone (5/3/3/5, after the new lights; before: 1/2/3/1).
+- PASS renderInfo within budget. Dreams 38-70 calls / 2.2-10.8k tris; Ione 37 calls / 4.3k tris (desktop high, 9 point lights) and 34 calls (phone medium, 5 point lights). The crown scene is 81 calls / 62.8k tris (C7's map). missingArt [] in every run.
+- PASS contact sheets: shots/C8/contact/dreams.png (8 views + 5 key scenes) and epilogue.png (8 views + epilogue.main).
+- PASS npm test 322/322 and npm run scriptcheck ok (finale 15 scenes / 114 boxes, epilogue 1 / 17).
+- NOT MEASURED compiles === 0 on a revisit for dreams/ione.
+
+### Deviations
+
+- The crown's camera reads globalThis.innerWidth/innerHeight inside crownView() to detect a portrait screen. The cs API exposes no aspect. In the node dry run innerWidth is undefined, so the landscape shot is used. Landscape shots are unchanged.
+- The crown meeting point moved from party.z-2.0 to party.z-1.2, and the embrace shot from pitch 42/dist 10 to pitch 56/dist 9. Both holograms are tinted down (WARDEN #d9a248 with glow 0.8; HALCYON #4fc4dc) until the merge restores HALCYON's full cyan. Without this, WARDEN's mood (exposure 1.1, bloom 1.2, owned by cutscene.js) blew them out.
+- 18-epilogue: debug.skip(true) before the credits was removed, so the ending plays at normal speed. A single Enter at 'Journey complete' became a loop that presses only while that screen is open. The talk to ep_kade was dropped, because Kade leads in this run and his shore NPC is hidden by design.
+- Scenario runs used my scratch snapshot of the minified build (scratchpad/c8r/sc3/index.html, ?q=low), rebuilt from the repo after each change. The human pace ran on the snapshot made before the late crown staging changes (Sera's walk, the meeting point, the embrace shot, the holograms). Those changes do not change any awaited durations.
+
+### Requests
+
+- S5 / I-sys (src/ui/cards.js credits, or src/core/game.js finish): make the credits roll last about 150 s for REG.credits, for example a duration option or a speed derived from the roll height, with the hold-to-skip kept. WRITING 5.10 plans 'the credits (about 150 s, music only)' and C9's credits track runs 2+ minutes. The roll is now about 40-49 s, which leaves the epilogue at 3.5 min at human pace against the 11.7 band of 5-7 min.
+- S5 / I-sys (scenario 25-dev-demo): the hold-to-skip credits are S5's cards.credits and unchanged since Wave S. What the dev demo rolls is C8's REG.credits list (WRITING 10, 19 entries). I did not change credit behaviour in this run, so the scenario needs a {hold: 'Enter'} step (G3-flow's request).
+- cutscene.js owner (optional): give a line or a scene a way to soften a speaker mood. Under WARDEN's mood a bright set (the crown column) blows out; the crown works around it in content.
+- I-sys (investigate, low priority): in 18-epilogue's flow the 'Journey complete' screen is gone about 2.5 s after it opens (13-complete shows the shore). This does not happen in 18-alt, in a fast-mode diagnostic (shots/C8/diag-end: the screen stays and no _activate or close is called), or in the human pace (rows seen and chosen). The cause was not found; the scenario now tolerates it.
+
+### Known issues
+
+- Epilogue chapter: 3.5 min at human pace against a 5-7 min band, because the credits roll is short (request 1).
+- The embrace frame is still bright: desktop mean 116.8 with 7% above 235, phone mean 133.0 with 15% above 235. On desktop the two figures now read. On a phone they are pale shapes over large glowing hologram projector discs; dimming the discs or the WARDEN mood is outside my files.
+- Dream key scenes on a phone (contact sheet) show 1-2 coloured virtual lights in the narrow portrait frustum. visualLint is ok at every dream viewpoint on desktop, and the phone frames meet the luma floor.
+- 'Journey complete' closes on its own in 18-epilogue's scripted flow only (request 4). A player sees the screen: the human pace confirms it.
+- The human pace resolves WARDEN with the model (debug.autoResolve), so it does not time the fight. A fight Retry before the resolution was covered by 17-dreams, with 0 errors.
+
+## I-art (art director review and fixes; verdict in G3-art.md)
+
+The art half of G3 now has a verdict: PASS with fixes. It is written up in /home/user/Research/voidpath/docs/gates/G3-art.md with a verdict for every location, arena and boss (desktop 1280x720 high and phone 390x844 medium, with luma), a re-check of all 26 G2 art items, the fixes with before and after shots, a ranked list of what remains, and 7 requests for files I do not own.
+
+All 26 G2 items (C1-3/5/8/9/11, C2-3/6/7/9/10, C3-1/5-11, CA-1, W-4, E-1, B-1, B-2) are fixed on the current frames. Every location viewpoint meets the luma floors and lints ok in the game page. Every battle's idle frames pass on both sizes and missingArt() is empty for all 14 battles. One boss-card frame dips under the desktop floor (Echo's card, 37.3).
+
+I fixed the six problems that hurt the critical path most, and shot each again in the game page:
+1. Kade's amber visor bloomed into an orb over his face on high tier and in every battle. Its glow now runs at half strength (src/art/characters.js).
+2. A cathedral pier hid the leader on the Heart's Crown Approach. The pier now stops under the deck (heart/props.js). Approach is 70.3/21% desktop and 50.7/35% phone, lint ok.
+3. The Spire arenas lit troopers and Voss's escort into white glare. I moved the key light in front of the foes and softened the floor pools (spire/arena.js). The foe area went from 127.6 mean with 4.9% near-white to 80.5 with 0.8%.
+4. The Arboretum brick and the Gardener's arena showed a green checkerboard of whole moss cells. They now use soft moss decals instead (arboretum map and arena.js).
+5. WARDEN's "He is happy" whited out the Choir on a phone. That frame went from 145.6 to 93.0 luma (Choir mood, lights and props).
+6. WARDEN's first Spire line played on a grey deck. This is only partly fixed: the pylon's gold now reaches further, and the two entry-lane floods the camera pan crosses are gold. But the opening phone frame is unchanged at 26.5. A probe showed the scene's camera starts 3.5 units west of the pylon, so on a phone the pylon sits at the frame edge (request R7).
+
+I also tried brightening Echo's arena so its card frame clears the floor. It moved only +1.4, so I reverted it and filed request R3.
+
+106/106 node tests pass and node build.mjs is ok. No gameplay changed, and I made no edit to heart/maps/heart.js. The orchestrator's 23:07 commit already includes my earlier edits; later edits to arboretum/maps/arboretum.js, arboretum/props.js and spire/maps/spire.js, plus the doc, are not yet committed.
+
+### Acceptance
+
+- PASS: G3-art.md written with a verdict per location (title, Halcyon decks, exterior, Moth, Driftmarket, Shoals, Meridian, Arboretum, Security Spire, Memory Vault, Heart), per arena and per boss (incl. WARDEN first form and unbound), fixes with before/after shot paths, and a ranked list of what remains
+- PASS: all 26 G2 art items re-judged as fixed, with evidence. C1-9 gallery 46.5/34% desktop and 27.6/60% phone (was 23.4/66%); C3-1 Meridian 42.8-62.2 desktop and 32.2-48.3 phone (was about 10)
+- PASS: luma floors at every location viewpoint (contact sheets plus game-page re-shoots). Desktop minimum 40.3 (Spire), highest near-black 39%; phone minimum 26.1 (Halcyon), highest near-black 62%
+- PASS (close to the cap): Choir pod viewpoint on phone 32.4 mean / 64% near-black (cap 65%); choir viewpoint 37.8/49%; desktop 51.4/36% and 90.3/8%; lint ok
+- PASS: Spire viewpoints after the gold floods: checkpoint 43.3/39% desktop and 37.8/49% phone; armory, barracks and junction 34.7-58.7; all lint ok on both sizes
+- PASS: Heart Crown Approach after the pier fix: 70.3/21% desktop (11 lights) and 50.7/35% phone (3 lights), lint ok, leader visible
+- PASS: Arboretum views after the moss fix: 49.4-78.8 desktop, lint ok; channels 77.8/12% with no whole moss cell in frame
+- PASS: Spire arena fix: trooper foe area 127.6 -> 80.5 mean (near-white 4.9% -> 0.8%), frame 44.9/30%; Voss foe area 120.6 -> 107.6, frame 52.4-58.9/<=30%
+- PASS: key scene arboretum.theo (WARDEN) on phone: 145.6 -> 93.0 luma, 22% near-black
+- FAIL: spire.arrival WARDEN opening frame on phone is still mostly grey: 26.4/48% before, 26.5/48% after (above the floor, but not gold). The cause is the scene's camera framing (request R7)
+- PASS: every battle's idle frames are above the floor at both sizes. Desktop 40.4-107.1 (lowest Halcyon spine 40.4/38%), phone 28.5-68.3
+- FAIL: one boss-card frame, Echo's card on desktop, is 37.3/49%, under the desktop floor of 40. It is a 1-2 s overlay; request R3
+- PASS: missingArt() empty in all 14 battles; scene calls 42-101 (budget 160); at most 17.8k triangles in battle and about 56k in the field (Heart)
+- PASS: node --test on content, mapdef, heart, spire, vault, explore and battle: 106/106; node build.mjs ok
+- PASS: no gameplay changes (no walkable cells, triggers, encounters or scripts); heart/maps/heart.js not edited; no git state changed by me
+
+### Deviations
+
+- Phone frames of the bosses and the regular arenas come from the G3 sweep of 10 Oct (shots/G3/art/boss-phone, battles-phone), C7 (Heart) and C11 (WARDEN), because their art has not changed since. Desktop battles were re-shot in the game page.
+- Contact sheets for every location except the Heart are the G3 sheets of 10 Oct. git log shows no art, texture, prop or arena change to those locations since; the locations I changed were re-checked in the game page.
+- Fix 6 (Spire arrival) only partly reaches the goal: the light fix is in my files, but the opening phone frame needs the story's camera framing (request R7).
+- I did not retune WARDEN unbound's haze. C11 is still working on that form (its M3 task is in progress), so I left it to C11 and listed it in the remaining items.
+
+### Requests
+
+- R1 src/battle/stage.js or battleState.js: centre the tilt-shift focus band on the boss's fitBox core (focusY from the core's projected centre, band at least the core height). The Gardener's crown and Echo's hood blur above the band on desktop.
+- R2 src/battle/battleUI.js / stage.js: on phones keep the help strip clear of the boss core (raise CORE_TOP.compact, or hide the strip while the card plays). The Gardener's head sits under it in the card frame.
+- R3 src/battle/battleUI.js: fit the boss card title on a phone ('COMMANDER VOSS' shows as 'COMMANDER VO'), and lighten the card's scrim outside its band so the frame under Echo's card (37.3 desktop) stays above the floor of 40.
+- R4 src/core/titleScene.js: on desktop move the party right or the menu left, so NEW JOURNEY's bar does not run behind Kade and his blade does not cross 'A 2D-HD RPG'.
+- R5 src/story/cutscene.js: make MOODS.warden.fx relative to the area mood (multiply; cap exposure near 1.0 in bright rooms), and lower MEMORY_FX bloom (the Vault memory scenes run very bright).
+- R6 src/content/spire/story.js: in spire.oath_recording, frame Voss's hologram fully on a phone (focus on the projector, zoom about 0.9).
+- R7 src/content/spire/story.js: in spire.arrival, open the pan on the pylon (focus about [33.5, 50.2]) so a phone frame holds WARDEN's gold focal piece during 'Remain calm'.
+
+### Known issues
+
+- The Choir pod viewpoint on phone is 64% near-black, just under the 65% cap. The tier wall's glow trades this frame against the Theo/WARDEN frame (at 1.15 glow: Theo 107, pod 60%; at 1.0: Theo 93, pod 64%).
+- The Spire arrival WARDEN opening frame on phone stays grey (26.5/48%) until R7 lands. In real play the camera pan crosses the new gold floods during the line.
+- The Spire checkpoint viewpoint dropped slightly with the gold floods: desktop 44.5 -> 43.3, phone 38.5 -> 37.8. Both are still in range.
+- WARDEN unbound is hazy on desktop (idle2 97.1) and its wing tips leave the phone frame. Left for C11.
+- The Meridian scene frames (varo_log, meridian_arrival, maw) lint flat untextured ceiling planes. They read as darkness on screen; the viewpoints lint ok.
+- The Spire floors and the Vault hub edges are sparse (few props per frame). They are readable and in range.
+- dist/index.html and dist/artifact.html were rebuilt (full minified build) from the current working tree, which also holds C8's uncommitted dreams/epilogue edits.

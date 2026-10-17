@@ -83,7 +83,8 @@ function temperGlow(cs, ids, k) {
 async function shoreLine(cs, member, text) {
   const npc = cs.actor(`ep_${member}`);
   const speaker = member.toUpperCase();
-  if (!npc) return cs.say(speaker, text, { expr: 'smile' });
+  // the leader's own shore NPC is hidden (its `when`); a talk reached anyway speaks from the leader
+  if (!npc || cs.test(`leader:${member}`)) return cs.say(speaker, text, { expr: 'smile' });
   await npc.setVisible(false, { fade: 0 });
   await cs.spawn(member, { sprite: member, x: npc.x, z: npc.z, facing: npc.facing || 'down', fade: 0 });
   cs.face(member, 'leader');

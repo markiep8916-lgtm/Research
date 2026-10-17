@@ -54,7 +54,8 @@ function mats(W) {
   W.arbMats = {
     flora,
     tech: W.mats.tile('arb_tech', { emissive: 2.4, roughness: 0.55, metalness: 0.35 }),
-    // the Choir's pods glow softer: WARDEN's gold grade (exposure 1.1, bloom 1.2) blew them into a haze
+    // the Choir's tier wall glows softer: under WARDEN's gold grade (exposure 1.1, bloom 1.2) it blew
+    // the chamber into a haze
     techSoft: W.mats.tile('arb_tech', { emissive: 1.0, roughness: 0.55, metalness: 0.35 }),
     decal: W.mats.decal('arb_decal'),
     bark: W.mats.tile('arb_bark', { emissive: 2.2, roughness: 0.85, metalness: 0 }),
@@ -374,7 +375,7 @@ const props = {
       const x = (p.x0 + p.x1) / 2, w = p.x1 - p.x0;
       for (let z = p.z0; z <= p.z1 + 0.01; z += 1.6) {
         techBox(B, M.tech, x, z, w, 1.15, 0, 0.35, { front: tUV('steel'), back: tUV('steel'), left: tUV('steel'), right: tUV('steel'), top: tUV('steel') });
-        techBox(B, M.techSoft, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV('podEnd'), back: tUV('podEnd'), left: tUV('podSideGold'), right: tUV('podSideGold'), top: tUV('podTopGold') });
+        techBox(B, M.tech, x, z, w - 0.4, 0.82, 0.35, 0.8, { front: tUV('podEnd'), back: tUV('podEnd'), left: tUV('podSideGold'), right: tUV('podSideGold'), top: tUV('podTopGold') });
         glow(W, G, '#ffd27a', 0.7, 0.18, x, 0.95, z + 0.2, false);
         W.addBox(x, z, w, 1.15);
       }

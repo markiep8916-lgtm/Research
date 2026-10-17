@@ -9,8 +9,8 @@ review; it re-judges every G2 art item G3 left open.
 
 The game now looks like one game. The Halcyon, Driftmarket, the Heart and the WARDEN are at or above
 the bar; the Meridian, the Shoals and the Vault, which failed G2 or had no review, are readable
-everywhere and meet every luma floor; every battle frame passes the floor on both sizes and no art
-is missing. Nothing left is a blocker. I fixed the six problems that most hurt the critical path:
+everywhere and meet every luma floor; every battle's idle frames pass the floor on both sizes (one
+boss-card frame dips under it, R3) and no art is missing. Nothing left is a blocker. I fixed the six problems that most hurt the critical path:
 
 1. **Kade's visor bloomed into an orb over his face** in nearly every desktop field frame and every
    battle (he leads most of the game).
@@ -21,7 +21,8 @@ is missing. Nothing left is a blocker. I fixed the six problems that most hurt t
    the ch2 critical path and in the Gardener's arena.
 5. **WARDEN's "He is happy" whited out the Choir** (luma 146 on a phone): the chapter 2 climax was a
    cream haze with Sera's head blown out.
-6. **WARDEN's first line at the Spire played on a grey deck** (G2 rule 14).
+6. **WARDEN's first line at the Spire played on a grey deck** (G2 rule 14). Partly fixed: the lanes
+   the pan crosses are gold now, but the opening phone frame needs the scene's staging (R7).
 
 What remains is ranked at the end. The top items belong to files other tasks own: the battle focus
 band and the help strip on phones, WARDEN's absolute grade, and the title layout.
@@ -59,7 +60,7 @@ sheets at 1280x720 high, phone at 390x844 medium (`*-mobile.png`).
 | Shoals | pass | 66.1-103.3 / <=11% | 41.2-65.9 / <=28% | The bow-tie stamp is gone; bridges have thickness and rim light over a lit abyss. |
 | Meridian | pass | 42.8-62.2 / <=31% | 32.2-48.3 / <=42% | G2's worst failure (about 10 luma) is now readable everywhere, cold blue with amber work lamps; the reactor hall has its focal piece. |
 | Arboretum | pass after fix 4 | 45.0-98.8 / <=35% | 27.5-70.1 / <=50% | Lush and layered. The brick floors stamped whole green moss cells (rule 16) on the critical path and in the Gardener's arena: fixed. The Choir under WARDEN's grade blew out to white: fix 5. |
-| Security Spire | pass, notes | 40.3-71.5 / <=39% | 29.7-74.3 / <=56% | Clean military palette, screens, the pylon. Its corridors and barracks floors are sparse (few props per frame); acceptable, not a blocker. WARDEN's arrival frame was grey: fix 6. |
+| Security Spire | pass, notes | 40.3-71.5 / <=39% | 29.7-74.3 / <=56% | Clean military palette, screens, the pylon. Its corridors and barracks floors are sparse (few props per frame); acceptable, not a blocker. WARDEN's arrival frame was grey: partly fixed (fix 6, R7). |
 | Memory Vault | pass, notes | 61.3-90.9 / <=30% | 43.4-85.4 / <=35% | Strong crystal hub and light bridges. The hub frame is sparse at its edges; the memory scenes run very bright under the memory grade (`MEMORY_FX`, request R5). |
 | The Heart | pass after fix 2, best location | 41.5-104.5 / <=33% | 31.6-86.4 / <=51% | Rings, lifts, pylons and the crown read as one cathedral at every tier. The Crown Approach hid the leader behind a pier: fixed. |
 
@@ -100,7 +101,7 @@ unchanged since) and C11's WARDEN frames. Every battle: `missingArt()` empty, sc
 | C2-3 WARDEN's first words | fixed | `shots/I-art/scenes-phone/s3-coil-warden.png` 73.4/22%: the sigil on the engineering screens, gold light. |
 | C2-6 Light, ribbons, viewport | fixed | `driftmarket/driftmarket-viewport` 69.7/16%, warm stalls against cold docks in every viewpoint. |
 | C2-7 Tiling | fixed | No repeat stamp on the docks or the row at 20+ cells (`driftmarket-docks`, `-row`, `-gate`). |
-| C2-9 Driftmarket Moth | fixed | The pad Moth is the shared builder's ship. |
+| C2-9 Driftmarket Moth | fixed | `driftmarket/driftmarket-docks`: the Moth (RB-424) on its pad is the shared builder's ship. |
 | C2-10 Portraits | fixed | Every speaker in the key-scene frames has a portrait, WARDEN the sigil (`shots/I-art/scenes-phone/`, `shots/G3/art/scenes-phone/`). |
 | C3-1 Meridian readable | fixed | 42.8-62.2 / <=31% desktop, 32.2-48.3 / <=42% phone, every viewpoint (was about 10 luma). |
 | C3-5 Maw presentation | fixed | `shots/I-art/battles-desktop/05-shoals_boss_maw-*`: the Maw in focus; submerge glow and ring at both sizes. |
@@ -123,16 +124,20 @@ unchanged since) and C11's WARDEN frames. Every battle: `missingArt()` empty, sc
 | 1 | Kade's amber visor bloomed into an orb that hid his face on every high-tier frame and in battle | `src/art/characters.js`: a per-character `glowScale` scales the emissive map of the glow pixels; Kade's visor runs at 0.5 in the field and battle sheets (the colour pixels are unchanged) | `shots/G3/art/contact/spire/spire-checkpoint-desktop.png`, every `shots/I-art/battles-desktop/` frame | `shots/I-art/views-spire-desktop/spire-checkpoint.png` (44.5/38%, lint ok); crop `shots/I-art/crops/visor-before-after.png`; `shots/I-art/battles-after/` |
 | 2 | A cathedral pier stood between the camera and the Crown Approach and hid the leader (phone frame 86.4 luma of pier) | `src/content/heart/props.js`: the pier south of the approach stops under the deck as a gilt capital (`PIERS` takes an optional top) | `shots/I-art/contact/heart/heart-approach-desktop.png`, `-mobile.png` | `shots/I-art/views-heart2-desktop/heart-approach.png` 70.3/21%, lint ok; `views-heart2-phone/heart-approach.png` 50.7/35%, lint ok (both pylons on, `fin.crown`) |
 | 3 | The Spire arenas set their white key over the foes' slot with near-white floor pools: troopers and Voss's escort were white glare | `src/content/spire/arena.js`: the white key moves from over the foes to in front of them and drops 16 -> 10; the floods and floor pools drop from 0.22-0.26 to 0.13-0.17 | `shots/I-art/battles-desktop/08-spire_mk3_guard-idle.png` (foe region 127.6 mean, 4.9% near-white), `09-spire_boss_voss-idle.png` (120.6, 7.8%) | `shots/I-art/battles-after/02-spire_mk3_guard-idle.png` (80.5, 0.8%; frame 44.9/30%), `03-spire_boss_voss-idle.png` (107.6, 5.8%; frame 58.9/18%) |
-| 4 | The Arboretum's brick stamped whole green moss cells, a checkerboard (rule 16), in the Channels and the Gardener's arena | `src/content/arboretum/maps/arboretum.js`: no whole-cell moss in the `.` floor; 12 `mossPatch` decals with random rotation and size in the halls and the Choir Gate. `src/content/arboretum/arena.js`: the same in `choirGate`, plus 6 decals | `shots/G3/art/contact/arboretum/arboretum-channels-desktop.png` (about 17 moss cells in frame), `shots/I-art/battles-desktop/07-arb_boss_gardener-*.png` | {{ARB2}} |
-| 5 | Under WARDEN's absolute grade (exposure 1.1, bloom 1.2) the Choir went to a cream haze: 145.6 luma on a phone, Sera's head and the pod tiers blown out | `src/content/arboretum/maps/arboretum.js`: the Choir's own light (hemi, key, fill) lower and its grade nearer neutral, pod lights softer, the `k` floor's emissive 1.6 -> 1.1, WARDEN's gold light high over the squad (y 5.2) instead of over Sera's head. `src/content/arboretum/props.js`: the pods and tiers on a softer emissive material, glows smaller | `shots/I-art/scenes-phone/s4-theo-warden.png` 145.6/18% (G3: `shots/G3/art/scenes-phone/arboretum_theo-warden1.png` 145.4) | {{THEO}} The Choir outside the scene stays in range: `shots/I-art/views-choir-phone/` 37.8-46.4 / <=52%, desktop 56.9-89.6 / <=37%, lint ok |
-| 6 | WARDEN's first line at the Spire played on a grey deck (rule 14) | `src/content/spire/maps/spire.js`: the pylon's gold reaches the lanes (distance 10.5); the entry lane's flood, where the arrival pan ends, is WARDEN's gold | `shots/I-art/scenes-phone/s5-spire-arrival.png` 26.4/48%, grey | {{SPIRE_ARR}} |
+| 4 | The Arboretum's brick stamped whole green moss cells, a checkerboard (rule 16), in the Channels and the Gardener's arena | `src/content/arboretum/maps/arboretum.js`: no whole-cell moss in the `.` floor; 12 `mossPatch` decals with random rotation and size in the halls and the Choir Gate. `src/content/arboretum/arena.js`: the same in `choirGate`, plus 6 decals | `shots/G3/art/contact/arboretum/arboretum-channels-desktop.png` (about 17 moss cells in frame), `shots/I-art/battles-desktop/07-arb_boss_gardener-*.png` | `shots/I-art/views-arb2-desktop/arboretum-channels.png` 77.8/12%: bare brick and soft patches, no whole moss cell (all four Arboretum views 49.4-78.8 desktop, lint ok); `shots/I-art/battles-after/04-arb_boss_gardener-idle.png` 49.8/23% |
+| 5 | Under WARDEN's absolute grade (exposure 1.1, bloom 1.2) the Choir went to a cream haze: 145.6 luma on a phone, Sera's head and the pod tiers blown out | `src/content/arboretum/maps/arboretum.js`: the Choir's grade nearer neutral (exposure 0.78 -> 0.98, key 0.5 -> 0.41) with a softer, wider fill (hemi 0.55 -> 0.85, fill 0.4 -> 0.5) so the floor stays off black on a phone; pod lights softer; the `k` floor's emissive 1.6 -> 1.1; WARDEN's gold light high over the squad (y 2.2 -> 5.2, z 4.0 -> 9.6, distance 13) instead of over Sera's head. `src/content/arboretum/props.js`: the tier wall on a softer emissive material (2.4 -> 1.0), its glows and the pods' smaller, Theo's pod glow 0.35 -> 0.12 (from the aisle camera it sat on Sera's head) | `shots/I-art/scenes-phone/s4-theo-warden.png` 145.6/18% (G3: `shots/G3/art/scenes-phone/arboretum_theo-warden1.png` 145.4) | `shots/I-art/scenes-h-phone/f-theo-warden.png` 93.0/22%: a gold chamber, the pod tiers as discs, Theo's pod and Sera readable (the builds in between: 117.5, 107.1, 89.3 in `scenes-b-`, `-c-`, `-d-phone`). The Choir outside the scene stays in range: `shots/I-art/views-choir6-phone/` choir 37.8/49%, pod 32.4/64% (close to the 65% cap), desktop 51.4/36% and 90.3/8%, lint ok |
+| 6 | WARDEN's first line at the Spire played on a grey deck (rule 14) | `src/content/spire/maps/spire.js`: the pylon's gold reaches the lanes (distance 7 -> 10.5); the two entry-lane floods the arrival pan crosses are WARDEN's gold (30, to match the white floods' brightness) | `shots/I-art/scenes-phone/s5-spire-arrival.png` 26.4/48%, grey | `shots/I-art/scenes-e-phone/f-spire-arrival.png` 26.5/48%: the captured frame barely changes. A probe (`shots/I-art/probe-arrival.log`) shows why: three gold lights are in the pool (the pylon, a gold flood, a sigil), but on software GL the 3 s pan has hardly started when the box opens (look x 31.0 -> 30.7), and on a phone that focus, 3.5 units west of the pylon, leaves the pylon at the frame's edge. In real play the pan runs under the line across both gold floods. R7 asks for the opening framing |
 
-The Theo-scene numbers come from an experiment on the same frame (`shots/I-art/theo-exp/`): as shot
-145.5; with the Choir's mood fixed 116.3; mood plus a weaker gold light 102.6; the weaker light alone
-133.5. The scene drives the gold light to 24-32 (`arboretum/story.js`, not mine), so the fix moves
-the light rather than dimming it.
+The Theo fix started from an experiment on the same frame (`shots/I-art/theo-exp/`): as shot 145.5;
+with the Choir's mood fixed 116.3; mood plus a weaker gold light 102.6; the weaker light alone 133.5.
+The scene drives the gold light to 24-32 (`arboretum/story.js`, not mine), so the fix moves the light
+rather than dimming it. The tier wall's emissive trades the two frames against each other: at 1.15
+the scene is 107 and the pod view 60% near-black, at 1.0 they are 90 and 66%; the wider fill then
+brings the pod view to 64% and the scene to 93.
 
-{{SPIRE2}}
+The gold entry floods keep the Checkpoint viewpoint in range: desktop 44.5/38% -> 43.3/39%, phone
+38.5/48% -> 37.8/49% (`shots/I-art/views-spire3-desktop/`, `views-spire3-phone/`); all four Spire
+viewpoints lint ok on both sizes.
 
 ## What remains, ranked
 
@@ -142,21 +147,26 @@ the light rather than dimming it.
 2. **The phone help strip covers boss heads** in the card and first idle frame (Gardener:
    `shots/G3/art/boss-phone/arb_boss_gardener-card.png`). Request R2 (`battleUI.js` /
    `stage.js` `CORE_TOP.compact`).
-3. **WARDEN's speaker grade is absolute.** It replaces the area's exposure and bloom, so it washes
+3. **WARDEN's first Spire line on a phone opens on the dark lane beside the pylon.** The scene
+   focuses 3.5 units west of the pylon, so on a phone the gold focal piece sits at the frame's edge
+   (fix 6 lights the lanes the pan crosses, but the opening frame stays 26.5 luma). Request R7
+   (`spire/story.js`).
+4. **WARDEN's speaker grade is absolute.** It replaces the area's exposure and bloom, so it washes
    bright rooms (the Choir) and cannot lift dark ones. My fixes 5 and 6 work around it per map.
    Request R5 (`story/cutscene.js`).
-4. **The title party stands on the menu** on desktop. Request R4 (`core/titleScene.js`).
-5. **WARDEN unbound is hazy** on desktop idle (97.1 luma): readable, but the gold bloom flattens the
+5. **The title party stands on the menu** on desktop. Request R4 (`core/titleScene.js`).
+6. **WARDEN unbound is hazy** on desktop idle (97.1 luma): readable, but the gold bloom flattens the
    form, and the wing tips leave the phone frame. C11 is still working on this form, so I left it for
    C11's M3 pass (`warden/wardenart.js`, `warden/arena.js`).
-6. **Boss card title truncates on a phone** ("COMMANDER VO"). Request R3 (`battleUI.js`).
-7. **Sparse Spire floors and Vault hub edges.** Readable and in range, few props per frame. Owner:
+7. **Boss card title truncates on a phone** ("COMMANDER VO"), and the frame under Echo's card is
+   37.3 on desktop. Request R3 (`battleUI.js`).
+8. **Sparse Spire floors and Vault hub edges.** Readable and in range, few props per frame. Owner:
    a future polish pass (`spire/props.js`, `vault/props.js`).
-8. **Memory scenes in the Vault run very bright** under `MEMORY_FX` (`scene-vault.memory_*`). Request R5.
-9. **`spire.oath_recording` cuts Voss's hologram at the frame edge** on a phone
+9. **Memory scenes in the Vault run very bright** under `MEMORY_FX` (`scene-vault.memory_*`). Request R5.
+10. **`spire.oath_recording` cuts Voss's hologram at the frame edge** on a phone
    (`shots/G3/art/scenes-phone/spire_oath_recording-box1.png`, 25.0/52%, just above the floor).
    Request R6 (`spire/story.js`).
-10. **Meridian scene frames lint flat ceiling planes** (`scene-shoals.varo_log`, `meridian_arrival`,
+11. **Meridian scene frames lint flat ceiling planes** (`scene-shoals.varo_log`, `meridian_arrival`,
     `maw`: untextured MeshBasicMaterial). They read as darkness above the walls; viewpoints lint ok.
 
 ## Requests for files I do not own
@@ -175,12 +185,15 @@ the light rather than dimming it.
   exposure near 1.0 in bright rooms) and lower `MEMORY_FX` bloom.
 - **R6** (`src/content/spire/story.js`): in `spire.oath_recording`, frame the hologram fully on a
   phone (camera focus on the projector, zoom about 0.9).
+- **R7** (`src/content/spire/story.js`): in `spire.arrival`, open the pan on the pylon itself
+  (focus about [33.5, 50.2]) so a phone frame holds WARDEN's gold focal piece while WARDEN speaks.
 
 ## Budgets and tests
 
 - Every viewpoint I re-shot lints ok in the game page; lights within the tier pools; scene calls
   58-107 and at most 56k triangles in the field (the Heart), 42-101 calls and at most 17.8k
   triangles in battle (budget 160 calls); `missingArt()` empty in all 14 battles.
-- `node --test` on content, mapdef, heart, spire and explore: 58/58 pass after my edits.
+- `node --test` on content, mapdef, heart, spire, vault, explore and battle: 106/106 pass after my
+  edits; `node build.mjs` ok (dist rebuilt from the final sources).
 - Gameplay untouched: no walkable cell, trigger, encounter or script changed. In
   `heart/maps/heart.js` I made no edit (the pier is in `heart/props.js`).

@@ -37,7 +37,7 @@ const MOOD = {
   // the Choir's glow is soft and its exposure near neutral, so WARDEN's gold grade (exposure 1.1,
   // bloom 1.2, absolute) lifts it instead of whiting it out (arboretum.theo); the soft hemi and fill
   // keep the floor between the pods off black on a phone (I-art)
-  choir: mood({ fog: '#17120a', sky: '#ffe2a0', ground: '#1a1408', hemi: 0.6, key: 0.41, keyColor: '#ffe0a0', fill: 0.42, exposure: 0.98, bloom: 0.8, saturation: 1.05 }),
+  choir: mood({ fog: '#17120a', sky: '#ffe2a0', ground: '#1a1408', hemi: 0.85, key: 0.41, keyColor: '#ffe0a0', fill: 0.5, exposure: 0.98, bloom: 0.8, saturation: 1.05 }),
   view: mood({ fog: '#101a18', sky: '#ffd9a8', key: 1.35, keyColor: '#ffcf8c', hemi: 0.8 }),
 };
 

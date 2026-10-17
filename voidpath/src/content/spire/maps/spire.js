@@ -225,7 +225,7 @@ const lights = [
   sigil(7.0, 42.6), { x: 3.0, y: 0.6, z: 52.0, color: '#ff8a3a', intensity: 6, distance: 3.5, when: 'story:core_open' },
   // the checkpoint: floods over the lanes, red lamps on the north wall, gold screens, the pylon
   // (the entry lanes' floods are WARDEN's gold: spire.arrival pans over them under WARDEN's line)
-  { ...flood(18.0, 50.5, 24), color: '#ffc04a' }, { ...flood(26.0, 50.5, 24), color: '#ffc04a' }, flood(35.0, 51.0, 18), flood(44.0, 50.5), flood(53.0, 50.5), flood(64.0, 50.5),
+  { ...flood(18.0, 50.5, 30), color: '#ffc04a' }, { ...flood(26.0, 50.5, 30), color: '#ffc04a' }, flood(35.0, 51.0, 18), flood(44.0, 50.5), flood(53.0, 50.5), flood(64.0, 50.5),
   alert(20.0, 48.4), alert(38.0, 48.4), alert(56.0, 48.4),
   sigil(26.0, 48.6), sigil(44.0, 48.6), sigil(62.0, 48.6),
   // the pylon's gold reaches the lanes either side of it, so WARDEN's first line here (spire.arrival)
