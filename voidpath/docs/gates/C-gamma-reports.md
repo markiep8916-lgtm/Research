@@ -660,3 +660,62 @@ I also tried brightening Echo's arena so its card frame clears the floor. It mov
 - The Meridian scene frames (varo_log, meridian_arrival, maw) lint flat untextured ceiling planes. They read as darkness on screen; the viewpoints lint ok.
 - The Spire floors and the Vault hub edges are sparse (few props per frame). They are readable and in range.
 - dist/index.html and dist/artifact.html were rebuilt (full minified build) from the current working tree, which also holds C8's uncommitted dreams/epilogue edits.
+
+## I-polish (final presentation polish)
+
+I-polish is done: all ten items are delivered except (9). For (9), the instrumented run shows the screen never closes by itself, so no code change was needed.
+(1) The credits now roll for 150 s (CREDITS_S, via a new `duration` option on ui.cards.credits). The gaps stretch so the roll moves at about 26 px/s, and the speed is worked out from the roll's height so it ends on time. Hold-to-skip is kept and now counts real seconds.
+(2) R5: WARDEN's mood now scales the area or scene grade instead of replacing it. Exposure and bloom are capped at the larger of the base and 1.0 / 1.15. MEMORY_FX bloom goes from 1.25 to 0.8 and its exposure from 1.08 to 1.0. The crown embrace on a phone drops from 133.0 luma (15% near-white) to 90.1 (3%), and the Vault memory scenes from about 100 to about 70 on a phone.
+(3) R1: the battle tilt band now spans the boss's fitBox core and the party. WARDEN's top is now inside the band (uv 0.844 against 0.55 ± 0.38); before it sat outside (0.39 ± 0.27). The Gardener's crown and Echo's hood are sharp on desktop.
+(4) R2: CORE_TOP.compact goes from 0.12 to 0.2, so a boss's head stays below the help strip on a phone.
+(5) R3: a long boss title shrinks to fit ('COMMANDER VOSS' fits on a phone). The card scrim fades out at the top, bottom and sides; Echo's card frame goes from 37.3 to 40.8 on desktop.
+(6) R4: on wide screens the title menu sits at 42% of the width and the party starts at 60%. The NEW JOURNEY bar and Kade's blade are now clear of each other, and so are Kade and the 'A 2D-HD RPG' tagline.
+(7) R6/R7: spire.oath_recording now frames both holograms whole on a phone (focus [24.5, 16.3], zoom 0.9, recorder light 22). spire.arrival opens on the pylon at [33.5, 50.2]; its phone frame goes from 26.4 to 61.6 luma, in gold.
+(8) On portrait screens, large bosses now fit their whole width: WARDEN unbound's wing tips stay inside the phone frame.
+(9) 'Journey complete' is not closing itself. The instrumented 18-epilogue shows it opens at 788.3 s and closes at 797.7 s through the scenario's own Enter. The 13-complete screenshot just doesn't capture it (a headless capture artifact). Along the way I found a real flake and fixed it: the game-over and Journey complete input lock counted game time, so on slow frames it swallowed the scenario's keys and 18-epilogue-alt hung. The lock is now 0.8 s of real time.
+(10) The stale cue.halcyon_gift header comment in warden/fx.js is fixed.
+Checks: npm test 322/322, scriptcheck ok, and these strict scenarios passed with 0 page errors and 0 console errors: 01-boot, 14-spire, 18-epilogue plus alt, 19-warden and 25-dev-demo (19-warden at 640x360). dist is rebuilt with `node build.mjs` and is byte-identical to the page I tested.
+
+### Acceptance
+
+- PASS (1) Credits last 150 s of game time. Desktop measurement: gaps stretched to 606/303/303/606 px, roll 3024 px, speed 26.0 px/s (y=516.9 at t=19.88), the closing line holds 5.2 s. On SwiftShader game time runs at about 0.2x, so the roll took 725 s of wall time. Hold-to-skip is kept and counts 1 s of real time. 25-dev-demo, which holds Enter through the roll, passes strict in 254 s. The epilogue grows by about 100-110 s, to roughly 5.3 min at human pace (band 5-7). This is estimated, not measured.
+- PASS (2) R5 crown embrace 'I was so afraid for them.' Phone: 133.0 luma, 18% near-black, 15.2% near-white becomes 90.1 / 21% / 3.0%. Desktop: 116.8 / 22% / 6.9% becomes 77.4 / 30% / 2.1%. It reads as two hologram figures, gold and cyan, though the projector discs are still bright (see requests). Shots: shots/I-polish/crown-phone/crown-5-afraid.png and shots/I-polish/crown-desktop/.
+- PASS (2) Vault memory scenes no longer blown out. Phone: lullaby 100.4 to 70.0, launch 96.5 to 72.8, severance with WARDEN 81.3 to 68.8. Desktop: 55.3, 57.7 and 82.0. Other WARDEN scenes: Theo on a phone 93.0 to 78.2, desktop 105.1. Shots: shots/I-polish/scenes-phone/ and scenes-desktop/.
+- PASS (3) R1. The desktop band spans each boss core and the party. Gardener, Echo and WARDEN: focusY 0.595, band 0.335. WARDEN core at uv 0.611 and top at 0.844 against focusY 0.55 ± 0.38 at 640x360; on HEAD it was 0.393 ± 0.269, which left the top blurred. The Gardener's crown and Echo's hood are sharp (shots/I-polish/battles-desktop/01-*, 02-*). Desktop idle luma: Gardener 48.5 / 24%, Echo 43.5 / 31%, Voss 57.6 / 20%, WARDEN 61.9 / 17%.
+- PASS (4) R2. On a phone the Gardener's head now sits below the help strip (shots/I-polish/battles-phone/01-arb_boss_gardener-idle.png, 39.4 / 42%). Echo is 46.9 / 32%, the Maw 39.6 / 40%, WARDEN 58.7 / 25%.
+- PASS (5) R3. 'COMMANDER VOSS' fits on a phone (battles-phone/03-spire_boss_voss-card.png, 43.2 / 54%). Echo's desktop card frame goes from 37.3 / 49% to 40.8 / 37% (battles2-desktop/01-vault_boss_echo-card.png). Phone cards: Echo 45.4, Maw 26.6 / 57%, Gardener 26.9 / 57% (that one was shot with the darker interim scrim). All are above the floors.
+- PASS (6) R4 title on desktop: the NEW JOURNEY bar ends near x 690 and Kade's blade tip is near x 745. Kade's head is clear of 'RPG'. Luma 46.6 / 44.5% (shots/I-polish/title-credits/title-menu-b.png; before: shots/I-art/title-desktop/title-menu.png). Phone layout unchanged.
+- PASS (7) R6 spire.oath_recording on a phone: both holograms whole around the projector, 50.0 / 35% (G3's frame did not show them: 25.0 / 52%). Desktop 40.6 / 42%.
+- PASS (7) R7 spire.arrival opens on the pylon during 'Remain calm'. Phone 26.4 / 48% grey becomes 61.6 / 31% gold; desktop 67.9 / 25%; 14-spire's 01-arrival shot is 67.7.
+- PASS (8) WARDEN unbound on a phone: the whole wingspan is inside the frame, left tip about 15 px in (shots/I-polish/warden2-phone/02-heart_boss_warden_2-menu.png, 82.8 / 6%). Before, the wings ran off the edge (shots/C11/frames/phone/05-unbound-idle-a.png). The core is under the help strip and in the band. Desktop unbound 87.5 / 10.5%.
+- PASS (9) Investigated and resolved. Instrumented run (shots/I-polish/diag18b/18-epilogue/report.json): Journey complete opens at 788.3 s and closes at 797.7 s only through the scenario's own Enter. No code closes it, so no game fix was needed. Separately I fixed the input-lock flake that hung 18-epilogue-alt; it now passes in 183 s.
+- PASS (10) cue.halcyon_gift header comment fixed in warden/fx.js.
+- PASS npm test 322/322; npm run scriptcheck ok (76 scenes, 482 boxes).
+- PASS strict, 0 page errors and 0 console errors, all on the final page: 01-boot 45 s (6 shots), 14-spire 610 s (15 shots), 18-epilogue 901 s (17 shots), 18-epilogue-alt 183 s, 25-dev-demo 254 s (24 shots), 19-warden at 640x360 in about 3.5 min (17 shots, won, retry from the second form, missingArt empty).
+- PASS node build.mjs ok; dist/index.html (2.72 MB) is byte-identical to shots/I-polish/page5/index.html, the page all checks ran on.
+
+### Deviations
+
+- Credits: the duration option stretches the gaps between credit groups so the roll moves at about 26 px/s, rather than slowing a dense list to about 15 px/s. The speed is then set from the remaining distance and time, so the roll ends on time even after a resize. Fast mode still passes speed 4000.
+- The credits hold-to-skip and the input lock on the game-over / Journey complete screens now use wall-clock time instead of game dt. That keeps 1 s and 0.8 s real on slow frames, and it fixed an 18-epilogue-alt hang.
+- MOODS.warden: bloom and exposure are relative (x1.15 and x1.08), each capped at the larger of the base and 1.15 / 1.0; saturation x0.85; the tints stay absolute. The base is the scene's cs.fx / cs.memory grade if set, else the area mood (rig.fx). cs.fx and cs.memory re-derive the mood fx without touching the screens.
+- The portrait full-width fit and the band that spans core and party apply to every fitBox boss (Gardener, Maw, Voss, Echo, WARDEN), not only WARDEN. Because frame-0 bounds miss wider wing frames, the half-width is capped at 0.92 NDC.
+- spire.oath_recording: besides the camera, the recorder light during the recording goes from 15 to 22 (a staging line). The wider frame was 38.8 luma on desktop without it, under the floor of 40.
+- spire.arrival: the pan starts 2.5 units further east, so it takes 3.4 s instead of 3 s at about the same speed.
+- 19-warden was run at 640x360, as I-sys did. Two earlier runs at a time of heavy machine load stalled on the scenario's debug-pause steps. A head-to-head check on the HEAD build and the final page then reproduced identical events in 72 s each, so the stalls were the machine, not the code. 14-spire-alt was not run (I filtered on 14-spire.json).
+
+### Requests
+
+- C8 / I2b (src/content/dreams/story.js): spawn crown_figure and crown_halcyon with `projector: false` (NpcDef supports it). The holograms' projector discs and glows are the brightest thing in the embrace frame on a phone and wash the two figures out (90 luma).
+- C8 / I2b (src/content/epilogue/story.js): the credits camera pan `cs.camera.pan([[22.6, 4.6], [25.0, 4.8]], { sec: 70 })` should last about 145 s now that the credits run 150 s. Otherwise the camera stops halfway through.
+- Owner of src/tools/preview-ui.js: in 'gameover-load', `ui.screens._lock = 0` is now a no-op (the lock is `_lockUntil`, wall clock, and `_activate` ignores it); please remove the line.
+- Owner of tests/scenarios/18-epilogue.json: the 13-complete shot misses the Journey complete screen even though it is open. Wait for `.vp-scr.is-on .vp-scr-btns` (or longer) before the shot.
+- MODULE_NOTES / TECH_PLAN owner, please record: ui.cards.credits `duration` (game.finish passes 150); MOODS `rel` (relative speaker grade) and the new MEMORY_FX values; the screens input lock and the credits hold now use wall-clock time; stage CORE_TOP.compact 0.2, the portrait full-width fit (WIDE_SPAN 0.92), and a tilt band that spans fitBox cores and party; the boss card title shrinking to fit and the lighter scrim.
+
+### Known issues
+
+- Crown embrace on a phone: the two figures read, but as translucent holograms over large bright projector discs (90.1 luma, 3% near-white). That part needs the projector: false request in C8's file.
+- On desktop the battle command menu still overlaps the Gardener's lower body. This is the existing menu placement and was not changed.
+- Theo's WARDEN scene on desktop is bright (105.1 luma) but readable, and lower than before (exposure 1.1 to 1.0, bloom 1.2 to 0.92).
+- In headless SwiftShader runs, game time runs at about 0.2x, so the 150 s credits take about 12 min of wall time in scenarios that do not hold to skip (18-epilogue took 901 s).
+- Epilogue length at human pace with the longer credits is estimated, not measured (about 5.3 min against the 5-7 min band).
